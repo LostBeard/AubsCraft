@@ -1,0 +1,139 @@
+@page "/"
+@inject ServerHubClient Hub
+@implements IDisposable
+
+<PageTitle>AubsCraft Admin</PageTitle>
+
+<h1>AubsCraft Dashboard</h1>
+
+@if (_status == null)
+{
+    <p><em>Connecting to server...</em></p>
+}
+else if (!_status.Connected)
+{
+    <div class="alert alert-warning">
+        <strong>Server Offline</strong> - Cannot connect to RCON. Make sure the Minecraft server is running and RCON is enabled.
+    </div>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Players Online</h5>
+                    <p class="display-4">@_status.Online / @_status.Max</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Server TPS</h5>
+                    <p class="display-4 @TpsColor">@_status.Tps1Min.ToString("F1")</p>
+                    <small class="text-muted">1m / 5m / 15m: @FormatTps()</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Status</h5>
+                    <p class="display-4 text-success">Online</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_status.Players.Count > 0)
+    {
+        <h3>Who's Playing</h3>
+        <div class="list-group mb-3">
+            @foreach (var player in _status.Players)
+            {
+                <div class="list-group-item d-flex align-items-center">
+                    <img src="https://mc-heads.net/avatar/@player/40" alt="@player" class="me-3 rounded" style="width:40px;height:40px;" />
+                    <strong>@player</strong>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <p class="text-muted">No players online right now.</p>
+    }
+
+    <!-- TPS History Graph -->
+    @if (_tpsHistory.Count > 1)
+    {
+        <h3 class="mt-4">TPS History</h3>
+        <div class="card">
+            <div class="card-body p-2">
+                <div class="d-flex align-items-end gap-0" style="height: 80px; overflow: hidden;">
+                    @foreach (var reading in _tpsHistory)
+                    {
+                        var pct = Math.Clamp(reading.Tps1Min / 20.0 * 100, 2, 100);
+                        var color = reading.Tps1Min >= 18 ? "var(--bs-success)" : reading.Tps1Min >= 15 ? "var(--bs-warning)" : "var(--bs-danger)";
+                        <div style="flex: 1; height: @(pct)%; background: @color; min-width: 2px; border-radius: 1px 1px 0 0;" title="@reading.Tps1Min.ToString("F1") TPS"></div>
+                    }
+                </div>
+                <div class="d-flex justify-content-between">
+                    <small class="text-muted">Older</small>
+                    <small class="text-muted">Now</small>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private ServerStatusDto? _status;
+    private readonly List<TpsReadingDto> _tpsHistory = [];
+    private const int MaxTpsHistory = 60;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Hub.OnServerStatusReceived += OnStatusReceived;
+        Hub.OnTpsReadingReceived += OnTpsReading;
+        await Hub.ConnectAsync();
+        _status = await Hub.GetCurrentStatusAsync();
+    }
+
+    private void OnStatusReceived(ServerStatusDto status)
+    {
+        _status = status;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnTpsReading(TpsReadingDto reading)
+    {
+        _tpsHistory.Add(reading);
+        while (_tpsHistory.Count > MaxTpsHistory)
+            _tpsHistory.RemoveAt(0);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private string TpsColor
+    {
+        get
+        {
+            var tps = _status?.Tps1Min ?? 20;
+            if (tps >= 18) return "text-success";
+            if (tps >= 15) return "text-warning";
+            return "text-danger";
+        }
+    }
+
+    private string FormatTps()
+    {
+        if (_status == null) return "-- / -- / --";
+        return $"{_status.Tps1Min:F1} / {_status.Tps5Min:F1} / {_status.Tps15Min:F1}";
+    }
+
+    public void Dispose()
+    {
+        Hub.OnServerStatusReceived -= OnStatusReceived;
+        Hub.OnTpsReadingReceived -= OnTpsReading;
+    }
+}

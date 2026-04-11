@@ -1,0 +1,152 @@
+@page "/login"
+@inject AuthStateProvider Auth
+@inject NavigationManager Nav
+@layout LoginLayout
+
+<PageTitle>Login - AubsCraft Admin</PageTitle>
+
+<div class="d-flex justify-content-center align-items-center" style="min-height: 80vh;">
+    <div class="card shadow" style="width: 400px; max-width: 95vw;">
+        <div class="card-body p-4">
+            <h3 class="card-title text-center mb-4">AubsCraft Admin</h3>
+
+            @if (!Auth.IsChecked)
+            {
+                <p class="text-center text-muted">Loading...</p>
+            }
+            else if (Auth.NeedsSetup)
+            {
+                <p class="text-muted text-center mb-3">Create your admin account to get started.</p>
+
+                <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-control" @bind="_username" @bind:event="oninput" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-control" @bind="_password" @bind:event="oninput" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Confirm Password</label>
+                    <input type="password" class="form-control" @bind="_confirmPassword" @bind:event="oninput"
+                           @onkeydown="HandleKeyDown" />
+                </div>
+
+                @if (!string.IsNullOrEmpty(_error))
+                {
+                    <div class="alert alert-danger py-2">@_error</div>
+                }
+
+                <button class="btn btn-primary w-100" @onclick="SetupAsync" disabled="@_loading">
+                    @(_loading ? "Creating..." : "Create Admin Account")
+                </button>
+            }
+            else
+            {
+                <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-control" @bind="_username" @bind:event="oninput" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-control" @bind="_password" @bind:event="oninput"
+                           @onkeydown="HandleKeyDown" />
+                </div>
+
+                @if (!string.IsNullOrEmpty(_error))
+                {
+                    <div class="alert alert-danger py-2">@_error</div>
+                }
+
+                <button class="btn btn-primary w-100" @onclick="LoginAsync" disabled="@_loading">
+                    @(_loading ? "Logging in..." : "Log In")
+                </button>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string _username = "";
+    private string _password = "";
+    private string _confirmPassword = "";
+    private string? _error;
+    private bool _loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.CheckAuthAsync();
+        if (Auth.IsAuthenticated)
+            Nav.NavigateTo("/");
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter") return;
+        if (Auth.NeedsSetup)
+            await SetupAsync();
+        else
+            await LoginAsync();
+    }
+
+    private async Task SetupAsync()
+    {
+        _error = null;
+
+        if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrWhiteSpace(_password))
+        {
+            _error = "Username and password are required";
+            return;
+        }
+
+        if (_password != _confirmPassword)
+        {
+            _error = "Passwords do not match";
+            return;
+        }
+
+        if (_password.Length < 4)
+        {
+            _error = "Password must be at least 4 characters";
+            return;
+        }
+
+        _loading = true;
+        var (success, error) = await Auth.SetupAsync(_username.Trim(), _password);
+        _loading = false;
+
+        if (success)
+        {
+            // Now log in with the new credentials
+            var (loginSuccess, loginError) = await Auth.LoginAsync(_username.Trim(), _password);
+            if (loginSuccess)
+                Nav.NavigateTo("/");
+            else
+                _error = loginError;
+        }
+        else
+        {
+            _error = error;
+        }
+    }
+
+    private async Task LoginAsync()
+    {
+        _error = null;
+
+        if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrWhiteSpace(_password))
+        {
+            _error = "Username and password are required";
+            return;
+        }
+
+        _loading = true;
+        var (success, error) = await Auth.LoginAsync(_username.Trim(), _password);
+        _loading = false;
+
+        if (success)
+            Nav.NavigateTo("/");
+        else
+            _error = error;
+    }
+}

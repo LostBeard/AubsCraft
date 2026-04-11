@@ -1,0 +1,219 @@
+@page "/players"
+@inject ServerHubClient Hub
+@implements IDisposable
+
+<PageTitle>Players - AubsCraft Admin</PageTitle>
+
+<h1>Player Management</h1>
+
+<div class="row">
+    <!-- Whitelist -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Whitelist</h5>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="RefreshWhitelistAsync">Refresh</button>
+            </div>
+            <div class="card-body">
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" placeholder="Player name..." @bind="_newWhitelistPlayer" @bind:event="oninput"
+                           @onkeydown="HandleWhitelistKeyDown" />
+                    <button class="btn btn-success" @onclick="AddToWhitelistAsync" disabled="@string.IsNullOrWhiteSpace(_newWhitelistPlayer)">
+                        Add
+                    </button>
+                </div>
+
+                @if (_whitelist == null)
+                {
+                    <p class="text-muted">Loading...</p>
+                }
+                else
+                {
+                    <div class="list-group">
+                        @foreach (var player in _whitelist)
+                        {
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center">
+                                    <img src="https://mc-heads.net/avatar/@player/32" alt="@player" class="me-2 rounded" style="width:32px;height:32px;" />
+                                    @player
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveFromWhitelistAsync(player)">Remove</button>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Online Players -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header"><h5 class="mb-0">Online Players</h5></div>
+            <div class="card-body">
+                @if (_onlinePlayers.Count == 0)
+                {
+                    <p class="text-muted">No players online.</p>
+                }
+                else
+                {
+                    <div class="list-group">
+                        @foreach (var player in _onlinePlayers)
+                        {
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="d-flex align-items-center">
+                                        <img src="https://mc-heads.net/avatar/@player/32" alt="@player" class="me-2 rounded" style="width:32px;height:32px;" />
+                                        <strong>@player</strong>
+                                    </div>
+                                    <div>
+                                        <button class="btn btn-sm btn-outline-warning me-1" @onclick="() => KickPlayerAsync(player)">Kick</button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => BanPlayerAsync(player)">Ban</button>
+                                    </div>
+                                </div>
+                                <!-- Gamemode -->
+                                <div class="d-flex gap-1 mb-1 flex-wrap">
+                                    <small class="text-muted me-1 align-self-center">Mode:</small>
+                                    @foreach (var mode in _gamemodes)
+                                    {
+                                        var m = mode;
+                                        <button class="btn btn-outline-secondary btn-sm py-0 px-1" style="font-size:0.75rem;" @onclick="() => SetGamemodeAsync(player, m)">@m</button>
+                                    }
+                                </div>
+                                <!-- Teleport -->
+                                @if (_onlinePlayers.Count > 1)
+                                {
+                                    <div class="d-flex gap-1 flex-wrap">
+                                        <small class="text-muted me-1 align-self-center">TP to:</small>
+                                        @foreach (var other in _onlinePlayers.Where(p => p != player))
+                                        {
+                                            <button class="btn btn-outline-info btn-sm py-0 px-1" style="font-size:0.75rem;" @onclick="() => TeleportAsync(player, other)">@other</button>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ban List -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Banned Players</h5>
+        <button class="btn btn-sm btn-outline-secondary" @onclick="RefreshBanListAsync">Refresh</button>
+    </div>
+    <div class="card-body">
+        @if (_banList.Count == 0)
+        {
+            <p class="text-muted">No banned players.</p>
+        }
+        else
+        {
+            <div class="list-group">
+                @foreach (var player in _banList)
+                {
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        @player
+                        <button class="btn btn-sm btn-outline-success" @onclick="() => PardonPlayerAsync(player)">Unban</button>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_lastResult))
+{
+    <div class="alert alert-info alert-dismissible fade show">
+        @_lastResult
+        <button type="button" class="btn-close" @onclick="() => _lastResult = null"></button>
+    </div>
+}
+
+@code {
+    private List<string>? _whitelist;
+    private List<string> _onlinePlayers = [];
+    private List<string> _banList = [];
+    private string _newWhitelistPlayer = "";
+    private string? _lastResult;
+    private static readonly string[] _gamemodes = ["survival", "creative", "spectator", "adventure"];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Hub.OnServerStatusReceived += OnStatusReceived;
+        await Hub.ConnectAsync();
+        await Task.WhenAll(RefreshWhitelistAsync(), RefreshBanListAsync());
+    }
+
+    private void OnStatusReceived(ServerStatusDto status)
+    {
+        _onlinePlayers = status.Players;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshWhitelistAsync()
+    {
+        _whitelist = await Hub.GetWhitelistAsync();
+    }
+
+    private async Task RefreshBanListAsync()
+    {
+        _banList = await Hub.GetBanListAsync();
+    }
+
+    private async Task HandleWhitelistKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_newWhitelistPlayer))
+            await AddToWhitelistAsync();
+    }
+
+    private async Task AddToWhitelistAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newWhitelistPlayer)) return;
+        _lastResult = await Hub.WhitelistAddAsync(_newWhitelistPlayer.Trim());
+        _newWhitelistPlayer = "";
+        await RefreshWhitelistAsync();
+    }
+
+    private async Task RemoveFromWhitelistAsync(string player)
+    {
+        _lastResult = await Hub.WhitelistRemoveAsync(player);
+        await RefreshWhitelistAsync();
+    }
+
+    private async Task KickPlayerAsync(string player)
+    {
+        _lastResult = await Hub.KickAsync(player);
+    }
+
+    private async Task BanPlayerAsync(string player)
+    {
+        _lastResult = await Hub.BanAsync(player);
+        await RefreshBanListAsync();
+    }
+
+    private async Task PardonPlayerAsync(string player)
+    {
+        _lastResult = await Hub.PardonAsync(player);
+        await RefreshBanListAsync();
+    }
+
+    private async Task SetGamemodeAsync(string player, string mode)
+    {
+        _lastResult = await Hub.SetGamemodeAsync(player, mode);
+    }
+
+    private async Task TeleportAsync(string player, string destination)
+    {
+        _lastResult = await Hub.TeleportPlayerAsync(player, destination);
+    }
+
+    public void Dispose()
+    {
+        Hub.OnServerStatusReceived -= OnStatusReceived;
+    }
+}

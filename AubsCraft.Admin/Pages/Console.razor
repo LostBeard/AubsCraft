@@ -1,0 +1,79 @@
+@page "/console"
+@inject ServerHubClient Hub
+
+<PageTitle>Console - AubsCraft Admin</PageTitle>
+
+<h1>Server Console</h1>
+
+<p class="text-muted">Send commands directly to the Minecraft server. This works just like the in-game console.</p>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="input-group">
+            <span class="input-group-text">/</span>
+            <input type="text" class="form-control" placeholder="Type a command..."
+                   @bind="_command" @bind:event="oninput" @onkeydown="HandleKeyDown" />
+            <button class="btn btn-primary" @onclick="SendCommandAsync" disabled="@string.IsNullOrWhiteSpace(_command)">
+                Send
+            </button>
+        </div>
+    </div>
+</div>
+
+@if (_history.Count > 0)
+{
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Command History</h5>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="() => _history.Clear()">Clear</button>
+        </div>
+        <div class="card-body p-0">
+            <div class="font-monospace p-3" style="max-height: 400px; overflow-y: auto; background: #1a1a2e; color: #e0e0e0;">
+                @foreach (var entry in _history)
+                {
+                    <div class="mb-1">
+                        <span style="color: #6c9bff;">&gt; /@entry.Command</span>
+                    </div>
+                    <div class="mb-2" style="color: #a0ffa0;">
+                        @if (string.IsNullOrEmpty(entry.Response))
+                        {
+                            <em style="color: #888;">(no response)</em>
+                        }
+                        else
+                        {
+                            @entry.Response
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string _command = "";
+    private List<ConsoleEntry> _history = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Hub.ConnectAsync();
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_command))
+            await SendCommandAsync();
+    }
+
+    private async Task SendCommandAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_command)) return;
+        var cmd = _command.Trim();
+        _command = "";
+
+        var response = await Hub.SendCommandAsync(cmd);
+        _history.Add(new ConsoleEntry(cmd, response));
+    }
+
+    private record ConsoleEntry(string Command, string Response);
+}

@@ -1,0 +1,7 @@
+name: VRDetect
+version: 1.0.0
+main: com.spawndev.vrdetect.VRDetectPlugin
+api-version: '1.21'
+description: Detects Vivecraft VR players and writes state to a JSON file for external tools.
+author: LostBeard
+website: https://github.com/LostBeard

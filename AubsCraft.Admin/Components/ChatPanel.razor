@@ -1,0 +1,92 @@
+@inject ServerHubClient Hub
+@inject IJSRuntime JS
+@implements IDisposable
+
+<div class="card @(_isOpen ? "" : "d-none") position-fixed bottom-0 end-0 m-3 shadow" style="width: 380px; max-width: 90vw; z-index: 1050;">
+    <div class="card-header d-flex justify-content-between align-items-center py-2">
+        <strong>Chat</strong>
+        <button class="btn-close btn-close-sm" @onclick="Toggle"></button>
+    </div>
+    <div class="card-body p-0">
+        <div class="p-2" style="height: 250px; overflow-y: auto; font-size: 0.85rem;" id="chat-scroll">
+            @if (_messages.Count == 0)
+            {
+                <p class="text-muted text-center mt-3">No chat messages yet.</p>
+            }
+            else
+            {
+                @foreach (var msg in _messages)
+                {
+                    <div class="mb-1">
+                        <small class="text-muted">@msg.Timestamp.ToString("HH:mm")</small>
+                        <img src="https://mc-heads.net/avatar/@msg.PlayerName/16" alt="" class="mx-1 rounded" style="width:16px;height:16px;" />
+                        <strong>@msg.PlayerName</strong>
+                        <span>@msg.Message</span>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+    <div class="card-footer p-2">
+        <div class="input-group input-group-sm">
+            <input type="text" class="form-control" placeholder="Send message..."
+                   @bind="_message" @bind:event="oninput" @onkeydown="HandleKeyDown" />
+            <button class="btn btn-primary" @onclick="SendAsync" disabled="@string.IsNullOrWhiteSpace(_message)">Send</button>
+        </div>
+    </div>
+</div>
+
+@if (!_isOpen)
+{
+    <button class="btn btn-primary position-fixed bottom-0 end-0 m-3 shadow rounded-pill px-3"
+            style="z-index: 1050;" @onclick="Toggle">
+        Chat @(_unread > 0 ? $"({_unread})" : "")
+    </button>
+}
+
+@code {
+    private List<ChatMessageDto> _messages = [];
+    private string _message = "";
+    private bool _isOpen;
+    private int _unread;
+
+    protected override void OnInitialized()
+    {
+        Hub.OnChatMessageReceived += OnChat;
+    }
+
+    private void OnChat(ChatMessageDto msg)
+    {
+        _messages.Add(msg);
+        while (_messages.Count > 200)
+            _messages.RemoveAt(0);
+
+        if (!_isOpen) _unread++;
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void Toggle()
+    {
+        _isOpen = !_isOpen;
+        if (_isOpen) _unread = 0;
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_message))
+            await SendAsync();
+    }
+
+    private async Task SendAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_message)) return;
+        await Hub.SayAsync(_message.Trim());
+        _message = "";
+    }
+
+    public void Dispose()
+    {
+        Hub.OnChatMessageReceived -= OnChat;
+    }
+}

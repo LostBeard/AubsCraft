@@ -1,0 +1,191 @@
+@page "/player/{UUID}"
+@inject ServerHubClient Hub
+
+<PageTitle>@(_profile?.Name ?? "Player") - AubsCraft Admin</PageTitle>
+
+@if (_profile == null)
+{
+    <p class="text-muted">Loading player profile...</p>
+}
+else
+{
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <img src="https://mc-heads.net/avatar/@_profile.Name/64" alt="@_profile.Name" class="rounded" style="width:64px;height:64px;" />
+        <div>
+            <h1 class="mb-0">@_profile.Name</h1>
+            <small class="text-muted">@_profile.UUID</small>
+            <span class="badge @(_profile.Platform == "Bedrock" ? "bg-success" : "bg-primary") ms-2">@_profile.Platform</span>
+            @if (!string.IsNullOrEmpty(_profile.DeviceOS)) { <span class="badge bg-secondary">@_profile.DeviceOS</span> }
+            @if (_profile.IsVR) { <span class="badge bg-info">VR</span> }
+            @if (_profile.GodMode) { <span class="badge bg-warning">God Mode</span> }
+        </div>
+    </div>
+
+    <!-- Overview Cards -->
+    <div class="row mb-4">
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Play Time</small>
+                    <div class="fw-bold">@_profile.PlayTimeFormatted</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Sessions</small>
+                    <div class="fw-bold">@_profile.SessionCount</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Deaths</small>
+                    <div class="fw-bold">@_profile.Deaths</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Mob Kills</small>
+                    <div class="fw-bold">@_profile.MobKills</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left column -->
+        <div class="col-md-6">
+            <!-- Connection Info -->
+            <div class="card mb-3">
+                <div class="card-header"><h6 class="mb-0">Connection Info</h6></div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <tbody>
+                            <tr><td class="text-muted">IP Address</td><td>@_profile.IpAddress</td></tr>
+                            <tr><td class="text-muted">First Seen</td><td>@(_profile.FirstSeen?.ToString("MMM d, yyyy HH:mm") ?? "Unknown")</td></tr>
+                            <tr><td class="text-muted">Last Login</td><td>@(_profile.LastLogin?.ToString("MMM d, yyyy HH:mm") ?? "Never")</td></tr>
+                            <tr><td class="text-muted">Last Logout</td><td>@(_profile.LastLogout?.ToString("MMM d, yyyy HH:mm") ?? "Never")</td></tr>
+                            <tr><td class="text-muted">Chat Messages</td><td>@_profile.ChatMessages</td></tr>
+                            <tr><td class="text-muted">Claim Blocks</td><td>@_profile.ClaimBlocksAccrued</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Distance -->
+            <div class="card mb-3">
+                <div class="card-header"><h6 class="mb-0">Distance Traveled</h6></div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <tbody>
+                            <tr><td class="text-muted">Total</td><td class="fw-bold">@_profile.TotalDistanceFormatted</td></tr>
+                            <tr><td class="text-muted">Walking</td><td>@_profile.WalkDistanceFormatted</td></tr>
+                            <tr><td class="text-muted">Sprinting</td><td>@_profile.SprintDistanceFormatted</td></tr>
+                            <tr><td class="text-muted">Flying</td><td>@_profile.FlyDistanceFormatted</td></tr>
+                            <tr><td class="text-muted">Swimming</td><td>@_profile.SwimDistanceFormatted</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Combat -->
+            <div class="card mb-3">
+                <div class="card-header"><h6 class="mb-0">Combat</h6></div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <tbody>
+                            <tr><td class="text-muted">Damage Dealt</td><td>@(_profile.DamageDealt / 10.0) hearts</td></tr>
+                            <tr><td class="text-muted">Damage Taken</td><td>@(_profile.DamageTaken / 10.0) hearts</td></tr>
+                            <tr><td class="text-muted">Jumps</td><td>@_profile.Jumps.ToString("N0")</td></tr>
+                            <tr><td class="text-muted">Times Slept</td><td>@_profile.SleepInBed</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right column -->
+        <div class="col-md-6">
+            <!-- Building -->
+            <div class="card mb-3">
+                <div class="card-header"><h6 class="mb-0">Building</h6></div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <tbody>
+                            <tr><td class="text-muted">Blocks Placed</td><td>@_profile.BlocksPlaced.ToString("N0")</td></tr>
+                            <tr><td class="text-muted">Blocks Broken</td><td>@_profile.BlocksBroken.ToString("N0")</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Mobs Killed -->
+            @if (_profile.KilledMobs.Count > 0)
+            {
+                <div class="card mb-3">
+                    <div class="card-header"><h6 class="mb-0">Mobs Killed (@_profile.KilledMobs.Values.Sum())</h6></div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm mb-0">
+                            <tbody>
+                                @foreach (var kvp in _profile.KilledMobs.OrderByDescending(k => k.Value))
+                                {
+                                    <tr><td class="text-muted text-capitalize">@kvp.Key.Replace("_", " ")</td><td>@kvp.Value</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+
+            <!-- Killed By -->
+            @if (_profile.KilledByMobs.Count > 0)
+            {
+                <div class="card mb-3">
+                    <div class="card-header"><h6 class="mb-0">Killed By</h6></div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm mb-0">
+                            <tbody>
+                                @foreach (var kvp in _profile.KilledByMobs.OrderByDescending(k => k.Value))
+                                {
+                                    <tr><td class="text-muted text-capitalize">@kvp.Key.Replace("_", " ")</td><td>@kvp.Value</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+
+            <!-- Advancements -->
+            @if (_profile.AdvancementsCompleted > 0)
+            {
+                <div class="card mb-3">
+                    <div class="card-header"><h6 class="mb-0">Advancements (@_profile.AdvancementsCompleted)</h6></div>
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap gap-1">
+                            @foreach (var adv in _profile.Advancements)
+                            {
+                                <span class="badge bg-secondary">@adv</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string UUID { get; set; } = "";
+    private PlayerProfileDto? _profile;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Hub.ConnectAsync();
+        _profile = await Hub.GetPlayerProfileAsync(UUID);
+    }
+}

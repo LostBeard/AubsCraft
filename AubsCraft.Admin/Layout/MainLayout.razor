@@ -1,0 +1,57 @@
+@inherits LayoutComponentBase
+@inject AuthStateProvider Auth
+@inject NavigationManager Nav
+
+@if (!_authChecked)
+{
+    <div class="d-flex justify-content-center align-items-center" style="min-height: 100vh;">
+        <p class="text-muted">Loading...</p>
+    </div>
+}
+else if (!Auth.IsAuthenticated)
+{
+    @* Redirect handled in OnInitializedAsync *@
+}
+else
+{
+    <NotificationToast />
+    <ChatPanel />
+    <div class="page">
+        <div class="sidebar">
+            <NavMenu />
+        </div>
+
+        <main>
+            <div class="top-row px-4 d-flex justify-content-between align-items-center">
+                <span class="text-muted">@Auth.Username</span>
+                <div class="d-flex gap-2">
+                    <ThemeToggle />
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="LogoutAsync">Logout</button>
+                </div>
+            </div>
+
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
+    </div>
+}
+
+@code {
+    private bool _authChecked;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.CheckAuthAsync();
+        _authChecked = true;
+
+        if (!Auth.IsAuthenticated)
+            Nav.NavigateTo("/login");
+    }
+
+    private async Task LogoutAsync()
+    {
+        await Auth.LogoutAsync();
+        Nav.NavigateTo("/login");
+    }
+}

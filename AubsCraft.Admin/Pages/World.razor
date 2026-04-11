@@ -1,0 +1,163 @@
+@page "/world"
+@inject ServerHubClient Hub
+@implements IDisposable
+
+<PageTitle>World - AubsCraft Admin</PageTitle>
+
+<h1>World Controls</h1>
+
+<!-- Current Status -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <h6 class="text-muted">In-Game Time</h6>
+                <h3>@_timeFormatted</h3>
+                <small class="text-muted">@FormatTimePeriod(_timeTicks) (@_timeTicks ticks)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <h6 class="text-muted">Auto-Refresh</h6>
+                <span class="text-muted">Updates every 10s</span>
+                <button class="btn btn-sm btn-outline-secondary ms-2" @onclick="RefreshWorldStatusAsync">Refresh Now</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Time Control -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header"><h5 class="mb-0">Time of Day</h5></div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-warning" @onclick='() => SetTimeAsync("day")'>Sunrise (Day)</button>
+                    <button class="btn btn-info" @onclick='() => SetTimeAsync("noon")'>Noon</button>
+                    <button class="btn btn-secondary" @onclick='() => SetTimeAsync("night")'>Night</button>
+                    <button class="btn btn-dark" @onclick='() => SetTimeAsync("midnight")'>Midnight</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Weather Control -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header"><h5 class="mb-0">Weather</h5></div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" @onclick='() => SetWeatherAsync("clear")'>Clear Skies</button>
+                    <button class="btn btn-secondary" @onclick='() => SetWeatherAsync("rain")'>Rain</button>
+                    <button class="btn btn-dark" @onclick='() => SetWeatherAsync("thunder")'>Thunderstorm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Broadcast Message -->
+<div class="card mb-4">
+    <div class="card-header"><h5 class="mb-0">Server Broadcast</h5></div>
+    <div class="card-body">
+        <div class="input-group">
+            <input type="text" class="form-control" placeholder="Type a message to send to all players..."
+                   @bind="_broadcastMessage" @bind:event="oninput" @onkeydown="HandleBroadcastKeyDown" />
+            <button class="btn btn-primary" @onclick="BroadcastAsync" disabled="@string.IsNullOrWhiteSpace(_broadcastMessage)">
+                Send
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Save -->
+<div class="card mb-4">
+    <div class="card-header"><h5 class="mb-0">Server</h5></div>
+    <div class="card-body">
+        <button class="btn btn-success" @onclick="SaveWorldAsync">Save World</button>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_lastResult))
+{
+    <div class="alert alert-info alert-dismissible fade show">
+        @_lastResult
+        <button type="button" class="btn-close" @onclick="() => _lastResult = null"></button>
+    </div>
+}
+
+@code {
+    private string _broadcastMessage = "";
+    private string? _lastResult;
+    private int _timeTicks;
+    private string _timeFormatted = "...";
+    private Timer? _refreshTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Hub.ConnectAsync();
+        await RefreshWorldStatusAsync();
+        _refreshTimer = new Timer(async _ =>
+        {
+            await RefreshWorldStatusAsync();
+            await InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+    }
+
+    private async Task RefreshWorldStatusAsync()
+    {
+        try
+        {
+            var status = await Hub.GetWorldTimeWeatherAsync();
+            _timeTicks = status.TimeTicks;
+            _timeFormatted = status.TimeFormatted;
+        }
+        catch { }
+    }
+
+    private async Task SetTimeAsync(string time)
+    {
+        _lastResult = await Hub.SetTimeAsync(time);
+        await RefreshWorldStatusAsync();
+    }
+
+    private async Task SetWeatherAsync(string weather)
+    {
+        _lastResult = await Hub.SetWeatherAsync(weather);
+    }
+
+    private async Task HandleBroadcastKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_broadcastMessage))
+            await BroadcastAsync();
+    }
+
+    private async Task BroadcastAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_broadcastMessage)) return;
+        _lastResult = await Hub.SayAsync(_broadcastMessage.Trim());
+        _broadcastMessage = "";
+    }
+
+    private async Task SaveWorldAsync()
+    {
+        _lastResult = await Hub.SaveWorldAsync();
+    }
+
+    private static string FormatTimePeriod(int ticks)
+    {
+        if (ticks < 6000) return "Morning";
+        if (ticks < 12000) return "Afternoon";
+        if (ticks < 13000) return "Sunset";
+        if (ticks < 23000) return "Night";
+        return "Dawn";
+    }
+
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
+    }
+}

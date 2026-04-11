@@ -1,0 +1,125 @@
+@page "/activity"
+@inject ServerHubClient Hub
+@implements IDisposable
+
+<PageTitle>Activity Log - AubsCraft Admin</PageTitle>
+
+<h1>Activity Log</h1>
+
+<!-- Filter pills -->
+<div class="mb-3 d-flex flex-wrap gap-2">
+    <button class="btn btn-sm @(_filter == null ? "btn-primary" : "btn-outline-primary")" @onclick="() => SetFilter(null)">All</button>
+    <button class="btn btn-sm @(_filter == ActivityEventType.PlayerJoin ? "btn-success" : "btn-outline-success")" @onclick="() => SetFilter(ActivityEventType.PlayerJoin)">Joins</button>
+    <button class="btn btn-sm @(_filter == ActivityEventType.PlayerLeave ? "btn-danger" : "btn-outline-danger")" @onclick="() => SetFilter(ActivityEventType.PlayerLeave)">Leaves</button>
+    <button class="btn btn-sm @(_filter == ActivityEventType.Chat ? "btn-info" : "btn-outline-info")" @onclick="() => SetFilter(ActivityEventType.Chat)">Chat</button>
+    <button class="btn btn-sm @(_filter == ActivityEventType.Death ? "btn-dark" : "btn-outline-dark")" @onclick="() => SetFilter(ActivityEventType.Death)">Deaths</button>
+    <button class="btn btn-sm @(_filter == ActivityEventType.Advancement ? "btn-secondary" : "btn-outline-secondary")" @onclick="() => SetFilter(ActivityEventType.Advancement)">Advancements</button>
+    <button class="btn btn-sm @(_filter == ActivityEventType.WhitelistRejection ? "btn-warning" : "btn-outline-warning")" @onclick="() => SetFilter(ActivityEventType.WhitelistRejection)">Whitelist Rejections</button>
+</div>
+
+@if (_events.Count == 0)
+{
+    <p class="text-muted">No activity yet. Events will appear here in real-time as players join, leave, chat, and more.</p>
+}
+else
+{
+    <div class="list-group">
+        @foreach (var evt in FilteredEvents)
+        {
+            <div class="list-group-item d-flex align-items-start gap-3 py-2">
+                <span class="badge rounded-pill @GetBadgeClass(evt.Type) mt-1" style="min-width: 24px;">@GetIcon(evt.Type)</span>
+                <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            @if (evt.PlayerName != null)
+                            {
+                                <img src="https://mc-heads.net/avatar/@evt.PlayerName/20" alt="" class="me-1 rounded" style="width:20px;height:20px;" />
+                                <strong>@evt.PlayerName</strong>
+                            }
+                            <span class="text-muted ms-1">@evt.Details</span>
+                        </div>
+                        <small class="text-muted text-nowrap ms-2">@FormatTime(evt.Timestamp)</small>
+                    </div>
+                    @if (evt.Type == ActivityEventType.WhitelistRejection && evt.PlayerName != null)
+                    {
+                        <button class="btn btn-sm btn-success mt-1" @onclick="() => WhitelistAsync(evt.PlayerName)">
+                            Whitelist @evt.PlayerName
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<ActivityEventDto> _events = [];
+    private ActivityEventType? _filter;
+
+    private IEnumerable<ActivityEventDto> FilteredEvents =>
+        _filter == null ? _events.AsEnumerable().Reverse() : _events.Where(e => e.Type == _filter.Value).Reverse();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Hub.OnActivityEventReceived += OnEvent;
+        await Hub.ConnectAsync();
+        _events = await Hub.GetRecentActivityAsync(200);
+    }
+
+    private void OnEvent(ActivityEventDto evt)
+    {
+        _events.Add(evt);
+        // Keep max 500 in the UI
+        while (_events.Count > 500)
+            _events.RemoveAt(0);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void SetFilter(ActivityEventType? filter)
+    {
+        _filter = filter;
+    }
+
+    private async Task WhitelistAsync(string playerName)
+    {
+        await Hub.WhitelistAddAsync(playerName);
+    }
+
+    private static string GetBadgeClass(ActivityEventType type) => type switch
+    {
+        ActivityEventType.PlayerJoin => "bg-success",
+        ActivityEventType.PlayerLeave => "bg-danger",
+        ActivityEventType.Chat => "bg-info",
+        ActivityEventType.Death => "bg-dark",
+        ActivityEventType.Advancement => "bg-secondary",
+        ActivityEventType.WhitelistRejection => "bg-warning text-dark",
+        ActivityEventType.AdminAction => "bg-primary",
+        _ => "bg-secondary",
+    };
+
+    private static string GetIcon(ActivityEventType type) => type switch
+    {
+        ActivityEventType.PlayerJoin => "+",
+        ActivityEventType.PlayerLeave => "-",
+        ActivityEventType.Chat => "#",
+        ActivityEventType.Death => "X",
+        ActivityEventType.Advancement => "*",
+        ActivityEventType.WhitelistRejection => "!",
+        ActivityEventType.AdminAction => "A",
+        _ => "?",
+    };
+
+    private static string FormatTime(DateTime timestamp)
+    {
+        var diff = DateTime.UtcNow - timestamp;
+        if (diff.TotalSeconds < 60) return "just now";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        return timestamp.ToString("MMM d, HH:mm");
+    }
+
+    public void Dispose()
+    {
+        Hub.OnActivityEventReceived -= OnEvent;
+    }
+}

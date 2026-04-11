@@ -1,0 +1,78 @@
+@inject ServerHubClient Hub
+@implements IDisposable
+
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1080; pointer-events: none;">
+    @foreach (var toast in _toasts)
+    {
+        <div class="alert @GetAlertClass(toast.Type) d-flex align-items-center gap-2 shadow mb-2 fade show"
+             style="pointer-events: auto; min-width: 300px;">
+            @if (toast.PlayerName != null)
+            {
+                <img src="https://mc-heads.net/avatar/@toast.PlayerName/24" alt="" class="rounded" style="width:24px;height:24px;" />
+            }
+            <div class="flex-grow-1">
+                <small>@toast.Message</small>
+                @if (toast.Type == ActivityEventType.WhitelistRejection && toast.PlayerName != null)
+                {
+                    <button class="btn btn-sm btn-success ms-2" @onclick="() => WhitelistAsync(toast.PlayerName)">Whitelist</button>
+                }
+            </div>
+            <button class="btn-close btn-close-sm" @onclick="() => Dismiss(toast)"></button>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly List<ToastItem> _toasts = [];
+
+    protected override void OnInitialized()
+    {
+        Hub.OnActivityEventReceived += OnEvent;
+    }
+
+    private void OnEvent(ActivityEventDto evt)
+    {
+        // Only show toasts for certain event types
+        if (evt.Type is not (ActivityEventType.PlayerJoin or ActivityEventType.PlayerLeave or ActivityEventType.WhitelistRejection or ActivityEventType.Death or ActivityEventType.Advancement))
+            return;
+
+        var toast = new ToastItem(evt.Type, evt.PlayerName, evt.Details, DateTime.UtcNow);
+        _toasts.Add(toast);
+
+        // Auto-dismiss after 6 seconds
+        _ = Task.Delay(6000).ContinueWith(_ =>
+        {
+            _toasts.Remove(toast);
+            InvokeAsync(StateHasChanged);
+        });
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task WhitelistAsync(string playerName)
+    {
+        await Hub.WhitelistAddAsync(playerName);
+    }
+
+    private void Dismiss(ToastItem toast)
+    {
+        _toasts.Remove(toast);
+    }
+
+    private static string GetAlertClass(ActivityEventType type) => type switch
+    {
+        ActivityEventType.PlayerJoin => "alert-success",
+        ActivityEventType.PlayerLeave => "alert-secondary",
+        ActivityEventType.WhitelistRejection => "alert-warning",
+        ActivityEventType.Death => "alert-danger",
+        ActivityEventType.Advancement => "alert-info",
+        _ => "alert-primary",
+    };
+
+    private record ToastItem(ActivityEventType Type, string? PlayerName, string Message, DateTime Time);
+
+    public void Dispose()
+    {
+        Hub.OnActivityEventReceived -= OnEvent;
+    }
+}

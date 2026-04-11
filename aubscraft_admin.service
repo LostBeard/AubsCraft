@@ -1,0 +1,16 @@
+[Unit]
+Description=AubsCraft Admin Panel
+After=network.target
+
+[Service]
+User=zed
+Group=zed
+WorkingDirectory=/srv/aubscraft
+ExecStart=/srv/aubscraft/AubsCraft.Admin.Server
+Restart=on-failure
+RestartSec=5
+Environment=ASPNETCORE_URLS=http://0.0.0.0:5080
+Environment=DOTNET_ENVIRONMENT=Production
+
+[Install]
+WantedBy=multi-user.target

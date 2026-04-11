@@ -1,0 +1,165 @@
+@page "/stats"
+@inject ServerHubClient Hub
+
+<PageTitle>Stats - AubsCraft Admin</PageTitle>
+
+<h1>Server Statistics</h1>
+
+<!-- World Stats -->
+@if (_worldStats != null)
+{
+    <div class="row mb-4">
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Total Play Time</small>
+                    <div class="fw-bold">@_worldStats.TotalPlayTimeFormatted</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Players</small>
+                    <div class="fw-bold">@_worldStats.TotalPlayers</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Total Distance</small>
+                    <div class="fw-bold">@_worldStats.TotalDistanceFormatted</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Sessions</small>
+                    <div class="fw-bold">@_worldStats.TotalSessions</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Blocks Placed</small>
+                    <div class="fw-bold">@_worldStats.TotalBlocksPlaced.ToString("N0")</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Blocks Broken</small>
+                    <div class="fw-bold">@_worldStats.TotalBlocksBroken.ToString("N0")</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Mob Kills</small>
+                    <div class="fw-bold">@_worldStats.TotalMobKills.ToString("N0")</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Deaths</small>
+                    <div class="fw-bold">@_worldStats.TotalDeaths.ToString("N0")</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Chat Messages</small>
+                    <div class="fw-bold">@_worldStats.TotalChatMessages.ToString("N0")</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Total Jumps</small>
+                    <div class="fw-bold">@_worldStats.TotalJumps.ToString("N0")</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body py-2">
+                    <small class="text-muted">Plugins</small>
+                    <div class="fw-bold">@_worldStats.PluginCount</div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Player List -->
+<h3>Players</h3>
+
+@if (_players.Count == 0)
+{
+    <p class="text-muted">Loading players...</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th>Platform</th>
+                    <th>IP</th>
+                    <th>Play Time</th>
+                    <th>Last Login</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var player in _players)
+                {
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <img src="https://mc-heads.net/avatar/@player.Name/24" alt="" class="rounded" style="width:24px;height:24px;" />
+                                <strong>@player.Name</strong>
+                                @if (player.IsVR) { <span class="badge bg-info">VR</span> }
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge @(player.Platform == "Bedrock" ? "bg-success" : "bg-primary") bg-opacity-75">@player.Platform</span>
+                            @if (!string.IsNullOrEmpty(player.DeviceOS))
+                            {
+                                <small class="text-muted ms-1">@player.DeviceOS</small>
+                            }
+                        </td>
+                        <td class="text-muted">@player.IpAddress</td>
+                        <td>@player.PlayTimeFormatted</td>
+                        <td>@(player.LastLogin?.ToString("MMM d, HH:mm") ?? "-")</td>
+                        <td><a href="/player/@player.UUID" class="btn btn-sm btn-outline-primary">Profile</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<PlayerSummaryDto> _players = [];
+    private WorldStatsDto? _worldStats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Hub.ConnectAsync();
+        var playersTask = Hub.GetAllPlayersAsync();
+        var worldTask = Hub.GetWorldStatsAsync();
+        _players = await playersTask;
+        _worldStats = await worldTask;
+    }
+}

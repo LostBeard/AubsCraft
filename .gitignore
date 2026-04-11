@@ -1,0 +1,14 @@
+bin/
+obj/
+publish/
+.vs/
+.vscode/
+*.user
+*.suo
+*.bak
+appsettings.Development.json
+admin.json
+activity-log.json
+voicechat-bukkit-*.jar
+VRDetect/target/
+VRDetect/build/
