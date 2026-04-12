@@ -62,10 +62,13 @@ public sealed class MapRenderService : IDisposable
     public int TotalVertices { get; private set; }
     public int VisibleVertices { get; private set; }
 
-    // FPS tracking
+    // FPS tracking + adaptive draw distance
     private int _frameCount;
     private double _fpsAccumulator;
     private float _lastDt;
+    public int DrawDistance { get; private set; } = 20;
+    private const int MinDrawDistance = 10;
+    private const int MaxDrawDistance = 50;
 
     public MapRenderService(BlazorJSRuntime js)
     {
@@ -354,6 +357,12 @@ public sealed class MapRenderService : IDisposable
             FrameTimeMs = (float)(_fpsAccumulator / _frameCount * 1000.0);
             _frameCount = 0;
             _fpsAccumulator = 0;
+
+            // Adaptive draw distance: grow when FPS is high, shrink when low
+            if (Fps > 50 && DrawDistance < MaxDrawDistance)
+                DrawDistance += 2;
+            else if (Fps < 30 && DrawDistance > MinDrawDistance)
+                DrawDistance -= 2;
         }
 
         OnUpdate?.Invoke(dt);
@@ -435,8 +444,7 @@ public sealed class MapRenderService : IDisposable
         // Camera chunk position for draw distance check
         int camCX = (int)MathF.Floor(Camera.Position.X / ChunkXZ);
         int camCZ = (int)MathF.Floor(Camera.Position.Z / ChunkXZ);
-        const int DrawDist = 20; // chunks
-        int drawDistSq = DrawDist * DrawDist;
+        int drawDistSq = DrawDistance * DrawDistance;
 
         foreach (var ((cx, cz), slot) in _slots)
         {
