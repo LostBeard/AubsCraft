@@ -106,25 +106,45 @@ public static class HeightmapMesher
 
         if (offset + 54 > verts.Length) return; // safety check
 
-        if (nx != 0) // X face
+        if (nx > 0) // +X face (normal pointing right)
         {
             float x = fixedAxis;
-            AddVertex(verts, ref offset, x, y0, varStart, nx, 0, 0, r, g, b);
-            AddVertex(verts, ref offset, x, y1, varStart, nx, 0, 0, r, g, b);
-            AddVertex(verts, ref offset, x, y1, varEnd, nx, 0, 0, r, g, b);
-            AddVertex(verts, ref offset, x, y0, varStart, nx, 0, 0, r, g, b);
-            AddVertex(verts, ref offset, x, y1, varEnd, nx, 0, 0, r, g, b);
-            AddVertex(verts, ref offset, x, y0, varEnd, nx, 0, 0, r, g, b);
+            AddVertex(verts, ref offset, x, y0, varStart, 1, 0, 0, r, g, b);
+            AddVertex(verts, ref offset, x, y1, varEnd, 1, 0, 0, r, g, b);
+            AddVertex(verts, ref offset, x, y1, varStart, 1, 0, 0, r, g, b);
+            AddVertex(verts, ref offset, x, y0, varStart, 1, 0, 0, r, g, b);
+            AddVertex(verts, ref offset, x, y0, varEnd, 1, 0, 0, r, g, b);
+            AddVertex(verts, ref offset, x, y1, varEnd, 1, 0, 0, r, g, b);
         }
-        else // Z face
+        else if (nx < 0) // -X face (normal pointing left)
+        {
+            float x = fixedAxis;
+            AddVertex(verts, ref offset, x, y0, varStart, -1, 0, 0, r, g, b);
+            AddVertex(verts, ref offset, x, y1, varStart, -1, 0, 0, r, g, b);
+            AddVertex(verts, ref offset, x, y1, varEnd, -1, 0, 0, r, g, b);
+            AddVertex(verts, ref offset, x, y0, varStart, -1, 0, 0, r, g, b);
+            AddVertex(verts, ref offset, x, y1, varEnd, -1, 0, 0, r, g, b);
+            AddVertex(verts, ref offset, x, y0, varEnd, -1, 0, 0, r, g, b);
+        }
+        else if (nz > 0) // +Z face
         {
             float z = fixedAxis;
-            AddVertex(verts, ref offset, varStart, y0, z, 0, 0, nz, r, g, b);
-            AddVertex(verts, ref offset, varStart, y1, z, 0, 0, nz, r, g, b);
-            AddVertex(verts, ref offset, varEnd, y1, z, 0, 0, nz, r, g, b);
-            AddVertex(verts, ref offset, varStart, y0, z, 0, 0, nz, r, g, b);
-            AddVertex(verts, ref offset, varEnd, y1, z, 0, 0, nz, r, g, b);
-            AddVertex(verts, ref offset, varEnd, y0, z, 0, 0, nz, r, g, b);
+            AddVertex(verts, ref offset, varStart, y0, z, 0, 0, 1, r, g, b);
+            AddVertex(verts, ref offset, varStart, y1, z, 0, 0, 1, r, g, b);
+            AddVertex(verts, ref offset, varEnd, y1, z, 0, 0, 1, r, g, b);
+            AddVertex(verts, ref offset, varStart, y0, z, 0, 0, 1, r, g, b);
+            AddVertex(verts, ref offset, varEnd, y1, z, 0, 0, 1, r, g, b);
+            AddVertex(verts, ref offset, varEnd, y0, z, 0, 0, 1, r, g, b);
+        }
+        else // -Z face
+        {
+            float z = fixedAxis;
+            AddVertex(verts, ref offset, varStart, y0, z, 0, 0, -1, r, g, b);
+            AddVertex(verts, ref offset, varEnd, y1, z, 0, 0, -1, r, g, b);
+            AddVertex(verts, ref offset, varStart, y1, z, 0, 0, -1, r, g, b);
+            AddVertex(verts, ref offset, varStart, y0, z, 0, 0, -1, r, g, b);
+            AddVertex(verts, ref offset, varEnd, y0, z, 0, 0, -1, r, g, b);
+            AddVertex(verts, ref offset, varEnd, y1, z, 0, 0, -1, r, g, b);
         }
     }
 
