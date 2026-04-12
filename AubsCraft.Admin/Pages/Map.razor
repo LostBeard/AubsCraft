@@ -99,12 +99,12 @@ else
             // Process input each frame
             Renderer.OnUpdate = OnFrameUpdate;
 
-            // Listen for pointer lock changes
+            // Track pointer lock changes via JS callback
             await JS.InvokeVoidAsync("eval", @"
                 document.addEventListener('pointerlockchange', function() {
-                    window.__mapPointerLocked = !!document.pointerLockElement;
+                    window.__mapLocked = !!document.pointerLockElement;
                 });
-                window.__mapPointerLocked = false;
+                window.__mapLocked = false;
             ");
 
             _viewMode = ViewMode.Viewer3D;
@@ -137,21 +137,23 @@ else
         if (_pointerLocked)
             Renderer.Camera.ProcessKeyboard(Input.KeysDown, dt);
 
-        try
+        // Detect ESC to release pointer lock (no JS interop in render loop)
+        if (_pointerLocked && Input.KeysDown.Contains("Escape"))
         {
-            _pointerLocked = ((IJSInProcessRuntime)JS).Invoke<bool>("eval", "window.__mapPointerLocked || false");
+            _pointerLocked = false;
+            Input.KeysDown.Remove("Escape");
         }
-        catch { }
-
     }
 
     private async void OnCanvasClick()
     {
-        if (!_pointerLocked)
+        if (_pointerLocked) return;
+        try
         {
             await JS.InvokeVoidAsync("eval", "document.getElementById('map-canvas')?.requestPointerLock()");
             _pointerLocked = true;
         }
+        catch { } // Browser rejects if too soon after ESC - silently ignore
     }
 
     private async Task LoadInitialChunksAsync()
