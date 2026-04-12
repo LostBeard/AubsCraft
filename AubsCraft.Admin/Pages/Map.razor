@@ -365,15 +365,12 @@ else
                     var paletteColors = BlockColorMap.BuildPaletteColors(chunkData.Palette);
                     var result = await Engine.GenerateMeshAsync(blocks, paletteColors, cx, cz);
 
-                    if (result.VertexCount > 100) // Need meaningful geometry, not just a few stray faces
+                    if (result.VertexCount > 100)
                     {
+                        // Replace heightmap with full 3D - the mesh IS valid
                         Renderer.UploadChunkMesh(cx, cz, result.Vertices);
-                        _fullChunks.Add((cx, cz));
                     }
-                    else
-                    {
-                        _fullChunks.Add((cx, cz)); // Mark as attempted so we don't retry
-                    }
+                    _fullChunks.Add((cx, cz));
                 }
                 catch (Exception ex)
                 {
