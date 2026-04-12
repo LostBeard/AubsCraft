@@ -18,6 +18,7 @@ builder.Services.AddSingleton<PluginService>();
 builder.Services.AddSingleton<PlayerStatsService>();
 builder.Services.AddSingleton<ModrinthService>();
 builder.Services.AddSingleton<ServerControlService>();
+builder.Services.AddSingleton<WorldDataService>();
 builder.Services.AddSignalR();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -159,6 +160,29 @@ api.MapGet("/banlist", async (RconService rcon, ILogger<Program> log, Cancellati
     }
 });
 
+// -- World Data API (for 3D viewer) --
+var world = app.MapGroup("/api/world").RequireAuthorization();
+
+world.MapGet("/regions", (WorldDataService worldData) =>
+{
+    return Results.Ok(worldData.GetRegions());
+});
+
+world.MapGet("/chunk/{x:int}/{z:int}", (int x, int z, WorldDataService worldData) =>
+{
+    var chunk = worldData.GetChunk(x, z);
+    if (chunk == null) return Results.NotFound();
+    var blocksBase64 = Convert.ToBase64String(
+        System.Runtime.InteropServices.MemoryMarshal.AsBytes<ushort>(chunk.Blocks).ToArray());
+    return Results.Ok(new ChunkDataResponse(blocksBase64, chunk.Palette));
+});
+
+world.MapPost("/cache/clear", (WorldDataService worldData) =>
+{
+    worldData.ClearCache();
+    return Results.Ok(new { message = "Cache cleared" });
+});
+
 // Fallback to WASM index.html for client-side routing
 app.MapFallbackToFile("index.html");
 
@@ -166,3 +190,4 @@ app.Run();
 
 // Request DTOs
 public record LoginRequest(string Username, string Password);
+public record ChunkDataResponse(string Blocks, List<string> Palette);
