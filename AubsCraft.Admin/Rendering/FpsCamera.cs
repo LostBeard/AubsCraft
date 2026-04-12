@@ -11,7 +11,7 @@ public sealed class FpsCamera
     public Vector3 Position { get; set; } = new(0f, 80f, 0f);
     public float Yaw { get; set; } = -90f;
     public float Pitch { get; set; } = -15f;
-    public float MovementSpeed { get; set; } = 20f;
+    public float MovementSpeed { get; set; } = 60f;
     public float MouseSensitivity { get; set; } = 0.15f;
     public float FovDegrees { get; set; } = 70f;
     public float NearPlane { get; set; } = 0.1f;

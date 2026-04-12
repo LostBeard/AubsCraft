@@ -47,8 +47,8 @@ public sealed class MapRenderService : IDisposable
     private bool _disposed;
     private double _lastTimestamp;
     private ActionCallback<double>? _rafCallback;
-    private readonly float[] _mvpFloats = new float[16];
-    private byte[]? _mvpBytes;
+    private readonly float[] _uniformFloats = new float[20]; // 16 MVP + 4 camera pos
+    private byte[]? _uniformBytes;
 
     public FpsCamera Camera { get; } = new();
     public bool IsInitialized { get; private set; }
@@ -164,7 +164,7 @@ public sealed class MapRenderService : IDisposable
 
         _uniformBuffer = _device.CreateBuffer(new GPUBufferDescriptor
         {
-            Size = 64,
+            Size = 80, // 64 MVP + 16 camera pos (vec4)
             Usage = GPUBufferUsage.Uniform | GPUBufferUsage.CopyDst,
         });
 
@@ -336,10 +336,14 @@ public sealed class MapRenderService : IDisposable
         float aspect = (float)_canvasWidth / _canvasHeight;
         var vp = Camera.GetVpMatrix(aspect);
 
-        Camera.WriteMvp(_mvpFloats, aspect);
-        _mvpBytes ??= new byte[64];
-        Buffer.BlockCopy(_mvpFloats, 0, _mvpBytes, 0, 64);
-        _queue!.WriteBuffer(_uniformBuffer!, 0, _mvpBytes);
+        Camera.WriteMvp(_uniformFloats, aspect);
+        _uniformFloats[16] = Camera.Position.X;
+        _uniformFloats[17] = Camera.Position.Y;
+        _uniformFloats[18] = Camera.Position.Z;
+        _uniformFloats[19] = 0f; // padding
+        _uniformBytes ??= new byte[80];
+        Buffer.BlockCopy(_uniformFloats, 0, _uniformBytes, 0, 80);
+        _queue!.WriteBuffer(_uniformBuffer!, 0, _uniformBytes);
 
         var frustum = FrustumCuller.ExtractPlanes(vp);
 
@@ -458,6 +462,7 @@ public sealed class MapRenderService : IDisposable
     private const string WgslShaderSource = @"
 struct Uniforms {
     mvp : mat4x4<f32>,
+    camera_pos : vec4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> uniforms : Uniforms;
@@ -521,10 +526,10 @@ fn fs_main(input : VertexOutput) -> @location(0) vec4<f32> {
     color = color + vec3<f32>(variation);
     color = color * light;
 
-    // Distance fog
-    let dist = length(input.world_pos);
-    let fog_start = 300.0;
-    let fog_end = 600.0;
+    // Distance fog (from camera position)
+    let dist = length(input.world_pos - uniforms.camera_pos.xyz);
+    let fog_start = 250.0;
+    let fog_end = 450.0;
     let fog_color = vec3<f32>(0.65, 0.80, 0.95);
     let fog_factor = clamp((dist - fog_start) / (fog_end - fog_start), 0.0, 1.0);
     color = mix(color, fog_color, fog_factor * fog_factor);
