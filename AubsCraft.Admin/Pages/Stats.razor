@@ -113,16 +113,24 @@ else
         <table class="table table-hover">
             <thead>
                 <tr>
-                    <th>Player</th>
-                    <th>Platform</th>
+                    <th role="button" @onclick='() => SortBy("name")'>
+                        Player @SortIndicator("name")
+                    </th>
+                    <th role="button" @onclick='() => SortBy("platform")'>
+                        Platform @SortIndicator("platform")
+                    </th>
                     <th>IP</th>
-                    <th>Play Time</th>
-                    <th>Last Login</th>
+                    <th role="button" @onclick='() => SortBy("playtime")'>
+                        Play Time @SortIndicator("playtime")
+                    </th>
+                    <th role="button" @onclick='() => SortBy("lastlogin")'>
+                        Last Login @SortIndicator("lastlogin")
+                    </th>
                     <th></th>
                 </tr>
             </thead>
             <tbody>
-                @foreach (var player in _players)
+                @foreach (var player in SortedPlayers)
                 {
                     <tr>
                         <td>
@@ -153,6 +161,8 @@ else
 @code {
     private List<PlayerSummaryDto> _players = [];
     private WorldStatsDto? _worldStats;
+    private string _sortColumn = "playtime";
+    private bool _sortAscending;
 
     protected override async Task OnInitializedAsync()
     {
@@ -161,5 +171,31 @@ else
         var worldTask = Hub.GetWorldStatsAsync();
         _players = await playersTask;
         _worldStats = await worldTask;
+    }
+
+    private IEnumerable<PlayerSummaryDto> SortedPlayers => _sortColumn switch
+    {
+        "name" => _sortAscending ? _players.OrderBy(p => p.Name) : _players.OrderByDescending(p => p.Name),
+        "platform" => _sortAscending ? _players.OrderBy(p => p.Platform) : _players.OrderByDescending(p => p.Platform),
+        "playtime" => _sortAscending ? _players.OrderBy(p => p.PlayTimeTicks) : _players.OrderByDescending(p => p.PlayTimeTicks),
+        "lastlogin" => _sortAscending ? _players.OrderBy(p => p.LastLogin) : _players.OrderByDescending(p => p.LastLogin),
+        _ => _players
+    };
+
+    private void SortBy(string column)
+    {
+        if (_sortColumn == column)
+            _sortAscending = !_sortAscending;
+        else
+        {
+            _sortColumn = column;
+            _sortAscending = column == "name";
+        }
+    }
+
+    private string SortIndicator(string column)
+    {
+        if (_sortColumn != column) return "";
+        return _sortAscending ? "\u25b2" : "\u25bc";
     }
 }

@@ -6,8 +6,14 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="mb-0">Plugins</h1>
     <div class="d-flex gap-2">
-        <button class="btn btn-sm btn-warning" @onclick="RestartServerAsync" disabled="@_restarting">
-            @(_restarting ? "Restarting..." : "Restart Server")
+        <button class="btn btn-sm btn-success" @onclick="StartServerAsync" disabled="@_controlBusy">
+            @(_controlAction == "start" ? "Starting..." : "Start")
+        </button>
+        <button class="btn btn-sm btn-warning" @onclick="RestartServerAsync" disabled="@_controlBusy">
+            @(_controlAction == "restart" ? "Restarting..." : "Restart")
+        </button>
+        <button class="btn btn-sm btn-danger" @onclick="StopServerAsync" disabled="@_controlBusy">
+            @(_controlAction == "stop" ? "Stopping..." : "Stop")
         </button>
     </div>
 </div>
@@ -143,7 +149,8 @@ else
     private string? _installingId;
 
     // Server control
-    private bool _restarting;
+    private bool _controlBusy;
+    private string? _controlAction;
 
     protected override async Task OnInitializedAsync()
     {
@@ -204,11 +211,35 @@ else
 
     private async Task RestartServerAsync()
     {
-        _restarting = true;
+        _controlBusy = true;
+        _controlAction = "restart";
         var result = await Hub.RestartServerAsync();
         _lastResult = result.Message;
         _lastResultSuccess = result.Success;
-        _restarting = false;
+        _controlBusy = false;
+        _controlAction = null;
+    }
+
+    private async Task StopServerAsync()
+    {
+        _controlBusy = true;
+        _controlAction = "stop";
+        var result = await Hub.StopServerAsync();
+        _lastResult = result.Message;
+        _lastResultSuccess = result.Success;
+        _controlBusy = false;
+        _controlAction = null;
+    }
+
+    private async Task StartServerAsync()
+    {
+        _controlBusy = true;
+        _controlAction = "start";
+        var result = await Hub.StartServerAsync();
+        _lastResult = result.Message;
+        _lastResultSuccess = result.Success;
+        _controlBusy = false;
+        _controlAction = null;
     }
 
     private static string FormatSize(long bytes)

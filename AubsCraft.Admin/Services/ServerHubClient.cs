@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 
 namespace AubsCraft.Admin.Services;
@@ -27,6 +28,36 @@ public class ServerHubClient : IAsyncDisposable
     public event Action<ChatMessageDto>? OnChatMessageReceived;
     public event Action<TpsReadingDto>? OnTpsReadingReceived;
     public event Action<HubConnectionState>? OnStateChanged;
+    public event Action<string>? OnError;
+
+    // -- Safe invocation wrapper --
+
+    private async Task<T> SafeInvokeAsync<T>(string method, T fallback, params object?[] args)
+    {
+        try
+        {
+            return await _hub!.InvokeAsync<T>(method, args);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HubException)
+        {
+            OnError?.Invoke($"Connection error: {ex.Message}");
+            return fallback;
+        }
+    }
+
+    private async Task<T> SafeInvokeAsync<T>(string method, T fallback, CancellationToken ct, params object?[] args)
+    {
+        try
+        {
+            return await _hub!.InvokeAsync<T>(method, args, ct);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HubException or OperationCanceledException)
+        {
+            if (ex is not OperationCanceledException)
+                OnError?.Invoke($"Connection error: {ex.Message}");
+            return fallback;
+        }
+    }
 
     public async Task ConnectAsync()
     {
@@ -60,95 +91,100 @@ public class ServerHubClient : IAsyncDisposable
     // -- Hub invocations (client calls server) --
 
     public Task<string> WhitelistAddAsync(string playerName)
-        => _hub!.InvokeAsync<string>("WhitelistAdd", playerName);
+        => SafeInvokeAsync("WhitelistAdd", "", playerName);
 
     public Task<string> WhitelistRemoveAsync(string playerName)
-        => _hub!.InvokeAsync<string>("WhitelistRemove", playerName);
+        => SafeInvokeAsync("WhitelistRemove", "", playerName);
 
     public Task<List<string>> GetWhitelistAsync()
-        => _hub!.InvokeAsync<List<string>>("GetWhitelist");
+        => SafeInvokeAsync<List<string>>("GetWhitelist", []);
 
     public Task<List<ActivityEventDto>> GetRecentActivityAsync(int count = 100, string? typeFilter = null)
-        => _hub!.InvokeAsync<List<ActivityEventDto>>("GetRecentActivity", count, typeFilter);
+        => SafeInvokeAsync<List<ActivityEventDto>>("GetRecentActivity", [], count, typeFilter);
 
     public Task<string> KickAsync(string playerName, string? reason = null)
-        => _hub!.InvokeAsync<string>("KickPlayer", playerName, reason);
+        => SafeInvokeAsync("KickPlayer", "", playerName, reason);
 
     public Task<string> BanAsync(string playerName, string? reason = null)
-        => _hub!.InvokeAsync<string>("BanPlayer", playerName, reason);
+        => SafeInvokeAsync("BanPlayer", "", playerName, reason);
 
     public Task<string> PardonAsync(string playerName)
-        => _hub!.InvokeAsync<string>("PardonPlayer", playerName);
+        => SafeInvokeAsync("PardonPlayer", "", playerName);
 
     public Task<List<string>> GetBanListAsync()
-        => _hub!.InvokeAsync<List<string>>("GetBanList");
+        => SafeInvokeAsync<List<string>>("GetBanList", []);
 
     public Task<string> SayAsync(string message)
-        => _hub!.InvokeAsync<string>("Say", message);
+        => SafeInvokeAsync("Say", "", message);
 
     public Task<string> SetTimeAsync(string time)
-        => _hub!.InvokeAsync<string>("SetTime", time);
+        => SafeInvokeAsync("SetTime", "", time);
 
     public Task<string> SetWeatherAsync(string weather)
-        => _hub!.InvokeAsync<string>("SetWeather", weather);
+        => SafeInvokeAsync("SetWeather", "", weather);
 
     public Task<ServerStatusDto?> GetCurrentStatusAsync()
-        => _hub!.InvokeAsync<ServerStatusDto?>("GetCurrentStatus");
+        => SafeInvokeAsync<ServerStatusDto?>("GetCurrentStatus", null);
 
     public Task<string> SetGamemodeAsync(string playerName, string mode)
-        => _hub!.InvokeAsync<string>("SetGamemode", playerName, mode);
+        => SafeInvokeAsync("SetGamemode", "", playerName, mode);
 
     public Task<string> TeleportPlayerAsync(string playerName, string destination)
-        => _hub!.InvokeAsync<string>("TeleportPlayer", playerName, destination);
+        => SafeInvokeAsync("TeleportPlayer", "", playerName, destination);
 
     public Task<string> GiveItemAsync(string playerName, string item, int count = 1)
-        => _hub!.InvokeAsync<string>("GiveItem", playerName, item, count);
+        => SafeInvokeAsync("GiveItem", "", playerName, item, count);
 
     public Task<string> SaveWorldAsync()
-        => _hub!.InvokeAsync<string>("SaveWorld");
+        => SafeInvokeAsync("SaveWorld", "");
 
     public Task<string> SendCommandAsync(string command)
-        => _hub!.InvokeAsync<string>("SendCommand", command);
+        => SafeInvokeAsync("SendCommand", "", command);
 
     public Task<WorldTimeWeatherDto> GetWorldTimeWeatherAsync()
-        => _hub!.InvokeAsync<WorldTimeWeatherDto>("GetWorldTimeWeather");
+        => SafeInvokeAsync("GetWorldTimeWeather", new WorldTimeWeatherDto(0, "..."));
 
     public Task<List<PluginInfoDto>> GetPluginsAsync()
-        => _hub!.InvokeAsync<List<PluginInfoDto>>("GetPlugins");
+        => SafeInvokeAsync<List<PluginInfoDto>>("GetPlugins", []);
 
     public Task<ToggleResultDto> TogglePluginAsync(string fileName)
-        => _hub!.InvokeAsync<ToggleResultDto>("TogglePlugin", fileName);
+        => SafeInvokeAsync("TogglePlugin", new ToggleResultDto(false, "Connection lost"), fileName);
 
     public Task<List<PlayerSummaryDto>> GetAllPlayersAsync()
-        => _hub!.InvokeAsync<List<PlayerSummaryDto>>("GetAllPlayers");
+        => SafeInvokeAsync<List<PlayerSummaryDto>>("GetAllPlayers", []);
 
     public Task<PlayerProfileDto?> GetPlayerProfileAsync(string uuid)
-        => _hub!.InvokeAsync<PlayerProfileDto?>("GetPlayerProfile", uuid);
+        => SafeInvokeAsync<PlayerProfileDto?>("GetPlayerProfile", null, uuid);
 
     public Task<WorldStatsDto> GetWorldStatsAsync()
-        => _hub!.InvokeAsync<WorldStatsDto>("GetWorldStats");
+        => SafeInvokeAsync("GetWorldStats", new WorldStatsDto());
 
     // -- Plugin Browser --
 
     public Task<List<ModrinthSearchResultDto>> SearchPluginsAsync(string query)
-        => _hub!.InvokeAsync<List<ModrinthSearchResultDto>>("SearchPlugins", query);
+        => SafeInvokeAsync<List<ModrinthSearchResultDto>>("SearchPlugins", [], query);
 
     public Task<List<ModrinthVersionDto>> GetPluginVersionsAsync(string projectId)
-        => _hub!.InvokeAsync<List<ModrinthVersionDto>>("GetPluginVersions", projectId);
+        => SafeInvokeAsync<List<ModrinthVersionDto>>("GetPluginVersions", [], projectId);
 
     public Task<ToggleResultDto> InstallPluginAsync(string downloadUrl, string filename)
-        => _hub!.InvokeAsync<ToggleResultDto>("InstallPlugin", downloadUrl, filename);
+        => SafeInvokeAsync("InstallPlugin", new ToggleResultDto(false, "Connection lost"), downloadUrl, filename);
 
     // -- Server Control --
 
     public Task<ToggleResultDto> RestartServerAsync()
-        => _hub!.InvokeAsync<ToggleResultDto>("RestartServer");
+        => SafeInvokeAsync("RestartServer", new ToggleResultDto(false, "Connection lost"));
 
     public Task<ToggleResultDto> StopServerAsync()
-        => _hub!.InvokeAsync<ToggleResultDto>("StopServer");
+        => SafeInvokeAsync("StopServer", new ToggleResultDto(false, "Connection lost"));
 
     public Task<ToggleResultDto> StartServerAsync()
-        => _hub!.InvokeAsync<ToggleResultDto>("StartServer");
+        => SafeInvokeAsync("StartServer", new ToggleResultDto(false, "Connection lost"));
+
+    // -- Config --
+
+    public Task<BlueMapConfigDto> GetBlueMapConfigAsync()
+        => SafeInvokeAsync("GetBlueMapConfig", new BlueMapConfigDto("", false));
 
     public async ValueTask DisposeAsync()
     {
@@ -162,6 +198,10 @@ public class ServerHubClient : IAsyncDisposable
 public record WorldTimeWeatherDto(
     int TimeTicks,
     string TimeFormatted);
+
+public record BlueMapConfigDto(
+    string Url,
+    bool Enabled);
 
 public record ServerStatusDto(
     bool Connected,

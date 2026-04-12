@@ -91,6 +91,17 @@
                                         }
                                     </div>
                                 }
+                                <!-- Give Item -->
+                                <div class="d-flex gap-1 mt-1 flex-wrap align-items-center">
+                                    <small class="text-muted me-1 align-self-center">Give:</small>
+                                    <input type="text" class="form-control form-control-sm" style="width:140px;font-size:0.75rem;"
+                                           placeholder="item name" @bind="_giveItemName" @bind:event="oninput" />
+                                    <input type="number" class="form-control form-control-sm" style="width:55px;font-size:0.75rem;"
+                                           min="1" max="64" @bind="_giveItemCount" />
+                                    <button class="btn btn-outline-success btn-sm py-0 px-1" style="font-size:0.75rem;"
+                                            disabled="@string.IsNullOrWhiteSpace(_giveItemName)"
+                                            @onclick="() => GiveItemAsync(player)">Give</button>
+                                </div>
                             </div>
                         }
                     </div>
@@ -140,6 +151,8 @@
     private List<string> _banList = [];
     private string _newWhitelistPlayer = "";
     private string? _lastResult;
+    private string _giveItemName = "";
+    private int _giveItemCount = 1;
     private static readonly string[] _gamemodes = ["survival", "creative", "spectator", "adventure"];
 
     protected override async Task OnInitializedAsync()
@@ -210,6 +223,14 @@
     private async Task TeleportAsync(string player, string destination)
     {
         _lastResult = await Hub.TeleportPlayerAsync(player, destination);
+    }
+
+    private async Task GiveItemAsync(string player)
+    {
+        if (string.IsNullOrWhiteSpace(_giveItemName)) return;
+        _lastResult = await Hub.GiveItemAsync(player, _giveItemName.Trim(), _giveItemCount);
+        _giveItemName = "";
+        _giveItemCount = 1;
     }
 
     public void Dispose()

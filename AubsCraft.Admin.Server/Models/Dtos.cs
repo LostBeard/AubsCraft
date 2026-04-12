@@ -25,6 +25,10 @@ public record WorldTimeWeatherDto(
     int TimeTicks,
     string TimeFormatted);
 
+public record BlueMapConfigDto(
+    string Url,
+    bool Enabled);
+
 public record ActivityEventDto(
     DateTime Timestamp,
     ActivityEventType Type,

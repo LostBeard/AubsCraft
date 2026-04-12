@@ -70,6 +70,10 @@ else
                             <tr><td class="text-muted">First Seen</td><td>@(_profile.FirstSeen?.ToString("MMM d, yyyy HH:mm") ?? "Unknown")</td></tr>
                             <tr><td class="text-muted">Last Login</td><td>@(_profile.LastLogin?.ToString("MMM d, yyyy HH:mm") ?? "Never")</td></tr>
                             <tr><td class="text-muted">Last Logout</td><td>@(_profile.LastLogout?.ToString("MMM d, yyyy HH:mm") ?? "Never")</td></tr>
+                            @if (!string.IsNullOrEmpty(_profile.ClientVersion))
+                            {
+                                <tr><td class="text-muted">Client Version</td><td>@_profile.ClientVersion</td></tr>
+                            }
                             <tr><td class="text-muted">Chat Messages</td><td>@_profile.ChatMessages</td></tr>
                             <tr><td class="text-muted">Claim Blocks</td><td>@_profile.ClaimBlocksAccrued</td></tr>
                         </tbody>
@@ -123,6 +127,28 @@ else
                     </table>
                 </div>
             </div>
+
+            <!-- Blocks Mined -->
+            @if (_profile.BlocksMined.Count > 0)
+            {
+                <div class="card mb-3">
+                    <div class="card-header"><h6 class="mb-0">Blocks Mined (@_profile.BlocksMined.Values.Sum().ToString("N0"))</h6></div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm mb-0">
+                            <tbody>
+                                @foreach (var kvp in _profile.BlocksMined.OrderByDescending(k => k.Value).Take(20))
+                                {
+                                    <tr><td class="text-muted text-capitalize">@kvp.Key.Replace("_", " ")</td><td>@kvp.Value.ToString("N0")</td></tr>
+                                }
+                                @if (_profile.BlocksMined.Count > 20)
+                                {
+                                    <tr><td class="text-muted" colspan="2">...and @(_profile.BlocksMined.Count - 20) more</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
 
             <!-- Mobs Killed -->
             @if (_profile.KilledMobs.Count > 0)

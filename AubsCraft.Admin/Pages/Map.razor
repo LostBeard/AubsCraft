@@ -1,13 +1,34 @@
 @page "/map"
+@inject ServerHubClient Hub
 
 <PageTitle>Map - AubsCraft Admin</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-2">
-    <h1 class="mb-0">World Map</h1>
-    <a href="https://map.spawndev.com:44365" target="_blank" class="btn btn-sm btn-outline-secondary">Open in New Tab</a>
-</div>
+@if (string.IsNullOrEmpty(_blueMapUrl))
+{
+    <h1>World Map</h1>
+    <div class="alert alert-info">BlueMap is not configured. Set <code>BlueMap:Url</code> and <code>BlueMap:Enabled</code> in appsettings.json.</div>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h1 class="mb-0">World Map</h1>
+        <a href="@_blueMapUrl" target="_blank" class="btn btn-sm btn-outline-secondary">Open in New Tab</a>
+    </div>
 
-<iframe src="https://map.spawndev.com:44365"
-        style="width: 100%; height: calc(100vh - 8rem); border: none; border-radius: 4px;"
-        allowfullscreen>
-</iframe>
+    <iframe src="@_blueMapUrl"
+            style="width: 100%; height: calc(100vh - 8rem); border: none; border-radius: 4px;"
+            allowfullscreen>
+    </iframe>
+}
+
+@code {
+    private string? _blueMapUrl;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Hub.ConnectAsync();
+        var config = await Hub.GetBlueMapConfigAsync();
+        if (config.Enabled && !string.IsNullOrEmpty(config.Url))
+            _blueMapUrl = config.Url;
+    }
+}

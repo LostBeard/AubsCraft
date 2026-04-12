@@ -16,49 +16,66 @@
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="players">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Players
+                <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Players
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="world">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> World
+                <span class="bi bi-globe-nav-menu" aria-hidden="true"></span> World
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="stats">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Stats
+                <span class="bi bi-bar-chart-nav-menu" aria-hidden="true"></span> Stats
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="plugins">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Plugins
+                <span class="bi bi-puzzle-nav-menu" aria-hidden="true"></span> Plugins
             </NavLink>
         </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="map">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Map
-            </NavLink>
-        </div>
+        @if (_blueMapEnabled)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="map">
+                    <span class="bi bi-map-nav-menu" aria-hidden="true"></span> Map
+                </NavLink>
+            </div>
+        }
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="activity">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Activity Log
+                <span class="bi bi-clock-history-nav-menu" aria-hidden="true"></span> Activity Log
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="console">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Console
+                <span class="bi bi-terminal-nav-menu" aria-hidden="true"></span> Console
             </NavLink>
         </div>
     </nav>
 </div>
 
+@inject ServerHubClient Hub
+
 @code {
     private bool collapseNavMenu = true;
+    private bool _blueMapEnabled = true;
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
 
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await Hub.ConnectAsync();
+            var config = await Hub.GetBlueMapConfigAsync();
+            _blueMapEnabled = config.Enabled;
+        }
+        catch { }
     }
 }

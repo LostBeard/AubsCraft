@@ -1,11 +1,12 @@
 @page "/console"
 @inject ServerHubClient Hub
+@inject IJSRuntime JS
 
 <PageTitle>Console - AubsCraft Admin</PageTitle>
 
 <h1>Server Console</h1>
 
-<p class="text-muted">Send commands directly to the Minecraft server. This works just like the in-game console.</p>
+<p class="text-muted">Send commands directly to the Minecraft server. Use arrow keys to recall previous commands.</p>
 
 <div class="card mb-4">
     <div class="card-body">
@@ -25,23 +26,23 @@
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Command History</h5>
-            <button class="btn btn-sm btn-outline-secondary" @onclick="() => _history.Clear()">Clear</button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ClearHistory">Clear</button>
         </div>
         <div class="card-body p-0">
-            <div class="font-monospace p-3" style="max-height: 400px; overflow-y: auto; background: #1a1a2e; color: #e0e0e0;">
+            <div @ref="_outputRef" class="console-output font-monospace p-3">
                 @foreach (var entry in _history)
                 {
                     <div class="mb-1">
-                        <span style="color: #6c9bff;">&gt; /@entry.Command</span>
+                        <span class="console-prompt">&gt; /@entry.Command</span>
                     </div>
-                    <div class="mb-2" style="color: #a0ffa0;">
+                    <div class="mb-2">
                         @if (string.IsNullOrEmpty(entry.Response))
                         {
-                            <em style="color: #888;">(no response)</em>
+                            <em class="console-muted">(no response)</em>
                         }
                         else
                         {
-                            @entry.Response
+                            <span class="console-response">@entry.Response</span>
                         }
                     </div>
                 }
@@ -53,6 +54,9 @@
 @code {
     private string _command = "";
     private List<ConsoleEntry> _history = [];
+    private List<string> _commandHistory = [];
+    private int _historyIndex = -1;
+    private ElementReference _outputRef;
 
     protected override async Task OnInitializedAsync()
     {
@@ -62,7 +66,28 @@
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_command))
+        {
             await SendCommandAsync();
+        }
+        else if (e.Key == "ArrowUp" && _commandHistory.Count > 0)
+        {
+            if (_historyIndex < _commandHistory.Count - 1)
+                _historyIndex++;
+            _command = _commandHistory[_commandHistory.Count - 1 - _historyIndex];
+        }
+        else if (e.Key == "ArrowDown")
+        {
+            if (_historyIndex > 0)
+            {
+                _historyIndex--;
+                _command = _commandHistory[_commandHistory.Count - 1 - _historyIndex];
+            }
+            else
+            {
+                _historyIndex = -1;
+                _command = "";
+            }
+        }
     }
 
     private async Task SendCommandAsync()
@@ -70,9 +95,28 @@
         if (string.IsNullOrWhiteSpace(_command)) return;
         var cmd = _command.Trim();
         _command = "";
+        _historyIndex = -1;
+        _commandHistory.Add(cmd);
 
         var response = await Hub.SendCommandAsync(cmd);
         _history.Add(new ConsoleEntry(cmd, response));
+
+        await ScrollToBottom();
+    }
+
+    private void ClearHistory()
+    {
+        _history.Clear();
+    }
+
+    private async Task ScrollToBottom()
+    {
+        await Task.Yield();
+        try
+        {
+            await JS.InvokeVoidAsync("eval", "document.querySelector('.console-output').scrollTop = document.querySelector('.console-output').scrollHeight");
+        }
+        catch { }
     }
 
     private record ConsoleEntry(string Command, string Response);

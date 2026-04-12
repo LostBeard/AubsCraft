@@ -19,11 +19,12 @@ public class ServerHub : Hub<IServerHubClient>
     private readonly PlayerStatsService _stats;
     private readonly ModrinthService _modrinth;
     private readonly ServerControlService _serverControl;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<ServerHub> _logger;
 
     public ServerHub(RconService rcon, ServerMonitorService monitor, ActivityLogService activityLog,
         PluginService plugins, PlayerStatsService stats, ModrinthService modrinth,
-        ServerControlService serverControl, ILogger<ServerHub> logger)
+        ServerControlService serverControl, IConfiguration configuration, ILogger<ServerHub> logger)
     {
         _rcon = rcon;
         _monitor = monitor;
@@ -32,6 +33,7 @@ public class ServerHub : Hub<IServerHubClient>
         _stats = stats;
         _modrinth = modrinth;
         _serverControl = serverControl;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -219,6 +221,15 @@ public class ServerHub : Hub<IServerHubClient>
         _logger.LogInformation("Server start requested");
         var (success, output) = await _serverControl.StartAsync();
         return (success, success ? "Server starting..." : $"Start failed: {output}");
+    }
+
+    // -- Config --
+
+    public BlueMapConfigDto GetBlueMapConfig()
+    {
+        return new BlueMapConfigDto(
+            _configuration["BlueMap:Url"] ?? "",
+            _configuration.GetValue<bool>("BlueMap:Enabled"));
     }
 
     // -- Player Stats --
