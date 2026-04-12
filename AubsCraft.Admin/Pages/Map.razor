@@ -363,13 +363,13 @@ else
                     if (blocks.Length != 16 * 384 * 16) continue;
 
                     var paletteColors = BlockColorMap.BuildPaletteColors(chunkData.Palette);
-                    var result = await Engine.GenerateMeshAsync(blocks, paletteColors, cx, cz);
 
-                    if (result.VertexCount > 100)
-                    {
-                        // Replace heightmap with full 3D - the mesh IS valid
-                        Renderer.UploadChunkMesh(cx, cz, result.Vertices);
-                    }
+                    // CPU mesher with full atlas UVs and transparency
+                    var (vertices, vertexCount) = ChunkMesher.GenerateMesh(
+                        blocks, chunkData.Palette, paletteColors, cx, cz);
+
+                    if (vertexCount > 100)
+                        Renderer.UploadChunkMesh(cx, cz, vertices);
                     _fullChunks.Add((cx, cz));
                 }
                 catch (Exception ex)
