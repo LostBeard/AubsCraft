@@ -563,15 +563,11 @@ fn fs_main(input : VertexOutput) -> @location(0) vec4<f32> {
 
     let light = ambient + sun_color * sun_intensity * 0.55 + fill_color * fill_intensity * 0.18;
 
-    // Sample texture if UVs are valid (non-zero), otherwise use vertex color
-    var color : vec3<f32>;
-    if (input.tex_uv.x >= 0.0 && input.tex_uv.y >= 0.0) {
-        let tex_color = textureSample(atlas_texture, atlas_sampler, input.tex_uv);
-        // Tint with vertex color (for biome-tinted blocks like grass/leaves)
-        color = tex_color.rgb * input.base_color;
-    } else {
-        color = input.base_color;
-    }
+    // Always sample texture (WebGPU requires uniform control flow for textureSample)
+    let tex_color = textureSample(atlas_texture, atlas_sampler, input.tex_uv);
+    // Use texture if UVs are valid (>= 0), otherwise use flat vertex color
+    let has_texture = step(0.0, input.tex_uv.x);
+    var color = mix(input.base_color, tex_color.rgb * input.base_color, has_texture);
 
     // Face-dependent shading
     if (n.y < -0.5) {

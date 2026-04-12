@@ -222,22 +222,10 @@ else
     {
         try
         {
-            // Load atlas PNG, decode via canvas to get RGBA pixels
-            var pngBytes = await Http.GetByteArrayAsync("atlas.png");
-            // Use JS to decode the PNG into RGBA pixels
-            var rgba = await JS.InvokeAsync<byte[]>("eval", @"
-                (async () => {
-                    const response = await fetch('atlas.png');
-                    const blob = await response.blob();
-                    const bitmap = await createImageBitmap(blob);
-                    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(bitmap, 0, 0);
-                    const imageData = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
-                    return Array.from(imageData.data);
-                })()
-            ");
-            int size = (int)Math.Sqrt(rgba.Length / 4); // atlas is square
+            // Load pre-decoded RGBA atlas data from server
+            var rgba = await Http.GetByteArrayAsync("atlas.rgba");
+            // Atlas is square: side = sqrt(totalBytes / 4)
+            int size = (int)Math.Sqrt(rgba.Length / 4);
             Renderer.UploadAtlas(rgba, size, size);
         }
         catch (Exception ex)

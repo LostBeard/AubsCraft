@@ -181,6 +181,8 @@ world.MapGet("/chunk/{x:int}/{z:int}", (int x, int z, WorldDataService worldData
     return Results.Ok(new ChunkDataResponse(blocksBase64, chunk.Palette));
 });
 
+// atlas.rgba served as static file from wwwroot
+
 world.MapPost("/cache/clear", (WorldDataService worldData) =>
 {
     worldData.ClearCache();
