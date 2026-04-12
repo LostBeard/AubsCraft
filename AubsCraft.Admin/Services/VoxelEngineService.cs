@@ -126,8 +126,29 @@ public sealed class VoxelEngineService : IAsyncDisposable
                 _meshVertexBuffer!.View.SubView(0, floatCount));
             await _accelerator!.SynchronizeAsync();
 
-            var vertices = await _meshResultBuffer.CopyToHostAsync();
-            return new MeshGenerationResult(vertices, floatCount / 9);
+            var rawVertices = await _meshResultBuffer.CopyToHostAsync();
+            int vertexCount = floatCount / 9;
+
+            // Expand from 9 floats (pos3+normal3+color3) to 11 floats (+ uv2)
+            // Add UV (-1, -1) to signal "use flat color" to the shader
+            var vertices = new float[vertexCount * 11];
+            for (int i = 0; i < vertexCount; i++)
+            {
+                int src = i * 9;
+                int dst = i * 11;
+                vertices[dst] = rawVertices[src];     // pos.x
+                vertices[dst + 1] = rawVertices[src + 1]; // pos.y
+                vertices[dst + 2] = rawVertices[src + 2]; // pos.z
+                vertices[dst + 3] = rawVertices[src + 3]; // normal.x
+                vertices[dst + 4] = rawVertices[src + 4]; // normal.y
+                vertices[dst + 5] = rawVertices[src + 5]; // normal.z
+                vertices[dst + 6] = rawVertices[src + 6]; // color.r
+                vertices[dst + 7] = rawVertices[src + 7]; // color.g
+                vertices[dst + 8] = rawVertices[src + 8]; // color.b
+                vertices[dst + 9] = -1f;  // uv.u (no texture)
+                vertices[dst + 10] = -1f; // uv.v (no texture)
+            }
+            return new MeshGenerationResult(vertices, vertexCount);
         }
         finally
         {
