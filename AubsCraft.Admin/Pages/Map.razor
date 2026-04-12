@@ -69,6 +69,7 @@ else
     private HashSet<(int, int)> _populatedChunks = new();
     private HashSet<(int, int)> _loadedChunks = new();
     private HashSet<(int, int)> _loadingChunks = new();
+    private List<(int cx, int cz)> _playerChunkKeys = new();
 
     private enum ViewMode { Initializing, Viewer3D, BlueMap, Error }
 
@@ -130,6 +131,9 @@ else
         }
     }
 
+    private int _lastFullCX = int.MinValue, _lastFullCZ = int.MinValue;
+    private bool _loadingFull;
+
     private void OnFrameUpdate(float dt)
     {
         var (dx, dy) = Input.ConsumeMouseDelta();
@@ -139,11 +143,20 @@ else
         if (_pointerLocked)
             Renderer.Camera.ProcessKeyboard(Input.KeysDown, dt);
 
-        // Detect ESC to release pointer lock (no JS interop in render loop)
         if (_pointerLocked && Input.KeysDown.Contains("Escape"))
         {
             _pointerLocked = false;
             Input.KeysDown.Remove("Escape");
+        }
+
+        // Dynamic full-3D loading for nearby chunks
+        int camCX = (int)MathF.Floor(Renderer.Camera.Position.X / 16f);
+        int camCZ = (int)MathF.Floor(Renderer.Camera.Position.Z / 16f);
+        if (!_loadingFull && (camCX != _lastFullCX || camCZ != _lastFullCZ))
+        {
+            _lastFullCX = camCX;
+            _lastFullCZ = camCZ;
+            _ = LoadFullChunksNearbyAsync(camCX, camCZ);
         }
     }
 
@@ -218,8 +231,89 @@ else
         while (_viewMode == ViewMode.Viewer3D)
         {
             await Task.Delay(500);
+
+            // Update player positions
+            try
+            {
+                var positions = await Hub.GetPlayerPositionsAsync();
+                UpdatePlayerMarkers(positions);
+            }
+            catch { }
+
             StateHasChanged();
         }
+    }
+
+    private void UpdatePlayerMarkers(List<PlayerPositionDto> positions)
+    {
+        // Remove old markers
+        foreach (var key in _playerChunkKeys)
+            Renderer.RemoveChunkMesh(key.cx, key.cz);
+        _playerChunkKeys.Clear();
+
+        foreach (var pos in positions)
+        {
+            // Create a bright colored beacon column at player position
+            var verts = new List<float>();
+            float px = pos.X;
+            float py = pos.Y;
+            float pz = pos.Z;
+
+            // Render a 1x3 colored pillar (visible from distance)
+            for (int dy = 0; dy < 5; dy++)
+            {
+                float y = py + dy;
+                // Bright cyan marker
+                float r = 0.1f, g = 0.9f, b = 1.0f;
+                // All 6 faces of the marker block
+                EmitMarkerBlock(verts, px, y, pz, r, g, b);
+            }
+
+            // Use a unique chunk key far outside normal range
+            int markerCx = 100000 + _playerChunkKeys.Count;
+            int markerCz = 100000;
+            _playerChunkKeys.Add((markerCx, markerCz));
+
+            if (verts.Count > 0)
+                Renderer.UploadChunkMesh(markerCx, markerCz, verts.ToArray());
+        }
+    }
+
+    private static void EmitMarkerBlock(List<float> v, float x, float y, float z, float r, float g, float b)
+    {
+        float s = 0.5f; // half-size
+        float x0 = x - s, x1 = x + s, z0 = z - s, z1 = z + s;
+        float y0 = y, y1 = y + 1;
+        float nu = -1f; // no texture
+
+        // Top
+        MV(v, x0, y1, z0, 0, 1, 0, r, g, b, nu, nu); MV(v, x0, y1, z1, 0, 1, 0, r, g, b, nu, nu);
+        MV(v, x1, y1, z1, 0, 1, 0, r, g, b, nu, nu); MV(v, x0, y1, z0, 0, 1, 0, r, g, b, nu, nu);
+        MV(v, x1, y1, z1, 0, 1, 0, r, g, b, nu, nu); MV(v, x1, y1, z0, 0, 1, 0, r, g, b, nu, nu);
+        // -X
+        MV(v, x0, y0, z1, -1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu); MV(v, x0, y1, z1, -1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu);
+        MV(v, x0, y1, z0, -1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu); MV(v, x0, y0, z1, -1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu);
+        MV(v, x0, y1, z0, -1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu); MV(v, x0, y0, z0, -1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu);
+        // +X
+        MV(v, x1, y0, z0, 1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu); MV(v, x1, y1, z0, 1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu);
+        MV(v, x1, y1, z1, 1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu); MV(v, x1, y0, z0, 1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu);
+        MV(v, x1, y1, z1, 1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu); MV(v, x1, y0, z1, 1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu);
+        // -Z
+        MV(v, x0, y0, z0, 0, 0, -1, r*0.7f, g*0.7f, b*0.7f, nu, nu); MV(v, x0, y1, z0, 0, 0, -1, r*0.7f, g*0.7f, b*0.7f, nu, nu);
+        MV(v, x1, y1, z0, 0, 0, -1, r*0.7f, g*0.7f, b*0.7f, nu, nu); MV(v, x0, y0, z0, 0, 0, -1, r*0.7f, g*0.7f, b*0.7f, nu, nu);
+        MV(v, x1, y1, z0, 0, 0, -1, r*0.7f, g*0.7f, b*0.7f, nu, nu); MV(v, x1, y0, z0, 0, 0, -1, r*0.7f, g*0.7f, b*0.7f, nu, nu);
+        // +Z
+        MV(v, x1, y0, z1, 0, 0, 1, r*0.7f, g*0.7f, b*0.7f, nu, nu); MV(v, x1, y1, z1, 0, 0, 1, r*0.7f, g*0.7f, b*0.7f, nu, nu);
+        MV(v, x0, y1, z1, 0, 0, 1, r*0.7f, g*0.7f, b*0.7f, nu, nu); MV(v, x1, y0, z1, 0, 0, 1, r*0.7f, g*0.7f, b*0.7f, nu, nu);
+        MV(v, x0, y1, z1, 0, 0, 1, r*0.7f, g*0.7f, b*0.7f, nu, nu); MV(v, x0, y0, z1, 0, 0, 1, r*0.7f, g*0.7f, b*0.7f, nu, nu);
+    }
+
+    private static void MV(List<float> v, float px, float py, float pz, float nx, float ny, float nz, float r, float g, float b, float u, float uv)
+    {
+        v.Add(px); v.Add(py); v.Add(pz);
+        v.Add(nx); v.Add(ny); v.Add(nz);
+        v.Add(r); v.Add(g); v.Add(b);
+        v.Add(u); v.Add(uv);
     }
 
     private async Task LoadAtlasAsync()
@@ -235,6 +329,55 @@ else
         catch (Exception ex)
         {
             System.Console.WriteLine($"[Map] Atlas load error: {ex.Message}");
+        }
+    }
+
+    private HashSet<(int, int)> _fullChunks = new();
+    private const int FullRenderRadius = 3;
+
+    private async Task LoadFullChunksNearbyAsync(int camCX, int camCZ)
+    {
+        _loadingFull = true;
+        try
+        {
+            for (int dz = -FullRenderRadius; dz <= FullRenderRadius; dz++)
+            for (int dx = -FullRenderRadius; dx <= FullRenderRadius; dx++)
+            {
+                if (dx * dx + dz * dz > FullRenderRadius * FullRenderRadius) continue;
+                int cx = camCX + dx;
+                int cz = camCZ + dz;
+                if (_fullChunks.Contains((cx, cz))) continue;
+                if (!_populatedChunks.Contains((cx, cz))) continue;
+
+                try
+                {
+                    var response = await Http.GetAsync($"/api/world/chunk/{cx}/{cz}");
+                    if (!response.IsSuccessStatusCode) continue;
+
+                    var chunkData = await response.Content.ReadFromJsonAsync<ChunkDataDto>();
+                    if (chunkData == null) continue;
+
+                    var blockBytes = Convert.FromBase64String(chunkData.Blocks);
+                    var blocks = new ushort[blockBytes.Length / 2];
+                    Buffer.BlockCopy(blockBytes, 0, blocks, 0, blockBytes.Length);
+                    if (blocks.Length != 16 * 384 * 16) continue;
+
+                    var paletteColors = BlockColorMap.BuildPaletteColors(chunkData.Palette);
+                    var result = await Engine.GenerateMeshAsync(blocks, paletteColors, cx, cz);
+
+                    if (result.VertexCount > 0)
+                    {
+                        Renderer.UploadChunkMesh(cx, cz, result.Vertices);
+                        _fullChunks.Add((cx, cz));
+                    }
+                }
+                catch { }
+                await Task.Yield();
+            }
+        }
+        finally
+        {
+            _loadingFull = false;
         }
     }
 
