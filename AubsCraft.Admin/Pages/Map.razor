@@ -2,7 +2,9 @@
 @inject ServerHubClient Hub
 @inject HttpClient Http
 @inject VoxelEngineService Engine
+@inject InputService Input
 @inject AubsCraft.Admin.Rendering.MapRenderService Renderer
+@inject IJSRuntime JS
 @implements IDisposable
 @using AubsCraft.Admin.Rendering
 @using SpawnDev.BlazorJS.JSObjects
@@ -18,6 +20,8 @@
                 @(Engine.BackendName ?? "...") |
                 @Renderer.VisibleChunkCount/@Renderer.TotalChunkCount chunks |
                 @_loadedCount loaded
+                @if (!_pointerLocked) { <span> | Click to fly</span> }
+                else { <span> | WASD + Mouse | ESC to release</span> }
             </small>
             <button class="btn btn-sm btn-outline-secondary" @onclick="SwitchToBlueMap">BlueMap</button>
         }
@@ -36,9 +40,10 @@
 @if (_viewMode == ViewMode.Viewer3D || _viewMode == ViewMode.Initializing)
 {
     <canvas id="map-canvas" @ref="_canvasRef"
-            style="width: 100%; height: calc(100vh - 8rem); border-radius: 4px; display: block; background: #a5cce8;"
-            @onmousedown="OnMouseDown" @onmousemove="OnMouseMove" @onmouseup="OnMouseUp"
-            @onwheel="OnWheel" @oncontextmenu:preventDefault>
+            style="width: 100%; height: calc(100vh - 8rem); border-radius: 4px; display: block; background: #a5cce8; cursor: @(_pointerLocked ? "none" : "pointer");"
+            tabindex="0"
+            @onclick="OnCanvasClick"
+            @oncontextmenu:preventDefault>
     </canvas>
 }
 else if (_viewMode == ViewMode.BlueMap && !string.IsNullOrEmpty(_blueMapUrl))
@@ -59,9 +64,13 @@ else
     private ViewMode _viewMode = ViewMode.Initializing;
     private string _statusMessage = "Initializing GPU...";
     private int _loadedCount;
-    private bool _mouseDown;
-    private int _mouseButton;
-    private double _lastMouseX, _lastMouseY;
+    private bool _pointerLocked;
+    private HashSet<(int, int)> _populatedChunks = new();
+    private HashSet<(int, int)> _loadedChunks = new();
+    private HashSet<(int, int)> _loadingChunks = new();
+    private int _lastCamChunkX = int.MinValue;
+    private int _lastCamChunkZ = int.MinValue;
+    private const int DrawDistance = 8; // chunks
 
     private enum ViewMode { Initializing, Viewer3D, BlueMap, Error }
 
@@ -87,15 +96,25 @@ else
             using var canvas = new HTMLCanvasElement(_canvasRef);
             Renderer.Init(canvas, Engine.Accelerator!);
 
-            Renderer.OnUpdate = _ => { };
+            // Attach input service for keyboard/mouse
+            Input.Attach();
+
+            // Process input each frame
+            Renderer.OnUpdate = OnFrameUpdate;
+
+            // Listen for pointer lock changes
+            await JS.InvokeVoidAsync("eval", @"
+                document.addEventListener('pointerlockchange', function() {
+                    window.__mapPointerLocked = !!document.pointerLockElement;
+                });
+                window.__mapPointerLocked = false;
+            ");
 
             _viewMode = ViewMode.Viewer3D;
             _statusMessage = "";
             StateHasChanged();
 
             Renderer.StartRenderLoop();
-
-            // Start loading chunks
             _ = LoadInitialChunksAsync();
         }
         catch (Exception ex)
@@ -111,103 +130,93 @@ else
         }
     }
 
+    private void OnFrameUpdate(float dt)
+    {
+        var (dx, dy) = Input.ConsumeMouseDelta();
+        if (_pointerLocked && (dx != 0 || dy != 0))
+            Renderer.Camera.ProcessMouseMovement(dx, dy);
+
+        if (_pointerLocked)
+            Renderer.Camera.ProcessKeyboard(Input.KeysDown, dt);
+
+        try
+        {
+            _pointerLocked = ((IJSInProcessRuntime)JS).Invoke<bool>("eval", "window.__mapPointerLocked || false");
+        }
+        catch { }
+
+    }
+
+    private async void OnCanvasClick()
+    {
+        if (!_pointerLocked)
+        {
+            await JS.InvokeVoidAsync("eval", "document.getElementById('map-canvas')?.requestPointerLock()");
+            _pointerLocked = true;
+        }
+    }
+
     private async Task LoadInitialChunksAsync()
     {
         try
         {
-            // Get world regions to find center
-            var regions = await Http.GetFromJsonAsync<List<RegionInfoDto>>("/api/world/regions");
-            if (regions == null || regions.Count == 0) return;
+            // Start high up looking down - map view
+            Renderer.Camera.Position = new System.Numerics.Vector3(0f, 200f, 0f);
+            Renderer.Camera.Pitch = -90f; // Look straight down
+            Renderer.Camera.Yaw = 0f;
 
-            // Find center of explored world
-            var avgX = (int)regions.Average(r => r.X);
-            var avgZ = (int)regions.Average(r => r.Z);
-            int centerChunkX = avgX * 32 + 16;
-            int centerChunkZ = avgZ * 32 + 16;
-
-            // Position camera over world center
-            Renderer.Camera.Target = new System.Numerics.Vector3(
-                centerChunkX * 16f, 64f, centerChunkZ * 16f);
-            Renderer.Camera.Distance = 200f;
-
-            // Load chunks in a spiral from center
-            int radius = 4;
-            for (int dz = -radius; dz <= radius; dz++)
-            for (int dx = -radius; dx <= radius; dx++)
+            // Stream heightmaps for the entire world - lightweight, fast
+            System.Console.WriteLine("[Map] Streaming heightmaps...");
+            await foreach (var hm in Hub.StreamHeightmaps())
             {
-                if (dx * dx + dz * dz > radius * radius) continue;
-                int cx = centerChunkX + dx;
-                int cz = centerChunkZ + dz;
-                await LoadChunkAsync(cx, cz);
-                _loadedCount++;
-                StateHasChanged();
+                try
+                {
+                    _populatedChunks.Add((hm.X, hm.Z));
+
+                    var heightBytes = Convert.FromBase64String(hm.Heights);
+                    var heights = new int[heightBytes.Length / 4];
+                    Buffer.BlockCopy(heightBytes, 0, heights, 0, heightBytes.Length);
+
+                    var blockIdBytes = Convert.FromBase64String(hm.BlockIds);
+                    var blockIds = new ushort[blockIdBytes.Length / 2];
+                    Buffer.BlockCopy(blockIdBytes, 0, blockIds, 0, blockIdBytes.Length);
+
+                    var paletteColors = BlockColorMap.BuildPaletteColors(hm.Palette);
+
+                    var (vertices, vertexCount) = HeightmapMesher.GenerateMesh(
+                        heights, blockIds, paletteColors, hm.X, hm.Z);
+
+                    if (vertexCount > 0)
+                    {
+                        Renderer.UploadChunkMesh(hm.X, hm.Z, vertices);
+                        _loadedChunks.Add((hm.X, hm.Z));
+                        _loadedCount++;
+                        if (_loadedCount % 10 == 0) StateHasChanged();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Console.WriteLine($"[Map] Heightmap ({hm.X},{hm.Z}) error: {ex.Message}");
+                }
             }
+            System.Console.WriteLine($"[Map] Loaded {_loadedCount} heightmap chunks");
+            StateHasChanged();
         }
         catch (Exception ex)
         {
-            System.Console.WriteLine($"[Map] Load error: {ex.Message}");
+            System.Console.WriteLine($"[Map] Stream error: {ex.Message}");
         }
-    }
-
-    private async Task LoadChunkAsync(int cx, int cz)
-    {
-        try
-        {
-            var response = await Http.GetFromJsonAsync<ChunkDataDto>($"/api/world/chunk/{cx}/{cz}");
-            if (response == null) return;
-
-            var blockBytes = Convert.FromBase64String(response.Blocks);
-            var blocks = new ushort[blockBytes.Length / 2];
-            Buffer.BlockCopy(blockBytes, 0, blocks, 0, blockBytes.Length);
-
-            var paletteColors = BlockColorMap.BuildPaletteColors(response.Palette);
-
-            var result = await Engine.GenerateMeshAsync(blocks, paletteColors, cx, cz);
-            if (result.VertexCount > 0)
-                Renderer.UploadChunkMesh(cx, cz, result.Vertices);
-        }
-        catch (HttpRequestException) { } // chunk doesn't exist
     }
 
     private void SwitchTo3D() => _viewMode = ViewMode.Viewer3D;
     private void SwitchToBlueMap() => _viewMode = ViewMode.BlueMap;
 
-    // Mouse input for orbit camera
-    private void OnMouseDown(MouseEventArgs e)
-    {
-        _mouseDown = true;
-        _mouseButton = (int)e.Button;
-        _lastMouseX = e.ClientX;
-        _lastMouseY = e.ClientY;
-    }
-
-    private void OnMouseMove(MouseEventArgs e)
-    {
-        if (!_mouseDown) return;
-        float dx = (float)(e.ClientX - _lastMouseX);
-        float dy = (float)(e.ClientY - _lastMouseY);
-        _lastMouseX = e.ClientX;
-        _lastMouseY = e.ClientY;
-
-        if (_mouseButton == 0) // left
-            Renderer.Camera.Rotate(dx, dy);
-        else if (_mouseButton == 2) // right
-            Renderer.Camera.Pan(dx, dy);
-    }
-
-    private void OnMouseUp(MouseEventArgs e) => _mouseDown = false;
-
-    private void OnWheel(WheelEventArgs e)
-    {
-        Renderer.Camera.Zoom((float)(-e.DeltaY / 100.0));
-    }
-
     public void Dispose()
     {
         Renderer.StopRenderLoop();
+        Input.Detach();
     }
 
-    // DTOs for API responses
-    private record RegionInfoDto(int X, int Z, long FileSize);
+    private record ChunkCoordDto(int X, int Z);
     private record ChunkDataDto(string Blocks, List<string> Palette);
 }

@@ -83,6 +83,8 @@ public sealed class RegionReader
 
         for (int i = 0; i < sections.Count; i++)
         {
+            try
+            {
             var section = sections.GetCompound(i);
             var sectionY = section.GetByte("Y");
             // Convert from signed section Y to our array offset
@@ -125,13 +127,15 @@ public sealed class RegionReader
             }
 
             // Unpack the packed long array
-            var data = blockStates.GetLongArray("data");
-            if (data == null || data.Length == 0) continue;
+            if (!blockStates.ContainsKey("data")) continue;
+            var dataObj = blockStates["data"];
+            if (dataObj is not long[] data || data.Length == 0) continue;
 
             var bitsPerBlock = Math.Max(4, (int)Math.Ceiling(Math.Log2(sectionPalette.Count)));
             var mask = (1L << bitsPerBlock) - 1;
             var blocksPerLong = 64 / bitsPerBlock;
 
+            // Minecraft 1.18+ packs entries aligned within each long (no spanning)
             int blockIndex = 0;
             for (int longIdx = 0; longIdx < data.Length && blockIndex < 4096; longIdx++)
             {
@@ -143,15 +147,18 @@ public sealed class RegionReader
 
                     if (paletteIndex >= 0 && paletteIndex < paletteMap.Length)
                     {
-                        // Convert from section-local YZX order to our XZY order
                         var localY = blockIndex / 256;
                         var localZ = (blockIndex % 256) / 16;
                         var localX = blockIndex % 16;
-                        blocks[localX + localZ * ChunkWidth + (yOffset + localY) * ChunkWidth * ChunkWidth] = paletteMap[paletteIndex];
+                        var idx = localX + localZ * ChunkWidth + (yOffset + localY) * ChunkWidth * ChunkWidth;
+                        if (idx >= 0 && idx < blocks.Length)
+                            blocks[idx] = paletteMap[paletteIndex];
                     }
                     blockIndex++;
                 }
             }
+            }
+            catch { } // Skip malformed sections
         }
 
         return new ChunkResult(blocks, palette);

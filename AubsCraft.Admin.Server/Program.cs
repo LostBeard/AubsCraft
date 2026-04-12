@@ -167,6 +167,11 @@ world.MapGet("/regions", (WorldDataService worldData) =>
     return Results.Ok(worldData.GetRegions());
 });
 
+world.MapGet("/chunks", (WorldDataService worldData) =>
+{
+    return Results.Ok(worldData.GetPopulatedChunks());
+});
+
 world.MapGet("/chunk/{x:int}/{z:int}", (int x, int z, WorldDataService worldData) =>
 {
     var chunk = worldData.GetChunk(x, z);

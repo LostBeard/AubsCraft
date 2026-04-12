@@ -87,7 +87,6 @@ public sealed class VoxelEngineService : IAsyncDisposable
         await _meshLock.WaitAsync();
         try
         {
-            // Convert ushort[] to int[] (ILGPU kernels use int for block IDs)
             var blockInts = _blockIntsPool!;
             for (int i = 0; i < blocks.Length && i < BlocksPerChunk; i++)
                 blockInts[i] = blocks[i];
@@ -95,12 +94,9 @@ public sealed class VoxelEngineService : IAsyncDisposable
             _meshBlockBuffer!.CopyFromCPU(blockInts);
             _meshCounterBuffer!.CopyFromCPU(_counterReset);
 
-            // Upload palette colors (re-allocate if size changed)
-            if (_meshPaletteBuffer == null || _meshPaletteBuffer.Length < paletteColors.Length)
-            {
-                _meshPaletteBuffer?.Dispose();
-                _meshPaletteBuffer = _accelerator!.Allocate1D<float>(paletteColors.Length);
-            }
+            // Always re-allocate palette buffer to exact size
+            _meshPaletteBuffer?.Dispose();
+            _meshPaletteBuffer = _accelerator!.Allocate1D<float>(paletteColors.Length);
             _meshPaletteBuffer.CopyFromCPU(paletteColors);
 
             _meshKernel(
@@ -122,17 +118,15 @@ public sealed class VoxelEngineService : IAsyncDisposable
             if (floatCount > MaxOutputFloats)
                 floatCount = MaxOutputFloats;
 
-            if (_meshResultBuffer == null || _meshResultBuffer.Length < floatCount)
-            {
-                _meshResultBuffer?.Dispose();
-                _meshResultBuffer = _accelerator!.Allocate1D<float>(Math.Max(floatCount, 100_000));
-            }
+            // Always re-allocate result buffer to exact size
+            _meshResultBuffer?.Dispose();
+            _meshResultBuffer = _accelerator!.Allocate1D<float>(floatCount);
 
-            _meshResultBuffer!.View.SubView(0, floatCount).CopyFrom(
+            _meshResultBuffer.View.SubView(0, floatCount).CopyFrom(
                 _meshVertexBuffer!.View.SubView(0, floatCount));
             await _accelerator!.SynchronizeAsync();
 
-            var vertices = await _meshResultBuffer.CopyToHostAsync(0, floatCount);
+            var vertices = await _meshResultBuffer.CopyToHostAsync();
             return new MeshGenerationResult(vertices, floatCount / 9);
         }
         finally

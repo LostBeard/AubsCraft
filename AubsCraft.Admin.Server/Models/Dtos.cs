@@ -29,6 +29,19 @@ public record BlueMapConfigDto(
     string Url,
     bool Enabled);
 
+public record HeightmapStreamDto(
+    int X,
+    int Z,
+    string Heights,
+    string BlockIds,
+    List<string> Palette);
+
+public record ChunkStreamDto(
+    int X,
+    int Z,
+    string Blocks,
+    List<string> Palette);
+
 public record PlayerPositionDto(
     string Name,
     float X,

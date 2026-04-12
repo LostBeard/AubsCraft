@@ -183,6 +183,12 @@ public class ServerHubClient : IAsyncDisposable
 
     // -- Map --
 
+    public IAsyncEnumerable<HeightmapStreamDto> StreamHeightmaps()
+        => _hub!.StreamAsync<HeightmapStreamDto>("StreamHeightmaps");
+
+    public IAsyncEnumerable<ChunkStreamDto> StreamWorldChunks()
+        => _hub!.StreamAsync<ChunkStreamDto>("StreamWorldChunks");
+
     public Task<List<PlayerPositionDto>> GetPlayerPositionsAsync()
         => SafeInvokeAsync<List<PlayerPositionDto>>("GetPlayerPositions", []);
 
@@ -207,6 +213,19 @@ public record WorldTimeWeatherDto(
 public record BlueMapConfigDto(
     string Url,
     bool Enabled);
+
+public record HeightmapStreamDto(
+    int X,
+    int Z,
+    string Heights,
+    string BlockIds,
+    List<string> Palette);
+
+public record ChunkStreamDto(
+    int X,
+    int Z,
+    string Blocks,
+    List<string> Palette);
 
 public record PlayerPositionDto(
     string Name,

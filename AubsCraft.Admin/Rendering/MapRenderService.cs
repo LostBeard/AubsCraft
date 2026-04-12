@@ -50,7 +50,7 @@ public sealed class MapRenderService : IDisposable
     private readonly float[] _mvpFloats = new float[16];
     private byte[]? _mvpBytes;
 
-    public OrbitCamera Camera { get; } = new();
+    public FpsCamera Camera { get; } = new();
     public bool IsInitialized { get; private set; }
     public Action<float>? OnUpdate { get; set; }
     public int VisibleChunkCount { get; private set; }
@@ -482,15 +482,10 @@ fn fs_main(input : VertexOutput) -> @location(0) vec4<f32> {
     color = color + vec3<f32>(variation);
     color = color * light;
 
-    // Distance fog (extended for Minecraft scale)
-    let cam_pos = vec3<f32>(
-        -uniforms.mvp[3][0],
-        -uniforms.mvp[3][1],
-        -uniforms.mvp[3][2]
-    );
-    let dist = length(input.world_pos - cam_pos);
-    let fog_start = 150.0;
-    let fog_end = 400.0;
+    // Distance fog
+    let dist = length(input.world_pos);
+    let fog_start = 300.0;
+    let fog_end = 600.0;
     let fog_color = vec3<f32>(0.65, 0.80, 0.95);
     let fog_factor = clamp((dist - fog_start) / (fog_end - fog_start), 0.0, 1.0);
     color = mix(color, fog_color, fog_factor * fog_factor);

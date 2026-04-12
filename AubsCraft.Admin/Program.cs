@@ -13,6 +13,7 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 builder.Services.AddScoped<AuthStateProvider>();
 builder.Services.AddScoped<ServerHubClient>();
 builder.Services.AddSingleton<VoxelEngineService>();
+builder.Services.AddSingleton<InputService>();
 builder.Services.AddSingleton<AubsCraft.Admin.Rendering.MapRenderService>();
 
 if (JS.IsWindow)
