@@ -169,6 +169,26 @@ public class MinecraftRconClient : IAsyncDisposable, IDisposable
         return _client.SendCommandAsync(cmd, cancellationToken);
     }
 
+    /// <summary>
+    /// Gets a player's position via EssentialsX getpos command.
+    /// Returns null if the player is not online.
+    /// </summary>
+    public async Task<PlayerPosition?> GetPlayerPositionAsync(string playerName, CancellationToken cancellationToken = default)
+    {
+        var response = await _client.SendCommandAsync($"essentials:getpos {playerName}", cancellationToken);
+        var clean = MinecraftText.StripColorCodes(response);
+        if (clean.Contains("not found", StringComparison.OrdinalIgnoreCase))
+            return null;
+        // EssentialsX format: "Player is at X, Y, Z in world"
+        var match = Regex.Match(clean, @"(-?[\d.]+),?\s*(-?[\d.]+),?\s*(-?[\d.]+)");
+        if (!match.Success) return null;
+        return new PlayerPosition(
+            playerName,
+            float.Parse(match.Groups[1].Value),
+            float.Parse(match.Groups[2].Value),
+            float.Parse(match.Groups[3].Value));
+    }
+
     public Task<string> SetDifficultyAsync(string difficulty, CancellationToken cancellationToken = default)
         => _client.SendCommandAsync($"difficulty {difficulty}", cancellationToken);
 
@@ -213,6 +233,11 @@ public class MinecraftRconClient : IAsyncDisposable, IDisposable
 /// Result of a time query showing ticks and formatted time.
 /// </summary>
 public record TimeQueryResult(int Ticks, string Formatted);
+
+/// <summary>
+/// A player's world position.
+/// </summary>
+public record PlayerPosition(string Name, float X, float Y, float Z);
 
 /// <summary>
 /// Result of a "list" command showing online players.

@@ -138,6 +138,12 @@ public class RconService : IAsyncDisposable
         return await _client!.QueryTimeAsync(cancellationToken);
     }
 
+    public async Task<PlayerPosition?> GetPlayerPositionAsync(string playerName, CancellationToken cancellationToken = default)
+    {
+        await EnsureConnectedAsync(cancellationToken);
+        return await _client!.GetPlayerPositionAsync(playerName, cancellationToken);
+    }
+
     public async Task<string> SetGamemodeAsync(string playerName, string mode, CancellationToken cancellationToken = default)
     {
         await EnsureConnectedAsync(cancellationToken);

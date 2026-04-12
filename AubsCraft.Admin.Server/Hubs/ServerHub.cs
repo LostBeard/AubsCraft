@@ -223,6 +223,24 @@ public class ServerHub : Hub<IServerHubClient>
         return (success, success ? "Server starting..." : $"Start failed: {output}");
     }
 
+    // -- Player Positions (for 3D map) --
+
+    public async Task<List<PlayerPositionDto>> GetPlayerPositions()
+    {
+        var positions = new List<PlayerPositionDto>();
+        var status = _monitor.LastStatus;
+        if (status == null || status.Players.Count == 0)
+            return positions;
+
+        foreach (var player in status.Players)
+        {
+            var pos = await _rcon.GetPlayerPositionAsync(player);
+            if (pos != null)
+                positions.Add(new PlayerPositionDto(pos.Name, pos.X, pos.Y, pos.Z));
+        }
+        return positions;
+    }
+
     // -- Config --
 
     public BlueMapConfigDto GetBlueMapConfig()

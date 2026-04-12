@@ -29,6 +29,12 @@ public record BlueMapConfigDto(
     string Url,
     bool Enabled);
 
+public record PlayerPositionDto(
+    string Name,
+    float X,
+    float Y,
+    float Z);
+
 public record ActivityEventDto(
     DateTime Timestamp,
     ActivityEventType Type,

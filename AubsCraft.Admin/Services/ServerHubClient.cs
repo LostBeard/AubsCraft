@@ -181,6 +181,11 @@ public class ServerHubClient : IAsyncDisposable
     public Task<ToggleResultDto> StartServerAsync()
         => SafeInvokeAsync("StartServer", new ToggleResultDto(false, "Connection lost"));
 
+    // -- Map --
+
+    public Task<List<PlayerPositionDto>> GetPlayerPositionsAsync()
+        => SafeInvokeAsync<List<PlayerPositionDto>>("GetPlayerPositions", []);
+
     // -- Config --
 
     public Task<BlueMapConfigDto> GetBlueMapConfigAsync()
@@ -202,6 +207,12 @@ public record WorldTimeWeatherDto(
 public record BlueMapConfigDto(
     string Url,
     bool Enabled);
+
+public record PlayerPositionDto(
+    string Name,
+    float X,
+    float Y,
+    float Z);
 
 public record ServerStatusDto(
     bool Connected,
