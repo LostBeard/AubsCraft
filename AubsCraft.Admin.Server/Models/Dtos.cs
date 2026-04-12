@@ -34,6 +34,8 @@ public record HeightmapStreamDto(
     int Z,
     string Heights,
     string BlockIds,
+    string SeabedHeights,
+    string SeabedBlockIds,
     List<string> Palette);
 
 public record ChunkStreamDto(

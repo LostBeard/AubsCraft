@@ -3,10 +3,37 @@ namespace AubsCraft.Admin.Rendering;
 /// <summary>
 /// Maps Minecraft block names to texture atlas UV coordinates.
 /// Atlas: 16x16 grid of 16x16 textures (256x256 pixels).
+/// Supports per-face textures (top/side/bottom) for blocks like logs and grass.
 /// </summary>
 public static class TextureAtlas
 {
     private const float T = 1f / 16f; // tile size in UV space
+
+    // Per-face texture overrides: (topIndex, sideIndex, bottomIndex)
+    // Blocks not in this dictionary use the same texture for all faces.
+    // Atlas layout reference:
+    //   Row 0 (indices 0-15):  terrain basics + log tops (ring textures)
+    //   Row 5 (indices 80-88): log bark sides + grass_block_side
+    //     80 = oak bark, 81 = birch bark, 82 = spruce bark, 83 = dark oak bark, 84 = grass side
+    //     85 = jungle bark, 86 = acacia bark, 87 = cherry bark, 88 = mangrove bark
+    private static readonly Dictionary<string, (int top, int side, int bottom)> PerFaceBlocks = new()
+    {
+        // Logs: rings on top/bottom, bark on sides
+        ["minecraft:oak_log"] = (8, 80, 8),
+        ["minecraft:birch_log"] = (9, 81, 9),
+        ["minecraft:spruce_log"] = (10, 82, 10),
+        ["minecraft:dark_oak_log"] = (11, 83, 11),
+        ["minecraft:jungle_log"] = (12, 85, 12),       // jungle_top, jungle_bark, jungle_top
+        ["minecraft:acacia_log"] = (13, 86, 13),        // acacia_top, acacia_bark, acacia_top
+        ["minecraft:cherry_log"] = (14, 87, 14),        // cherry_top, cherry_bark, cherry_top
+        ["minecraft:mangrove_log"] = (15, 88, 15),      // mangrove_top, mangrove_bark, mangrove_top
+        ["minecraft:stripped_oak_log"] = (8, 80, 8),
+        ["minecraft:stripped_oak_wood"] = (80, 80, 80),  // all bark
+        // Grass-like blocks: unique top, side texture, dirt bottom
+        ["minecraft:grass_block"] = (0, 84, 1),          // grass_top, grass_side, dirt
+        ["minecraft:podzol"] = (52, 1, 1),               // podzol_top, dirt side, dirt bottom
+        ["minecraft:mycelium"] = (53, 1, 1),             // mycelium_top, dirt side, dirt bottom
+    };
 
     private static readonly Dictionary<string, int> BlockToIndex = new()
     {
@@ -24,7 +51,7 @@ public static class TextureAtlas
         ["minecraft:dirt_path"] = 1,
         ["minecraft:farmland"] = 73,
 
-        // Row 1: log tops
+        // Row 0 cont: log tops (indices 8-15)
         ["minecraft:oak_log"] = 8,
         ["minecraft:birch_log"] = 9,
         ["minecraft:spruce_log"] = 10,
@@ -139,8 +166,26 @@ public static class TextureAtlas
         ["minecraft:hay_block"] = 62,
         ["minecraft:pumpkin"] = 63,
 
-        // Plants/flowers: use flat color (they're cross-shaped, not blocks)
-        // Do NOT map these to atlas - their textures are side views that look wrong on top faces
+        // Row 5 continued (indices 89-95): plant/flower textures for cross-quad rendering
+        ["minecraft:short_grass"] = 89,
+        ["minecraft:tall_grass"] = 89,
+        ["minecraft:grass"] = 89,
+        ["minecraft:fern"] = 90,
+        ["minecraft:large_fern"] = 90,
+        ["minecraft:dandelion"] = 91,
+        ["minecraft:poppy"] = 92,
+        ["minecraft:cornflower"] = 93,
+        ["minecraft:azure_bluet"] = 94,
+        ["minecraft:orange_tulip"] = 92,    // reuse poppy (red/orange)
+        ["minecraft:red_tulip"] = 92,
+        ["minecraft:pink_tulip"] = 93,      // reuse cornflower
+        ["minecraft:white_tulip"] = 94,     // reuse azure_bluet
+        ["minecraft:oxeye_daisy"] = 94,
+        ["minecraft:lily_of_the_valley"] = 94,
+        ["minecraft:rose_bush"] = 92,
+        ["minecraft:lilac"] = 93,
+        ["minecraft:peony"] = 92,
+        ["minecraft:sunflower"] = 91,       // reuse dandelion (yellow)
 
         // Row 9: more
         ["minecraft:melon"] = 72,
@@ -157,6 +202,24 @@ public static class TextureAtlas
         ["minecraft:jungle_fence"] = 44,
     };
 
+    // Blocks that should render as cross-shaped quads (two diagonal intersecting planes)
+    // instead of solid cubes. These are plants, flowers, and similar foliage.
+    private static readonly HashSet<string> PlantBlocks = new()
+    {
+        "minecraft:short_grass", "minecraft:tall_grass", "minecraft:grass",
+        "minecraft:fern", "minecraft:large_fern",
+        "minecraft:dandelion", "minecraft:poppy", "minecraft:cornflower",
+        "minecraft:azure_bluet", "minecraft:orange_tulip", "minecraft:red_tulip",
+        "minecraft:pink_tulip", "minecraft:white_tulip", "minecraft:oxeye_daisy",
+        "minecraft:lily_of_the_valley", "minecraft:rose_bush", "minecraft:lilac",
+        "minecraft:peony", "minecraft:sunflower", "minecraft:wildflowers",
+        "minecraft:dead_bush", "minecraft:sweet_berry_bush",
+        "minecraft:sugar_cane", "minecraft:bamboo",
+    };
+
+    /// <summary>Returns true if the block should render as cross-shaped quads instead of a cube.</summary>
+    public static bool IsPlant(string blockName) => PlantBlocks.Contains(blockName);
+
     public static (float u, float v) GetUV(string blockName)
     {
         if (BlockToIndex.TryGetValue(blockName, out var index))
@@ -169,5 +232,33 @@ public static class TextureAtlas
         var (u, v) = GetUV(blockName);
         if (u < 0) return (-1, -1, -1, -1);
         return (u, v, u + T, v + T);
+    }
+
+    private static (float u0, float v0, float u1, float v1) IndexToUVs(int index)
+    {
+        float u = (index % 16) * T;
+        float v = (index / 16) * T;
+        return (u, v, u + T, v + T);
+    }
+
+    /// <summary>
+    /// Returns per-face UVs: (top, side, bottom). Each is (u0, v0, u1, v1).
+    /// For blocks without per-face overrides, all three are the same.
+    /// Returns (-1,-1,-1,-1) for faces without atlas textures.
+    /// </summary>
+    public static (
+        (float u0, float v0, float u1, float v1) top,
+        (float u0, float v0, float u1, float v1) side,
+        (float u0, float v0, float u1, float v1) bottom
+    ) GetPerFaceUVs(string blockName)
+    {
+        if (PerFaceBlocks.TryGetValue(blockName, out var faces))
+        {
+            return (IndexToUVs(faces.top), IndexToUVs(faces.side), IndexToUVs(faces.bottom));
+        }
+
+        // Default: same texture for all faces
+        var uvs = GetTileUVs(blockName);
+        return (uvs, uvs, uvs);
     }
 }

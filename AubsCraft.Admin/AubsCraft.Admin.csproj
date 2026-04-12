@@ -19,6 +19,7 @@
 		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.2" />
 		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.2" PrivateAssets="all" />
 		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.2" />
+		<PackageReference Include="SpawnDev.BlazorJS.WebWorkers" Version="3.2.1" />
 		<PackageReference Include="SpawnDev.ILGPU" Version="4.7.2" />
 	</ItemGroup>
 

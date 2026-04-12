@@ -122,30 +122,73 @@ public sealed class WorldDataService
 
         var heights = new int[256];
         var blockIds = new ushort[256];
+        // Seabed: for water columns, the first solid block below the water surface
+        var seabedHeights = new int[256];
+        var seabedBlockIds = new ushort[256];
+
+        // Pre-identify water and plant palette entries for fast lookup
+        var waterIds = new HashSet<ushort>();
+        var plantIds = new HashSet<ushort>();
+        for (int i = 0; i < chunk.Palette.Count; i++)
+        {
+            var name = chunk.Palette[i];
+            if (name is "minecraft:water" or "minecraft:flowing_water")
+                waterIds.Add((ushort)i);
+            if (IsPlantBlock(name))
+                plantIds.Add((ushort)i);
+        }
 
         for (int z = 0; z < 16; z++)
         for (int x = 0; x < 16; x++)
         {
             int col = x + z * 16;
-            // Scan from top (383) down to find first non-air block
+            seabedHeights[col] = -64; // default: no seabed
+
+            // Scan from top (383) down to find first non-air, non-plant block
             for (int y = 383; y >= 0; y--)
             {
                 var blockId = chunk.Blocks[x + z * 16 + y * 256];
-                if (blockId != 0)
+                if (blockId != 0 && !plantIds.Contains(blockId))
                 {
                     heights[col] = y - 64; // Convert to Minecraft Y
                     blockIds[col] = blockId;
+
+                    // If top block is water, scan down for the seabed (first solid block)
+                    if (waterIds.Contains(blockId))
+                    {
+                        for (int sy = y - 1; sy >= 0; sy--)
+                        {
+                            var sbId = chunk.Blocks[x + z * 16 + sy * 256];
+                            if (sbId != 0 && !waterIds.Contains(sbId))
+                            {
+                                seabedHeights[col] = sy - 64;
+                                seabedBlockIds[col] = sbId;
+                                break;
+                            }
+                        }
+                    }
                     break;
                 }
             }
         }
 
-        return new HeightmapResult(heights, blockIds, chunk.Palette);
+        return new HeightmapResult(heights, blockIds, seabedHeights, seabedBlockIds, chunk.Palette);
     }
 
     /// <summary>
     /// Clears the chunk cache (call after world save or reload).
     /// </summary>
+    private static bool IsPlantBlock(string name) => name is
+        "minecraft:short_grass" or "minecraft:tall_grass" or "minecraft:grass" or
+        "minecraft:fern" or "minecraft:large_fern" or
+        "minecraft:dandelion" or "minecraft:poppy" or "minecraft:cornflower" or
+        "minecraft:azure_bluet" or "minecraft:orange_tulip" or "minecraft:red_tulip" or
+        "minecraft:pink_tulip" or "minecraft:white_tulip" or "minecraft:oxeye_daisy" or
+        "minecraft:lily_of_the_valley" or "minecraft:rose_bush" or "minecraft:lilac" or
+        "minecraft:peony" or "minecraft:sunflower" or "minecraft:wildflowers" or
+        "minecraft:dead_bush" or "minecraft:sweet_berry_bush" or
+        "minecraft:sugar_cane" or "minecraft:bamboo";
+
     public void ClearCache()
     {
         _chunkCache.Clear();
@@ -155,4 +198,7 @@ public sealed class WorldDataService
 
 public record RegionInfo(int X, int Z, long FileSize);
 public record ChunkCoord(int X, int Z);
-public record HeightmapResult(int[] Heights, ushort[] BlockIds, List<string> Palette);
+public record HeightmapResult(
+    int[] Heights, ushort[] BlockIds,
+    int[] SeabedHeights, ushort[] SeabedBlockIds,
+    List<string> Palette);

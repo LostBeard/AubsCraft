@@ -36,7 +36,10 @@ public class ServerHubClient : IAsyncDisposable
     {
         try
         {
-            return await _hub!.InvokeAsync<T>(method, args);
+            // Use the non-params overload with CancellationToken to prevent
+            // double-wrapping of the args array. The params overload wraps our
+            // object?[] in another array, breaking server-side deserialization.
+            return await _hub!.InvokeAsync<T>(method, args, CancellationToken.None);
         }
         catch (Exception ex) when (ex is InvalidOperationException or HubException)
         {
@@ -181,13 +184,9 @@ public class ServerHubClient : IAsyncDisposable
     public Task<ToggleResultDto> StartServerAsync()
         => SafeInvokeAsync("StartServer", new ToggleResultDto(false, "Connection lost"));
 
-    // -- Map --
-
-    public IAsyncEnumerable<HeightmapStreamDto> StreamHeightmaps()
-        => _hub!.StreamAsync<HeightmapStreamDto>("StreamHeightmaps");
-
-    public IAsyncEnumerable<ChunkStreamDto> StreamWorldChunks()
-        => _hub!.StreamAsync<ChunkStreamDto>("StreamWorldChunks");
+    // Map data streaming removed - replaced by binary WebSocket + binary HTTP endpoints
+    // Heightmaps: binary WebSocket at /api/world/ws
+    // Full chunks: binary HTTP at /api/world/chunk/{x}/{z}
 
     public Task<List<PlayerPositionDto>> GetPlayerPositionsAsync()
         => SafeInvokeAsync<List<PlayerPositionDto>>("GetPlayerPositions", []);
@@ -214,18 +213,7 @@ public record BlueMapConfigDto(
     string Url,
     bool Enabled);
 
-public record HeightmapStreamDto(
-    int X,
-    int Z,
-    string Heights,
-    string BlockIds,
-    List<string> Palette);
-
-public record ChunkStreamDto(
-    int X,
-    int Z,
-    string Blocks,
-    List<string> Palette);
+// HeightmapStreamDto and ChunkStreamDto removed - binary WebSocket + binary HTTP replaced SignalR streaming
 
 public record PlayerPositionDto(
     string Name,

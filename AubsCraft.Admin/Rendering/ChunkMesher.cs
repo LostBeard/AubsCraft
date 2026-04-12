@@ -32,43 +32,58 @@ public static class ChunkMesher
             float wy = y - 64f;
             float wz = chunkZ * W + z;
 
-            // Get atlas UVs and colors
-            var (u0, v0, u1, v1) = TextureAtlas.GetTileUVs(blockName);
-            float r = paletteColors[blockId * 3];
-            float g = paletteColors[blockId * 3 + 1];
-            float b = paletteColors[blockId * 3 + 2];
-
-            // Tint: white for textured non-tinted blocks, vertex color for tinted/untextured
-            bool isTinted = blockName.Contains("grass") || blockName.Contains("leaves")
-                         || blockName.Contains("water") || blockName.Contains("vine")
-                         || blockName.Contains("fern");
-            float tr = r, tg = g, tb = b;
-            if (u0 >= 0 && !isTinted) { tr = 1f; tg = 1f; tb = 1f; }
-
-            // Check 6 faces
-            if (IsAir(blocks, palette, x, y + 1, z)) // +Y top
-                EmitFace(verts, wx, wy + 1, wz, 0, 1, 0, tr, tg, tb, u0, v0, u1, v1, 0);
-            if (IsAir(blocks, palette, x, y - 1, z)) // -Y bottom
-                EmitFace(verts, wx, wy, wz, 0, -1, 0, tr * 0.7f, tg * 0.7f, tb * 0.7f, u0, v0, u1, v1, 1);
-
-            // Side faces - use side texture for grass
-            float sr = tr * 0.85f, sg = tg * 0.85f, sb = tb * 0.85f;
-            float su0 = u0, sv0 = v0, su1 = u1, sv1 = v1;
-            if (blockName == "minecraft:grass_block")
+            // Plants render as cross-shaped quads (two diagonal intersecting planes)
+            if (TextureAtlas.IsPlant(blockName))
             {
-                sr = 1f; sg = 1f; sb = 1f;
-                su0 = -1f; sv0 = -1f; su1 = -1f; sv1 = -1f; // flat color for grass sides
-                sr = 0.53f; sg = 0.38f; sb = 0.26f;
+                var (u0, v0, u1, v1) = TextureAtlas.GetTileUVs(blockName);
+                float r = paletteColors[blockId * 3];
+                float g = paletteColors[blockId * 3 + 1];
+                float b = paletteColors[blockId * 3 + 2];
+                // Tinted plants (grass, fern) keep vertex color; flowers use white tint
+                bool isTinted = blockName.Contains("grass") || blockName.Contains("fern");
+                if (u0 >= 0 && !isTinted) { r = 1f; g = 1f; b = 1f; }
+                EmitCrossQuads(verts, wx, wy, wz, r, g, b, u0, v0, u1, v1);
+                continue;
             }
 
-            if (IsAir(blocks, palette, x - 1, y, z))
-                EmitFace(verts, wx, wy, wz, -1, 0, 0, sr, sg, sb, su0, sv0, su1, sv1, 2);
-            if (IsAir(blocks, palette, x + 1, y, z))
-                EmitFace(verts, wx + 1, wy, wz, 1, 0, 0, sr, sg, sb, su0, sv0, su1, sv1, 3);
-            if (IsAir(blocks, palette, x, y, z - 1))
-                EmitFace(verts, wx, wy, wz, 0, 0, -1, sr * 0.95f, sg * 0.95f, sb * 0.95f, su0, sv0, su1, sv1, 4);
-            if (IsAir(blocks, palette, x, y, z + 1))
-                EmitFace(verts, wx, wy, wz + 1, 0, 0, 1, sr * 0.95f, sg * 0.95f, sb * 0.95f, su0, sv0, su1, sv1, 5);
+            // Get per-face atlas UVs and colors for solid blocks
+            var (topUV, sideUV, botUV) = TextureAtlas.GetPerFaceUVs(blockName);
+            {
+                float r = paletteColors[blockId * 3];
+                float g = paletteColors[blockId * 3 + 1];
+                float b = paletteColors[blockId * 3 + 2];
+
+                // Tint: white for textured non-tinted blocks, vertex color for tinted/untextured
+                bool isTinted = blockName.Contains("grass") || blockName.Contains("leaves")
+                             || blockName.Contains("water") || blockName.Contains("vine")
+                             || blockName.Contains("fern");
+                float tr = r, tg = g, tb = b;
+                if (topUV.u0 >= 0 && !isTinted) { tr = 1f; tg = 1f; tb = 1f; }
+
+                // Side tint: white for textured non-tinted, vertex color for tinted/untextured
+                float sr = r, sg = g, sb = b;
+                if (sideUV.u0 >= 0 && !isTinted) { sr = 1f; sg = 1f; sb = 1f; }
+
+                // Bottom tint
+                float br2 = r, bg = g, bb = b;
+                if (botUV.u0 >= 0 && !isTinted) { br2 = 1f; bg = 1f; bb = 1f; }
+
+                // Check 6 faces
+                if (IsAir(blocks, palette, x, y + 1, z)) // +Y top
+                    EmitFace(verts, wx, wy + 1, wz, 0, 1, 0, tr, tg, tb, topUV.u0, topUV.v0, topUV.u1, topUV.v1, 0);
+                if (IsAir(blocks, palette, x, y - 1, z)) // -Y bottom
+                    EmitFace(verts, wx, wy, wz, 0, -1, 0, br2 * 0.7f, bg * 0.7f, bb * 0.7f, botUV.u0, botUV.v0, botUV.u1, botUV.v1, 1);
+
+                // Side faces
+                if (IsAir(blocks, palette, x - 1, y, z))
+                    EmitFace(verts, wx, wy, wz, -1, 0, 0, sr * 0.85f, sg * 0.85f, sb * 0.85f, sideUV.u0, sideUV.v0, sideUV.u1, sideUV.v1, 2);
+                if (IsAir(blocks, palette, x + 1, y, z))
+                    EmitFace(verts, wx + 1, wy, wz, 1, 0, 0, sr * 0.85f, sg * 0.85f, sb * 0.85f, sideUV.u0, sideUV.v0, sideUV.u1, sideUV.v1, 3);
+                if (IsAir(blocks, palette, x, y, z - 1))
+                    EmitFace(verts, wx, wy, wz, 0, 0, -1, sr * 0.80f, sg * 0.80f, sb * 0.80f, sideUV.u0, sideUV.v0, sideUV.u1, sideUV.v1, 4);
+                if (IsAir(blocks, palette, x, y, z + 1))
+                    EmitFace(verts, wx, wy, wz + 1, 0, 0, 1, sr * 0.80f, sg * 0.80f, sb * 0.80f, sideUV.u0, sideUV.v0, sideUV.u1, sideUV.v1, 5);
+            }
         }
 
         var arr = verts.ToArray();
@@ -81,10 +96,58 @@ public static class ChunkMesher
         var id = blocks[x + z * W + y * W * W];
         if (id == 0) return true;
         var name = id < palette.Count ? palette[id] : "";
-        // Transparent blocks that let faces show through
-        return name is "minecraft:water" or "minecraft:flowing_water"
+        // Transparent blocks that let adjacent faces show through
+        if (name is "minecraft:water" or "minecraft:flowing_water"
             or "minecraft:cave_air" or "minecraft:glass"
-            or "minecraft:tinted_glass";
+            or "minecraft:tinted_glass")
+            return true;
+        // Plant blocks are transparent - adjacent solid blocks should show faces
+        return TextureAtlas.IsPlant(name);
+    }
+
+    /// <summary>
+    /// Emits two diagonal intersecting quads for plant/flower blocks.
+    /// Creates an X-shape when viewed from above, like real Minecraft plant rendering.
+    /// Both front and back faces are emitted (4 triangles total per quad = 24 vertices).
+    /// </summary>
+    private static void EmitCrossQuads(List<float> v,
+        float x, float y, float z,
+        float r, float g, float b,
+        float u0, float v0, float u1, float v1)
+    {
+        // Diagonal 1: from (x,z) to (x+1,z+1) - NE/SW diagonal
+        // Front face (normal roughly toward +X-Z)
+        float nx1 = 0.707f, nz1 = -0.707f;
+        V(v, x, y, z, nx1, 0, nz1, r, g, b, u0, v1);
+        V(v, x, y + 1, z, nx1, 0, nz1, r, g, b, u0, v0);
+        V(v, x + 1, y + 1, z + 1, nx1, 0, nz1, r, g, b, u1, v0);
+        V(v, x, y, z, nx1, 0, nz1, r, g, b, u0, v1);
+        V(v, x + 1, y + 1, z + 1, nx1, 0, nz1, r, g, b, u1, v0);
+        V(v, x + 1, y, z + 1, nx1, 0, nz1, r, g, b, u1, v1);
+        // Back face (flipped winding for opposite side)
+        V(v, x + 1, y, z + 1, -nx1, 0, -nz1, r, g, b, u0, v1);
+        V(v, x + 1, y + 1, z + 1, -nx1, 0, -nz1, r, g, b, u0, v0);
+        V(v, x, y + 1, z, -nx1, 0, -nz1, r, g, b, u1, v0);
+        V(v, x + 1, y, z + 1, -nx1, 0, -nz1, r, g, b, u0, v1);
+        V(v, x, y + 1, z, -nx1, 0, -nz1, r, g, b, u1, v0);
+        V(v, x, y, z, -nx1, 0, -nz1, r, g, b, u1, v1);
+
+        // Diagonal 2: from (x+1,z) to (x,z+1) - NW/SE diagonal
+        // Front face (normal roughly toward -X-Z)
+        float nx2 = -0.707f, nz2 = -0.707f;
+        V(v, x + 1, y, z, nx2, 0, nz2, r, g, b, u0, v1);
+        V(v, x + 1, y + 1, z, nx2, 0, nz2, r, g, b, u0, v0);
+        V(v, x, y + 1, z + 1, nx2, 0, nz2, r, g, b, u1, v0);
+        V(v, x + 1, y, z, nx2, 0, nz2, r, g, b, u0, v1);
+        V(v, x, y + 1, z + 1, nx2, 0, nz2, r, g, b, u1, v0);
+        V(v, x, y, z + 1, nx2, 0, nz2, r, g, b, u1, v1);
+        // Back face
+        V(v, x, y, z + 1, -nx2, 0, -nz2, r, g, b, u0, v1);
+        V(v, x, y + 1, z + 1, -nx2, 0, -nz2, r, g, b, u0, v0);
+        V(v, x + 1, y + 1, z, -nx2, 0, -nz2, r, g, b, u1, v0);
+        V(v, x, y, z + 1, -nx2, 0, -nz2, r, g, b, u0, v1);
+        V(v, x + 1, y + 1, z, -nx2, 0, -nz2, r, g, b, u1, v0);
+        V(v, x + 1, y, z, -nx2, 0, -nz2, r, g, b, u1, v1);
     }
 
     private static void EmitFace(List<float> v,

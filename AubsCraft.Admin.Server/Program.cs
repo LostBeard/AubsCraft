@@ -45,6 +45,7 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+app.UseWebSockets();
 app.MapStaticAssets();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -172,16 +173,162 @@ world.MapGet("/chunks", (WorldDataService worldData) =>
     return Results.Ok(worldData.GetPopulatedChunks());
 });
 
-world.MapGet("/chunk/{x:int}/{z:int}", (int x, int z, WorldDataService worldData) =>
+// Binary chunk endpoint - raw bytes, no base64, no JSON.
+// Format: [int32 paletteCount][palette strings: int32 len + utf8 bytes each][ushort[] blocks]
+world.MapGet("/chunk/{x:int}/{z:int}", (int x, int z, WorldDataService worldData, HttpContext ctx) =>
 {
     var chunk = worldData.GetChunk(x, z);
     if (chunk == null) return Results.NotFound();
-    var blocksBase64 = Convert.ToBase64String(
-        System.Runtime.InteropServices.MemoryMarshal.AsBytes<ushort>(chunk.Blocks).ToArray());
-    return Results.Ok(new ChunkDataResponse(blocksBase64, chunk.Palette));
+
+    ctx.Response.ContentType = "application/octet-stream";
+    using var ms = new MemoryStream();
+    using var bw = new BinaryWriter(ms);
+    bw.Write(chunk.Palette.Count);
+    foreach (var name in chunk.Palette)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(name);
+        bw.Write(bytes.Length);
+        bw.Write(bytes);
+    }
+    // Raw block data as ushort[]
+    var blockBytes = System.Runtime.InteropServices.MemoryMarshal.AsBytes<ushort>(chunk.Blocks).ToArray();
+    bw.Write(blockBytes);
+
+    return Results.Bytes(ms.ToArray(), "application/octet-stream");
 });
 
 // atlas.rgba served as static file from wwwroot
+
+// Binary WebSocket endpoint for camera-prioritized chunk streaming.
+// Data flows as raw binary frames - no JSON, no base64 for bulk data.
+// Client sends camera position (text JSON), server streams chunks sorted by distance.
+world.MapGet("/ws", async (HttpContext ctx, WorldDataService worldData) =>
+{
+    if (!ctx.WebSockets.IsWebSocketRequest)
+    {
+        ctx.Response.StatusCode = 400;
+        return;
+    }
+
+    using var ws = await ctx.WebSockets.AcceptWebSocketAsync();
+    var chunks = worldData.GetPopulatedChunks();
+    var camX = 0f;
+    var camZ = 0f;
+    var sendQueue = new List<ChunkCoord>(chunks);
+    var sent = new HashSet<(int, int)>();
+    var cts = new CancellationTokenSource();
+
+    // Sort initial queue by distance from origin
+    sendQueue.Sort((a, b) =>
+    {
+        var da = a.X * a.X + a.Z * a.Z;
+        var db = b.X * b.X + b.Z * b.Z;
+        return da.CompareTo(db);
+    });
+
+    // Background task: listen for camera position updates from client
+    _ = Task.Run(async () =>
+    {
+        var buf = new byte[256];
+        try
+        {
+            while (ws.State == System.Net.WebSockets.WebSocketState.Open)
+            {
+                var result = await ws.ReceiveAsync(buf, cts.Token);
+                if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Close)
+                {
+                    cts.Cancel();
+                    break;
+                }
+                if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Text)
+                {
+                    var json = System.Text.Encoding.UTF8.GetString(buf, 0, result.Count);
+                    try
+                    {
+                        var msg = System.Text.Json.JsonDocument.Parse(json);
+                        if (msg.RootElement.TryGetProperty("x", out var xp) &&
+                            msg.RootElement.TryGetProperty("z", out var zp))
+                        {
+                            camX = xp.GetSingle();
+                            camZ = zp.GetSingle();
+                            // Re-sort unsent chunks by new camera position
+                            lock (sendQueue)
+                            {
+                                sendQueue.RemoveAll(c => sent.Contains((c.X, c.Z)));
+                                sendQueue.Sort((a, b) =>
+                                {
+                                    var da = (a.X * 16 - camX) * (a.X * 16 - camX) + (a.Z * 16 - camZ) * (a.Z * 16 - camZ);
+                                    var db = (b.X * 16 - camX) * (b.X * 16 - camX) + (b.Z * 16 - camZ) * (b.Z * 16 - camZ);
+                                    return da.CompareTo(db);
+                                });
+                            }
+                        }
+                    }
+                    catch { } // ignore malformed messages
+                }
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch { }
+    });
+
+    // Send chunks as binary frames, closest to camera first
+    while (ws.State == System.Net.WebSockets.WebSocketState.Open && !cts.IsCancellationRequested)
+    {
+        ChunkCoord? next = null;
+        lock (sendQueue)
+        {
+            if (sendQueue.Count == 0) break;
+            next = sendQueue[0];
+            sendQueue.RemoveAt(0);
+        }
+        if (next == null) break;
+
+        var hm = worldData.GetHeightmap(next.X, next.Z);
+        if (hm == null)
+        {
+            sent.Add((next.X, next.Z));
+            continue;
+        }
+
+        // Binary frame format:
+        // [int32 cx][int32 cz][int32 paletteCount]
+        // For each palette string: [int32 byteLength][utf8 bytes]
+        // [int32[256] heights][ushort[256] blockIds]
+        // [int32[256] seabedHeights][ushort[256] seabedBlockIds]
+        using var ms = new MemoryStream();
+        using var bw = new BinaryWriter(ms);
+        bw.Write(next.X);
+        bw.Write(next.Z);
+        bw.Write(hm.Palette.Count);
+        foreach (var name in hm.Palette)
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes(name);
+            bw.Write(bytes.Length);
+            bw.Write(bytes);
+        }
+        foreach (var h in hm.Heights) bw.Write(h);
+        foreach (var b in hm.BlockIds) bw.Write(b);
+        foreach (var h in hm.SeabedHeights) bw.Write(h);
+        foreach (var b in hm.SeabedBlockIds) bw.Write(b);
+
+        var frame = ms.ToArray();
+        try
+        {
+            await ws.SendAsync(frame, System.Net.WebSockets.WebSocketMessageType.Binary, true, cts.Token);
+        }
+        catch { break; }
+
+        sent.Add((next.X, next.Z));
+    }
+
+    // Clean close
+    if (ws.State == System.Net.WebSockets.WebSocketState.Open)
+    {
+        try { await ws.CloseAsync(System.Net.WebSockets.WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None); }
+        catch { }
+    }
+});
 
 world.MapPost("/cache/clear", (WorldDataService worldData) =>
 {
@@ -196,4 +343,3 @@ app.Run();
 
 // Request DTOs
 public record LoginRequest(string Username, string Password);
-public record ChunkDataResponse(string Blocks, List<string> Palette);

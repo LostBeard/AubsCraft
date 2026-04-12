@@ -223,62 +223,9 @@ public class ServerHub : Hub<IServerHubClient>
         return (success, success ? "Server starting..." : $"Start failed: {output}");
     }
 
-    // -- World Data Streaming (for 3D viewer) --
-
-    /// <summary>
-    /// Streams lightweight heightmap data for all chunks - just top block per column.
-    /// Much faster than full chunk data for the initial top-down map view.
-    /// </summary>
-    public async IAsyncEnumerable<HeightmapStreamDto> StreamHeightmaps()
-    {
-        var worldData = Context.GetHttpContext()?.RequestServices.GetRequiredService<WorldDataService>()
-            ?? throw new InvalidOperationException("WorldDataService not available");
-
-        var chunks = worldData.GetPopulatedChunks();
-        _logger.LogInformation("Streaming {Count} heightmaps to client", chunks.Count);
-
-        chunks.Sort((a, b) => (a.X * a.X + a.Z * a.Z).CompareTo(b.X * b.X + b.Z * b.Z));
-
-        foreach (var coord in chunks)
-        {
-            var hm = worldData.GetHeightmap(coord.X, coord.Z);
-            if (hm == null) continue;
-
-            yield return new HeightmapStreamDto(
-                coord.X, coord.Z,
-                Convert.ToBase64String(System.Runtime.InteropServices.MemoryMarshal.AsBytes<int>(hm.Heights).ToArray()),
-                Convert.ToBase64String(System.Runtime.InteropServices.MemoryMarshal.AsBytes<ushort>(hm.BlockIds).ToArray()),
-                hm.Palette);
-
-            await Task.Yield();
-        }
-    }
-
-    public async IAsyncEnumerable<ChunkStreamDto> StreamWorldChunks()
-    {
-        var worldData = Context.GetHttpContext()?.RequestServices.GetRequiredService<WorldDataService>()
-            ?? throw new InvalidOperationException("WorldDataService not available");
-
-        var chunks = worldData.GetPopulatedChunks();
-        _logger.LogInformation("Streaming {Count} chunks to client", chunks.Count);
-
-        // Sort by distance from spawn so nearby chunks arrive first
-        chunks.Sort((a, b) => (a.X * a.X + a.Z * a.Z).CompareTo(b.X * b.X + b.Z * b.Z));
-
-        foreach (var coord in chunks)
-        {
-            var chunk = worldData.GetChunk(coord.X, coord.Z);
-            if (chunk == null) continue;
-
-            var blocksBase64 = Convert.ToBase64String(
-                System.Runtime.InteropServices.MemoryMarshal.AsBytes<ushort>(chunk.Blocks).ToArray());
-
-            yield return new ChunkStreamDto(coord.X, coord.Z, blocksBase64, chunk.Palette);
-
-            // Yield between chunks to keep the connection responsive
-            await Task.Yield();
-        }
-    }
+    // World data streaming removed - replaced by binary WebSocket endpoint in Program.cs
+    // Heightmaps: binary WebSocket at /api/world/ws
+    // Full chunks: binary HTTP at /api/world/chunk/{x}/{z}
 
     // -- Player Positions (for 3D map) --
 

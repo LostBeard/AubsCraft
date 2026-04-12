@@ -1,13 +1,14 @@
 @page "/map"
 @inject ServerHubClient Hub
-@inject HttpClient Http
-@inject VoxelEngineService Engine
 @inject InputService Input
-@inject AubsCraft.Admin.Rendering.MapRenderService Renderer
+@inject WorldCacheService WorldCache
+@inject SpawnDev.BlazorJS.WebWorkers.WebWorkerService WorkerService
 @inject IJSRuntime JS
 @implements IDisposable
-@using AubsCraft.Admin.Rendering
+@using AubsCraft.Admin.Services
+@using SpawnDev.BlazorJS
 @using SpawnDev.BlazorJS.JSObjects
+@using SpawnDev.BlazorJS.WebWorkers
 
 <PageTitle>Map - AubsCraft Admin</PageTitle>
 
@@ -17,11 +18,10 @@
         @if (_viewMode == ViewMode.Viewer3D)
         {
             <small class="text-muted font-monospace" style="font-size: 0.7rem;">
-                @Renderer.Fps.ToString("F0") FPS (@Renderer.FrameTimeMs.ToString("F1")ms) |
-                @(Renderer.VisibleVertices / 1000)K/@(Renderer.TotalVertices / 1000)K verts |
-                @Renderer.VisibleChunkCount/@Renderer.TotalChunkCount chunks |
-                draw: @Renderer.DrawDistance |
-                @(Engine.BackendName ?? "...")
+                @if (_lastStats != null)
+                {
+                    @($"{_lastStats.Fps:F0} FPS | {_lastStats.VisibleVerts / 1000}K/{_lastStats.TotalVerts / 1000}K verts | {_lastStats.VisibleChunks}/{_lastStats.TotalChunks} chunks | draw: {_lastStats.DrawDistance} | Worker")
+                }
                 @if (!_pointerLocked) { <span> | Click to fly</span> }
             </small>
             <button class="btn btn-sm btn-outline-secondary" @onclick="SwitchToBlueMap">BlueMap</button>
@@ -63,13 +63,17 @@ else
     private ElementReference _canvasRef;
     private string? _blueMapUrl;
     private ViewMode _viewMode = ViewMode.Initializing;
-    private string _statusMessage = "Initializing GPU...";
-    private int _loadedCount;
+    private string _statusMessage = "Initializing...";
     private bool _pointerLocked;
-    private HashSet<(int, int)> _populatedChunks = new();
-    private HashSet<(int, int)> _loadedChunks = new();
-    private HashSet<(int, int)> _loadingChunks = new();
-    private List<(int cx, int cz)> _playerChunkKeys = new();
+
+    private WebWorker? _renderWorker;
+    private IRenderWorkerService? _renderService;
+    private RenderStats? _lastStats;
+    private string _renderServiceKey = Guid.NewGuid().ToString();
+    private int _lastCanvasW, _lastCanvasH;
+    private HTMLCanvasElement? _canvas;
+    private ResizeObserver? _resizeObserver;
+    private ActionCallback<ResizeObserverEntry[]>? _resizeCallback;
 
     private enum ViewMode { Initializing, Viewer3D, BlueMap, Error }
 
@@ -87,21 +91,39 @@ else
 
         try
         {
-            _statusMessage = "Initializing GPU...";
+            _statusMessage = "Starting render worker...";
             StateHasChanged();
 
-            await Engine.InitAsync();
+            // Create a dedicated Web Worker for the entire render pipeline
+            _renderWorker = await WorkerService.GetWebWorker();
 
-            using var canvas = new HTMLCanvasElement(_canvasRef);
-            Renderer.Init(canvas, Engine.Accelerator!);
+            System.Console.WriteLine("[Map] Render worker created, transferring canvas...");
 
-            // Attach input service for keyboard/mouse
+            // Transfer the canvas to the worker - worker now owns GPU rendering
+            _canvas = new HTMLCanvasElement(_canvasRef);
+            int width = _canvas.ClientWidth;
+            int height = _canvas.ClientHeight;
+            _lastCanvasW = width;
+            _lastCanvasH = height;
+            _canvas.Width = width;
+            _canvas.Height = height;
+            var offscreen = _canvas.TransferControlToOffscreen();
+
+            // ResizeObserver fires ONLY when size changes
+            _resizeCallback = new ActionCallback<ResizeObserverEntry[]>(OnCanvasResized);
+            _resizeObserver = new ResizeObserver(_resizeCallback);
+            _resizeObserver.Observe(_canvasRef);
+
+            // Create RenderWorkerService in the worker using New() expression
+            // OffscreenCanvas is transferred, DI services injected via [FromServices]
+            await _renderWorker.New<IRenderWorkerService>(_renderServiceKey,
+                () => new RenderWorkerService(offscreen, width, height));
+            _renderService = _renderWorker.GetKeyedService<IRenderWorkerService>(_renderServiceKey);
+
+            // Attach input service on main thread
             Input.Attach();
 
-            // Process input each frame
-            Renderer.OnUpdate = OnFrameUpdate;
-
-            // Track pointer lock changes via JS callback
+            // Track pointer lock changes
             await JS.InvokeVoidAsync("eval", @"
                 document.addEventListener('pointerlockchange', function() {
                     window.__mapLocked = !!document.pointerLockElement;
@@ -109,19 +131,30 @@ else
                 window.__mapLocked = false;
             ");
 
+            // Restore camera position
+            float camX = 0f, camY = 200f, camZ = 0f, pitch = -90f, yaw = 0f;
+            var savedCam = await WorldCache.LoadCameraPositionAsync();
+            if (savedCam != null)
+            {
+                (camX, camY, camZ, pitch, yaw) = savedCam.Value;
+                System.Console.WriteLine($"[Map] Restored camera: ({camX:F0}, {camY:F0}, {camZ:F0})");
+            }
+
+            // Start render loop + chunk loading in the worker
+            await _renderService.StartAsync(camX, camY, camZ, pitch, yaw);
+
             _viewMode = ViewMode.Viewer3D;
             _statusMessage = "";
             StateHasChanged();
 
-            Renderer.StartRenderLoop();
-            _ = LoadAtlasAsync();
-            _ = LoadInitialChunksAsync();
-            _ = StatsRefreshLoop();
+            // Main thread: input + stats only
+            _ = InputAndStatsLoop();
         }
         catch (Exception ex)
         {
             _viewMode = ViewMode.Error;
             _statusMessage = $"GPU init failed: {ex.Message}";
+            System.Console.WriteLine($"[Map] Init error: {ex}");
             if (!string.IsNullOrEmpty(_blueMapUrl))
             {
                 _viewMode = ViewMode.BlueMap;
@@ -131,33 +164,67 @@ else
         }
     }
 
-    private int _lastFullCX = int.MinValue, _lastFullCZ = int.MinValue;
-    private bool _loadingFull;
-
-    private void OnFrameUpdate(float dt)
+    /// <summary>
+    /// Main thread loop: sends input to the worker, receives stats back.
+    /// Zero rendering, zero GPU work, zero data processing.
+    /// </summary>
+    private async Task InputAndStatsLoop()
     {
-        var (dx, dy) = Input.ConsumeMouseDelta();
-        if (_pointerLocked && (dx != 0 || dy != 0))
-            Renderer.Camera.ProcessMouseMovement(dx, dy);
-
-        if (_pointerLocked)
-            Renderer.Camera.ProcessKeyboard(Input.KeysDown, dt);
-
-        if (_pointerLocked && Input.KeysDown.Contains("Escape"))
+        int cameraSaveCounter = 0;
+        while (_viewMode == ViewMode.Viewer3D && _renderService != null)
         {
-            _pointerLocked = false;
-            Input.KeysDown.Remove("Escape");
-        }
+            await Task.Delay(16);
 
-        // Dynamic full-3D loading for nearby chunks
-        int camCX = (int)MathF.Floor(Renderer.Camera.Position.X / 16f);
-        int camCZ = (int)MathF.Floor(Renderer.Camera.Position.Z / 16f);
-        if (!_loadingFull && (camCX != _lastFullCX || camCZ != _lastFullCZ))
-        {
-            _lastFullCX = camCX;
-            _lastFullCZ = camCZ;
-            _ = LoadFullChunksNearbyAsync(camCX, camCZ);
+            bool browserLocked = ((IJSInProcessRuntime)JS).Invoke<bool>("eval", "!!window.__mapLocked");
+            if (_pointerLocked && !browserLocked)
+            {
+                _pointerLocked = false;
+                Input.ConsumeMouseDelta();
+            }
+            _pointerLocked = browserLocked;
+
+            if (_pointerLocked)
+            {
+                if (Input.KeysDown.Contains("Escape"))
+                {
+                    _pointerLocked = false;
+                    Input.KeysDown.Remove("Escape");
+                    continue;
+                }
+
+                var (dx, dy) = Input.ConsumeMouseDelta();
+                var keysDown = Input.KeysDown;
+                if (dx != 0 || dy != 0 || keysDown.Count > 0)
+                    await _renderService.ProcessInputAsync(dx, dy, 0.016f, keysDown.ToArray());
+            }
+
+            cameraSaveCounter++;
+            if (cameraSaveCounter >= 30)
+            {
+                cameraSaveCounter = 0;
+                _lastStats = await _renderService.GetStatsAsync();
+                StateHasChanged();
+
+                if (_lastStats != null)
+                    _ = WorldCache.SaveCameraPositionAsync(
+                        _lastStats.CamX, _lastStats.CamY, _lastStats.CamZ,
+                        _lastStats.CamPitch, _lastStats.CamYaw);
+            }
         }
+    }
+
+    private void OnCanvasResized(ResizeObserverEntry[] entries)
+    {
+        if (_canvas == null || _renderService == null) return;
+        int cw = _canvas.ClientWidth;
+        int ch = _canvas.ClientHeight;
+        if (cw > 0 && ch > 0 && (cw != _lastCanvasW || ch != _lastCanvasH))
+        {
+            _lastCanvasW = cw;
+            _lastCanvasH = ch;
+            _ = _renderService.ResizeAsync(cw, ch);
+        }
+        foreach (var e in entries) e.Dispose();
     }
 
     private async void OnCanvasClick()
@@ -166,237 +233,8 @@ else
         try
         {
             await JS.InvokeVoidAsync("eval", "document.getElementById('map-canvas')?.requestPointerLock()");
-            _pointerLocked = true;
         }
-        catch { } // Browser rejects if too soon after ESC - silently ignore
-    }
-
-    private async Task LoadInitialChunksAsync()
-    {
-        try
-        {
-            // Start high up looking down - map view
-            Renderer.Camera.Position = new System.Numerics.Vector3(0f, 200f, 0f);
-            Renderer.Camera.Pitch = -90f; // Look straight down
-            Renderer.Camera.Yaw = 0f;
-
-            // Stream heightmaps for the entire world - lightweight, fast
-            System.Console.WriteLine("[Map] Streaming heightmaps...");
-            await foreach (var hm in Hub.StreamHeightmaps())
-            {
-                try
-                {
-                    _populatedChunks.Add((hm.X, hm.Z));
-
-                    var heightBytes = Convert.FromBase64String(hm.Heights);
-                    var heights = new int[heightBytes.Length / 4];
-                    Buffer.BlockCopy(heightBytes, 0, heights, 0, heightBytes.Length);
-
-                    var blockIdBytes = Convert.FromBase64String(hm.BlockIds);
-                    var blockIds = new ushort[blockIdBytes.Length / 2];
-                    Buffer.BlockCopy(blockIdBytes, 0, blockIds, 0, blockIdBytes.Length);
-
-                    var paletteColors = BlockColorMap.BuildPaletteColors(hm.Palette);
-
-                    var (vertices, vertexCount) = HeightmapMesher.GenerateMesh(
-                        heights, blockIds, paletteColors, hm.Palette, hm.X, hm.Z);
-
-                    if (vertexCount > 0)
-                    {
-                        Renderer.UploadChunkMesh(hm.X, hm.Z, vertices);
-                        _loadedChunks.Add((hm.X, hm.Z));
-                        _loadedCount++;
-                        if (_loadedCount % 10 == 0) StateHasChanged();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    System.Console.WriteLine($"[Map] Heightmap ({hm.X},{hm.Z}) error: {ex.Message}");
-                }
-                // Yield periodically to keep render loop and SignalR connection alive
-                if (_loadedCount % 5 == 0)
-                    await Task.Yield();
-            }
-            System.Console.WriteLine($"[Map] Loaded {_loadedCount} heightmap chunks");
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            System.Console.WriteLine($"[Map] Stream error: {ex.Message}");
-        }
-    }
-
-    private async Task StatsRefreshLoop()
-    {
-        while (_viewMode == ViewMode.Viewer3D)
-        {
-            await Task.Delay(500);
-
-            // Update player positions
-            try
-            {
-                var positions = await Hub.GetPlayerPositionsAsync();
-                UpdatePlayerMarkers(positions);
-            }
-            catch { }
-
-            StateHasChanged();
-        }
-    }
-
-    private void UpdatePlayerMarkers(List<PlayerPositionDto> positions)
-    {
-        // Remove old markers
-        foreach (var key in _playerChunkKeys)
-            Renderer.RemoveChunkMesh(key.cx, key.cz);
-        _playerChunkKeys.Clear();
-
-        foreach (var pos in positions)
-        {
-            // Create a bright colored beacon column at player position
-            var verts = new List<float>();
-            float px = pos.X;
-            float py = pos.Y;
-            float pz = pos.Z;
-
-            // Render a 1x3 colored pillar (visible from distance)
-            for (int dy = 0; dy < 5; dy++)
-            {
-                float y = py + dy;
-                // Bright cyan marker
-                float r = 0.1f, g = 0.9f, b = 1.0f;
-                // All 6 faces of the marker block
-                EmitMarkerBlock(verts, px, y, pz, r, g, b);
-            }
-
-            // Use a unique chunk key far outside normal range
-            int markerCx = 100000 + _playerChunkKeys.Count;
-            int markerCz = 100000;
-            _playerChunkKeys.Add((markerCx, markerCz));
-
-            if (verts.Count > 0)
-                Renderer.UploadChunkMesh(markerCx, markerCz, verts.ToArray());
-        }
-    }
-
-    private static void EmitMarkerBlock(List<float> v, float x, float y, float z, float r, float g, float b)
-    {
-        float s = 0.5f; // half-size
-        float x0 = x - s, x1 = x + s, z0 = z - s, z1 = z + s;
-        float y0 = y, y1 = y + 1;
-        float nu = -1f; // no texture
-
-        // Top
-        MV(v, x0, y1, z0, 0, 1, 0, r, g, b, nu, nu); MV(v, x0, y1, z1, 0, 1, 0, r, g, b, nu, nu);
-        MV(v, x1, y1, z1, 0, 1, 0, r, g, b, nu, nu); MV(v, x0, y1, z0, 0, 1, 0, r, g, b, nu, nu);
-        MV(v, x1, y1, z1, 0, 1, 0, r, g, b, nu, nu); MV(v, x1, y1, z0, 0, 1, 0, r, g, b, nu, nu);
-        // -X
-        MV(v, x0, y0, z1, -1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu); MV(v, x0, y1, z1, -1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu);
-        MV(v, x0, y1, z0, -1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu); MV(v, x0, y0, z1, -1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu);
-        MV(v, x0, y1, z0, -1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu); MV(v, x0, y0, z0, -1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu);
-        // +X
-        MV(v, x1, y0, z0, 1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu); MV(v, x1, y1, z0, 1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu);
-        MV(v, x1, y1, z1, 1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu); MV(v, x1, y0, z0, 1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu);
-        MV(v, x1, y1, z1, 1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu); MV(v, x1, y0, z1, 1, 0, 0, r*0.8f, g*0.8f, b*0.8f, nu, nu);
-        // -Z
-        MV(v, x0, y0, z0, 0, 0, -1, r*0.7f, g*0.7f, b*0.7f, nu, nu); MV(v, x0, y1, z0, 0, 0, -1, r*0.7f, g*0.7f, b*0.7f, nu, nu);
-        MV(v, x1, y1, z0, 0, 0, -1, r*0.7f, g*0.7f, b*0.7f, nu, nu); MV(v, x0, y0, z0, 0, 0, -1, r*0.7f, g*0.7f, b*0.7f, nu, nu);
-        MV(v, x1, y1, z0, 0, 0, -1, r*0.7f, g*0.7f, b*0.7f, nu, nu); MV(v, x1, y0, z0, 0, 0, -1, r*0.7f, g*0.7f, b*0.7f, nu, nu);
-        // +Z
-        MV(v, x1, y0, z1, 0, 0, 1, r*0.7f, g*0.7f, b*0.7f, nu, nu); MV(v, x1, y1, z1, 0, 0, 1, r*0.7f, g*0.7f, b*0.7f, nu, nu);
-        MV(v, x0, y1, z1, 0, 0, 1, r*0.7f, g*0.7f, b*0.7f, nu, nu); MV(v, x1, y0, z1, 0, 0, 1, r*0.7f, g*0.7f, b*0.7f, nu, nu);
-        MV(v, x0, y1, z1, 0, 0, 1, r*0.7f, g*0.7f, b*0.7f, nu, nu); MV(v, x0, y0, z1, 0, 0, 1, r*0.7f, g*0.7f, b*0.7f, nu, nu);
-    }
-
-    private static void MV(List<float> v, float px, float py, float pz, float nx, float ny, float nz, float r, float g, float b, float u, float uv)
-    {
-        v.Add(px); v.Add(py); v.Add(pz);
-        v.Add(nx); v.Add(ny); v.Add(nz);
-        v.Add(r); v.Add(g); v.Add(b);
-        v.Add(u); v.Add(uv);
-    }
-
-    private async Task LoadAtlasAsync()
-    {
-        try
-        {
-            // Load pre-decoded RGBA atlas data from server
-            var rgba = await Http.GetByteArrayAsync("atlas.rgba");
-            // Atlas is square: side = sqrt(totalBytes / 4)
-            int size = (int)Math.Sqrt(rgba.Length / 4);
-            Renderer.UploadAtlas(rgba, size, size);
-        }
-        catch (Exception ex)
-        {
-            System.Console.WriteLine($"[Map] Atlas load error: {ex.Message}");
-        }
-    }
-
-    private HashSet<(int, int)> _fullChunks = new();
-    private const int FullRenderRadius = 3;
-
-    private async Task LoadFullChunksNearbyAsync(int camCX, int camCZ)
-    {
-        _loadingFull = true;
-        try
-        {
-            for (int dz = -FullRenderRadius; dz <= FullRenderRadius; dz++)
-            for (int dx = -FullRenderRadius; dx <= FullRenderRadius; dx++)
-            {
-                if (dx * dx + dz * dz > FullRenderRadius * FullRenderRadius) continue;
-                int cx = camCX + dx;
-                int cz = camCZ + dz;
-                if (_fullChunks.Contains((cx, cz))) continue;
-                if (!_populatedChunks.Contains((cx, cz))) continue;
-
-                try
-                {
-                    var response = await Http.GetAsync($"/api/world/chunk/{cx}/{cz}");
-                    if (!response.IsSuccessStatusCode) continue;
-
-                    var chunkData = await response.Content.ReadFromJsonAsync<ChunkDataDto>();
-                    if (chunkData == null) continue;
-
-                    var blockBytes = Convert.FromBase64String(chunkData.Blocks);
-                    var blocks = new ushort[blockBytes.Length / 2];
-                    Buffer.BlockCopy(blockBytes, 0, blocks, 0, blockBytes.Length);
-                    if (blocks.Length != 16 * 384 * 16) continue;
-
-                    var paletteColors = BlockColorMap.BuildPaletteColors(chunkData.Palette);
-                    var atlasUVs = BuildAtlasUVs(chunkData.Palette);
-
-                    var result = await Engine.GenerateMeshAsync(blocks, paletteColors, atlasUVs, cx, cz);
-
-                    if (result.VertexCount > 100)
-                        Renderer.UploadChunkMesh(cx, cz, result.Vertices);
-                    _fullChunks.Add((cx, cz));
-                }
-                catch (Exception ex)
-                {
-                    System.Console.WriteLine($"[Map] Full3D ({cx},{cz}) failed: {ex.Message}");
-                    _fullChunks.Add((cx, cz)); // Don't retry failed chunks
-                }
-                await Task.Yield();
-            }
-        }
-        finally
-        {
-            _loadingFull = false;
-        }
-    }
-
-    private static float[] BuildAtlasUVs(List<string> palette)
-    {
-        var uvs = new float[palette.Count * 4];
-        for (int i = 0; i < palette.Count; i++)
-        {
-            var (u0, v0, u1, v1) = TextureAtlas.GetTileUVs(palette[i]);
-            uvs[i * 4] = u0;
-            uvs[i * 4 + 1] = v0;
-            uvs[i * 4 + 2] = u1;
-            uvs[i * 4 + 3] = v1;
-        }
-        return uvs;
+        catch { }
     }
 
     private void SwitchTo3D() => _viewMode = ViewMode.Viewer3D;
@@ -404,10 +242,11 @@ else
 
     public void Dispose()
     {
-        Renderer.StopRenderLoop();
+        _resizeObserver?.Disconnect();
+        _resizeObserver?.Dispose();
+        _resizeCallback?.Dispose();
+        _renderWorker?.Dispose();
+        _canvas?.Dispose();
         Input.Detach();
     }
-
-    private record ChunkCoordDto(int X, int Z);
-    private record ChunkDataDto(string Blocks, List<string> Palette);
 }

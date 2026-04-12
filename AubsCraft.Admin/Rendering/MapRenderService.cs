@@ -24,24 +24,37 @@ public sealed class MapRenderService : IDisposable
 
     private GPUTexture? _depthTexture;
     private GPUTextureView? _depthView;
-    private string? _canvasId;
+    // No canvas ID needed - worker uses OffscreenCanvas, window uses ElementReference
     private int _canvasWidth;
     private int _canvasHeight;
 
+    private GPURenderPipeline? _transparentPipeline;
+
+    // Opaque vertex buffer (solid blocks + plants)
     private GPUBuffer? _vertexBuffer;
     private int _bufferCapacityVertices;
     private int _nextFreeVertex;
     private readonly Dictionary<(int cx, int cz), ChunkSlot> _slots = new();
     private readonly List<(int firstVertex, int vertexCount)> _freeSlots = new();
 
+    // Water vertex buffer (transparent pass)
+    private GPUBuffer? _waterVertexBuffer;
+    private int _waterBufferCapacity;
+    private int _waterNextFreeVertex;
+    private readonly Dictionary<(int cx, int cz), ChunkSlot> _waterSlots = new();
+    private readonly List<(int firstVertex, int vertexCount)> _waterFreeSlots = new();
+    private const int WaterInitialCapacity = 1_000_000;
+    private const int WaterMaxCapacity = 5_000_000;
+
     private const int BytesPerVertex = 11 * 4; // 11 floats x 4 bytes (pos3 + normal3 + color3 + uv2)
     private const int InitialCapacityVertices = 5_000_000;
-    private const int MaxBufferVertices = 15_000_000;
+    private const int MaxBufferVertices = 30_000_000; // increased for seabed + water geometry
     private const int ChunkXZ = 16;
     private const int ChunkHeight = 384;
 
     private GPUBuffer? _uniformBuffer;
     private GPUBindGroup? _uniformBindGroup;
+    private GPUBindGroup? _waterBindGroup; // separate bind group for transparent pipeline
     private GPUTexture? _atlasTexture;
     private GPUSampler? _atlasSampler;
 
@@ -53,11 +66,32 @@ public sealed class MapRenderService : IDisposable
     private byte[]? _uniformBytes;
 
     public FpsCamera Camera { get; } = new();
+
+    /// <summary>Handle canvas resize from external source (e.g. main thread notifying worker).</summary>
+    public void HandleResize(int width, int height)
+    {
+        if (width > 0 && height > 0 && (width != _canvasWidth || height != _canvasHeight))
+        {
+            _canvasWidth = width;
+            _canvasHeight = height;
+            CreateDepthTexture();
+        }
+    }
     public bool IsInitialized { get; private set; }
     public Action<float>? OnUpdate { get; set; }
     public int VisibleChunkCount { get; private set; }
     public int TotalChunkCount => _slots.Count;
     public float Fps { get; private set; }
+
+    // Cached per-frame descriptors to avoid allocation every frame
+    private GPURenderPassColorAttachment? _cachedColorAttachment;
+    private GPURenderPassDepthStencilAttachment? _cachedDepthAttachment;
+    private GPURenderPassDescriptor? _cachedPassDescriptor;
+
+    // Pre-allocated water sort list - reused every frame, zero allocations
+    private readonly List<(int dist, (int cx, int cz) key, ChunkSlot slot)> _waterSortList = new(256);
+    // Cached submit array - reused every frame
+    private readonly GPUCommandBuffer[] _submitArray = new GPUCommandBuffer[1];
     public float FrameTimeMs { get; private set; }
     public int TotalVertices { get; private set; }
     public int VisibleVertices { get; private set; }
@@ -66,8 +100,8 @@ public sealed class MapRenderService : IDisposable
     private int _frameCount;
     private double _fpsAccumulator;
     private float _lastDt;
-    public int DrawDistance { get; private set; } = 20;
-    private const int MinDrawDistance = 10;
+    public int DrawDistance { get; private set; } = 30;
+    private const int MinDrawDistance = 25;
     private const int MaxDrawDistance = 50;
 
     public MapRenderService(BlazorJSRuntime js)
@@ -76,6 +110,22 @@ public sealed class MapRenderService : IDisposable
     }
 
     public void Init(HTMLCanvasElement canvas, Accelerator accelerator)
+    {
+        var ctx = canvas.GetContext<GPUCanvasContext>("webgpu")
+            ?? throw new InvalidOperationException("Failed to get WebGPU canvas context");
+        InitWithContext(ctx, canvas.ClientWidth, canvas.ClientHeight, accelerator);
+        canvas.Width = _canvasWidth;
+        canvas.Height = _canvasHeight;
+    }
+
+    public void InitOffscreen(OffscreenCanvas canvas, Accelerator accelerator)
+    {
+        var ctx = canvas.GetWebGPUContext()
+            ?? throw new InvalidOperationException("Failed to get WebGPU canvas context");
+        InitWithContext(ctx, canvas.Width, canvas.Height, accelerator);
+    }
+
+    private void InitWithContext(GPUCanvasContext context, int width, int height, Accelerator accelerator)
     {
         if (IsInitialized) return;
 
@@ -88,8 +138,7 @@ public sealed class MapRenderService : IDisposable
         _queue = nativeAccel.Queue
             ?? throw new InvalidOperationException("WebGPU queue is null");
 
-        _context = canvas.GetContext<GPUCanvasContext>("webgpu")
-            ?? throw new InvalidOperationException("Failed to get WebGPU canvas context");
+        _context = context;
 
         using var navigator = _js.Get<Navigator>("navigator");
         using var gpu = navigator.Gpu;
@@ -102,11 +151,8 @@ public sealed class MapRenderService : IDisposable
             Format = _canvasFormat,
         });
 
-        _canvasId = canvas.Id;
-        _canvasWidth = canvas.ClientWidth;
-        _canvasHeight = canvas.ClientHeight;
-        canvas.Width = _canvasWidth;
-        canvas.Height = _canvasHeight;
+        _canvasWidth = width;
+        _canvasHeight = height;
 
         _shaderModule = _device.CreateShaderModule(new GPUShaderModuleDescriptor
         {
@@ -159,12 +205,85 @@ public sealed class MapRenderService : IDisposable
             }
         });
 
+        // Transparent pipeline: alpha blending, depth test but no depth write
+        _transparentPipeline = _device.CreateRenderPipeline(new GPURenderPipelineDescriptor
+        {
+            Layout = "auto",
+            Vertex = new GPUVertexState
+            {
+                Module = _shaderModule,
+                EntryPoint = "vs_main",
+                Buffers = new[]
+                {
+                    new GPUVertexBufferLayout
+                    {
+                        ArrayStride = (ulong)BytesPerVertex,
+                        StepMode = GPUVertexStepMode.Vertex,
+                        Attributes = new GPUVertexAttribute[]
+                        {
+                            new() { ShaderLocation = 0, Offset = 0,      Format = GPUVertexFormat.Float32x3 },
+                            new() { ShaderLocation = 1, Offset = 3 * 4,  Format = GPUVertexFormat.Float32x3 },
+                            new() { ShaderLocation = 2, Offset = 6 * 4,  Format = GPUVertexFormat.Float32x3 },
+                            new() { ShaderLocation = 3, Offset = 9 * 4,  Format = GPUVertexFormat.Float32x2 },
+                        }
+                    }
+                }
+            },
+            Fragment = new GPUFragmentState
+            {
+                Module = _shaderModule,
+                EntryPoint = "fs_water",
+                Targets = new[]
+                {
+                    new GPUColorTargetState
+                    {
+                        Format = _canvasFormat,
+                        Blend = new GPUBlendState
+                        {
+                            Color = new GPUBlendComponent
+                            {
+                                SrcFactor = GPUBlendFactor.SrcAlpha,
+                                DstFactor = GPUBlendFactor.OneMinusSrcAlpha,
+                                Operation = GPUBlendOperation.Add,
+                            },
+                            Alpha = new GPUBlendComponent
+                            {
+                                SrcFactor = GPUBlendFactor.One,
+                                DstFactor = GPUBlendFactor.OneMinusSrcAlpha,
+                                Operation = GPUBlendOperation.Add,
+                            }
+                        }
+                    }
+                }
+            },
+            Primitive = new GPUPrimitiveState
+            {
+                Topology = GPUPrimitiveTopology.TriangleList,
+                CullMode = GPUCullMode.Back,
+                FrontFace = GPUFrontFace.CCW,
+            },
+            DepthStencil = new GPUDepthStencilState
+            {
+                Format = "depth24plus",
+                DepthWriteEnabled = false,  // transparent does NOT write depth
+                DepthCompare = "less",      // but still tests against opaque geometry
+            }
+        });
+
         CreateDepthTexture();
 
         _bufferCapacityVertices = InitialCapacityVertices;
         _vertexBuffer = _device.CreateBuffer(new GPUBufferDescriptor
         {
             Size = (ulong)_bufferCapacityVertices * BytesPerVertex,
+            Usage = GPUBufferUsage.Vertex | GPUBufferUsage.CopyDst | GPUBufferUsage.CopySrc,
+        });
+
+        // Water vertex buffer (transparent pass)
+        _waterBufferCapacity = WaterInitialCapacity;
+        _waterVertexBuffer = _device.CreateBuffer(new GPUBufferDescriptor
+        {
+            Size = (ulong)_waterBufferCapacity * BytesPerVertex,
             Usage = GPUBufferUsage.Vertex | GPUBufferUsage.CopyDst | GPUBufferUsage.CopySrc,
         });
 
@@ -198,17 +317,31 @@ public sealed class MapRenderService : IDisposable
 
     private void CreateBindGroup()
     {
+        var entries = new[]
+        {
+            new GPUBindGroupEntry { Binding = 0, Resource = new GPUBufferBinding { Buffer = _uniformBuffer! } },
+            new GPUBindGroupEntry { Binding = 1, Resource = _atlasTexture!.CreateView() },
+            new GPUBindGroupEntry { Binding = 2, Resource = _atlasSampler! },
+        };
+
+        // Opaque pipeline bind group
         _uniformBindGroup?.Dispose();
         _uniformBindGroup = _device!.CreateBindGroup(new GPUBindGroupDescriptor
         {
             Layout = _pipeline!.GetBindGroupLayout(0),
-            Entries = new[]
-            {
-                new GPUBindGroupEntry { Binding = 0, Resource = new GPUBufferBinding { Buffer = _uniformBuffer! } },
-                new GPUBindGroupEntry { Binding = 1, Resource = _atlasTexture!.CreateView() },
-                new GPUBindGroupEntry { Binding = 2, Resource = _atlasSampler! },
-            }
+            Entries = entries,
         });
+
+        // Transparent pipeline bind group (same bindings, different layout from "auto")
+        _waterBindGroup?.Dispose();
+        if (_transparentPipeline != null)
+        {
+            _waterBindGroup = _device!.CreateBindGroup(new GPUBindGroupDescriptor
+            {
+                Layout = _transparentPipeline.GetBindGroupLayout(0),
+                Entries = entries,
+            });
+        }
     }
 
     /// <summary>
@@ -302,6 +435,72 @@ public sealed class MapRenderService : IDisposable
         }
     }
 
+    /// <summary>Uploads water mesh vertices for a chunk to the transparent vertex buffer.</summary>
+    public void UploadWaterMesh(int cx, int cz, float[] vertices)
+    {
+        var key = (cx, cz);
+        int vertexCount = vertices.Length / 11;
+        if (vertexCount == 0) return;
+
+        if (_waterSlots.Remove(key, out var oldSlot))
+            _waterFreeSlots.Add((oldSlot.FirstVertex, oldSlot.VertexCount));
+
+        int writeOffset = -1;
+        for (int i = 0; i < _waterFreeSlots.Count; i++)
+        {
+            if (_waterFreeSlots[i].vertexCount >= vertexCount)
+            {
+                var free = _waterFreeSlots[i];
+                writeOffset = free.firstVertex;
+                int remainder = free.vertexCount - vertexCount;
+                if (remainder > 100)
+                    _waterFreeSlots[i] = (free.firstVertex + vertexCount, remainder);
+                else
+                    _waterFreeSlots.RemoveAt(i);
+                break;
+            }
+        }
+
+        if (writeOffset < 0)
+        {
+            if (_waterNextFreeVertex + vertexCount > _waterBufferCapacity)
+            {
+                int needed = _waterNextFreeVertex + vertexCount;
+                int newCap = Math.Min(Math.Max(needed + needed / 4, _waterBufferCapacity + 200_000), WaterMaxCapacity);
+                if (newCap < needed) return;
+                GrowWaterBuffer(newCap);
+            }
+            writeOffset = _waterNextFreeVertex;
+            _waterNextFreeVertex += vertexCount;
+        }
+
+        ulong byteOffset = (ulong)writeOffset * BytesPerVertex;
+        using var jsArray = new Float32Array(vertices);
+        _queue!.WriteBuffer(_waterVertexBuffer!, byteOffset, jsArray);
+        _waterSlots[key] = new ChunkSlot { FirstVertex = writeOffset, VertexCount = vertexCount };
+    }
+
+    private void GrowWaterBuffer(int newCapacity)
+    {
+        var newBuffer = _device!.CreateBuffer(new GPUBufferDescriptor
+        {
+            Size = (ulong)newCapacity * BytesPerVertex,
+            Usage = GPUBufferUsage.Vertex | GPUBufferUsage.CopyDst | GPUBufferUsage.CopySrc,
+        });
+        if (_waterNextFreeVertex > 0)
+        {
+            var encoder = _device.CreateCommandEncoder();
+            encoder.CopyBufferToBuffer(_waterVertexBuffer!, 0, newBuffer, 0,
+                (ulong)_waterNextFreeVertex * BytesPerVertex);
+            _submitArray[0] = encoder.Finish();
+            _queue!.Submit(_submitArray);
+            _submitArray[0]?.Dispose();
+        }
+        _waterVertexBuffer?.Destroy();
+        _waterVertexBuffer = newBuffer;
+        _waterBufferCapacity = newCapacity;
+    }
+
     private void GrowBuffer(int newCapacity)
     {
         var newBuffer = _device!.CreateBuffer(new GPUBufferDescriptor
@@ -336,8 +535,8 @@ public sealed class MapRenderService : IDisposable
     private void RequestFrame()
     {
         if (!_running || _disposed || _rafCallback == null) return;
-        using var window = _js.Get<Window>("window");
-        window.RequestAnimationFrame(_rafCallback);
+        // Use globalThis.requestAnimationFrame - works in both Window and Worker contexts
+        _js.CallVoid("requestAnimationFrame", _rafCallback);
     }
 
     private void OnAnimationFrame(double timestamp)
@@ -376,24 +575,8 @@ public sealed class MapRenderService : IDisposable
             _vertexBuffer == null || _slots.Count == 0)
             return;
 
-        if (_canvasId != null)
-        {
-            using var doc = _js.Get<Document>("document");
-            using var canvasEl = doc.GetElementById<HTMLCanvasElement>(_canvasId);
-            if (canvasEl != null)
-            {
-                int cw = canvasEl.ClientWidth;
-                int ch = canvasEl.ClientHeight;
-                if (cw > 0 && ch > 0 && (cw != _canvasWidth || ch != _canvasHeight))
-                {
-                    _canvasWidth = cw;
-                    _canvasHeight = ch;
-                    canvasEl.Width = cw;
-                    canvasEl.Height = ch;
-                    CreateDepthTexture();
-                }
-            }
-        }
+        // Resize is handled by ResizeObserver (worker) or HandleResize (external).
+        // No per-frame DOM queries.
 
         float aspect = (float)_canvasWidth / _canvasHeight;
         var vp = Camera.GetVpMatrix(aspect);
@@ -413,26 +596,30 @@ public sealed class MapRenderService : IDisposable
         using var colorView = colorTexture.CreateView();
         using var encoder = _device.CreateCommandEncoder();
 
-        using var pass = encoder.BeginRenderPass(new GPURenderPassDescriptor
+        // Reuse cached descriptor objects - only update the view reference
+        _cachedColorAttachment ??= new GPURenderPassColorAttachment
         {
-            ColorAttachments = new[]
-            {
-                new GPURenderPassColorAttachment
-                {
-                    View = colorView,
-                    LoadOp = GPULoadOp.Clear,
-                    StoreOp = GPUStoreOp.Store,
-                    ClearValue = new GPUColorDict { R = 0.65, G = 0.80, B = 0.95, A = 1.0 },
-                }
-            },
-            DepthStencilAttachment = new GPURenderPassDepthStencilAttachment
-            {
-                View = _depthView!,
-                DepthLoadOp = "clear",
-                DepthStoreOp = "store",
-                DepthClearValue = 1.0f,
-            }
-        });
+            LoadOp = GPULoadOp.Clear,
+            StoreOp = GPUStoreOp.Store,
+            ClearValue = new GPUColorDict { R = 0.65, G = 0.80, B = 0.95, A = 1.0 },
+        };
+        _cachedColorAttachment.View = colorView;
+
+        _cachedDepthAttachment ??= new GPURenderPassDepthStencilAttachment
+        {
+            View = _depthView!,
+            DepthLoadOp = "clear",
+            DepthStoreOp = "store",
+            DepthClearValue = 1.0f,
+        };
+
+        _cachedPassDescriptor ??= new GPURenderPassDescriptor
+        {
+            ColorAttachments = new[] { _cachedColorAttachment },
+            DepthStencilAttachment = _cachedDepthAttachment,
+        };
+
+        using var pass = encoder.BeginRenderPass(_cachedPassDescriptor);
 
         pass.SetPipeline(_pipeline);
         pass.SetBindGroup(0, _uniformBindGroup!);
@@ -466,9 +653,39 @@ public sealed class MapRenderService : IDisposable
         VisibleVertices = visVerts;
         TotalVertices = totalVerts;
 
+        // Pass 2: Transparent water (same render pass, different pipeline)
+        // Draw back-to-front using chunk distance for correct blending
+        if (_waterSlots.Count > 0 && _waterVertexBuffer != null)
+        {
+            pass.SetPipeline(_transparentPipeline!);
+            pass.SetBindGroup(0, _waterBindGroup!);
+            pass.SetVertexBuffer(0, _waterVertexBuffer);
+
+            // Sort water chunks back-to-front - reuse pre-allocated list, zero LINQ
+            _waterSortList.Clear();
+            foreach (var ((cx2, cz2), slot2) in _waterSlots)
+            {
+                if (slot2.VertexCount == 0) continue;
+                int ddx = cx2 - camCX, ddz = cz2 - camCZ;
+                int dist = ddx * ddx + ddz * ddz;
+                if (dist <= drawDistSq)
+                    _waterSortList.Add((dist, (cx2, cz2), slot2));
+            }
+            _waterSortList.Sort((a, b) => b.dist.CompareTo(a.dist)); // back-to-front
+
+            foreach (var (_, key, slot) in _waterSortList)
+            {
+                var min = new Vector3(key.cx * ChunkXZ, -64f, key.cz * ChunkXZ);
+                var max = new Vector3(key.cx * ChunkXZ + ChunkXZ, 320f, key.cz * ChunkXZ + ChunkXZ);
+                if (!FrustumCuller.IsBoxVisible(in frustum, min, max)) continue;
+                pass.Draw((uint)slot.VertexCount, 1, (uint)slot.FirstVertex, 0);
+            }
+        }
+
         pass.End();
         using var commandBuffer = encoder.Finish();
-        _queue!.Submit(new[] { commandBuffer });
+        _submitArray[0] = commandBuffer;
+        _queue!.Submit(_submitArray);
     }
 
     private void CreateDepthTexture()
@@ -498,6 +715,9 @@ public sealed class MapRenderService : IDisposable
         _slots.Clear();
         _freeSlots.Clear();
         _uniformBindGroup?.Dispose();
+        _waterBindGroup?.Dispose();
+        _waterVertexBuffer?.Destroy();
+        _waterVertexBuffer?.Dispose();
         _uniformBuffer?.Destroy();
         _uniformBuffer?.Dispose();
         _depthView?.Dispose();
@@ -599,6 +819,31 @@ fn fs_main(input : VertexOutput) -> @location(0) vec4<f32> {
     color = mix(color, fog_color, fog_factor * fog_factor);
 
     return vec4<f32>(color, 1.0);
+}
+
+// Water fragment shader - same lighting as opaque but with alpha transparency
+@fragment
+fn fs_water(input: VertexOutput) -> @location(0) vec4<f32> {
+    let has_texture = step(0.0, input.tex_uv.x);
+    let tex_color = textureSample(atlas_texture, atlas_sampler, input.tex_uv);
+    var color = mix(input.base_color, tex_color.rgb * input.base_color, has_texture);
+
+    // Simplified lighting for water (mostly uniform, slight darkening on sides)
+    let ambient = vec3<f32>(0.35, 0.40, 0.50);
+    let sun_dir = normalize(vec3<f32>(0.35, 0.85, 0.40));
+    let sun_strength = max(dot(input.world_normal, sun_dir), 0.0);
+    let lit = ambient + vec3<f32>(0.7, 0.7, 0.7) * sun_strength;
+    color = color * lit;
+
+    // Distance fog (same as opaque)
+    let dist = length(input.world_pos - uniforms.camera_pos.xyz);
+    let fog_start = 250.0;
+    let fog_end = 450.0;
+    let fog_color = vec3<f32>(0.65, 0.80, 0.95);
+    let fog_factor = clamp((dist - fog_start) / (fog_end - fog_start), 0.0, 1.0);
+    color = mix(color, fog_color, fog_factor * fog_factor);
+
+    return vec4<f32>(color, 0.6);
 }
 ";
 

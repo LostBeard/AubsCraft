@@ -1,0 +1,377 @@
+@page "/benchmark"
+@inject SpawnDev.BlazorJS.BlazorJSRuntime JS
+@implements IDisposable
+@using SpawnDev.BlazorJS.JSObjects
+
+<PageTitle>Storage Benchmark - AubsCraft Admin</PageTitle>
+
+<h1>Storage Benchmark: IndexedDB vs OPFS</h1>
+<p class="text-muted">Measures real read/write performance for chunk data caching.</p>
+
+<div class="d-flex gap-2 mb-3">
+    <button class="btn btn-primary" @onclick="RunBenchmark" disabled="@_running">
+        @(_running ? "Running..." : "Run Benchmark")
+    </button>
+    <button class="btn btn-outline-danger" @onclick="Cleanup" disabled="@_running">Cleanup</button>
+</div>
+
+<div class="mb-3">
+    <label class="form-label">Chunk count: <strong>@_chunkCount</strong></label>
+    <input type="range" class="form-range" min="100" max="3000" step="100"
+           @bind="_chunkCount" disabled="@_running" />
+    <small class="text-muted">
+        Chunk size: @(_chunkSizeBytes / 1024)KB each |
+        Total data: @((_chunkCount * _chunkSizeBytes / 1024 / 1024).ToString("F1"))MB
+    </small>
+</div>
+
+@if (_results.Count > 0)
+{
+    <table class="table table-sm table-striped font-monospace" style="max-width: 700px;">
+        <thead>
+            <tr><th>Operation</th><th class="text-end">Time (ms)</th><th class="text-end">Throughput</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var r in _results)
+            {
+                <tr>
+                    <td>@r.Name</td>
+                    <td class="text-end">@r.Ms.ToString("F1")</td>
+                    <td class="text-end">@r.Throughput</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<pre class="bg-dark text-light p-3 rounded" style="max-height: 400px; overflow-y: auto; font-size: 0.75rem;">@_log</pre>
+
+@code {
+    private int _chunkCount = 1000;
+    private const int _chunkSizeBytes = 2600; // realistic heightmap binary frame size
+    private bool _running;
+    private string _log = "";
+    private List<BenchResult> _results = new();
+
+    private record BenchResult(string Name, double Ms, string Throughput);
+
+    private void Log(string msg)
+    {
+        _log += msg + "\n";
+        StateHasChanged();
+    }
+
+    private byte[][] GenerateChunks(int count)
+    {
+        var rng = new Random(42);
+        var chunks = new byte[count][];
+        for (int i = 0; i < count; i++)
+        {
+            chunks[i] = new byte[_chunkSizeBytes];
+            // Write chunk coords in first 8 bytes (like real binary frames)
+            int cx = i % 100 - 50;
+            int cz = i / 100 - 15;
+            BitConverter.TryWriteBytes(chunks[i].AsSpan(0, 4), cx);
+            BitConverter.TryWriteBytes(chunks[i].AsSpan(4, 4), cz);
+            // Fill rest with random data to simulate real chunk content
+            rng.NextBytes(chunks[i].AsSpan(8));
+        }
+        return chunks;
+    }
+
+    private async Task RunBenchmark()
+    {
+        _running = true;
+        _results.Clear();
+        _log = "";
+        StateHasChanged();
+
+        var chunks = GenerateChunks(_chunkCount);
+        var totalMB = (double)_chunkCount * _chunkSizeBytes / 1024 / 1024;
+        Log($"Generated {_chunkCount} chunks, {_chunkSizeBytes} bytes each, {totalMB:F1} MB total\n");
+
+        // --- IndexedDB Write ---
+        await Task.Delay(1); // yield frame
+        await BenchIndexedDBWrite(chunks);
+        await Task.Delay(1);
+
+        // --- IndexedDB Read (individual) ---
+        await BenchIndexedDBReadIndividual();
+        await Task.Delay(1);
+
+        // --- IndexedDB Read (getAll) ---
+        await BenchIndexedDBReadAll();
+        await Task.Delay(1);
+
+        // --- OPFS Write (individual files) ---
+        await BenchOPFSWriteIndividual(chunks);
+        await Task.Delay(1);
+
+        // --- OPFS Read (individual files) ---
+        await BenchOPFSReadIndividual();
+        await Task.Delay(1);
+
+        // --- OPFS Write (region files - 32x32 chunks per file) ---
+        await BenchOPFSWriteRegion(chunks);
+        await Task.Delay(1);
+
+        // --- OPFS Read (region files) ---
+        await BenchOPFSReadRegion();
+        await Task.Delay(1);
+
+        Log("\n--- DONE ---");
+        _running = false;
+        StateHasChanged();
+    }
+
+    // ==================== IndexedDB ====================
+
+    private async Task BenchIndexedDBWrite(byte[][] chunks)
+    {
+        Log("IndexedDB Write...");
+        using var factory = new IDBFactory();
+
+        // Delete any existing test DB
+        try { await factory.DeleteDatabaseAsync("bench-idb"); } catch { }
+
+        using var db = await factory.OpenAsync("bench-idb", 1, evt =>
+        {
+            using var req = evt.Target;
+            using var d = req.Result;
+            d.CreateObjectStore<string, Uint8Array>("chunks");
+        });
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        for (int i = 0; i < chunks.Length; i++)
+        {
+            using var tx = db.Transaction("chunks", true);
+            using var store = tx.ObjectStore<string, Uint8Array>("chunks");
+            using var arr = new Uint8Array(chunks[i]);
+            await store.PutAsync(arr, $"{i}");
+        }
+        sw.Stop();
+
+        var totalMB = (double)chunks.Length * _chunkSizeBytes / 1024 / 1024;
+        var mbps = totalMB / (sw.ElapsedMilliseconds / 1000.0);
+        _results.Add(new("IDB Write (individual tx)", sw.ElapsedMilliseconds, $"{mbps:F1} MB/s"));
+        Log($"  {sw.ElapsedMilliseconds}ms ({mbps:F1} MB/s)");
+    }
+
+    private async Task BenchIndexedDBReadIndividual()
+    {
+        Log("IndexedDB Read (individual get)...");
+        using var factory = new IDBFactory();
+        using var db = await factory.OpenAsync("bench-idb");
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        int totalBytes = 0;
+        for (int i = 0; i < _chunkCount; i++)
+        {
+            using var tx = db.Transaction("chunks");
+            using var store = tx.ObjectStore<string, Uint8Array>("chunks");
+            using var result = await store.GetAsync($"{i}");
+            if (result != null) totalBytes += (int)result.Length;
+        }
+        sw.Stop();
+
+        var totalMB = (double)totalBytes / 1024 / 1024;
+        var mbps = totalMB / (sw.ElapsedMilliseconds / 1000.0);
+        _results.Add(new("IDB Read (individual get)", sw.ElapsedMilliseconds, $"{mbps:F1} MB/s"));
+        Log($"  {sw.ElapsedMilliseconds}ms ({mbps:F1} MB/s, {totalBytes / 1024}KB read)");
+    }
+
+    private async Task BenchIndexedDBReadAll()
+    {
+        Log("IndexedDB Read (getAll)...");
+        using var factory = new IDBFactory();
+        using var db = await factory.OpenAsync("bench-idb");
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        using var tx = db.Transaction("chunks");
+        using var store = tx.ObjectStore<string, Uint8Array>("chunks");
+        using var all = await store.GetAllAsync();
+        int totalBytes = 0;
+        if (all != null)
+        {
+            for (int i = 0; i < (int)all.Length; i++)
+            {
+                using var item = all.GetItem<Uint8Array>(i);
+                if (item != null) totalBytes += (int)item.Length;
+            }
+        }
+        sw.Stop();
+
+        var totalMB = (double)totalBytes / 1024 / 1024;
+        var mbps = totalMB / (sw.ElapsedMilliseconds / 1000.0);
+        _results.Add(new("IDB Read (getAll)", sw.ElapsedMilliseconds, $"{mbps:F1} MB/s"));
+        Log($"  {sw.ElapsedMilliseconds}ms ({mbps:F1} MB/s, {totalBytes / 1024}KB read)");
+    }
+
+    // ==================== OPFS Individual ====================
+
+    private async Task BenchOPFSWriteIndividual(byte[][] chunks)
+    {
+        Log("OPFS Write (individual files)...");
+        var root = await JS.Get<StorageManager>("navigator.storage").GetDirectory();
+        // Clean up any existing bench dir
+        try { await root.RemoveEntry("bench-opfs", true); } catch { }
+        var dir = await root.GetDirectoryHandle("bench-opfs", true);
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        for (int i = 0; i < chunks.Length; i++)
+        {
+            var file = await dir.GetFileHandle($"{i}.bin", true);
+            var writable = await file.CreateWritable();
+            using var arr = new Uint8Array(chunks[i]);
+            await writable.Write(arr);
+            await writable.Close();
+            file.Dispose();
+            writable.Dispose();
+        }
+        sw.Stop();
+
+        var totalMB = (double)chunks.Length * _chunkSizeBytes / 1024 / 1024;
+        var mbps = totalMB / (sw.ElapsedMilliseconds / 1000.0);
+        _results.Add(new("OPFS Write (individual)", sw.ElapsedMilliseconds, $"{mbps:F1} MB/s"));
+        Log($"  {sw.ElapsedMilliseconds}ms ({mbps:F1} MB/s)");
+
+        dir.Dispose();
+        root.Dispose();
+    }
+
+    private async Task BenchOPFSReadIndividual()
+    {
+        Log("OPFS Read (individual files)...");
+        var root = await JS.Get<StorageManager>("navigator.storage").GetDirectory();
+        var dir = await root.GetDirectoryHandle("bench-opfs");
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        int totalBytes = 0;
+        for (int i = 0; i < _chunkCount; i++)
+        {
+            var file = await dir.GetFileHandle($"{i}.bin");
+            var blob = await file.GetFile();
+            using var buffer = await blob.ArrayBuffer();
+            totalBytes += (int)buffer.ByteLength;
+            file.Dispose();
+            blob.Dispose();
+        }
+        sw.Stop();
+
+        var totalMB = (double)totalBytes / 1024 / 1024;
+        var mbps = totalMB / (sw.ElapsedMilliseconds / 1000.0);
+        _results.Add(new("OPFS Read (individual)", sw.ElapsedMilliseconds, $"{mbps:F1} MB/s"));
+        Log($"  {sw.ElapsedMilliseconds}ms ({mbps:F1} MB/s, {totalBytes / 1024}KB read)");
+
+        dir.Dispose();
+        root.Dispose();
+    }
+
+    // ==================== OPFS Region Files ====================
+
+    private async Task BenchOPFSWriteRegion(byte[][] chunks)
+    {
+        Log("OPFS Write (region files - batched)...");
+        var root = await JS.Get<StorageManager>("navigator.storage").GetDirectory();
+        try { await root.RemoveEntry("bench-opfs-region", true); } catch { }
+        var dir = await root.GetDirectoryHandle("bench-opfs-region", true);
+
+        // Group chunks into region files (1024 chunks max per file, like MC 32x32)
+        int chunksPerRegion = 1024;
+        int regionCount = (chunks.Length + chunksPerRegion - 1) / chunksPerRegion;
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        for (int r = 0; r < regionCount; r++)
+        {
+            int start = r * chunksPerRegion;
+            int end = Math.Min(start + chunksPerRegion, chunks.Length);
+
+            // Concatenate chunks into one region blob
+            int regionSize = (end - start) * _chunkSizeBytes;
+            var regionData = new byte[regionSize];
+            for (int i = start; i < end; i++)
+                Buffer.BlockCopy(chunks[i], 0, regionData, (i - start) * _chunkSizeBytes, _chunkSizeBytes);
+
+            var file = await dir.GetFileHandle($"r{r}.bin", true);
+            var writable = await file.CreateWritable();
+            using var arr = new Uint8Array(regionData);
+            await writable.Write(arr);
+            await writable.Close();
+            file.Dispose();
+            writable.Dispose();
+        }
+        sw.Stop();
+
+        var totalMB = (double)chunks.Length * _chunkSizeBytes / 1024 / 1024;
+        var mbps = totalMB / (sw.ElapsedMilliseconds / 1000.0);
+        _results.Add(new($"OPFS Write (region, {regionCount} files)", sw.ElapsedMilliseconds, $"{mbps:F1} MB/s"));
+        Log($"  {sw.ElapsedMilliseconds}ms ({mbps:F1} MB/s, {regionCount} region files)");
+
+        dir.Dispose();
+        root.Dispose();
+    }
+
+    private async Task BenchOPFSReadRegion()
+    {
+        Log("OPFS Read (region files - batched)...");
+        var root = await JS.Get<StorageManager>("navigator.storage").GetDirectory();
+        var dir = await root.GetDirectoryHandle("bench-opfs-region");
+
+        int chunksPerRegion = 1024;
+        int regionCount = (_chunkCount + chunksPerRegion - 1) / chunksPerRegion;
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        int totalBytes = 0;
+        for (int r = 0; r < regionCount; r++)
+        {
+            var file = await dir.GetFileHandle($"r{r}.bin");
+            var blob = await file.GetFile();
+            using var buffer = await blob.ArrayBuffer();
+            totalBytes += (int)buffer.ByteLength;
+            // In real usage: this ArrayBuffer goes directly to CopyFromJS -> GPU
+            file.Dispose();
+            blob.Dispose();
+        }
+        sw.Stop();
+
+        var totalMB = (double)totalBytes / 1024 / 1024;
+        var mbps = totalMB / (sw.ElapsedMilliseconds / 1000.0);
+        _results.Add(new($"OPFS Read (region, {regionCount} files)", sw.ElapsedMilliseconds, $"{mbps:F1} MB/s"));
+        Log($"  {sw.ElapsedMilliseconds}ms ({mbps:F1} MB/s, {totalBytes / 1024}KB read)");
+
+        dir.Dispose();
+        root.Dispose();
+    }
+
+    // ==================== Cleanup ====================
+
+    private async Task Cleanup()
+    {
+        _running = true;
+        Log("Cleaning up...");
+        StateHasChanged();
+
+        try
+        {
+            using var factory = new IDBFactory();
+            await factory.DeleteDatabaseAsync("bench-idb");
+            Log("  Deleted bench-idb");
+        }
+        catch (Exception ex) { Log($"  IDB cleanup: {ex.Message}"); }
+
+        try
+        {
+            var root = await JS.Get<StorageManager>("navigator.storage").GetDirectory();
+            try { await root.RemoveEntry("bench-opfs", true); Log("  Deleted bench-opfs"); } catch { }
+            try { await root.RemoveEntry("bench-opfs-region", true); Log("  Deleted bench-opfs-region"); } catch { }
+            root.Dispose();
+        }
+        catch (Exception ex) { Log($"  OPFS cleanup: {ex.Message}"); }
+
+        Log("Cleanup done.");
+        _running = false;
+        StateHasChanged();
+    }
+
+    public void Dispose() { }
+}
