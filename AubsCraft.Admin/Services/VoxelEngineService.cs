@@ -18,9 +18,10 @@ public sealed class VoxelEngineService : IAsyncDisposable
     private Accelerator? _accelerator;
 
     // Mesh kernel + shared buffers (serialized via _meshLock)
-    private Action<Index1D, ArrayView<int>, ArrayView<float>, ArrayView<float>, ArrayView<int>, int, int>? _meshKernel;
+    private Action<Index1D, ArrayView<int>, ArrayView<float>, ArrayView<float>, ArrayView<float>, ArrayView<int>, int, int>? _meshKernel;
     private MemoryBuffer1D<int, Stride1D.Dense>? _meshBlockBuffer;
     private MemoryBuffer1D<float, Stride1D.Dense>? _meshPaletteBuffer;
+    private MemoryBuffer1D<float, Stride1D.Dense>? _meshAtlasUVBuffer;
     private MemoryBuffer1D<float, Stride1D.Dense>? _meshVertexBuffer;
     private MemoryBuffer1D<int, Stride1D.Dense>? _meshCounterBuffer;
     private MemoryBuffer1D<float, Stride1D.Dense>? _meshResultBuffer;
@@ -59,6 +60,7 @@ public sealed class VoxelEngineService : IAsyncDisposable
             Index1D,
             ArrayView<int>,   // blocks
             ArrayView<float>, // paletteColors
+            ArrayView<float>, // atlasUVs
             ArrayView<float>, // vertices (output)
             ArrayView<int>,   // counter
             int, int           // chunkWorldX, chunkWorldZ
@@ -79,7 +81,7 @@ public sealed class VoxelEngineService : IAsyncDisposable
     /// paletteColors: float[] RGB colors, 3 per palette entry
     /// </summary>
     public async Task<MeshGenerationResult> GenerateMeshAsync(
-        ushort[] blocks, float[] paletteColors, int chunkX, int chunkZ)
+        ushort[] blocks, float[] paletteColors, float[] atlasUVs, int chunkX, int chunkZ)
     {
         if (_meshKernel == null)
             throw new InvalidOperationException("Not initialized");
@@ -94,15 +96,19 @@ public sealed class VoxelEngineService : IAsyncDisposable
             _meshBlockBuffer!.CopyFromCPU(blockInts);
             _meshCounterBuffer!.CopyFromCPU(_counterReset);
 
-            // Always re-allocate palette buffer to exact size
             _meshPaletteBuffer?.Dispose();
             _meshPaletteBuffer = _accelerator!.Allocate1D<float>(paletteColors.Length);
             _meshPaletteBuffer.CopyFromCPU(paletteColors);
+
+            _meshAtlasUVBuffer?.Dispose();
+            _meshAtlasUVBuffer = _accelerator!.Allocate1D<float>(atlasUVs.Length);
+            _meshAtlasUVBuffer.CopyFromCPU(atlasUVs);
 
             _meshKernel(
                 (Index1D)BlocksPerChunk,
                 _meshBlockBuffer!.View,
                 _meshPaletteBuffer!.View,
+                _meshAtlasUVBuffer!.View,
                 _meshVertexBuffer!.View,
                 _meshCounterBuffer!.View,
                 chunkX, chunkZ);
@@ -126,29 +132,8 @@ public sealed class VoxelEngineService : IAsyncDisposable
                 _meshVertexBuffer!.View.SubView(0, floatCount));
             await _accelerator!.SynchronizeAsync();
 
-            var rawVertices = await _meshResultBuffer.CopyToHostAsync();
-            int vertexCount = floatCount / 9;
-
-            // Expand from 9 floats (pos3+normal3+color3) to 11 floats (+ uv2)
-            // Add UV (-1, -1) to signal "use flat color" to the shader
-            var vertices = new float[vertexCount * 11];
-            for (int i = 0; i < vertexCount; i++)
-            {
-                int src = i * 9;
-                int dst = i * 11;
-                vertices[dst] = rawVertices[src];     // pos.x
-                vertices[dst + 1] = rawVertices[src + 1]; // pos.y
-                vertices[dst + 2] = rawVertices[src + 2]; // pos.z
-                vertices[dst + 3] = rawVertices[src + 3]; // normal.x
-                vertices[dst + 4] = rawVertices[src + 4]; // normal.y
-                vertices[dst + 5] = rawVertices[src + 5]; // normal.z
-                vertices[dst + 6] = rawVertices[src + 6]; // color.r
-                vertices[dst + 7] = rawVertices[src + 7]; // color.g
-                vertices[dst + 8] = rawVertices[src + 8]; // color.b
-                vertices[dst + 9] = -1f;  // uv.u (no texture)
-                vertices[dst + 10] = -1f; // uv.v (no texture)
-            }
-            return new MeshGenerationResult(vertices, vertexCount);
+            var vertices = await _meshResultBuffer.CopyToHostAsync();
+            return new MeshGenerationResult(vertices, floatCount / 11);
         }
         finally
         {
@@ -163,6 +148,7 @@ public sealed class VoxelEngineService : IAsyncDisposable
         _meshVertexBuffer?.Dispose();
         _meshBlockBuffer?.Dispose();
         _meshPaletteBuffer?.Dispose();
+        _meshAtlasUVBuffer?.Dispose();
         _accelerator?.Dispose();
         _context?.Dispose();
         _meshLock.Dispose();

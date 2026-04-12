@@ -363,13 +363,12 @@ else
                     if (blocks.Length != 16 * 384 * 16) continue;
 
                     var paletteColors = BlockColorMap.BuildPaletteColors(chunkData.Palette);
+                    var atlasUVs = BuildAtlasUVs(chunkData.Palette);
 
-                    // CPU mesher with full atlas UVs and transparency
-                    var (vertices, vertexCount) = ChunkMesher.GenerateMesh(
-                        blocks, chunkData.Palette, paletteColors, cx, cz);
+                    var result = await Engine.GenerateMeshAsync(blocks, paletteColors, atlasUVs, cx, cz);
 
-                    if (vertexCount > 100)
-                        Renderer.UploadChunkMesh(cx, cz, vertices);
+                    if (result.VertexCount > 100)
+                        Renderer.UploadChunkMesh(cx, cz, result.Vertices);
                     _fullChunks.Add((cx, cz));
                 }
                 catch (Exception ex)
@@ -384,6 +383,20 @@ else
         {
             _loadingFull = false;
         }
+    }
+
+    private static float[] BuildAtlasUVs(List<string> palette)
+    {
+        var uvs = new float[palette.Count * 4];
+        for (int i = 0; i < palette.Count; i++)
+        {
+            var (u0, v0, u1, v1) = TextureAtlas.GetTileUVs(palette[i]);
+            uvs[i * 4] = u0;
+            uvs[i * 4 + 1] = v0;
+            uvs[i * 4 + 2] = u1;
+            uvs[i * 4 + 3] = v1;
+        }
+        return uvs;
     }
 
     private void SwitchTo3D() => _viewMode = ViewMode.Viewer3D;
