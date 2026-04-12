@@ -142,7 +142,7 @@ public sealed class MapRenderService : IDisposable
             Primitive = new GPUPrimitiveState
             {
                 Topology = GPUPrimitiveTopology.TriangleList,
-                CullMode = GPUCullMode.None, // No culling - heightmap has low poly count, avoids winding issues
+                CullMode = GPUCullMode.Back,
                 FrontFace = GPUFrontFace.CCW,
             },
             DepthStencil = new GPUDepthStencilState
@@ -375,10 +375,21 @@ public sealed class MapRenderService : IDisposable
         int visible = 0;
         int visVerts = 0;
         int totalVerts = 0;
+        // Camera chunk position for draw distance check
+        int camCX = (int)MathF.Floor(Camera.Position.X / ChunkXZ);
+        int camCZ = (int)MathF.Floor(Camera.Position.Z / ChunkXZ);
+        const int DrawDist = 20; // chunks
+        int drawDistSq = DrawDist * DrawDist;
+
         foreach (var ((cx, cz), slot) in _slots)
         {
             if (slot.VertexCount == 0) continue;
             totalVerts += slot.VertexCount;
+
+            // Quick distance check before expensive frustum test
+            int dx = cx - camCX, dz = cz - camCZ;
+            if (dx * dx + dz * dz > drawDistSq) continue;
+
             var min = new Vector3(cx * ChunkXZ, -64f, cz * ChunkXZ);
             var max = new Vector3(cx * ChunkXZ + ChunkXZ, 320f, cz * ChunkXZ + ChunkXZ);
             if (!FrustumCuller.IsBoxVisible(in frustum, min, max)) continue;
