@@ -12,6 +12,8 @@ builder.Services.AddBlazorJSRuntime(out var JS);
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddScoped<AuthStateProvider>();
 builder.Services.AddScoped<ServerHubClient>();
+builder.Services.AddSingleton<VoxelEngineService>();
+builder.Services.AddSingleton<AubsCraft.Admin.Rendering.MapRenderService>();
 
 if (JS.IsWindow)
 {

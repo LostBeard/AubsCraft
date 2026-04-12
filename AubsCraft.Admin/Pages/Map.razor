@@ -1,28 +1,69 @@
 @page "/map"
 @inject ServerHubClient Hub
+@inject HttpClient Http
+@inject VoxelEngineService Engine
+@inject AubsCraft.Admin.Rendering.MapRenderService Renderer
+@implements IDisposable
+@using AubsCraft.Admin.Rendering
+@using SpawnDev.BlazorJS.JSObjects
 
 <PageTitle>Map - AubsCraft Admin</PageTitle>
 
-@if (string.IsNullOrEmpty(_blueMapUrl))
-{
-    <h1>World Map</h1>
-    <div class="alert alert-info">BlueMap is not configured. Set <code>BlueMap:Url</code> and <code>BlueMap:Enabled</code> in appsettings.json.</div>
-}
-else
-{
-    <div class="d-flex justify-content-between align-items-center mb-2">
-        <h1 class="mb-0">World Map</h1>
-        <a href="@_blueMapUrl" target="_blank" class="btn btn-sm btn-outline-secondary">Open in New Tab</a>
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <h1 class="mb-0">World Map</h1>
+    <div class="d-flex gap-2 align-items-center">
+        @if (_viewMode == ViewMode.Viewer3D)
+        {
+            <small class="text-muted">
+                @(Engine.BackendName ?? "...") |
+                @Renderer.VisibleChunkCount/@Renderer.TotalChunkCount chunks |
+                @_loadedCount loaded
+            </small>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="SwitchToBlueMap">BlueMap</button>
+        }
+        else if (_viewMode == ViewMode.BlueMap)
+        {
+            <button class="btn btn-sm btn-outline-primary" @onclick="SwitchTo3D">3D Viewer</button>
+            <a href="@_blueMapUrl" target="_blank" class="btn btn-sm btn-outline-secondary">Open in New Tab</a>
+        }
+        else
+        {
+            <span class="text-muted">@_statusMessage</span>
+        }
     </div>
+</div>
 
+@if (_viewMode == ViewMode.Viewer3D || _viewMode == ViewMode.Initializing)
+{
+    <canvas id="map-canvas" @ref="_canvasRef"
+            style="width: 100%; height: calc(100vh - 8rem); border-radius: 4px; display: block; background: #a5cce8;"
+            @onmousedown="OnMouseDown" @onmousemove="OnMouseMove" @onmouseup="OnMouseUp"
+            @onwheel="OnWheel" @oncontextmenu:preventDefault>
+    </canvas>
+}
+else if (_viewMode == ViewMode.BlueMap && !string.IsNullOrEmpty(_blueMapUrl))
+{
     <iframe src="@_blueMapUrl"
             style="width: 100%; height: calc(100vh - 8rem); border: none; border-radius: 4px;"
             allowfullscreen>
     </iframe>
 }
+else
+{
+    <div class="alert alert-info">@_statusMessage</div>
+}
 
 @code {
+    private ElementReference _canvasRef;
     private string? _blueMapUrl;
+    private ViewMode _viewMode = ViewMode.Initializing;
+    private string _statusMessage = "Initializing GPU...";
+    private int _loadedCount;
+    private bool _mouseDown;
+    private int _mouseButton;
+    private double _lastMouseX, _lastMouseY;
+
+    private enum ViewMode { Initializing, Viewer3D, BlueMap, Error }
 
     protected override async Task OnInitializedAsync()
     {
@@ -31,4 +72,142 @@ else
         if (config.Enabled && !string.IsNullOrEmpty(config.Url))
             _blueMapUrl = config.Url;
     }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            _statusMessage = "Initializing GPU...";
+            StateHasChanged();
+
+            await Engine.InitAsync();
+
+            using var canvas = new HTMLCanvasElement(_canvasRef);
+            Renderer.Init(canvas, Engine.Accelerator!);
+
+            Renderer.OnUpdate = _ => { };
+
+            _viewMode = ViewMode.Viewer3D;
+            _statusMessage = "";
+            StateHasChanged();
+
+            Renderer.StartRenderLoop();
+
+            // Start loading chunks
+            _ = LoadInitialChunksAsync();
+        }
+        catch (Exception ex)
+        {
+            _viewMode = ViewMode.Error;
+            _statusMessage = $"GPU init failed: {ex.Message}";
+            if (!string.IsNullOrEmpty(_blueMapUrl))
+            {
+                _viewMode = ViewMode.BlueMap;
+                _statusMessage = "GPU not available, using BlueMap";
+            }
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadInitialChunksAsync()
+    {
+        try
+        {
+            // Get world regions to find center
+            var regions = await Http.GetFromJsonAsync<List<RegionInfoDto>>("/api/world/regions");
+            if (regions == null || regions.Count == 0) return;
+
+            // Find center of explored world
+            var avgX = (int)regions.Average(r => r.X);
+            var avgZ = (int)regions.Average(r => r.Z);
+            int centerChunkX = avgX * 32 + 16;
+            int centerChunkZ = avgZ * 32 + 16;
+
+            // Position camera over world center
+            Renderer.Camera.Target = new System.Numerics.Vector3(
+                centerChunkX * 16f, 64f, centerChunkZ * 16f);
+            Renderer.Camera.Distance = 200f;
+
+            // Load chunks in a spiral from center
+            int radius = 4;
+            for (int dz = -radius; dz <= radius; dz++)
+            for (int dx = -radius; dx <= radius; dx++)
+            {
+                if (dx * dx + dz * dz > radius * radius) continue;
+                int cx = centerChunkX + dx;
+                int cz = centerChunkZ + dz;
+                await LoadChunkAsync(cx, cz);
+                _loadedCount++;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Console.WriteLine($"[Map] Load error: {ex.Message}");
+        }
+    }
+
+    private async Task LoadChunkAsync(int cx, int cz)
+    {
+        try
+        {
+            var response = await Http.GetFromJsonAsync<ChunkDataDto>($"/api/world/chunk/{cx}/{cz}");
+            if (response == null) return;
+
+            var blockBytes = Convert.FromBase64String(response.Blocks);
+            var blocks = new ushort[blockBytes.Length / 2];
+            Buffer.BlockCopy(blockBytes, 0, blocks, 0, blockBytes.Length);
+
+            var paletteColors = BlockColorMap.BuildPaletteColors(response.Palette);
+
+            var result = await Engine.GenerateMeshAsync(blocks, paletteColors, cx, cz);
+            if (result.VertexCount > 0)
+                Renderer.UploadChunkMesh(cx, cz, result.Vertices);
+        }
+        catch (HttpRequestException) { } // chunk doesn't exist
+    }
+
+    private void SwitchTo3D() => _viewMode = ViewMode.Viewer3D;
+    private void SwitchToBlueMap() => _viewMode = ViewMode.BlueMap;
+
+    // Mouse input for orbit camera
+    private void OnMouseDown(MouseEventArgs e)
+    {
+        _mouseDown = true;
+        _mouseButton = (int)e.Button;
+        _lastMouseX = e.ClientX;
+        _lastMouseY = e.ClientY;
+    }
+
+    private void OnMouseMove(MouseEventArgs e)
+    {
+        if (!_mouseDown) return;
+        float dx = (float)(e.ClientX - _lastMouseX);
+        float dy = (float)(e.ClientY - _lastMouseY);
+        _lastMouseX = e.ClientX;
+        _lastMouseY = e.ClientY;
+
+        if (_mouseButton == 0) // left
+            Renderer.Camera.Rotate(dx, dy);
+        else if (_mouseButton == 2) // right
+            Renderer.Camera.Pan(dx, dy);
+    }
+
+    private void OnMouseUp(MouseEventArgs e) => _mouseDown = false;
+
+    private void OnWheel(WheelEventArgs e)
+    {
+        Renderer.Camera.Zoom((float)(-e.DeltaY / 100.0));
+    }
+
+    public void Dispose()
+    {
+        Renderer.StopRenderLoop();
+    }
+
+    // DTOs for API responses
+    private record RegionInfoDto(int X, int Z, long FileSize);
+    private record ChunkDataDto(string Blocks, List<string> Palette);
 }
