@@ -365,13 +365,21 @@ else
                     var paletteColors = BlockColorMap.BuildPaletteColors(chunkData.Palette);
                     var result = await Engine.GenerateMeshAsync(blocks, paletteColors, cx, cz);
 
-                    if (result.VertexCount > 0)
+                    if (result.VertexCount > 100) // Need meaningful geometry, not just a few stray faces
                     {
                         Renderer.UploadChunkMesh(cx, cz, result.Vertices);
                         _fullChunks.Add((cx, cz));
                     }
+                    else
+                    {
+                        _fullChunks.Add((cx, cz)); // Mark as attempted so we don't retry
+                    }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    System.Console.WriteLine($"[Map] Full3D ({cx},{cz}) failed: {ex.Message}");
+                    _fullChunks.Add((cx, cz)); // Don't retry failed chunks
+                }
                 await Task.Yield();
             }
         }
