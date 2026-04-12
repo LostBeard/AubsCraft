@@ -58,20 +58,13 @@ public static class HeightmapMesher
             V(verts, ref offset, wx + 1, ty, wz + 1, 0, 1, 0, tr, tg, tb, u1, v1);
             V(verts, ref offset, wx + 1, ty, wz, 0, 1, 0, tr, tg, tb, u1, v0);
 
-            // Side colors (dirt for grass, darker for others)
+            // Side faces use flat color (no texture - avoids stretching)
             float sr, sg, sb;
-            // Side face UVs - use dirt texture for grass sides, same texture for others
-            float su0 = u0, sv0 = v0, su1 = u1, sv1 = v1;
+            float snu = -1f; // no texture UV for sides
             if (blockName is "minecraft:grass_block" or "minecraft:podzol" or "minecraft:mycelium")
-            {
-                sr = 1f; sg = 1f; sb = 1f; // white tint for dirt texture
-                // Use dirt texture (index 1) for grass block sides
-                su0 = 1f / 8f; sv0 = 0f; su1 = 2f / 8f; sv1 = 1f / 8f;
-            }
+            { sr = 0.53f; sg = 0.38f; sb = 0.26f; } // dirt color
             else
-            {
-                sr = tr * 0.82f; sg = tg * 0.82f; sb = tb * 0.82f;
-            }
+            { sr = r * 0.82f; sg = g * 0.82f; sb = b * 0.82f; }
 
             float y1 = wy + 1;
 
@@ -82,12 +75,12 @@ public static class HeightmapMesher
                 float y0 = nh + 1;
                 if (offset + 66 <= verts.Length)
                 {
-                    V(verts, ref offset, wx, y0, wz + 1, -1, 0, 0, sr, sg, sb, su0, sv1);
-                    V(verts, ref offset, wx, y1, wz + 1, -1, 0, 0, sr, sg, sb, su0, sv0);
-                    V(verts, ref offset, wx, y1, wz, -1, 0, 0, sr, sg, sb, su1, sv0);
-                    V(verts, ref offset, wx, y0, wz + 1, -1, 0, 0, sr, sg, sb, su0, sv1);
-                    V(verts, ref offset, wx, y1, wz, -1, 0, 0, sr, sg, sb, su1, sv0);
-                    V(verts, ref offset, wx, y0, wz, -1, 0, 0, sr, sg, sb, su1, sv1);
+                    V(verts, ref offset, wx, y0, wz + 1, -1, 0, 0, sr, sg, sb, snu, snu);
+                    V(verts, ref offset, wx, y1, wz + 1, -1, 0, 0, sr, sg, sb, snu, snu);
+                    V(verts, ref offset, wx, y1, wz, -1, 0, 0, sr, sg, sb, snu, snu);
+                    V(verts, ref offset, wx, y0, wz + 1, -1, 0, 0, sr, sg, sb, snu, snu);
+                    V(verts, ref offset, wx, y1, wz, -1, 0, 0, sr, sg, sb, snu, snu);
+                    V(verts, ref offset, wx, y0, wz, -1, 0, 0, sr, sg, sb, snu, snu);
                 }
             }
 
@@ -98,12 +91,12 @@ public static class HeightmapMesher
                 float y0 = nh + 1;
                 if (offset + 66 <= verts.Length)
                 {
-                    V(verts, ref offset, wx + 1, y0, wz, 1, 0, 0, sr, sg, sb, su0, sv1);
-                    V(verts, ref offset, wx + 1, y1, wz, 1, 0, 0, sr, sg, sb, su0, sv0);
-                    V(verts, ref offset, wx + 1, y1, wz + 1, 1, 0, 0, sr, sg, sb, su1, sv0);
-                    V(verts, ref offset, wx + 1, y0, wz, 1, 0, 0, sr, sg, sb, su0, sv1);
-                    V(verts, ref offset, wx + 1, y1, wz + 1, 1, 0, 0, sr, sg, sb, su1, sv0);
-                    V(verts, ref offset, wx + 1, y0, wz + 1, 1, 0, 0, sr, sg, sb, su1, sv1);
+                    V(verts, ref offset, wx + 1, y0, wz, 1, 0, 0, sr, sg, sb, snu, snu);
+                    V(verts, ref offset, wx + 1, y1, wz, 1, 0, 0, sr, sg, sb, snu, snu);
+                    V(verts, ref offset, wx + 1, y1, wz + 1, 1, 0, 0, sr, sg, sb, snu, snu);
+                    V(verts, ref offset, wx + 1, y0, wz, 1, 0, 0, sr, sg, sb, snu, snu);
+                    V(verts, ref offset, wx + 1, y1, wz + 1, 1, 0, 0, sr, sg, sb, snu, snu);
+                    V(verts, ref offset, wx + 1, y0, wz + 1, 1, 0, 0, sr, sg, sb, snu, snu);
                 }
             }
 
@@ -115,12 +108,12 @@ public static class HeightmapMesher
                 float ds = 0.92f;
                 if (offset + 66 <= verts.Length)
                 {
-                    V(verts, ref offset, wx, y0, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, su0, sv1);
-                    V(verts, ref offset, wx, y1, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, su0, sv0);
-                    V(verts, ref offset, wx + 1, y1, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, su1, sv0);
-                    V(verts, ref offset, wx, y0, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, su0, sv1);
-                    V(verts, ref offset, wx + 1, y1, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, su1, sv0);
-                    V(verts, ref offset, wx + 1, y0, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, su1, sv1);
+                    V(verts, ref offset, wx, y0, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, snu, snu);
+                    V(verts, ref offset, wx, y1, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, snu, snu);
+                    V(verts, ref offset, wx + 1, y1, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, snu, snu);
+                    V(verts, ref offset, wx, y0, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, snu, snu);
+                    V(verts, ref offset, wx + 1, y1, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, snu, snu);
+                    V(verts, ref offset, wx + 1, y0, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, snu, snu);
                 }
             }
 
@@ -132,12 +125,12 @@ public static class HeightmapMesher
                 float ds = 0.92f;
                 if (offset + 66 <= verts.Length)
                 {
-                    V(verts, ref offset, wx + 1, y0, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, su0, sv1);
-                    V(verts, ref offset, wx + 1, y1, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, su0, sv0);
-                    V(verts, ref offset, wx, y1, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, su1, sv0);
-                    V(verts, ref offset, wx + 1, y0, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, su0, sv1);
-                    V(verts, ref offset, wx, y1, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, su1, sv0);
-                    V(verts, ref offset, wx, y0, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, su1, sv1);
+                    V(verts, ref offset, wx + 1, y0, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, snu, snu);
+                    V(verts, ref offset, wx + 1, y1, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, snu, snu);
+                    V(verts, ref offset, wx, y1, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, snu, snu);
+                    V(verts, ref offset, wx + 1, y0, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, snu, snu);
+                    V(verts, ref offset, wx, y1, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, snu, snu);
+                    V(verts, ref offset, wx, y0, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, snu, snu);
                 }
             }
         }
