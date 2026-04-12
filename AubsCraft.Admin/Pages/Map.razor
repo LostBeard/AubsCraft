@@ -16,12 +16,12 @@
     <div class="d-flex gap-2 align-items-center">
         @if (_viewMode == ViewMode.Viewer3D)
         {
-            <small class="text-muted">
-                @(Engine.BackendName ?? "...") |
+            <small class="text-muted font-monospace" style="font-size: 0.7rem;">
+                @Renderer.Fps.ToString("F0") FPS (@Renderer.FrameTimeMs.ToString("F1")ms) |
+                @(Renderer.VisibleVertices / 1000)K/@(Renderer.TotalVertices / 1000)K verts |
                 @Renderer.VisibleChunkCount/@Renderer.TotalChunkCount chunks |
-                @_loadedCount loaded
+                @(Engine.BackendName ?? "...")
                 @if (!_pointerLocked) { <span> | Click to fly</span> }
-                else { <span> | WASD + Mouse | ESC to release</span> }
             </small>
             <button class="btn btn-sm btn-outline-secondary" @onclick="SwitchToBlueMap">BlueMap</button>
         }
@@ -113,6 +113,7 @@ else
 
             Renderer.StartRenderLoop();
             _ = LoadInitialChunksAsync();
+            _ = StatsRefreshLoop();
         }
         catch (Exception ex)
         {
@@ -202,6 +203,15 @@ else
         catch (Exception ex)
         {
             System.Console.WriteLine($"[Map] Stream error: {ex.Message}");
+        }
+    }
+
+    private async Task StatsRefreshLoop()
+    {
+        while (_viewMode == ViewMode.Viewer3D)
+        {
+            await Task.Delay(500);
+            StateHasChanged();
         }
     }
 

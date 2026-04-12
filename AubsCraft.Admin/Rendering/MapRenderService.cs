@@ -55,6 +55,15 @@ public sealed class MapRenderService : IDisposable
     public Action<float>? OnUpdate { get; set; }
     public int VisibleChunkCount { get; private set; }
     public int TotalChunkCount => _slots.Count;
+    public float Fps { get; private set; }
+    public float FrameTimeMs { get; private set; }
+    public int TotalVertices { get; private set; }
+    public int VisibleVertices { get; private set; }
+
+    // FPS tracking
+    private int _frameCount;
+    private double _fpsAccumulator;
+    private float _lastDt;
 
     public MapRenderService(BlazorJSRuntime js)
     {
@@ -133,7 +142,7 @@ public sealed class MapRenderService : IDisposable
             Primitive = new GPUPrimitiveState
             {
                 Topology = GPUPrimitiveTopology.TriangleList,
-                CullMode = GPUCullMode.Back,
+                CullMode = GPUCullMode.None, // No culling - heightmap has low poly count, avoids winding issues
                 FrontFace = GPUFrontFace.CCW,
             },
             DepthStencil = new GPUDepthStencilState
@@ -281,6 +290,19 @@ public sealed class MapRenderService : IDisposable
         float dt = _lastTimestamp > 0 ? (float)((timestamp - _lastTimestamp) / 1000.0) : 1f / 60f;
         _lastTimestamp = timestamp;
         dt = Math.Min(dt, 0.1f);
+        _lastDt = dt;
+
+        // FPS tracking
+        _frameCount++;
+        _fpsAccumulator += dt;
+        if (_fpsAccumulator >= 0.5)
+        {
+            Fps = (float)(_frameCount / _fpsAccumulator);
+            FrameTimeMs = (float)(_fpsAccumulator / _frameCount * 1000.0);
+            _frameCount = 0;
+            _fpsAccumulator = 0;
+        }
+
         OnUpdate?.Invoke(dt);
         RenderFrame();
         RequestFrame();
@@ -351,16 +373,22 @@ public sealed class MapRenderService : IDisposable
         pass.SetVertexBuffer(0, _vertexBuffer);
 
         int visible = 0;
+        int visVerts = 0;
+        int totalVerts = 0;
         foreach (var ((cx, cz), slot) in _slots)
         {
             if (slot.VertexCount == 0) continue;
+            totalVerts += slot.VertexCount;
             var min = new Vector3(cx * ChunkXZ, -64f, cz * ChunkXZ);
             var max = new Vector3(cx * ChunkXZ + ChunkXZ, 320f, cz * ChunkXZ + ChunkXZ);
             if (!FrustumCuller.IsBoxVisible(in frustum, min, max)) continue;
             pass.Draw((uint)slot.VertexCount, 1, (uint)slot.FirstVertex, 0);
             visible++;
+            visVerts += slot.VertexCount;
         }
         VisibleChunkCount = visible;
+        VisibleVertices = visVerts;
+        TotalVertices = totalVerts;
 
         pass.End();
         using var commandBuffer = encoder.Finish();
