@@ -139,20 +139,8 @@ public static class TextureAtlas
         ["minecraft:hay_block"] = 62,
         ["minecraft:pumpkin"] = 63,
 
-        // Row 8: plants
-        ["minecraft:short_grass"] = 64,
-        ["minecraft:tall_grass"] = 65,
-        ["minecraft:dandelion"] = 66,
-        ["minecraft:poppy"] = 67,
-        ["minecraft:cornflower"] = 68,
-        ["minecraft:azure_bluet"] = 69,
-        ["minecraft:oxeye_daisy"] = 70,
-        ["minecraft:sugar_cane"] = 71,
-        ["minecraft:wildflowers"] = 67,
-        ["minecraft:lilac"] = 67,
-        ["minecraft:rose_bush"] = 67,
-        ["minecraft:firefly_bush"] = 64,
-        ["minecraft:leaf_litter"] = 1,
+        // Plants/flowers: use flat color (they're cross-shaped, not blocks)
+        // Do NOT map these to atlas - their textures are side views that look wrong on top faces
 
         // Row 9: more
         ["minecraft:melon"] = 72,

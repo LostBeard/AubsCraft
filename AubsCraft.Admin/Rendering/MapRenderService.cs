@@ -595,6 +595,10 @@ fn fs_main(input : VertexOutput) -> @location(0) vec4<f32> {
     let fog_factor = clamp((dist - fog_start) / (fog_end - fog_start), 0.0, 1.0);
     color = mix(color, fog_color, fog_factor * fog_factor);
 
+    // Alpha test: discard transparent pixels (leaves, flowers, etc.)
+    let alpha = mix(1.0, tex_color.a, has_texture);
+    if (alpha < 0.5) { discard; }
+
     return vec4<f32>(color, 1.0);
 }
 ";
