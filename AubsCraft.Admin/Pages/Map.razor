@@ -200,8 +200,8 @@ else
                 {
                     System.Console.WriteLine($"[Map] Heightmap ({hm.X},{hm.Z}) error: {ex.Message}");
                 }
-                // Yield to render loop every few chunks to prevent frame drops during loading
-                if (_loadedCount % 3 == 0)
+                // Only yield when FPS drops below 30 - lets loading run fast when GPU has headroom
+                if (Renderer.Fps > 0 && Renderer.Fps < 30)
                     await Task.Delay(1);
             }
             System.Console.WriteLine($"[Map] Loaded {_loadedCount} heightmap chunks");
