@@ -34,7 +34,7 @@ public sealed class MapRenderService : IDisposable
     private readonly Dictionary<(int cx, int cz), ChunkSlot> _slots = new();
     private readonly List<(int firstVertex, int vertexCount)> _freeSlots = new();
 
-    private const int BytesPerVertex = 9 * 4; // 9 floats x 4 bytes
+    private const int BytesPerVertex = 11 * 4; // 11 floats x 4 bytes (pos3 + normal3 + color3 + uv2)
     private const int InitialCapacityVertices = 3_000_000;
     private const int MaxBufferVertices = 7_000_000;
     private const int ChunkXZ = 16;
@@ -42,6 +42,8 @@ public sealed class MapRenderService : IDisposable
 
     private GPUBuffer? _uniformBuffer;
     private GPUBindGroup? _uniformBindGroup;
+    private GPUTexture? _atlasTexture;
+    private GPUSampler? _atlasSampler;
 
     private bool _running;
     private bool _disposed;
@@ -123,9 +125,10 @@ public sealed class MapRenderService : IDisposable
                         StepMode = GPUVertexStepMode.Vertex,
                         Attributes = new GPUVertexAttribute[]
                         {
-                            new() { ShaderLocation = 0, Offset = 0,     Format = GPUVertexFormat.Float32x3 },
-                            new() { ShaderLocation = 1, Offset = 3 * 4, Format = GPUVertexFormat.Float32x3 },
-                            new() { ShaderLocation = 2, Offset = 6 * 4, Format = GPUVertexFormat.Float32x3 },
+                            new() { ShaderLocation = 0, Offset = 0,      Format = GPUVertexFormat.Float32x3 }, // position
+                            new() { ShaderLocation = 1, Offset = 3 * 4,  Format = GPUVertexFormat.Float32x3 }, // normal
+                            new() { ShaderLocation = 2, Offset = 6 * 4,  Format = GPUVertexFormat.Float32x3 }, // color
+                            new() { ShaderLocation = 3, Offset = 9 * 4,  Format = GPUVertexFormat.Float32x2 }, // uv
                         }
                     }
                 }
@@ -168,26 +171,76 @@ public sealed class MapRenderService : IDisposable
             Usage = GPUBufferUsage.Uniform | GPUBufferUsage.CopyDst,
         });
 
-        _uniformBindGroup = _device.CreateBindGroup(new GPUBindGroupDescriptor
+        // Texture atlas and sampler will be set up in LoadAtlasAsync
+        // Create a 1x1 placeholder texture so the bind group works before atlas loads
+        _atlasTexture = _device.CreateTexture(new GPUTextureDescriptor
         {
-            Layout = _pipeline.GetBindGroupLayout(0),
-            Entries = new[]
-            {
-                new GPUBindGroupEntry
-                {
-                    Binding = 0,
-                    Resource = new GPUBufferBinding { Buffer = _uniformBuffer }
-                }
-            }
+            Size = new[] { 1, 1 },
+            Format = "rgba8unorm",
+            Usage = GPUTextureUsage.TextureBinding | GPUTextureUsage.CopyDst,
         });
 
+        _atlasSampler = _device.CreateSampler(new GPUSamplerDescriptor
+        {
+            MagFilter = GPUFilterMode.Nearest, // Minecraft-style pixelated
+            MinFilter = GPUFilterMode.Nearest,
+            AddressModeU = "repeat",
+            AddressModeV = "repeat",
+        });
+
+        CreateBindGroup();
+
         IsInitialized = true;
+    }
+
+    private void CreateBindGroup()
+    {
+        _uniformBindGroup?.Dispose();
+        _uniformBindGroup = _device!.CreateBindGroup(new GPUBindGroupDescriptor
+        {
+            Layout = _pipeline!.GetBindGroupLayout(0),
+            Entries = new[]
+            {
+                new GPUBindGroupEntry { Binding = 0, Resource = new GPUBufferBinding { Buffer = _uniformBuffer! } },
+                new GPUBindGroupEntry { Binding = 1, Resource = _atlasTexture!.CreateView() },
+                new GPUBindGroupEntry { Binding = 2, Resource = _atlasSampler! },
+            }
+        });
+    }
+
+    /// <summary>
+    /// Load the texture atlas from a URL and upload it to the GPU.
+    /// Call after Init() - the viewer works with flat colors until the atlas loads.
+    /// </summary>
+    /// <summary>
+    /// Uploads raw RGBA pixel data as the texture atlas.
+    /// </summary>
+    public void UploadAtlas(byte[] rgbaPixels, int width, int height)
+    {
+        _atlasTexture?.Destroy();
+        _atlasTexture?.Dispose();
+        _atlasTexture = _device!.CreateTexture(new GPUTextureDescriptor
+        {
+            Size = new[] { width, height },
+            Format = "rgba8unorm",
+            Usage = GPUTextureUsage.TextureBinding | GPUTextureUsage.CopyDst,
+        });
+
+        using var pixelArray = new Uint8Array(rgbaPixels);
+        _queue!.WriteTexture(
+            new GPUTexelCopyTextureInfo { Texture = _atlasTexture },
+            pixelArray,
+            new GPUTexelCopyBufferLayout { BytesPerRow = (uint)(width * 4), RowsPerImage = (uint)height },
+            new GPUExtent3DDict { Width = (uint)width, Height = (uint)height });
+
+        CreateBindGroup();
+        System.Console.WriteLine($"[MapRender] Atlas uploaded: {width}x{height}");
     }
 
     public void UploadChunkMesh(int cx, int cz, float[] vertices)
     {
         var key = (cx, cz);
-        int vertexCount = vertices.Length / 9;
+        int vertexCount = vertices.Length / 11;
         if (vertexCount == 0) return;
 
         if (_slots.Remove(key, out var oldSlot))
@@ -466,11 +519,14 @@ struct Uniforms {
 };
 
 @group(0) @binding(0) var<uniform> uniforms : Uniforms;
+@group(0) @binding(1) var atlas_texture : texture_2d<f32>;
+@group(0) @binding(2) var atlas_sampler : sampler;
 
 struct VertexInput {
     @location(0) position : vec3<f32>,
     @location(1) normal   : vec3<f32>,
     @location(2) color    : vec3<f32>,
+    @location(3) uv       : vec2<f32>,
 };
 
 struct VertexOutput {
@@ -478,6 +534,7 @@ struct VertexOutput {
     @location(0) world_normal : vec3<f32>,
     @location(1) base_color   : vec3<f32>,
     @location(2) world_pos    : vec3<f32>,
+    @location(3) tex_uv       : vec2<f32>,
 };
 
 @vertex
@@ -487,12 +544,8 @@ fn vs_main(input : VertexInput) -> VertexOutput {
     output.world_normal = input.normal;
     output.base_color = input.color;
     output.world_pos = input.position;
+    output.tex_uv = input.uv;
     return output;
-}
-
-fn hash2(p : vec2<f32>) -> f32 {
-    let h = dot(p, vec2<f32>(127.1, 311.7));
-    return fract(sin(h) * 43758.5453123);
 }
 
 @fragment
@@ -510,23 +563,27 @@ fn fs_main(input : VertexOutput) -> @location(0) vec4<f32> {
 
     let light = ambient + sun_color * sun_intensity * 0.55 + fill_color * fill_intensity * 0.18;
 
-    let block_pos = floor(input.world_pos);
-    let variation = hash2(vec2<f32>(block_pos.x, block_pos.z)) * 0.08 - 0.04;
-
-    var color = input.base_color;
-    if (n.y > 0.5) {
-        color = color * 1.05 + vec3<f32>(0.01, 0.02, 0.0);
+    // Sample texture if UVs are valid (non-zero), otherwise use vertex color
+    var color : vec3<f32>;
+    if (input.tex_uv.x >= 0.0 && input.tex_uv.y >= 0.0) {
+        let tex_color = textureSample(atlas_texture, atlas_sampler, input.tex_uv);
+        // Tint with vertex color (for biome-tinted blocks like grass/leaves)
+        color = tex_color.rgb * input.base_color;
+    } else {
+        color = input.base_color;
     }
+
+    // Face-dependent shading
     if (n.y < -0.5) {
         color = color * 0.70;
     }
     if (abs(n.y) < 0.1) {
-        color = mix(color, vec3<f32>(dot(color, vec3<f32>(0.3, 0.59, 0.11))), 0.12);
+        color = color * 0.85;
     }
-    color = color + vec3<f32>(variation);
+
     color = color * light;
 
-    // Distance fog (from camera position)
+    // Distance fog
     let dist = length(input.world_pos - uniforms.camera_pos.xyz);
     let fog_start = 250.0;
     let fog_end = 450.0;

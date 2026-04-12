@@ -11,9 +11,9 @@ public static class BlockColorMap
 
     private static readonly Dictionary<string, (float R, float G, float B)> Colors = new()
     {
-        // Natural terrain
-        ["minecraft:grass_block"] = (0.30f, 0.65f, 0.20f),
-        ["minecraft:dirt"] = (0.55f, 0.35f, 0.18f),
+        // Natural terrain (colors from actual Minecraft textures where applicable)
+        ["minecraft:grass_block"] = (0.30f, 0.65f, 0.20f), // biome-tinted, manual color
+        ["minecraft:dirt"] = (0.53f, 0.38f, 0.26f),
         ["minecraft:coarse_dirt"] = (0.50f, 0.33f, 0.17f),
         ["minecraft:rooted_dirt"] = (0.52f, 0.34f, 0.18f),
         ["minecraft:podzol"] = (0.45f, 0.30f, 0.15f),
@@ -21,7 +21,7 @@ public static class BlockColorMap
         ["minecraft:mud"] = (0.35f, 0.28f, 0.22f),
         ["minecraft:farmland"] = (0.48f, 0.30f, 0.15f),
         ["minecraft:dirt_path"] = (0.58f, 0.45f, 0.25f),
-        ["minecraft:sand"] = (0.85f, 0.78f, 0.52f),
+        ["minecraft:sand"] = (0.86f, 0.81f, 0.64f),
         ["minecraft:red_sand"] = (0.72f, 0.42f, 0.18f),
         ["minecraft:gravel"] = (0.55f, 0.52f, 0.50f),
         ["minecraft:clay"] = (0.62f, 0.63f, 0.68f),

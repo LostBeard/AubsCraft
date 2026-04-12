@@ -1,0 +1,187 @@
+{
+  "grass_block_top": {
+    "index": 0,
+    "u": 0,
+    "v": 0
+  },
+  "dirt": {
+    "index": 1,
+    "u": 0.125,
+    "v": 0
+  },
+  "stone": {
+    "index": 2,
+    "u": 0.25,
+    "v": 0
+  },
+  "sand": {
+    "index": 3,
+    "u": 0.375,
+    "v": 0
+  },
+  "gravel": {
+    "index": 4,
+    "u": 0.5,
+    "v": 0
+  },
+  "cobblestone": {
+    "index": 37,
+    "u": 0.625,
+    "v": 0.5
+  },
+  "oak_log_top": {
+    "index": 6,
+    "u": 0.75,
+    "v": 0
+  },
+  "birch_log_top": {
+    "index": 7,
+    "u": 0.875,
+    "v": 0
+  },
+  "spruce_log_top": {
+    "index": 8,
+    "u": 0,
+    "v": 0.125
+  },
+  "dark_oak_log_top": {
+    "index": 9,
+    "u": 0.125,
+    "v": 0.125
+  },
+  "oak_leaves": {
+    "index": 10,
+    "u": 0.25,
+    "v": 0.125
+  },
+  "birch_leaves": {
+    "index": 11,
+    "u": 0.375,
+    "v": 0.125
+  },
+  "spruce_leaves": {
+    "index": 12,
+    "u": 0.5,
+    "v": 0.125
+  },
+  "dark_oak_leaves": {
+    "index": 13,
+    "u": 0.625,
+    "v": 0.125
+  },
+  "jungle_leaves": {
+    "index": 14,
+    "u": 0.75,
+    "v": 0.125
+  },
+  "oak_log": {
+    "index": 15,
+    "u": 0.875,
+    "v": 0.125
+  },
+  "birch_log": {
+    "index": 16,
+    "u": 0,
+    "v": 0.25
+  },
+  "spruce_log": {
+    "index": 17,
+    "u": 0.125,
+    "v": 0.25
+  },
+  "dark_oak_log": {
+    "index": 18,
+    "u": 0.25,
+    "v": 0.25
+  },
+  "grass_block_side": {
+    "index": 19,
+    "u": 0.375,
+    "v": 0.25
+  },
+  "andesite": {
+    "index": 20,
+    "u": 0.5,
+    "v": 0.25
+  },
+  "diorite": {
+    "index": 21,
+    "u": 0.625,
+    "v": 0.25
+  },
+  "granite": {
+    "index": 22,
+    "u": 0.75,
+    "v": 0.25
+  },
+  "deepslate": {
+    "index": 23,
+    "u": 0.875,
+    "v": 0.25
+  },
+  "bedrock": {
+    "index": 24,
+    "u": 0,
+    "v": 0.375
+  },
+  "clay": {
+    "index": 25,
+    "u": 0.125,
+    "v": 0.375
+  },
+  "sandstone_top": {
+    "index": 26,
+    "u": 0.25,
+    "v": 0.375
+  },
+  "coal_ore": {
+    "index": 27,
+    "u": 0.375,
+    "v": 0.375
+  },
+  "iron_ore": {
+    "index": 28,
+    "u": 0.5,
+    "v": 0.375
+  },
+  "gold_ore": {
+    "index": 29,
+    "u": 0.625,
+    "v": 0.375
+  },
+  "diamond_ore": {
+    "index": 30,
+    "u": 0.75,
+    "v": 0.375
+  },
+  "snow": {
+    "index": 31,
+    "u": 0.875,
+    "v": 0.375
+  },
+  "ice": {
+    "index": 32,
+    "u": 0,
+    "v": 0.5
+  },
+  "water_still": {
+    "index": 33,
+    "u": 0.125,
+    "v": 0.5
+  },
+  "podzol_top": {
+    "index": 34,
+    "u": 0.25,
+    "v": 0.5
+  },
+  "mycelium_top": {
+    "index": 35,
+    "u": 0.375,
+    "v": 0.5
+  },
+  "netherrack": {
+    "index": 36,
+    "u": 0.5,
+    "v": 0.5
+  }
+}

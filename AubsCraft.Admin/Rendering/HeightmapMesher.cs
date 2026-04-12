@@ -2,12 +2,13 @@ namespace AubsCraft.Admin.Rendering;
 
 /// <summary>
 /// Generates a heightmap mesh with top faces and side faces.
-/// Side faces fill gaps where neighboring columns have different heights.
-/// All face winding is CCW for correct back-face culling.
+/// Vertex format: 11 floats (pos3 + normal3 + color3 + uv2).
+/// UV coordinates map to the texture atlas for textured rendering.
 /// </summary>
 public static class HeightmapMesher
 {
-    private const int MaxFloats = 256 * 25 * 6 * 9;
+    private const int FloatsPerVertex = 11;
+    private const int MaxFloats = 256 * 25 * 6 * FloatsPerVertex;
 
     public static (float[] vertices, int vertexCount) GenerateMesh(
         int[] heights, ushort[] blockIds, float[] paletteColors, List<string> paletteNames,
@@ -35,96 +36,113 @@ public static class HeightmapMesher
             bool isWater = blockName is "minecraft:water" or "minecraft:flowing_water";
             float topY = isWater ? wy + 0.1f : wy;
 
-            // Top face (normal: +Y, CCW from above)
+            // Get atlas UV for this block (or -1,-1 for flat color)
+            var (u0, v0, u1, v1) = TextureAtlas.GetTileUVs(blockName);
+
+            // For biome-tinted blocks (grass, leaves, water), the texture is grayscale
+            // so we keep the vertex color as the tint. For other blocks, set color to white
+            // so the texture color shows through unmodified.
+            float tr = r, tg = g, tb = b; // tint color
+            bool isTinted = blockName.Contains("grass") || blockName.Contains("leaves")
+                         || blockName.Contains("water") || blockName.Contains("vine")
+                         || blockName.Contains("fern") || blockName.Contains("lily");
+            if (u0 >= 0 && !isTinted)
+            { tr = 1f; tg = 1f; tb = 1f; } // white tint = pure texture color
+
+            // Top face
             float ty = topY + 1;
-            V(verts, ref offset, wx, ty, wz, 0, 1, 0, r, g, b);
-            V(verts, ref offset, wx, ty, wz + 1, 0, 1, 0, r, g, b);
-            V(verts, ref offset, wx + 1, ty, wz + 1, 0, 1, 0, r, g, b);
-            V(verts, ref offset, wx, ty, wz, 0, 1, 0, r, g, b);
-            V(verts, ref offset, wx + 1, ty, wz + 1, 0, 1, 0, r, g, b);
-            V(verts, ref offset, wx + 1, ty, wz, 0, 1, 0, r, g, b);
+            V(verts, ref offset, wx, ty, wz, 0, 1, 0, tr, tg, tb, u0, v0);
+            V(verts, ref offset, wx, ty, wz + 1, 0, 1, 0, tr, tg, tb, u0, v1);
+            V(verts, ref offset, wx + 1, ty, wz + 1, 0, 1, 0, tr, tg, tb, u1, v1);
+            V(verts, ref offset, wx, ty, wz, 0, 1, 0, tr, tg, tb, u0, v0);
+            V(verts, ref offset, wx + 1, ty, wz + 1, 0, 1, 0, tr, tg, tb, u1, v1);
+            V(verts, ref offset, wx + 1, ty, wz, 0, 1, 0, tr, tg, tb, u1, v0);
 
-            // Side colors
+            // Side colors (dirt for grass, darker for others)
             float sr, sg, sb;
+            // Side face UVs - use dirt texture for grass sides, same texture for others
+            float su0 = u0, sv0 = v0, su1 = u1, sv1 = v1;
             if (blockName is "minecraft:grass_block" or "minecraft:podzol" or "minecraft:mycelium")
-            { sr = 0.55f; sg = 0.35f; sb = 0.18f; }
+            {
+                sr = 1f; sg = 1f; sb = 1f; // white tint for dirt texture
+                // Use dirt texture (index 1) for grass block sides
+                su0 = 1f / 8f; sv0 = 0f; su1 = 2f / 8f; sv1 = 1f / 8f;
+            }
             else
-            { sr = r * 0.82f; sg = g * 0.82f; sb = b * 0.82f; }
+            {
+                sr = tr * 0.82f; sg = tg * 0.82f; sb = tb * 0.82f;
+            }
 
-            float y1 = wy + 1; // top of this column
+            float y1 = wy + 1;
 
-            // -X side (neighbor at x-1)
+            // -X side
             int nh = GetH(heights, x - 1, z);
             if (wy > nh)
             {
                 float y0 = nh + 1;
-                if (offset + 54 <= verts.Length)
+                if (offset + 66 <= verts.Length)
                 {
-                    // Face at x=wx, normal (-1,0,0), CCW viewed from -X
-                    V(verts, ref offset, wx, y0, wz + 1, -1, 0, 0, sr, sg, sb);
-                    V(verts, ref offset, wx, y1, wz + 1, -1, 0, 0, sr, sg, sb);
-                    V(verts, ref offset, wx, y1, wz, -1, 0, 0, sr, sg, sb);
-                    V(verts, ref offset, wx, y0, wz + 1, -1, 0, 0, sr, sg, sb);
-                    V(verts, ref offset, wx, y1, wz, -1, 0, 0, sr, sg, sb);
-                    V(verts, ref offset, wx, y0, wz, -1, 0, 0, sr, sg, sb);
+                    V(verts, ref offset, wx, y0, wz + 1, -1, 0, 0, sr, sg, sb, su0, sv1);
+                    V(verts, ref offset, wx, y1, wz + 1, -1, 0, 0, sr, sg, sb, su0, sv0);
+                    V(verts, ref offset, wx, y1, wz, -1, 0, 0, sr, sg, sb, su1, sv0);
+                    V(verts, ref offset, wx, y0, wz + 1, -1, 0, 0, sr, sg, sb, su0, sv1);
+                    V(verts, ref offset, wx, y1, wz, -1, 0, 0, sr, sg, sb, su1, sv0);
+                    V(verts, ref offset, wx, y0, wz, -1, 0, 0, sr, sg, sb, su1, sv1);
                 }
             }
 
-            // +X side (neighbor at x+1)
+            // +X side
             nh = GetH(heights, x + 1, z);
             if (wy > nh)
             {
                 float y0 = nh + 1;
-                if (offset + 54 <= verts.Length)
+                if (offset + 66 <= verts.Length)
                 {
-                    // Face at x=wx+1, normal (+1,0,0), CCW viewed from +X
-                    V(verts, ref offset, wx + 1, y0, wz, 1, 0, 0, sr, sg, sb);
-                    V(verts, ref offset, wx + 1, y1, wz, 1, 0, 0, sr, sg, sb);
-                    V(verts, ref offset, wx + 1, y1, wz + 1, 1, 0, 0, sr, sg, sb);
-                    V(verts, ref offset, wx + 1, y0, wz, 1, 0, 0, sr, sg, sb);
-                    V(verts, ref offset, wx + 1, y1, wz + 1, 1, 0, 0, sr, sg, sb);
-                    V(verts, ref offset, wx + 1, y0, wz + 1, 1, 0, 0, sr, sg, sb);
+                    V(verts, ref offset, wx + 1, y0, wz, 1, 0, 0, sr, sg, sb, su0, sv1);
+                    V(verts, ref offset, wx + 1, y1, wz, 1, 0, 0, sr, sg, sb, su0, sv0);
+                    V(verts, ref offset, wx + 1, y1, wz + 1, 1, 0, 0, sr, sg, sb, su1, sv0);
+                    V(verts, ref offset, wx + 1, y0, wz, 1, 0, 0, sr, sg, sb, su0, sv1);
+                    V(verts, ref offset, wx + 1, y1, wz + 1, 1, 0, 0, sr, sg, sb, su1, sv0);
+                    V(verts, ref offset, wx + 1, y0, wz + 1, 1, 0, 0, sr, sg, sb, su1, sv1);
                 }
             }
 
-            // -Z side (neighbor at z-1)
+            // -Z side
             nh = GetH(heights, x, z - 1);
             if (wy > nh)
             {
                 float y0 = nh + 1;
-                float ds = sr * 0.92f, dg = sg * 0.92f, db = sb * 0.92f;
-                if (offset + 54 <= verts.Length)
+                float ds = 0.92f;
+                if (offset + 66 <= verts.Length)
                 {
-                    // Face at z=wz, normal (0,0,-1), CCW viewed from -Z
-                    V(verts, ref offset, wx, y0, wz, 0, 0, -1, ds, dg, db);
-                    V(verts, ref offset, wx, y1, wz, 0, 0, -1, ds, dg, db);
-                    V(verts, ref offset, wx + 1, y1, wz, 0, 0, -1, ds, dg, db);
-                    V(verts, ref offset, wx, y0, wz, 0, 0, -1, ds, dg, db);
-                    V(verts, ref offset, wx + 1, y1, wz, 0, 0, -1, ds, dg, db);
-                    V(verts, ref offset, wx + 1, y0, wz, 0, 0, -1, ds, dg, db);
+                    V(verts, ref offset, wx, y0, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, su0, sv1);
+                    V(verts, ref offset, wx, y1, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, su0, sv0);
+                    V(verts, ref offset, wx + 1, y1, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, su1, sv0);
+                    V(verts, ref offset, wx, y0, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, su0, sv1);
+                    V(verts, ref offset, wx + 1, y1, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, su1, sv0);
+                    V(verts, ref offset, wx + 1, y0, wz, 0, 0, -1, sr*ds, sg*ds, sb*ds, su1, sv1);
                 }
             }
 
-            // +Z side (neighbor at z+1)
+            // +Z side
             nh = GetH(heights, x, z + 1);
             if (wy > nh)
             {
                 float y0 = nh + 1;
-                float ds = sr * 0.92f, dg = sg * 0.92f, db = sb * 0.92f;
-                if (offset + 54 <= verts.Length)
+                float ds = 0.92f;
+                if (offset + 66 <= verts.Length)
                 {
-                    // Face at z=wz+1, normal (0,0,+1), CCW viewed from +Z
-                    V(verts, ref offset, wx + 1, y0, wz + 1, 0, 0, 1, ds, dg, db);
-                    V(verts, ref offset, wx + 1, y1, wz + 1, 0, 0, 1, ds, dg, db);
-                    V(verts, ref offset, wx, y1, wz + 1, 0, 0, 1, ds, dg, db);
-                    V(verts, ref offset, wx + 1, y0, wz + 1, 0, 0, 1, ds, dg, db);
-                    V(verts, ref offset, wx, y1, wz + 1, 0, 0, 1, ds, dg, db);
-                    V(verts, ref offset, wx, y0, wz + 1, 0, 0, 1, ds, dg, db);
+                    V(verts, ref offset, wx + 1, y0, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, su0, sv1);
+                    V(verts, ref offset, wx + 1, y1, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, su0, sv0);
+                    V(verts, ref offset, wx, y1, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, su1, sv0);
+                    V(verts, ref offset, wx + 1, y0, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, su0, sv1);
+                    V(verts, ref offset, wx, y1, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, su1, sv0);
+                    V(verts, ref offset, wx, y0, wz + 1, 0, 0, 1, sr*ds, sg*ds, sb*ds, su1, sv1);
                 }
             }
         }
 
-        int vertexCount = offset / 9;
+        int vertexCount = offset / FloatsPerVertex;
         if (vertexCount == 0) return ([], 0);
 
         var result = new float[offset];
@@ -139,10 +157,12 @@ public static class HeightmapMesher
     }
 
     private static void V(float[] v, ref int o,
-        float px, float py, float pz, float nx, float ny, float nz, float r, float g, float b)
+        float px, float py, float pz, float nx, float ny, float nz,
+        float r, float g, float b, float u, float uv)
     {
         v[o++] = px; v[o++] = py; v[o++] = pz;
         v[o++] = nx; v[o++] = ny; v[o++] = nz;
         v[o++] = r;  v[o++] = g;  v[o++] = b;
+        v[o++] = u;  v[o++] = uv;
     }
 }
