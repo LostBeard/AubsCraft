@@ -571,13 +571,14 @@ fn fs_main(input : VertexOutput) -> @location(0) vec4<f32> {
 
     let light = ambient + sun_color * sun_intensity * 0.55 + fill_color * fill_intensity * 0.18;
 
-    // Sample texture (WebGPU requires uniform control flow for textureSample)
+    // Sample texture
     let tex_color = textureSample(atlas_texture, atlas_sampler, input.tex_uv);
     let has_texture = step(0.0, input.tex_uv.x);
-    // For opaque pixels, use texture color tinted by vertex color
-    // For transparent texture pixels (alpha < 0.5), use flat vertex color instead
-    let use_texture = has_texture * step(0.5, tex_color.a);
-    var color = mix(input.base_color, tex_color.rgb * input.base_color, use_texture);
+    var color = mix(input.base_color, tex_color.rgb * input.base_color, has_texture);
+
+    // Discard transparent pixels (leaf gaps, plant cutouts)
+    let alpha = mix(1.0, tex_color.a, has_texture);
+    if (alpha < 0.3) { discard; }
 
     // Face-dependent shading
     if (n.y < -0.5) {

@@ -200,9 +200,9 @@ else
                 {
                     System.Console.WriteLine($"[Map] Heightmap ({hm.X},{hm.Z}) error: {ex.Message}");
                 }
-                // Only yield when FPS drops below 30 - lets loading run fast when GPU has headroom
-                if (Renderer.Fps > 0 && Renderer.Fps < 30)
-                    await Task.Delay(1);
+                // Yield periodically to keep render loop and SignalR connection alive
+                if (_loadedCount % 5 == 0)
+                    await Task.Yield();
             }
             System.Console.WriteLine($"[Map] Loaded {_loadedCount} heightmap chunks");
             StateHasChanged();
