@@ -571,11 +571,13 @@ fn fs_main(input : VertexOutput) -> @location(0) vec4<f32> {
 
     let light = ambient + sun_color * sun_intensity * 0.55 + fill_color * fill_intensity * 0.18;
 
-    // Always sample texture (WebGPU requires uniform control flow for textureSample)
+    // Sample texture (WebGPU requires uniform control flow for textureSample)
     let tex_color = textureSample(atlas_texture, atlas_sampler, input.tex_uv);
-    // Use texture if UVs are valid (>= 0), otherwise use flat vertex color
     let has_texture = step(0.0, input.tex_uv.x);
-    var color = mix(input.base_color, tex_color.rgb * input.base_color, has_texture);
+    // For opaque pixels, use texture color tinted by vertex color
+    // For transparent texture pixels (alpha < 0.5), use flat vertex color instead
+    let use_texture = has_texture * step(0.5, tex_color.a);
+    var color = mix(input.base_color, tex_color.rgb * input.base_color, use_texture);
 
     // Face-dependent shading
     if (n.y < -0.5) {
@@ -594,10 +596,6 @@ fn fs_main(input : VertexOutput) -> @location(0) vec4<f32> {
     let fog_color = vec3<f32>(0.65, 0.80, 0.95);
     let fog_factor = clamp((dist - fog_start) / (fog_end - fog_start), 0.0, 1.0);
     color = mix(color, fog_color, fog_factor * fog_factor);
-
-    // Alpha test: discard transparent pixels (leaves, flowers, etc.)
-    let alpha = mix(1.0, tex_color.a, has_texture);
-    if (alpha < 0.5) { discard; }
 
     return vec4<f32>(color, 1.0);
 }
