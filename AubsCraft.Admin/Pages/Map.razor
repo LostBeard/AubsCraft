@@ -68,9 +68,6 @@ else
     private HashSet<(int, int)> _populatedChunks = new();
     private HashSet<(int, int)> _loadedChunks = new();
     private HashSet<(int, int)> _loadingChunks = new();
-    private int _lastCamChunkX = int.MinValue;
-    private int _lastCamChunkZ = int.MinValue;
-    private const int DrawDistance = 8; // chunks
 
     private enum ViewMode { Initializing, Viewer3D, BlueMap, Error }
 
