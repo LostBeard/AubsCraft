@@ -34,14 +34,11 @@
                 <span class="bi bi-puzzle-nav-menu" aria-hidden="true"></span> Plugins
             </NavLink>
         </div>
-        @if (_blueMapEnabled)
-        {
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="map">
-                    <span class="bi bi-map-nav-menu" aria-hidden="true"></span> Map
-                </NavLink>
-            </div>
-        }
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="map">
+                <span class="bi bi-map-nav-menu" aria-hidden="true"></span> Map
+            </NavLink>
+        </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="activity">
                 <span class="bi bi-clock-history-nav-menu" aria-hidden="true"></span> Activity Log
@@ -55,27 +52,13 @@
     </nav>
 </div>
 
-@inject ServerHubClient Hub
-
 @code {
     private bool collapseNavMenu = true;
-    private bool _blueMapEnabled = true;
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
 
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            await Hub.ConnectAsync();
-            var config = await Hub.GetBlueMapConfigAsync();
-            _blueMapEnabled = config.Enabled;
-        }
-        catch { }
     }
 }

@@ -45,8 +45,7 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-app.UseBlazorFrameworkFiles();
-app.UseStaticFiles();
+app.MapStaticAssets();
 app.UseAuthentication();
 app.UseAuthorization();
 
