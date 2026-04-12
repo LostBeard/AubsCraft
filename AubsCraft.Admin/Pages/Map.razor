@@ -181,7 +181,7 @@ else
                     var paletteColors = BlockColorMap.BuildPaletteColors(hm.Palette);
 
                     var (vertices, vertexCount) = HeightmapMesher.GenerateMesh(
-                        heights, blockIds, paletteColors, hm.X, hm.Z);
+                        heights, blockIds, paletteColors, hm.Palette, hm.X, hm.Z);
 
                     if (vertexCount > 0)
                     {

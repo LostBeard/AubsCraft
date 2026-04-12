@@ -13,7 +13,7 @@ public static class HeightmapMesher
     private const int MaxFloats = 256 * 20 * 6 * 9;
 
     public static (float[] vertices, int vertexCount) GenerateMesh(
-        int[] heights, ushort[] blockIds, float[] paletteColors,
+        int[] heights, ushort[] blockIds, float[] paletteColors, List<string> paletteNames,
         int chunkX, int chunkZ)
     {
         var verts = new float[MaxFloats];
@@ -34,12 +34,20 @@ public static class HeightmapMesher
             float g = paletteColors[blockId * 3 + 1];
             float b = paletteColors[blockId * 3 + 2];
 
+            var blockName = blockId < paletteNames.Count ? paletteNames[blockId] : "";
+            bool isWater = blockName is "minecraft:water" or "minecraft:flowing_water";
+            float renderY = isWater ? wy + 0.1f : wy; // water surface slightly below block top
+
             // Top face
-            EmitTopFace(verts, ref offset, wx, wy, wz, r, g, b);
+            EmitTopFace(verts, ref offset, wx, renderY, wz, r, g, b);
 
             // Side faces - emit where this column is taller than its neighbor
-            // This creates cliff faces, terrain edges, and coastlines
-            float sideR = r * 0.85f, sideG = g * 0.85f, sideB = b * 0.85f; // slightly darker sides
+            // Grass/podzol/mycelium show dirt on sides (like Minecraft)
+            float sideR, sideG, sideB;
+            if (blockName is "minecraft:grass_block" or "minecraft:podzol" or "minecraft:mycelium")
+            { sideR = 0.55f; sideG = 0.35f; sideB = 0.18f; } // dirt color
+            else
+            { sideR = r * 0.82f; sideG = g * 0.82f; sideB = b * 0.82f; }
 
             // -X neighbor
             int neighborH = GetHeight(heights, x - 1, z);
