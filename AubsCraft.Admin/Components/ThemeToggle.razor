@@ -1,4 +1,5 @@
-@inject IJSRuntime JS
+@inject SpawnDev.BlazorJS.BlazorJSRuntime JS
+@using SpawnDev.BlazorJS.JSObjects
 
 <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleAsync" title="Toggle theme">
     @(_isDark ? "Light" : "Dark")
@@ -11,15 +12,17 @@
     {
         if (firstRender)
         {
-            var theme = await JS.InvokeAsync<string>("themeInterop.getTheme");
+            var theme = JS.Call<string>("themeInterop.getTheme");
             _isDark = theme == "dark";
             StateHasChanged();
         }
+        await Task.CompletedTask;
     }
 
-    private async Task ToggleAsync()
+    private Task ToggleAsync()
     {
         _isDark = !_isDark;
-        await JS.InvokeVoidAsync("themeInterop.setTheme", _isDark ? "dark" : "light");
+        JS.CallVoid("themeInterop.setTheme", _isDark ? "dark" : "light");
+        return Task.CompletedTask;
     }
 }

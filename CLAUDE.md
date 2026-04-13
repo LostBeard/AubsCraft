@@ -108,6 +108,8 @@ AubsCraft/
 - **NEVER use `AddEventListener` with raw strings** - use ActionEvent properties (OnPointerLockChange, OnClick, etc.)
 - **NEVER call JS every frame** for state that can be tracked by an event handler updating a C# field
 
+**If you are unsure how to do something with SpawnDev.BlazorJS or any SpawnDev library - ASK TJ.** He wrote them. He knows every API. Guessing leads to eval() and IJSRuntime hacks. Asking takes 30 seconds and gets the right answer.
+
 ## Reference Codebase
 
 Lost Spawns at `D:\users\tj\Projects\Lost\Lost\LostSpawns` has proven render patterns (VoxelMesher, Camera, FrustumCuller).

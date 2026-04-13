@@ -1,6 +1,7 @@
 @page "/console"
 @inject ServerHubClient Hub
-@inject IJSRuntime JS
+@inject SpawnDev.BlazorJS.BlazorJSRuntime JS
+@using SpawnDev.BlazorJS.JSObjects
 
 <PageTitle>Console - AubsCraft Admin</PageTitle>
 
@@ -114,7 +115,10 @@
         await Task.Yield();
         try
         {
-            await JS.InvokeVoidAsync("eval", "document.querySelector('.console-output').scrollTop = document.querySelector('.console-output').scrollHeight");
+            using var doc = JS.Get<Document>("document");
+            using var el = doc.QuerySelector(".console-output");
+            if (el != null)
+                el.ScrollTop = el.ScrollHeight;
         }
         catch { }
     }
