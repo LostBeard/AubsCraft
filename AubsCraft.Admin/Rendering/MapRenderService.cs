@@ -109,13 +109,20 @@ public sealed class MapRenderService : IDisposable
     public int TotalVertices { get; private set; }
     public int VisibleVertices { get; private set; }
 
-    // FPS tracking + adaptive draw distance
+    // FPS tracking + adaptive draw distance + vertex budget
     private int _frameCount;
     private double _fpsAccumulator;
     private float _lastDt;
     public int DrawDistance { get; private set; } = 30;
     private const int MinDrawDistance = 12;
     private const int MaxDrawDistance = 80;
+    public int VertexBudget { get; set; } = 3_000_000;
+    private const int MinVertexBudget = 1_000_000;
+    private const int MaxVertexBudget = 5_000_000;
+    public bool IsOverBudget => TotalVertices > VertexBudget;
+
+    /// <summary>Fired when chunks are evicted to make room. Loader should clear tracking for these.</summary>
+    public Action<List<(int cx, int cz)>>? OnChunksEvicted;
 
     public MapRenderService(BlazorJSRuntime js)
     {
@@ -473,10 +480,30 @@ public sealed class MapRenderService : IDisposable
         {
             if (_nextFreeVertex + vertexCount > _bufferCapacityVertices)
             {
-                int needed = _nextFreeVertex + vertexCount;
-                int newCap = Math.Min(Math.Max(needed + needed / 4, _bufferCapacityVertices + 500_000), MaxBufferVertices);
-                if (newCap < needed) return;
-                GrowBuffer(newCap);
+                // Try to evict farthest chunks beyond draw distance to make room
+                var evicted = EvictFarthestChunks(Camera.Position.X, Camera.Position.Z, vertexCount);
+                if (evicted.Count > 0)
+                    OnChunksEvicted?.Invoke(evicted);
+                // Re-check free list after eviction
+                for (int i = 0; i < _freeSlots.Count; i++)
+                {
+                    if (_freeSlots[i].vertexCount >= vertexCount)
+                    {
+                        var free = _freeSlots[i];
+                        writeOffset = free.firstVertex;
+                        int rem = free.vertexCount - vertexCount;
+                        if (rem > 100) _freeSlots[i] = (free.firstVertex + vertexCount, rem);
+                        else _freeSlots.RemoveAt(i);
+                        break;
+                    }
+                }
+                if (writeOffset < 0)
+                {
+                    int needed = _nextFreeVertex + vertexCount;
+                    int newCap = Math.Min(Math.Max(needed + needed / 4, _bufferCapacityVertices + 500_000), MaxBufferVertices);
+                    if (newCap < needed) return; // truly out of space
+                    GrowBuffer(newCap);
+                }
             }
             writeOffset = _nextFreeVertex;
             _nextFreeVertex += vertexCount;
@@ -561,6 +588,51 @@ public sealed class MapRenderService : IDisposable
             }
             _freeSlots.Add((start, count));
         }
+    }
+
+    /// <summary>
+    /// Evict the farthest chunk(s) to free vertex budget space.
+    /// Prioritizes evicting LOD 0 (most verts) at max distance first.
+    /// Returns total vertices freed.
+    /// </summary>
+    /// <summary>
+    /// Evict the farthest chunk(s) beyond draw distance to free vertex budget space.
+    /// Only evicts chunks OUTSIDE the visible draw distance - never removes visible geometry.
+    /// Returns list of evicted chunk keys so the loading pipeline can clear its tracking.
+    /// </summary>
+    public List<(int cx, int cz)> EvictFarthestChunks(float camX, float camZ, int vertsNeeded)
+    {
+        var evicted = new List<(int, int)>();
+        int freed = 0;
+        int camCX = (int)MathF.Floor(camX / 16f);
+        int camCZ = (int)MathF.Floor(camZ / 16f);
+        int drawDistSq = DrawDistance * DrawDistance;
+
+        while (freed < vertsNeeded && _slots.Count > 0)
+        {
+            var bestKey = (0, 0);
+            float bestScore = -1f;
+            foreach (var ((cx, cz), slot) in _slots)
+            {
+                int dx = cx - camCX, dz = cz - camCZ;
+                int distSq = dx * dx + dz * dz;
+                // Only evict chunks beyond draw distance
+                if (distSq <= drawDistSq) continue;
+                float score = distSq * slot.VertexCount;
+                if (score > bestScore) { bestScore = score; bestKey = (cx, cz); }
+            }
+            if (bestScore <= 0) break; // nothing beyond draw distance to evict
+
+            if (_slots.TryGetValue(bestKey, out var evictSlot))
+            {
+                freed += evictSlot.VertexCount;
+                RemoveChunkMesh(bestKey.Item1, bestKey.Item2);
+                if (_waterSlots.Remove(bestKey, out var ws))
+                    _waterFreeSlots.Add((ws.FirstVertex, ws.VertexCount));
+                evicted.Add(bestKey);
+            }
+        }
+        return evicted;
     }
 
     /// <summary>Uploads water mesh vertices for a chunk to the transparent vertex buffer.</summary>
@@ -734,15 +806,26 @@ public sealed class MapRenderService : IDisposable
             _frameCount = 0;
             _fpsAccumulator = 0;
 
-            // Adaptive draw distance - aggressive scaling for device capability
-            if (Fps >= 55 && DrawDistance < MaxDrawDistance)
-                DrawDistance += 2;
-            else if (Fps >= 45 && DrawDistance < MaxDrawDistance)
+            // Adaptive draw distance + vertex budget - aligned thresholds
+            if (Fps >= 50)
+            {
+                if (DrawDistance < MaxDrawDistance) DrawDistance += 2;
+                if (VertexBudget < MaxVertexBudget) VertexBudget = Math.Min(VertexBudget + 100_000, MaxVertexBudget);
+            }
+            else if (Fps >= 40 && DrawDistance < MaxDrawDistance)
+            {
                 DrawDistance += 1;
-            else if (Fps < 20 && DrawDistance > MinDrawDistance)
-                DrawDistance = Math.Max(MinDrawDistance, DrawDistance - 4); // fast drop
-            else if (Fps < 30 && DrawDistance > MinDrawDistance)
-                DrawDistance -= 2;
+            }
+            else if (Fps < 20)
+            {
+                DrawDistance = Math.Max(MinDrawDistance, DrawDistance - 4);
+                VertexBudget = Math.Max(MinVertexBudget, VertexBudget - 300_000);
+            }
+            else if (Fps < 30)
+            {
+                if (DrawDistance > MinDrawDistance) DrawDistance -= 2;
+                VertexBudget = Math.Max(MinVertexBudget, VertexBudget - 100_000);
+            }
         }
 
         OnUpdate?.Invoke(dt);

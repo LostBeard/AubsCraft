@@ -3,7 +3,7 @@
 @inject InputService Input
 @inject WorldCacheService WorldCache
 @inject RenderWorkerHost WorkerHost
-@inject IJSRuntime JS
+@inject BlazorJSRuntime JS
 @implements IDisposable
 @using AubsCraft.Admin.Services
 @using SpawnDev.BlazorJS
@@ -144,13 +144,7 @@ else
             // Attach input service on main thread
             Input.Attach();
 
-            // Track pointer lock changes
-            await JS.InvokeVoidAsync("eval", @"
-                document.addEventListener('pointerlockchange', function() {
-                    window.__mapLocked = !!document.pointerLockElement;
-                });
-                window.__mapLocked = false;
-            ");
+            // Pointer lock tracked via Document.PointerLockElement (no eval, no globals)
 
             _viewMode = ViewMode.Viewer3D;
             _statusMessage = "";
@@ -184,7 +178,8 @@ else
         {
             await Task.Delay(16);
 
-            bool browserLocked = ((IJSInProcessRuntime)JS).Invoke<bool>("eval", "!!window.__mapLocked");
+            using var doc = JS.Get<Document>("document");
+            bool browserLocked = doc.PointerLockElement != null;
             if (_pointerLocked && !browserLocked)
             {
                 _pointerLocked = false;
@@ -241,7 +236,7 @@ else
         if (_pointerLocked) return;
         try
         {
-            await JS.InvokeVoidAsync("eval", "document.getElementById('map-canvas')?.requestPointerLock()");
+            _canvas?.RequestPointerLock();
         }
         catch { }
     }

@@ -72,6 +72,7 @@ public class RenderWorkerService : IRenderWorkerService
 
         // Hook render loop to trigger full 3D loading near camera
         _renderer.OnUpdate = OnRenderFrame;
+        _renderer.OnChunksEvicted = OnChunksEvicted;
         _renderer.StartRenderLoop();
 
         // Load atlas in the worker - fetch directly, stays in JS
@@ -219,9 +220,41 @@ public class RenderWorkerService : IRenderWorkerService
     private int _lastFullCX = int.MinValue, _lastFullCZ = int.MinValue;
     private bool _loadingFull;
     // Full chunk data loaded within this radius. LOD kernel reduces detail for distant chunks.
-    // LOD 0 (full detail) for radius 0-3, LOD 2 for 4-8, LOD 4 for 9-16.
     // Heightmap from WebSocket covers beyond this radius.
     private const int FullRenderRadius = 16;
+
+    /// <summary>
+    /// Budget-aware LOD selection. Tiers shift based on vertex pressure.
+    /// Returns 0 (full), 2 (LOD 2x2x2), or 4 (LOD 4x4x4).
+    /// </summary>
+    private int SelectLOD(int distSq)
+    {
+        int totalVerts = _renderer.TotalVertices;
+        int budget = _renderer.VertexBudget;
+        float pressure = (float)totalVerts / Math.Max(budget, 1);
+
+        if (pressure > 0.9f)
+        {
+            // High pressure - aggressive LOD, only closest get full detail
+            if (distSq <= 4) return 0;
+            if (distSq <= 25) return 2;
+            return 4;
+        }
+        else if (pressure > 0.6f)
+        {
+            // Medium pressure - normal tiers
+            if (distSq <= 9) return 0;
+            if (distSq <= 64) return 2;
+            return 4;
+        }
+        else
+        {
+            // Under budget - more detail at distance
+            if (distSq <= 25) return 0;
+            if (distSq <= 100) return 2;
+            return 4;
+        }
+    }
     private string? _baseUrl;
 
 
@@ -382,6 +415,15 @@ public class RenderWorkerService : IRenderWorkerService
         return result;
     }
 
+    private void OnChunksEvicted(List<(int cx, int cz)> evicted)
+    {
+        foreach (var key in evicted)
+        {
+            _fullChunks.Remove(key);
+            _loadedChunks.Remove(key);
+        }
+    }
+
     private void OnRenderFrame(float dt)
     {
         // Trigger full 3D loading when camera moves to a new chunk
@@ -432,15 +474,14 @@ public class RenderWorkerService : IRenderWorkerService
                     var atlasUVs = BuildFullAtlasUVs(palette);
                     var blockFlags = BuildBlockFlags(palette);
 
-                    // Select LOD level based on distance from camera
-                    int dist = (cx - camCX) * (cx - camCX) + (cz - camCZ) * (cz - camCZ);
+                    // Budget-aware LOD selection
+                    int distSq = (cx - camCX) * (cx - camCX) + (cz - camCZ) * (cz - camCZ);
+                    int lod = SelectLOD(distSq);
                     MeshGenerationResult result;
-                    if (dist <= 3 * 3)
+                    if (lod == 0)
                         result = await _engine.GenerateMeshAsync(blocks, paletteColors, atlasUVs, blockFlags, cx, cz);
-                    else if (dist <= 8 * 8)
-                        result = await _engine.GenerateLODMeshAsync(blocks, paletteColors, atlasUVs, blockFlags, cx, cz, 2);
                     else
-                        result = await _engine.GenerateLODMeshAsync(blocks, paletteColors, atlasUVs, blockFlags, cx, cz, 4);
+                        result = await _engine.GenerateLODMeshAsync(blocks, paletteColors, atlasUVs, blockFlags, cx, cz, lod);
 
                     if (result.OpaqueVertexCount > 100)
                         _renderer.UploadChunkMesh(cx, cz, result.OpaqueVertices);

@@ -100,6 +100,14 @@ AubsCraft/
 - **SpawnDev.ILGPU** - GPU compute (WebGPU backend for mesh kernels)
 - Use DI correctly - never bypass the service container
 
+### Banned Patterns - NO EXCEPTIONS
+
+- **NEVER use `eval()`** - SpawnDev.BlazorJS has typed wrappers for every browser API
+- **NEVER use `IJSRuntime`** - always inject `BlazorJSRuntime`. IJSRuntime requires Captain's explicit consent.
+- **NEVER use `window.__globals`** to pass state between JS and .NET - use C# fields and BlazorJS typed properties
+- **NEVER use `AddEventListener` with raw strings** - use ActionEvent properties (OnPointerLockChange, OnClick, etc.)
+- **NEVER call JS every frame** for state that can be tracked by an event handler updating a C# field
+
 ## Reference Codebase
 
 Lost Spawns at `D:\users\tj\Projects\Lost\Lost\LostSpawns` has proven render patterns (VoxelMesher, Camera, FrustumCuller).
