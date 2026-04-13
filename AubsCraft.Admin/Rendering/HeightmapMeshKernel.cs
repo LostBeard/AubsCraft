@@ -87,7 +87,7 @@ public static class HeightmapMeshKernel
         float cg = entry.G;
         float cb = entry.B;
 
-        bool isWater = flag > 1.5f; // 2 = water
+        bool isWater = flag > 1.5f && flag < 2.5f; // exactly 2 = water (not 3 = solid tinted)
         float topY = isWater ? wy - 0.1f : wy;
 
         // Atlas UVs for this block
