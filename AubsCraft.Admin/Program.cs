@@ -22,7 +22,8 @@ builder.Services.AddSingleton<InputService>();
 builder.Services.AddSingleton<AubsCraft.Admin.Rendering.MapRenderService>();
 builder.Services.AddSingleton<WorldCacheService>();
 builder.Services.AddSingleton<ChunkStreamService>();
-// RenderWorkerService is NOT registered - it's created via worker.New() with OffscreenCanvas
+builder.Services.AddSingleton<RenderWorkerHost>();
+// RenderWorkerService is NOT registered here - it's created via worker.New() with OffscreenCanvas
 
 if (JS.IsWindow)
 {

@@ -137,6 +137,27 @@ public class RenderWorkerService : IRenderWorkerService
         ));
     }
 
+    public Task AttachCanvasAsync(OffscreenCanvas canvas, int width, int height)
+    {
+        _canvas = canvas;
+        _canvas.Width = width;
+        _canvas.Height = height;
+        _renderer.AttachCanvas(_canvas);
+        _renderer.OnUpdate = OnRenderFrame;
+        _renderer.StartRenderLoop();
+        Console.WriteLine($"[RenderWorker] Canvas re-attached: {width}x{height}, chunks already loaded: {LoadedCount}");
+        return Task.CompletedTask;
+    }
+
+    public Task DetachCanvasAsync()
+    {
+        _renderer.DetachCanvas();
+        _canvas?.Dispose();
+        _canvas = null;
+        Console.WriteLine("[RenderWorker] Canvas detached, worker stays alive");
+        return Task.CompletedTask;
+    }
+
     public Task SetTimeOfDay(int ticks)
     {
         if (ticks >= 0)

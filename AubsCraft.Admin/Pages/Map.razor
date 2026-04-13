@@ -2,7 +2,7 @@
 @inject ServerHubClient Hub
 @inject InputService Input
 @inject WorldCacheService WorldCache
-@inject SpawnDev.BlazorJS.WebWorkers.WebWorkerService WorkerService
+@inject RenderWorkerHost WorkerHost
 @inject IJSRuntime JS
 @implements IDisposable
 @using AubsCraft.Admin.Services
@@ -66,10 +66,8 @@ else
     private string _statusMessage = "Initializing...";
     private bool _pointerLocked;
 
-    private WebWorker? _renderWorker;
     private IRenderWorkerService? _renderService;
     private RenderStats? _lastStats;
-    private string _renderServiceKey = Guid.NewGuid().ToString();
     private int _lastCanvasW, _lastCanvasH;
     private HTMLCanvasElement? _canvas;
     private ResizeObserver? _resizeObserver;
@@ -101,12 +99,7 @@ else
             _statusMessage = "Starting render worker...";
             StateHasChanged();
 
-            // Create a dedicated Web Worker for the entire render pipeline
-            _renderWorker = await WorkerService.GetWebWorker();
-
-            System.Console.WriteLine("[Map] Render worker created, transferring canvas...");
-
-            // Transfer the canvas to the worker - worker now owns GPU rendering
+            // Transfer the canvas to the worker
             _canvas = new HTMLCanvasElement(_canvasRef);
             int width = _canvas.ClientWidth;
             int height = _canvas.ClientHeight;
@@ -121,11 +114,32 @@ else
             _resizeObserver = new ResizeObserver(_resizeCallback);
             _resizeObserver.Observe(_canvasRef);
 
-            // Create RenderWorkerService in the worker using New() expression
-            // OffscreenCanvas is transferred, DI services injected via [FromServices]
-            await _renderWorker.New<IRenderWorkerService>(_renderServiceKey,
-                () => new RenderWorkerService(offscreen, width, height));
-            _renderService = _renderWorker.GetKeyedService<IRenderWorkerService>(_renderServiceKey);
+            if (WorkerHost.IsStarted)
+            {
+                // Worker already running from previous visit - just re-attach canvas
+                _renderService = WorkerHost.Service;
+                await _renderService!.AttachCanvasAsync(offscreen, width, height);
+                System.Console.WriteLine("[Map] Re-attached canvas to existing worker");
+            }
+            else
+            {
+                // First visit - create worker and start everything
+                var (worker, service) = await WorkerHost.EnsureWorkerAsync(offscreen, width, height);
+                _renderService = service;
+                System.Console.WriteLine("[Map] Render worker created, transferring canvas...");
+
+                // Restore camera position
+                float camX = 0f, camY = 200f, camZ = 0f, pitch = -90f, yaw = 0f;
+                var savedCam = await WorldCache.LoadCameraPositionAsync();
+                if (savedCam != null)
+                {
+                    (camX, camY, camZ, pitch, yaw) = savedCam.Value;
+                    System.Console.WriteLine($"[Map] Restored camera: ({camX:F0}, {camY:F0}, {camZ:F0})");
+                }
+
+                await _renderService.StartAsync(camX, camY, camZ, pitch, yaw);
+                WorkerHost.IsStarted = true;
+            }
 
             // Attach input service on main thread
             Input.Attach();
@@ -137,18 +151,6 @@ else
                 });
                 window.__mapLocked = false;
             ");
-
-            // Restore camera position
-            float camX = 0f, camY = 200f, camZ = 0f, pitch = -90f, yaw = 0f;
-            var savedCam = await WorldCache.LoadCameraPositionAsync();
-            if (savedCam != null)
-            {
-                (camX, camY, camZ, pitch, yaw) = savedCam.Value;
-                System.Console.WriteLine($"[Map] Restored camera: ({camX:F0}, {camY:F0}, {camZ:F0})");
-            }
-
-            // Start render loop + chunk loading in the worker
-            await _renderService.StartAsync(camX, camY, camZ, pitch, yaw);
 
             _viewMode = ViewMode.Viewer3D;
             _statusMessage = "";
@@ -249,10 +251,13 @@ else
 
     public void Dispose()
     {
+        Hub.OnServerStatusReceived -= OnServerStatus;
         _resizeObserver?.Disconnect();
         _resizeObserver?.Dispose();
         _resizeCallback?.Dispose();
-        _renderWorker?.Dispose();
+        // Detach canvas but keep worker alive - it persists via RenderWorkerHost
+        if (_renderService != null)
+            _ = _renderService.DetachCanvasAsync();
         _canvas?.Dispose();
         Input.Detach();
     }

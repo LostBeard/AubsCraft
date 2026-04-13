@@ -59,6 +59,12 @@ Updated: 2026-04-12
 - [ ] D7. **Water grid alignment** - Heightmap water Y matches kernel water Y everywhere
 - [ ] D8. **Vertex buffer management** - Dynamic sizing, logging when limits hit
 - [x] D9. **Heightmap GPU kernel** - Replace CPU HeightmapMesher with ILGPU kernel
+- [x] D10. **Time-of-day lighting** - Sun direction + ambient + fog from RCON time via SignalR push
+- [ ] D11. **Persistent render worker** - Worker stays running across page navigation (singleton service)
+  - Standby mode when not on viewer page, resume instantly when returning
+  - Eliminates worker startup delay on page revisit
+- [ ] D12. **In-viewer UI** - Console commands, player list, chat overlay inside the 3D viewer
+  - Check Lost/LostSpawns and SpawnScene for existing UI components
 
 ## Phase D2: Input System + UI Layout
 

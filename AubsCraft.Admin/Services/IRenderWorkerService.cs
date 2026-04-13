@@ -1,3 +1,5 @@
+using SpawnDev.BlazorJS.JSObjects;
+
 namespace AubsCraft.Admin.Services;
 
 /// <summary>
@@ -7,6 +9,8 @@ namespace AubsCraft.Admin.Services;
 public interface IRenderWorkerService : IAsyncDisposable
 {
     Task StartAsync(float camX, float camY, float camZ, float pitch, float yaw);
+    Task AttachCanvasAsync(OffscreenCanvas canvas, int width, int height);
+    Task DetachCanvasAsync();
     Task ProcessInputAsync(float dx, float dy, float dt, string[] keysDown);
     Task ResizeAsync(int width, int height);
     Task<RenderStats> GetStatsAsync();

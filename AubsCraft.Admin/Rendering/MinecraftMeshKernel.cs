@@ -85,7 +85,8 @@ public static class MinecraftMeshKernel
 
         // Water blocks: emit faces to the water buffer (transparent pass)
         // Water emits faces toward air or solid blocks, but NOT toward other water
-        if (flag > 1.5f)
+        // Flag must be exactly 2 (water), not 3 (solid tinted like leaves/grass)
+        if (flag > 1.5f && flag < 2.5f)
         {
             int uvBase = blockId * 12;
             float u0 = atlasUVs[uvBase];

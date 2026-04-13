@@ -135,6 +135,64 @@ public sealed class MapRenderService : IDisposable
         InitWithContext(ctx, canvas.Width, canvas.Height, accelerator);
     }
 
+    /// <summary>
+    /// Re-attach a new canvas to an already-initialized renderer.
+    /// Reuses existing WebGPU device, pipelines, vertex buffers, and chunk data.
+    /// Only recreates the canvas context and depth texture for the new size.
+    /// </summary>
+    public void AttachCanvas(OffscreenCanvas canvas)
+    {
+        if (!IsInitialized || _device == null)
+            throw new InvalidOperationException("Renderer not initialized - call InitOffscreen first");
+
+        // Stop render loop during swap
+        StopRenderLoop();
+
+        // Dispose old canvas context (may already be null from DetachCanvas)
+        _context?.Unconfigure();
+        _context?.Dispose();
+        _context = null;
+
+        // Create new context on new canvas
+        _context = canvas.GetWebGPUContext()
+            ?? throw new InvalidOperationException("Failed to get WebGPU canvas context");
+        _context.Configure(new GPUCanvasConfiguration
+        {
+            Device = _device,
+            Format = _canvasFormat,
+        });
+
+        _canvasWidth = canvas.Width;
+        _canvasHeight = canvas.Height;
+
+        // Recreate depth texture for new size
+        CreateDepthTexture();
+        // Update cached render pass descriptor with new depth view
+        if (_cachedDepthAttachment != null)
+            _cachedDepthAttachment.View = _depthView!;
+
+        _disposed = false;
+    }
+
+    /// <summary>
+    /// Detach the canvas context without destroying GPU resources.
+    /// Render loop stops, chunk data and device stay alive.
+    /// Nulls out depth texture refs so AttachCanvas doesn't double-dispose.
+    /// </summary>
+    public void DetachCanvas()
+    {
+        StopRenderLoop();
+        _context?.Unconfigure();
+        _context?.Dispose();
+        _context = null;
+        // Dispose depth texture tied to the old canvas size
+        _depthView?.Dispose();
+        _depthView = null;
+        _depthTexture?.Destroy();
+        _depthTexture?.Dispose();
+        _depthTexture = null;
+    }
+
     private void InitWithContext(GPUCanvasContext context, int width, int height, Accelerator accelerator)
     {
         if (IsInitialized) return;
