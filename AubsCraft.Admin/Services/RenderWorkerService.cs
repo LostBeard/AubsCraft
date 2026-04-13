@@ -483,18 +483,24 @@ public class RenderWorkerService : IRenderWorkerService
                     else
                         result = await _engine.GenerateLODMeshAsync(blocks, paletteColors, atlasUVs, blockFlags, cx, cz, lod);
 
-                    if (result.OpaqueVertexCount > 100)
-                        _renderer.UploadChunkMesh(cx, cz, result.OpaqueVertices);
+                    bool uploaded = false;
+                    if (result.OpaqueVertexCount > 0)
+                        uploaded = _renderer.UploadChunkMesh(cx, cz, result.OpaqueVertices);
                     if (result.WaterVertexCount > 0)
                         _renderer.UploadWaterMesh(cx, cz, result.WaterVertices);
-                    _fullChunks.Add((cx, cz));
-                    if (_fullChunks.Count <= 3)
-                        Console.WriteLine($"[RenderWorker] Full3D ({cx},{cz}): palette={palette.Count}, opaque={result.OpaqueVertexCount}, water={result.WaterVertexCount}");
+
+                    // Only mark as loaded if upload actually succeeded
+                    if (uploaded)
+                    {
+                        _fullChunks.Add((cx, cz));
+                        if (_fullChunks.Count <= 3)
+                            Console.WriteLine($"[RenderWorker] Full3D ({cx},{cz}): palette={palette.Count}, opaque={result.OpaqueVertexCount}, water={result.WaterVertexCount}");
+                    }
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[RenderWorker] Full3D ({cx},{cz}) failed: {ex.Message}");
-                    _fullChunks.Add((cx, cz));
+                    // Do NOT add to _fullChunks on failure - allow retry
                 }
                 await Task.Yield();
             }

@@ -49,6 +49,28 @@ public sealed class WorldCacheService
     }
 
     /// <summary>
+    /// Clear all cached data from OPFS (heightmaps, regions, camera position).
+    /// </summary>
+    public async Task ClearAllAsync()
+    {
+        try
+        {
+            using var storage = _js.Get<StorageManager>("navigator.storage");
+            var root = await storage.GetDirectory();
+            await root.RemoveEntry("aubscraft-cache", true);
+            _heightmapDir?.Dispose();
+            _heightmapDir = null;
+            _rootDir?.Dispose();
+            _rootDir = null;
+            Console.WriteLine("[WorldCache] OPFS cache cleared");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WorldCache] Clear failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Queue a heightmap chunk for caching. Writes are batched into region files.
     /// </summary>
     public void CacheHeightmap(int cx, int cz, ArrayBuffer frameBuffer)

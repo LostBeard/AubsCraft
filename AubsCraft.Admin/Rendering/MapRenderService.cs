@@ -451,114 +451,54 @@ public sealed class MapRenderService : IDisposable
         System.Console.WriteLine($"[MapRender] Atlas uploaded: {width}x{height}");
     }
 
-    public void UploadChunkMesh(int cx, int cz, float[] vertices)
+    /// <summary>
+    /// Upload chunk mesh vertices. Returns true if upload succeeded.
+    /// Bug fix: old slot is NOT freed until new allocation succeeds.
+    /// This prevents chunks from vanishing when the buffer is full.
+    /// </summary>
+    public bool UploadChunkMesh(int cx, int cz, float[] vertices)
     {
         var key = (cx, cz);
         int vertexCount = vertices.Length / 11;
-        if (vertexCount == 0) return;
+        if (vertexCount == 0) return false;
 
+        // Find space FIRST, before freeing old slot
+        int writeOffset = FindOrAllocateSlot(key, vertexCount);
+        if (writeOffset < 0) return false; // can't fit - old mesh preserved
+
+        // Now safe to free old slot (we have space for the new one)
         if (_slots.Remove(key, out var oldSlot))
+        {
             _freeSlots.Add((oldSlot.FirstVertex, oldSlot.VertexCount));
-
-        int writeOffset = -1;
-        for (int i = 0; i < _freeSlots.Count; i++)
-        {
-            if (_freeSlots[i].vertexCount >= vertexCount)
-            {
-                var free = _freeSlots[i];
-                writeOffset = free.firstVertex;
-                int remainder = free.vertexCount - vertexCount;
-                if (remainder > 100)
-                    _freeSlots[i] = (free.firstVertex + vertexCount, remainder);
-                else
-                    _freeSlots.RemoveAt(i);
-                break;
-            }
-        }
-
-        if (writeOffset < 0)
-        {
-            if (_nextFreeVertex + vertexCount > _bufferCapacityVertices)
-            {
-                // Try to evict farthest chunks beyond draw distance to make room
-                var evicted = EvictFarthestChunks(Camera.Position.X, Camera.Position.Z, vertexCount);
-                if (evicted.Count > 0)
-                    OnChunksEvicted?.Invoke(evicted);
-                // Re-check free list after eviction
-                for (int i = 0; i < _freeSlots.Count; i++)
-                {
-                    if (_freeSlots[i].vertexCount >= vertexCount)
-                    {
-                        var free = _freeSlots[i];
-                        writeOffset = free.firstVertex;
-                        int rem = free.vertexCount - vertexCount;
-                        if (rem > 100) _freeSlots[i] = (free.firstVertex + vertexCount, rem);
-                        else _freeSlots.RemoveAt(i);
-                        break;
-                    }
-                }
-                if (writeOffset < 0)
-                {
-                    int needed = _nextFreeVertex + vertexCount;
-                    int newCap = Math.Min(Math.Max(needed + needed / 4, _bufferCapacityVertices + 500_000), MaxBufferVertices);
-                    if (newCap < needed) return; // truly out of space
-                    GrowBuffer(newCap);
-                }
-            }
-            writeOffset = _nextFreeVertex;
-            _nextFreeVertex += vertexCount;
+            if (oldSlot.VertexCount > 1000)
+                Console.WriteLine($"[DIAG] Replacing large slot ({cx},{cz}): old={oldSlot.VertexCount} new={vertexCount}");
         }
 
         ulong byteOffset = (ulong)writeOffset * BytesPerVertex;
         using var jsArray = new Float32Array(vertices);
         _queue!.WriteBuffer(_vertexBuffer!, byteOffset, jsArray);
         _slots[key] = new ChunkSlot { FirstVertex = writeOffset, VertexCount = vertexCount };
+        return true;
     }
 
     /// <summary>
     /// Upload chunk mesh directly from a GPU buffer (zero CPU copy).
     /// Uses CopyBufferToBuffer - data stays on GPU the entire time.
     /// </summary>
-    public void UploadChunkMeshFromGPU(int cx, int cz, GPUBuffer sourceBuffer, int vertexCount, long sourceByteOffset = 0)
+    /// <summary>
+    /// Upload chunk mesh from GPU buffer. Returns true if upload succeeded.
+    /// Same safe allocation as CPU path - old slot preserved on failure.
+    /// </summary>
+    public bool UploadChunkMeshFromGPU(int cx, int cz, GPUBuffer sourceBuffer, int vertexCount, long sourceByteOffset = 0)
     {
         var key = (cx, cz);
-        if (vertexCount == 0) return;
+        if (vertexCount == 0) return false;
+
+        int writeOffset = FindOrAllocateSlot(key, vertexCount);
+        if (writeOffset < 0) return false;
 
         if (_slots.Remove(key, out var oldSlot))
             _freeSlots.Add((oldSlot.FirstVertex, oldSlot.VertexCount));
-
-        int writeOffset = -1;
-        for (int i = 0; i < _freeSlots.Count; i++)
-        {
-            if (_freeSlots[i].vertexCount >= vertexCount)
-            {
-                var free = _freeSlots[i];
-                writeOffset = free.firstVertex;
-                int remainder = free.vertexCount - vertexCount;
-                if (remainder > 100)
-                    _freeSlots[i] = (free.firstVertex + vertexCount, remainder);
-                else
-                    _freeSlots.RemoveAt(i);
-                break;
-            }
-        }
-
-        if (writeOffset < 0)
-        {
-            if (_nextFreeVertex + vertexCount > _bufferCapacityVertices)
-            {
-                int needed = _nextFreeVertex + vertexCount;
-                int newCap = Math.Min(Math.Max(needed + needed / 4, _bufferCapacityVertices + 500_000), MaxBufferVertices);
-                if (newCap < needed)
-                {
-                    Console.WriteLine($"[MapRender] Vertex buffer full, dropping chunk ({cx},{cz})");
-                    return;
-                }
-                GrowBuffer(newCap);
-            }
-            writeOffset = _nextFreeVertex;
-            _nextFreeVertex += vertexCount;
-        }
 
         // GPU-to-GPU copy - zero CPU involvement
         ulong destByteOffset = (ulong)writeOffset * BytesPerVertex;
@@ -570,10 +510,49 @@ public sealed class MapRenderService : IDisposable
         _submitArray[0]?.Dispose();
 
         _slots[key] = new ChunkSlot { FirstVertex = writeOffset, VertexCount = vertexCount };
+        return true;
+    }
+
+    /// <summary>
+    /// Find or allocate a slot for vertexCount vertices.
+    /// Tries: free list -> bump allocate -> evict -> compact -> bump.
+    /// Does NOT free the existing slot for this key (caller does that after success).
+    /// Returns write offset or -1 if truly out of space.
+    /// </summary>
+    private int FindOrAllocateSlot((int, int) excludeKey, int vertexCount)
+    {
+        // Search free list
+        for (int i = 0; i < _freeSlots.Count; i++)
+        {
+            if (_freeSlots[i].vertexCount >= vertexCount)
+            {
+                var free = _freeSlots[i];
+                int offset = free.firstVertex;
+                int remainder = free.vertexCount - vertexCount;
+                if (remainder > 100)
+                    _freeSlots[i] = (free.firstVertex + vertexCount, remainder);
+                else
+                    _freeSlots.RemoveAt(i);
+                return offset;
+            }
+        }
+
+        // Bump allocate
+        if (_nextFreeVertex + vertexCount <= _bufferCapacityVertices)
+        {
+            int offset = _nextFreeVertex;
+            _nextFreeVertex += vertexCount;
+            return offset;
+        }
+
+        // DEBUG: eviction and compaction DISABLED to isolate vanishing bug
+        Console.WriteLine($"[DIAG] FindOrAllocateSlot FAILED: needed={vertexCount} nextFree={_nextFreeVertex} cap={_bufferCapacityVertices} freeSlots={_freeSlots.Count}");
+        return -1;
     }
 
     public void RemoveChunkMesh(int cx, int cz)
     {
+        Console.WriteLine($"[DIAG] RemoveChunkMesh({cx},{cz}) called");
         if (_slots.Remove((cx, cz), out var slot))
         {
             int start = slot.FirstVertex;
@@ -606,7 +585,9 @@ public sealed class MapRenderService : IDisposable
         int freed = 0;
         int camCX = (int)MathF.Floor(camX / 16f);
         int camCZ = (int)MathF.Floor(camZ / 16f);
-        int drawDistSq = DrawDistance * DrawDistance;
+        // Evict beyond draw distance + margin to prevent churn during adaptive drops
+        int evictDist = DrawDistance + 8;
+        int drawDistSq = evictDist * evictDist;
 
         while (freed < vertsNeeded && _slots.Count > 0)
         {
@@ -750,6 +731,54 @@ public sealed class MapRenderService : IDisposable
         _waterBufferCapacity = newCapacity;
     }
 
+    /// <summary>
+    /// Compact the vertex buffer by copying all live slots contiguously.
+    /// Eliminates fragmentation from heightmap->full3D replacements.
+    /// </summary>
+    private void CompactBuffer()
+    {
+        if (_device == null || _vertexBuffer == null || _slots.Count == 0) return;
+
+        // Sort slots by current position for sequential GPU copies
+        var sortedSlots = _slots.OrderBy(kv => kv.Value.FirstVertex).ToList();
+
+        // Create new buffer same capacity
+        var newBuffer = _device.CreateBuffer(new GPUBufferDescriptor
+        {
+            Size = (ulong)_bufferCapacityVertices * BytesPerVertex,
+            Usage = GPUBufferUsage.Vertex | GPUBufferUsage.CopyDst | GPUBufferUsage.CopySrc,
+        });
+
+        // Copy each live slot contiguously into the new buffer
+        using var encoder = _device.CreateCommandEncoder();
+        int writePos = 0;
+        var newSlots = new Dictionary<(int, int), ChunkSlot>();
+        foreach (var (key, slot) in sortedSlots)
+        {
+            encoder.CopyBufferToBuffer(
+                _vertexBuffer, (ulong)slot.FirstVertex * BytesPerVertex,
+                newBuffer, (ulong)writePos * BytesPerVertex,
+                (ulong)slot.VertexCount * BytesPerVertex);
+            newSlots[key] = new ChunkSlot { FirstVertex = writePos, VertexCount = slot.VertexCount };
+            writePos += slot.VertexCount;
+        }
+        _submitArray[0] = encoder.Finish();
+        _queue!.Submit(_submitArray);
+        _submitArray[0]?.Dispose();
+
+        // Swap buffers
+        _vertexBuffer.Destroy();
+        _vertexBuffer.Dispose();
+        _vertexBuffer = newBuffer;
+
+        // Rebuild state
+        _slots.Clear();
+        foreach (var (key, slot) in newSlots)
+            _slots[key] = slot;
+        _freeSlots.Clear();
+        _nextFreeVertex = writePos;
+    }
+
     private void GrowBuffer(int newCapacity)
     {
         var newBuffer = _device!.CreateBuffer(new GPUBufferDescriptor
@@ -806,25 +835,13 @@ public sealed class MapRenderService : IDisposable
             _frameCount = 0;
             _fpsAccumulator = 0;
 
-            // Adaptive draw distance + vertex budget - aligned thresholds
-            if (Fps >= 50)
+            // DEBUG: Adaptive draw distance DISABLED to isolate vanishing bug
+            DrawDistance = 30;
+
+            // Periodic diagnostic dump
+            if (_frameCount == 1)
             {
-                if (DrawDistance < MaxDrawDistance) DrawDistance += 2;
-                if (VertexBudget < MaxVertexBudget) VertexBudget = Math.Min(VertexBudget + 100_000, MaxVertexBudget);
-            }
-            else if (Fps >= 40 && DrawDistance < MaxDrawDistance)
-            {
-                DrawDistance += 1;
-            }
-            else if (Fps < 20)
-            {
-                DrawDistance = Math.Max(MinDrawDistance, DrawDistance - 4);
-                VertexBudget = Math.Max(MinVertexBudget, VertexBudget - 300_000);
-            }
-            else if (Fps < 30)
-            {
-                if (DrawDistance > MinDrawDistance) DrawDistance -= 2;
-                VertexBudget = Math.Max(MinVertexBudget, VertexBudget - 100_000);
+                Console.WriteLine($"[DIAG] slots={_slots.Count} freeSlots={_freeSlots.Count} nextFree={_nextFreeVertex}/{_bufferCapacityVertices} totalVerts={TotalVertices} visVerts={VisibleVertices} drawDist={DrawDistance} fps={Fps:F0}");
             }
         }
 
@@ -833,11 +850,22 @@ public sealed class MapRenderService : IDisposable
         RequestFrame();
     }
 
+    private int _diagFrameCount;
+    private int _lastDiagSlotCount;
     private void RenderFrame()
     {
         if (_device == null || _context == null || _pipeline == null ||
             _vertexBuffer == null || _slots.Count == 0)
             return;
+
+        // Detect slot count changes
+        if (_slots.Count != _lastDiagSlotCount)
+        {
+            _diagFrameCount++;
+            if (_diagFrameCount <= 50 || _slots.Count < _lastDiagSlotCount)
+                Console.WriteLine($"[DIAG-RENDER] slots: {_lastDiagSlotCount} -> {_slots.Count} (frame {_diagFrameCount})");
+            _lastDiagSlotCount = _slots.Count;
+        }
 
         // Resize is handled by ResizeObserver (worker) or HandleResize (external).
         // No per-frame DOM queries.

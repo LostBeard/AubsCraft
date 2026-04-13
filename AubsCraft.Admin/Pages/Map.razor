@@ -25,6 +25,7 @@
                 @if (!_isPointerLocked) { <span> | Click to fly</span> }
             </small>
             <button class="btn btn-sm btn-outline-secondary" @onclick="SwitchToBlueMap">BlueMap</button>
+            <button class="btn btn-sm btn-outline-danger" @onclick="ClearCacheAsync">Clear Cache</button>
         }
         else if (_viewMode == ViewMode.BlueMap)
         {
@@ -245,6 +246,12 @@ else
 
     private void SwitchTo3D() => _viewMode = ViewMode.Viewer3D;
     private void SwitchToBlueMap() => _viewMode = ViewMode.BlueMap;
+
+    private async Task ClearCacheAsync()
+    {
+        await WorldCache.ClearAllAsync();
+        System.Console.WriteLine("[Map] OPFS cache cleared");
+    }
 
     public void Dispose()
     {
