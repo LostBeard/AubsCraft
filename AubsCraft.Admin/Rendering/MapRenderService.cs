@@ -545,9 +545,52 @@ public sealed class MapRenderService : IDisposable
             return offset;
         }
 
-        // DEBUG: eviction and compaction DISABLED to isolate vanishing bug
-        Console.WriteLine($"[DIAG] FindOrAllocateSlot FAILED: needed={vertexCount} nextFree={_nextFreeVertex} cap={_bufferCapacityVertices} freeSlots={_freeSlots.Count}");
-        return -1;
+        // Evict chunks beyond 2x draw distance (wide margin)
+        int camCX = (int)MathF.Floor(Camera.Position.X / 16f);
+        int camCZ = (int)MathF.Floor(Camera.Position.Z / 16f);
+        int evictMinDist = Math.Max(DrawDistance * 2, 40);
+        int evictMinDistSq = evictMinDist * evictMinDist;
+
+        // Find and evict the single farthest chunk beyond the safe zone
+        var bestKey = (0, 0);
+        float bestScore = -1f;
+        int bestDist = 0;
+        foreach (var ((cx, cz), slot) in _slots)
+        {
+            int dx = cx - camCX, dz = cz - camCZ;
+            int distSq = dx * dx + dz * dz;
+            if (distSq <= evictMinDistSq) continue;
+            float score = distSq * slot.VertexCount;
+            if (score > bestScore) { bestScore = score; bestKey = (cx, cz); bestDist = distSq; }
+        }
+
+        if (bestScore > 0)
+        {
+            Console.WriteLine($"[EVICT] Removing ({bestKey.Item1},{bestKey.Item2}) dist={MathF.Sqrt(bestDist):F0} verts={_slots[bestKey].VertexCount} evictMin={evictMinDist} drawDist={DrawDistance}");
+            RemoveChunkMesh(bestKey.Item1, bestKey.Item2);
+            if (_waterSlots.Remove(bestKey, out var ws))
+                _waterFreeSlots.Add((ws.FirstVertex, ws.VertexCount));
+            var evictedList = new List<(int, int)> { bestKey };
+            OnChunksEvicted?.Invoke(evictedList);
+
+            // Try free list after eviction
+            for (int i = 0; i < _freeSlots.Count; i++)
+            {
+                if (_freeSlots[i].vertexCount >= vertexCount)
+                {
+                    var free = _freeSlots[i];
+                    int offset = free.firstVertex;
+                    int remainder = free.vertexCount - vertexCount;
+                    if (remainder > 100)
+                        _freeSlots[i] = (free.firstVertex + vertexCount, remainder);
+                    else
+                        _freeSlots.RemoveAt(i);
+                    return offset;
+                }
+            }
+        }
+
+        return -1; // truly out of space - old mesh preserved
     }
 
     public void RemoveChunkMesh(int cx, int cz)
@@ -835,8 +878,11 @@ public sealed class MapRenderService : IDisposable
             _frameCount = 0;
             _fpsAccumulator = 0;
 
-            // DEBUG: Adaptive draw distance DISABLED to isolate vanishing bug
-            DrawDistance = 30;
+            // Draw distance only grows, never shrinks. Nothing vanishes.
+            if (Fps >= 50 && DrawDistance < MaxDrawDistance)
+                DrawDistance += 2;
+            else if (Fps >= 40 && DrawDistance < MaxDrawDistance)
+                DrawDistance += 1;
 
             // Periodic diagnostic dump
             if (_frameCount == 1)

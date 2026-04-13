@@ -80,6 +80,9 @@ public class RenderWorkerService : IRenderWorkerService
 
         // Start chunk loading
         _ = LoadChunksAsync();
+
+        // Start queue processor (runs independently of render loop)
+        _ = ChunkQueueProcessorAsync();
     }
 
     /// <summary>
@@ -335,12 +338,12 @@ public class RenderWorkerService : IRenderWorkerService
         _chunkStream.Connect(_renderer.Camera.Position);
     }
 
-    private void OnChunkReceived(int cx, int cz, ArrayBuffer frameBuffer)
-    {
-        _ = ProcessChunkAsync(cx, cz, frameBuffer);
-    }
+    // Queue for WebSocket chunks - processed in batches from render loop
+    private readonly List<(int cx, int cz, byte[] frame)> _chunkQueue = new();
+    private bool _queueDirty;
+    private bool _processingBatch;
 
-    private async Task ProcessChunkAsync(int cx, int cz, ArrayBuffer frameBuffer)
+    private void OnChunkReceived(int cx, int cz, ArrayBuffer frameBuffer)
     {
         _populatedChunks.Add((cx, cz));
         if (_loadedChunks.Contains((cx, cz)))
@@ -348,8 +351,70 @@ public class RenderWorkerService : IRenderWorkerService
             frameBuffer.Dispose();
             return;
         }
-        await RenderFromFrameAsync(frameBuffer);
-        LoadedCount++;
+        // Read bytes and queue - don't process immediately
+        using var view = new Uint8Array(frameBuffer);
+        var bytes = view.ReadBytes();
+        frameBuffer.Dispose();
+        _chunkQueue.Add((cx, cz, bytes));
+        _queueDirty = true;
+    }
+
+    /// <summary>
+    /// Process queued WebSocket chunks in batches, nearest to camera first.
+    /// Called from OnRenderFrame so rendering stays responsive during loading.
+    /// </summary>
+    private async Task ProcessChunkBatchAsync()
+    {
+        if (_chunkQueue.Count == 0 || _processingBatch) return;
+        _processingBatch = true;
+        try
+        {
+
+        // Sort by camera distance if queue changed
+        if (_queueDirty && _chunkQueue.Count > 1)
+        {
+            int camCX = (int)MathF.Floor(_renderer.Camera.Position.X / 16f);
+            int camCZ = (int)MathF.Floor(_renderer.Camera.Position.Z / 16f);
+            _chunkQueue.Sort((a, b) =>
+            {
+                int da = (a.cx - camCX) * (a.cx - camCX) + (a.cz - camCZ) * (a.cz - camCZ);
+                int db = (b.cx - camCX) * (b.cx - camCX) + (b.cz - camCZ) * (b.cz - camCZ);
+                return da.CompareTo(db);
+            });
+            _queueDirty = false;
+        }
+
+        // Process up to 8 chunks per batch
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        int count = Math.Min(8, _chunkQueue.Count);
+        int processed = 0;
+        for (int i = 0; i < count; i++)
+        {
+            var (cx, cz, frame) = _chunkQueue[0];
+            _chunkQueue.RemoveAt(0);
+
+            if (_loadedChunks.Contains((cx, cz))) continue;
+
+            try
+            {
+                using var jsFrame = new Uint8Array(frame);
+                await RenderFromFrameAsync(jsFrame.Buffer);
+                LoadedCount++;
+                processed++;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Queue chunk ({cx},{cz}) error: {ex.Message}");
+            }
+        }
+        sw.Stop();
+        if (processed > 0)
+            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Batch: {processed} chunks in {sw.ElapsedMilliseconds}ms, queue remaining: {_chunkQueue.Count}");
+        }
+        finally
+        {
+            _processingBatch = false;
+        }
     }
 
     /// <summary>
@@ -424,6 +489,26 @@ public class RenderWorkerService : IRenderWorkerService
         }
     }
 
+    /// <summary>
+    /// Independent async loop that processes queued WebSocket chunks.
+    /// Runs alongside the render loop with explicit yields so rAF can fire.
+    /// </summary>
+    private async Task ChunkQueueProcessorAsync()
+    {
+        while (!_disposed)
+        {
+            if (_chunkQueue.Count > 0 && !_processingBatch)
+            {
+                await ProcessChunkBatchAsync();
+                await Task.Delay(1); // yield to event loop so rAF fires
+            }
+            else
+            {
+                await Task.Delay(16); // idle - check every frame
+            }
+        }
+    }
+
     private void OnRenderFrame(float dt)
     {
         // Trigger full 3D loading when camera moves to a new chunk
@@ -434,6 +519,7 @@ public class RenderWorkerService : IRenderWorkerService
             _lastFullCX = camCX;
             _lastFullCZ = camCZ;
             _ = LoadFullChunksNearbyAsync(camCX, camCZ);
+            _queueDirty = true; // re-sort queue for new camera position
         }
     }
 
