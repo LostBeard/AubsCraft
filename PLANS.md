@@ -46,20 +46,19 @@ Updated: 2026-04-12
 
 ## Phase D: Performance + Data Pipeline (IN PROGRESS)
 
-- [ ] D1. **JS-side binary WebSocket** - Replace SignalR with JS WebSocket via BlazorJS
+- [x] D1. **JS-side binary WebSocket** - Replace SignalR with JS WebSocket via BlazorJS
   - Binary frames, data stays in JS, straight to IndexedDB
   - .NET only touches data when ILGPU kernel needs it
-  - **Geordi is lead editor**
-- [ ] D2. **Radial loading from camera** - Chunks render outward from camera position
+- [x] D2. **Radial loading from camera** - Chunks render outward from camera position
 - [ ] D3. **Incremental updates** - Server sends only changed chunks (timestamp comparison)
-- [ ] D4. **OPFS region-file cache** - Replaced IndexedDB with OPFS (118 MB/s write, 310 MB/s read)
+- [x] D4. **OPFS region-file cache** - Replaced IndexedDB with OPFS (118 MB/s write, 310 MB/s read)
   - Region-batched files matching Minecraft's 32x32 chunk pattern
   - Benchmark proved: OPFS region is 107x faster writes than IndexedDB
 - [ ] D5. **Offline mode** - Viewer works entirely from OPFS cache when server is down
 - [ ] D6. **Fix vanishing chunks** - Never clear rendered data on server error
 - [ ] D7. **Water grid alignment** - Heightmap water Y matches kernel water Y everywhere
 - [ ] D8. **Vertex buffer management** - Dynamic sizing, logging when limits hit
-- [ ] D9. **Heightmap GPU kernel** - Replace CPU HeightmapMesher with ILGPU kernel (Geordi built this)
+- [x] D9. **Heightmap GPU kernel** - Replace CPU HeightmapMesher with ILGPU kernel
 
 ## Phase D2: Input System + UI Layout
 

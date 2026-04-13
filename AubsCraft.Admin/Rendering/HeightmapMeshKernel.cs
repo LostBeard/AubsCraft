@@ -4,9 +4,36 @@ using ILGPU.Runtime;
 namespace AubsCraft.Admin.Rendering;
 
 /// <summary>
+/// Per-column heightmap data packed into a single struct to reduce GPU binding count.
+/// Fields use int (not short) to avoid sub-word struct complications on WebGPU.
+/// Wire format is Int16 - conversion happens once at upload time.
+/// </summary>
+public struct HeightmapColumn
+{
+    public int Height;
+    public int BlockId;
+    public int SeabedHeight;
+    public int SeabedBlockId;
+}
+
+/// <summary>
+/// Per-palette-entry data packed into a single struct.
+/// Combines palette colors, atlas UVs, and block flags into one binding.
+/// </summary>
+public struct BlockPalette
+{
+    public float R, G, B;
+    public float U0, V0, U1, V1;
+    public float Flag;
+}
+
+/// <summary>
 /// ILGPU compute kernel for generating heightmap mesh vertices.
-/// Replaces the CPU HeightmapMesher - all mesh generation runs on GPU.
 /// 256 threads (16x16 grid), each thread handles one column.
+///
+/// Uses struct parameters to keep binding count under WebGPU's
+/// maxStorageBuffersPerShaderStage limit (typically 10).
+/// 5 ArrayViews + 1 scalar buffer = 6 bindings (was 12, which exceeded the limit).
 ///
 /// Produces two vertex streams: opaque (terrain + seabed) and water (transparent).
 /// Vertex format: 11 floats per vertex (position.xyz + normal.xyz + color.rgb + uv.xy).
@@ -21,32 +48,20 @@ public static class HeightmapMeshKernel
     /// GPU kernel: generates heightmap mesh for one chunk.
     /// Each thread = one column (x, z) of the 16x16 chunk.
     ///
-    /// heights: int[256] - Y height per column
-    /// blockIds: ushort stored as int[256] - block ID per column
-    /// paletteColors: float[paletteSize * 3] - RGB per palette entry
-    /// atlasUVs: float[paletteSize * 4] - (u0, v0, u1, v1) per palette entry
-    /// blockFlags: float[paletteSize] - 0=solid, 1=plant (skip), 2=water
-    /// seabedHeights: int[256] - seabed Y per column (-64 = no seabed)
-    /// seabedBlockIds: int[256] - seabed block ID per column
+    /// columns: HeightmapColumn[256] - height, blockId, seabedHeight, seabedBlockId per column
+    /// palette: BlockPalette[paletteSize] - RGB + atlas UVs + flags per palette entry
     /// opaqueVerts: output buffer for opaque vertices
-    /// opaqueCounter: atomic counter for opaque floats written
     /// waterVerts: output buffer for water vertices
-    /// waterCounter: atomic counter for water floats written
+    /// counters: int[2] - [0]=opaque floats written, [1]=water floats written
     /// chunkWorldX, chunkWorldZ: world-space chunk coordinates
     /// </summary>
     public static void Kernel(
         Index1D index,
-        ArrayView<int> heights,
-        ArrayView<short> blockIds,
-        ArrayView<float> paletteColors,
-        ArrayView<float> atlasUVs,
-        ArrayView<float> blockFlags,
-        ArrayView<int> seabedHeights,
-        ArrayView<short> seabedBlockIds,
+        ArrayView<HeightmapColumn> columns,
+        ArrayView<BlockPalette> palette,
         ArrayView<float> opaqueVerts,
-        ArrayView<int> opaqueCounter,
         ArrayView<float> waterVerts,
-        ArrayView<int> waterCounter,
+        ArrayView<int> counters,
         int chunkWorldX,
         int chunkWorldZ)
     {
@@ -54,29 +69,32 @@ public static class HeightmapMeshKernel
         int z = index / W;
         int col = x + z * W;
 
-        int blockId = blockIds[col];
+        var column = columns[col];
+        int blockId = column.BlockId;
         if (blockId == 0) return;
 
+        var entry = palette[blockId];
+
         // Skip plant blocks in heightmap
-        float flag = blockFlags[blockId];
+        float flag = entry.Flag;
         if (flag > 0.5f && flag < 1.5f) return; // 1 = plant
 
         float wx = chunkWorldX * W + x;
-        float wy = heights[col];
+        float wy = column.Height;
         float wz = chunkWorldZ * W + z;
 
-        float cr = paletteColors[blockId * 3];
-        float cg = paletteColors[blockId * 3 + 1];
-        float cb = paletteColors[blockId * 3 + 2];
+        float cr = entry.R;
+        float cg = entry.G;
+        float cb = entry.B;
 
         bool isWater = flag > 1.5f; // 2 = water
         float topY = isWater ? wy - 0.1f : wy;
 
         // Atlas UVs for this block
-        float u0 = atlasUVs[blockId * 4];
-        float v0 = atlasUVs[blockId * 4 + 1];
-        float u1 = atlasUVs[blockId * 4 + 2];
-        float v1 = atlasUVs[blockId * 4 + 3];
+        float u0 = entry.U0;
+        float v0 = entry.V0;
+        float u1 = entry.U1;
+        float v1 = entry.V1;
 
         // Tint handling: biome-tinted blocks keep their vertex color (multiplied
         // with grayscale texture). Non-tinted textured blocks get white (1,1,1).
@@ -91,10 +109,10 @@ public static class HeightmapMeshKernel
 
         float ty = topY + 1;
 
-        // Water top face -> water buffer
+        // Water top face -> water buffer (counters[1])
         if (isWater)
         {
-            int wo = Atomic.Add(ref waterCounter[0], FPF);
+            int wo = Atomic.Add(ref counters[1], FPF);
             WV(waterVerts, wo,      wx,     ty, wz,     0, 1, 0, tr, tg, tb, u0, v0);
             WV(waterVerts, wo + 11, wx,     ty, wz + 1, 0, 1, 0, tr, tg, tb, u0, v1);
             WV(waterVerts, wo + 22, wx + 1, ty, wz + 1, 0, 1, 0, tr, tg, tb, u1, v1);
@@ -104,8 +122,8 @@ public static class HeightmapMeshKernel
         }
         else
         {
-            // Opaque top face
-            int oo = Atomic.Add(ref opaqueCounter[0], FPF);
+            // Opaque top face (counters[0])
+            int oo = Atomic.Add(ref counters[0], FPF);
             WV(opaqueVerts, oo,      wx,     ty, wz,     0, 1, 0, tr, tg, tb, u0, v0);
             WV(opaqueVerts, oo + 11, wx,     ty, wz + 1, 0, 1, 0, tr, tg, tb, u0, v1);
             WV(opaqueVerts, oo + 22, wx + 1, ty, wz + 1, 0, 1, 0, tr, tg, tb, u1, v1);
@@ -118,45 +136,47 @@ public static class HeightmapMeshKernel
             float y1 = wy + 1;
 
             // -X side
-            int nh = GetH(heights, x - 1, z);
+            int nh = GetH(columns, x - 1, z);
             if (wy > nh)
-                EmitSide(opaqueVerts, opaqueCounter, wx, nh + 1, y1, wz, -1, 0, 0, sr, sg, sb, 0);
+                EmitSide(opaqueVerts, counters, wx, nh + 1, y1, wz, -1, 0, 0, sr, sg, sb, 0);
 
             // +X side
-            nh = GetH(heights, x + 1, z);
+            nh = GetH(columns, x + 1, z);
             if (wy > nh)
-                EmitSide(opaqueVerts, opaqueCounter, wx + 1, nh + 1, y1, wz, 1, 0, 0, sr, sg, sb, 1);
+                EmitSide(opaqueVerts, counters, wx + 1, nh + 1, y1, wz, 1, 0, 0, sr, sg, sb, 1);
 
             // -Z side
-            nh = GetH(heights, x, z - 1);
+            nh = GetH(columns, x, z - 1);
             if (wy > nh)
-                EmitSide(opaqueVerts, opaqueCounter, wx, nh + 1, y1, wz, 0, 0, -1, sr * 0.92f, sg * 0.92f, sb * 0.92f, 2);
+                EmitSide(opaqueVerts, counters, wx, nh + 1, y1, wz, 0, 0, -1, sr * 0.92f, sg * 0.92f, sb * 0.92f, 2);
 
             // +Z side
-            nh = GetH(heights, x, z + 1);
+            nh = GetH(columns, x, z + 1);
             if (wy > nh)
-                EmitSide(opaqueVerts, opaqueCounter, wx, nh + 1, y1, wz + 1, 0, 0, 1, sr * 0.92f, sg * 0.92f, sb * 0.92f, 3);
+                EmitSide(opaqueVerts, counters, wx, nh + 1, y1, wz + 1, 0, 0, 1, sr * 0.92f, sg * 0.92f, sb * 0.92f, 3);
         }
 
         // Seabed pass: render solid terrain under water as darkened opaque
-        int sbHeight = seabedHeights[col];
-        int sbId = seabedBlockIds[col];
+        int sbHeight = column.SeabedHeight;
+        int sbId = column.SeabedBlockId;
         if (sbId > 0 && sbHeight > -64)
         {
+            var sbEntry = palette[sbId];
+
             // Skip plants on seabed
-            if (blockFlags[sbId] > 0.5f && blockFlags[sbId] < 1.5f) return;
+            if (sbEntry.Flag > 0.5f && sbEntry.Flag < 1.5f) return;
 
-            float sbr = paletteColors[sbId * 3] * 0.7f;
-            float sbg = paletteColors[sbId * 3 + 1] * 0.7f;
-            float sbb = paletteColors[sbId * 3 + 2] * 0.7f;
+            float sbr = sbEntry.R * 0.7f;
+            float sbg = sbEntry.G * 0.7f;
+            float sbb = sbEntry.B * 0.7f;
 
-            float sbu0 = atlasUVs[sbId * 4];
-            float sbv0 = atlasUVs[sbId * 4 + 1];
-            float sbu1 = atlasUVs[sbId * 4 + 2];
-            float sbv1 = atlasUVs[sbId * 4 + 3];
+            float sbu0 = sbEntry.U0;
+            float sbv0 = sbEntry.V0;
+            float sbu1 = sbEntry.U1;
+            float sbv1 = sbEntry.V1;
 
             float sbty = sbHeight + 1;
-            int so = Atomic.Add(ref opaqueCounter[0], FPF);
+            int so = Atomic.Add(ref counters[0], FPF);
             WV(opaqueVerts, so,      wx,     sbty, wz,     0, 1, 0, sbr, sbg, sbb, sbu0, sbv0);
             WV(opaqueVerts, so + 11, wx,     sbty, wz + 1, 0, 1, 0, sbr, sbg, sbb, sbu0, sbv1);
             WV(opaqueVerts, so + 22, wx + 1, sbty, wz + 1, 0, 1, 0, sbr, sbg, sbb, sbu1, sbv1);
@@ -168,39 +188,45 @@ public static class HeightmapMeshKernel
             float ssr = sbr * 0.75f, ssg = sbg * 0.75f, ssb = sbb * 0.75f;
             float sby1 = sbHeight + 1;
 
-            int snh = GetH(seabedHeights, x - 1, z);
+            int snh = GetSeabedH(columns, x - 1, z);
             if (sbHeight > snh)
-                EmitSide(opaqueVerts, opaqueCounter, wx, snh + 1, sby1, wz, -1, 0, 0, ssr, ssg, ssb, 0);
+                EmitSide(opaqueVerts, counters, wx, snh + 1, sby1, wz, -1, 0, 0, ssr, ssg, ssb, 0);
 
-            snh = GetH(seabedHeights, x + 1, z);
+            snh = GetSeabedH(columns, x + 1, z);
             if (sbHeight > snh)
-                EmitSide(opaqueVerts, opaqueCounter, wx + 1, snh + 1, sby1, wz, 1, 0, 0, ssr, ssg, ssb, 1);
+                EmitSide(opaqueVerts, counters, wx + 1, snh + 1, sby1, wz, 1, 0, 0, ssr, ssg, ssb, 1);
 
-            snh = GetH(seabedHeights, x, z - 1);
+            snh = GetSeabedH(columns, x, z - 1);
             if (sbHeight > snh)
-                EmitSide(opaqueVerts, opaqueCounter, wx, snh + 1, sby1, wz, 0, 0, -1, ssr, ssg, ssb, 2);
+                EmitSide(opaqueVerts, counters, wx, snh + 1, sby1, wz, 0, 0, -1, ssr, ssg, ssb, 2);
 
-            snh = GetH(seabedHeights, x, z + 1);
+            snh = GetSeabedH(columns, x, z + 1);
             if (sbHeight > snh)
-                EmitSide(opaqueVerts, opaqueCounter, wx, snh + 1, sby1, wz + 1, 0, 0, 1, ssr, ssg, ssb, 3);
+                EmitSide(opaqueVerts, counters, wx, snh + 1, sby1, wz + 1, 0, 0, 1, ssr, ssg, ssb, 3);
         }
     }
 
-    private static int GetH(ArrayView<int> heights, int x, int z)
+    private static int GetH(ArrayView<HeightmapColumn> columns, int x, int z)
     {
         if (x < 0 || x >= W || z < 0 || z >= W) return -64;
-        return heights[x + z * W];
+        return columns[x + z * W].Height;
+    }
+
+    private static int GetSeabedH(ArrayView<HeightmapColumn> columns, int x, int z)
+    {
+        if (x < 0 || x >= W || z < 0 || z >= W) return -64;
+        return columns[x + z * W].SeabedHeight;
     }
 
     private static void EmitSide(
-        ArrayView<float> verts, ArrayView<int> counter,
+        ArrayView<float> verts, ArrayView<int> counters,
         float x, float y0, float y1, float z,
         float nx, float ny, float nz,
         float r, float g, float b,
         int face)
     {
         float snu = -1f; // no texture for sides
-        int o = Atomic.Add(ref counter[0], FPF);
+        int o = Atomic.Add(ref counters[0], FPF);
 
         switch (face)
         {

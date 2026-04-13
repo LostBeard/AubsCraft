@@ -278,20 +278,12 @@ public class RenderWorkerService : IRenderWorkerService
         _populatedChunks.Add((cx, cz));
         if (_loadedChunks.Contains((cx, cz))) return;
 
-        // Palette processing stays in .NET (string lookups in BlockColorMap/TextureAtlas)
-        var paletteColors = BlockColorMap.BuildPaletteColors(palette);
-        var atlasUVs = new float[palette.Count * 4];
-        for (int i = 0; i < palette.Count; i++)
-        {
-            var (u0, v0, u1, v1) = TextureAtlas.GetTileUVs(palette[i]);
-            int b = i * 4;
-            atlasUVs[b] = u0; atlasUVs[b + 1] = v0; atlasUVs[b + 2] = u1; atlasUVs[b + 3] = v1;
-        }
-        var blockFlags = BuildBlockFlags(palette);
+        // Build BlockPalette[] struct array (packs colors + UVs + flags into single binding)
+        var paletteData = BuildBlockPalette(palette);
 
-        // Dispatch kernel with JS ArrayBuffer - heights/seabed go JS -> GPU via CopyFromJS
+        // Dispatch kernel with JS ArrayBuffer - binary data packed into HeightmapColumn structs
         var (opaqueFloats, waterFloats) = await _engine.DispatchHeightmapFromFrameAsync(
-            frameBuffer, binaryOffset, paletteColors, atlasUVs, blockFlags, cx, cz);
+            frameBuffer, binaryOffset, paletteData, cx, cz);
 
         // GPU-to-GPU copy: ILGPU output -> WebGPU vertex buffer. Zero CPU readback.
         var (opaqueGpu, waterGpu) = _engine.GetHeightmapOutputGPUBuffers();
@@ -304,24 +296,36 @@ public class RenderWorkerService : IRenderWorkerService
     }
 
     /// <summary>
-    /// Block flags: 0=solid non-tinted, 1=plant (tinted, cross-quad), 2=water (tinted, transparent), 3=solid tinted (grass/leaves)
+    /// Build BlockPalette[] from palette string list. Packs colors, atlas UVs, and block flags
+    /// into a single struct per entry - one GPU binding instead of three.
     /// </summary>
-    private static float[] BuildBlockFlags(List<string> palette)
+    private static BlockPalette[] BuildBlockPalette(List<string> palette)
     {
-        var flags = new float[palette.Count];
+        var result = new BlockPalette[palette.Count];
         for (int i = 0; i < palette.Count; i++)
         {
             var name = palette[i];
+            var colors = BlockColorMap.GetColor(name);
+            var (u0, v0, u1, v1) = TextureAtlas.GetTileUVs(name);
+
+            float flag = 0f;
             if (TextureAtlas.IsPlant(name))
-                flags[i] = 1f; // plant: tinted, cross-quad
+                flag = 1f; // plant: tinted, cross-quad
             else if (name is "minecraft:water" or "minecraft:flowing_water")
-                flags[i] = 2f; // water: tinted, transparent
+                flag = 2f; // water: tinted, transparent
             else if (name.Contains("grass") || name.Contains("leaves")
                   || name.Contains("vine") || name.Contains("fern")
                   || name.Contains("lily"))
-                flags[i] = 3f; // solid tinted: biome color multiplied with texture
+                flag = 3f; // solid tinted: biome color multiplied with texture
+
+            result[i] = new BlockPalette
+            {
+                R = colors.R, G = colors.G, B = colors.B,
+                U0 = u0, V0 = v0, U1 = u1, V1 = v1,
+                Flag = flag
+            };
         }
-        return flags;
+        return result;
     }
 
     private void OnRenderFrame(float dt)
@@ -397,6 +401,28 @@ public class RenderWorkerService : IRenderWorkerService
         {
             _loadingFull = false;
         }
+    }
+
+    /// <summary>
+    /// Block flags for the full 3D MinecraftMeshKernel (separate from heightmap palette struct).
+    /// 0=solid non-tinted, 1=plant (tinted, cross-quad), 2=water (tinted, transparent), 3=solid tinted
+    /// </summary>
+    private static float[] BuildBlockFlags(List<string> palette)
+    {
+        var flags = new float[palette.Count];
+        for (int i = 0; i < palette.Count; i++)
+        {
+            var name = palette[i];
+            if (TextureAtlas.IsPlant(name))
+                flags[i] = 1f;
+            else if (name is "minecraft:water" or "minecraft:flowing_water")
+                flags[i] = 2f;
+            else if (name.Contains("grass") || name.Contains("leaves")
+                  || name.Contains("vine") || name.Contains("fern")
+                  || name.Contains("lily"))
+                flags[i] = 3f;
+        }
+        return flags;
     }
 
     /// <summary>Per-face atlas UVs for full 3D kernel (12 floats per block).</summary>

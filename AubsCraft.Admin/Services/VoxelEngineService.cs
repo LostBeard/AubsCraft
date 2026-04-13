@@ -29,10 +29,9 @@ public sealed class VoxelEngineService : IAsyncDisposable
     private MemoryBuffer1D<int, Stride1D.Dense>? _meshOpaqueCounterBuffer;
     private MemoryBuffer1D<float, Stride1D.Dense>? _meshWaterVertBuffer;
     private MemoryBuffer1D<int, Stride1D.Dense>? _meshWaterCounterBuffer;
-    private MemoryBuffer1D<float, Stride1D.Dense>? _meshResultBuffer;
     private readonly SemaphoreSlim _meshLock = new(1, 1);
 
-    private readonly int[] _counterReset = [0];
+    private readonly int[] _counterReset = [0, 0];
     private int[]? _blockIntsPool;
 
     // 16 * 384 * 16 = 98304 blocks per chunk
@@ -41,20 +40,23 @@ public sealed class VoxelEngineService : IAsyncDisposable
     // Practical max: ~2M floats covers dense chunks.
     private const int MaxOutputFloats = 2_000_000;
 
-    // Heightmap kernel + buffers
-    private Action<Index1D, ArrayView<int>, ArrayView<short>, ArrayView<float>, ArrayView<float>,
-        ArrayView<float>, ArrayView<int>, ArrayView<short>, ArrayView<float>, ArrayView<int>,
-        ArrayView<float>, ArrayView<int>, int, int>? _heightmapKernel;
-    private MemoryBuffer1D<int, Stride1D.Dense>? _hmHeightsBuffer;
-    private MemoryBuffer1D<short, Stride1D.Dense>? _hmBlockIdsBuffer;
-    private MemoryBuffer1D<int, Stride1D.Dense>? _hmSeabedHeightsBuffer;
-    private MemoryBuffer1D<short, Stride1D.Dense>? _hmSeabedBlockIdsBuffer;
+    // Heightmap kernel + buffers (struct-based to keep binding count under WebGPU limit)
+    // Old kernel had 11 ArrayView params = 12 bindings, exceeding Chrome's limit of 10.
+    // New kernel uses structs: 5 ArrayView params = 6 bindings.
+    private Action<Index1D, ArrayView<HeightmapColumn>, ArrayView<BlockPalette>,
+        ArrayView<float>, ArrayView<float>, ArrayView<int>,
+        int, int>? _heightmapKernel;
+    private MemoryBuffer1D<HeightmapColumn, Stride1D.Dense>? _hmColumnsBuffer;
+    private MemoryBuffer1D<BlockPalette, Stride1D.Dense>? _hmPaletteBuffer;
     private MemoryBuffer1D<float, Stride1D.Dense>? _hmOpaqueVertBuffer;
-    private MemoryBuffer1D<int, Stride1D.Dense>? _hmOpaqueCounterBuffer;
     private MemoryBuffer1D<float, Stride1D.Dense>? _hmWaterVertBuffer;
-    private MemoryBuffer1D<int, Stride1D.Dense>? _hmWaterCounterBuffer;
+    private MemoryBuffer1D<int, Stride1D.Dense>? _hmCountersBuffer;
     private const int HmMaxOpaqueFloats = 256 * 50 * 6 * 11; // generous: up to 50 faces per column
     private const int HmMaxWaterFloats = 256 * 6 * 11; // 1 water face per column max
+
+    // Reusable CPU-side arrays to avoid per-frame allocation
+    private HeightmapColumn[]? _columnsPool;
+    private BlockPalette[]? _palettePool;
 
     public Accelerator? Accelerator => _accelerator;
     public bool IsInitialized { get; private set; }
@@ -91,28 +93,21 @@ public sealed class VoxelEngineService : IAsyncDisposable
 
         _heightmapKernel = _accelerator.LoadAutoGroupedStreamKernel<
             Index1D,
-            ArrayView<int>,   // heights (256)
-            ArrayView<short>, // blockIds (256) - ushort from wire, kernel casts to int
-            ArrayView<float>, // paletteColors
-            ArrayView<float>, // atlasUVs (4 per entry: u0,v0,u1,v1)
-            ArrayView<float>, // blockFlags
-            ArrayView<int>,   // seabedHeights (256)
-            ArrayView<short>, // seabedBlockIds (256) - ushort from wire
-            ArrayView<float>, // opaqueVerts (output)
-            ArrayView<int>,   // opaqueCounter
-            ArrayView<float>, // waterVerts (output)
-            ArrayView<int>,   // waterCounter
-            int, int           // chunkWorldX, chunkWorldZ
+            ArrayView<HeightmapColumn>, // columns (256) - height, blockId, seabedHeight, seabedBlockId
+            ArrayView<BlockPalette>,    // palette entries - RGB + atlas UVs + flags
+            ArrayView<float>,           // opaqueVerts (output)
+            ArrayView<float>,           // waterVerts (output)
+            ArrayView<int>,             // counters[2] - [0]=opaque, [1]=water
+            int, int                    // chunkWorldX, chunkWorldZ
         >(HeightmapMeshKernel.Kernel);
 
-        _hmHeightsBuffer = _accelerator.Allocate1D<int>(256);
-        _hmBlockIdsBuffer = _accelerator.Allocate1D<short>(256);
-        _hmSeabedHeightsBuffer = _accelerator.Allocate1D<int>(256);
-        _hmSeabedBlockIdsBuffer = _accelerator.Allocate1D<short>(256);
+        _hmColumnsBuffer = _accelerator.Allocate1D<HeightmapColumn>(256);
         _hmOpaqueVertBuffer = _accelerator.Allocate1D<float>(HmMaxOpaqueFloats);
-        _hmOpaqueCounterBuffer = _accelerator.Allocate1D<int>(1);
         _hmWaterVertBuffer = _accelerator.Allocate1D<float>(HmMaxWaterFloats);
-        _hmWaterCounterBuffer = _accelerator.Allocate1D<int>(1);
+        _hmCountersBuffer = _accelerator.Allocate1D<int>(2);
+
+        _columnsPool = new HeightmapColumn[256];
+        _palettePool = new BlockPalette[256];
 
         _meshBlockBuffer = _accelerator.Allocate1D<int>(BlocksPerChunk);
         _meshOpaqueVertBuffer = _accelerator.Allocate1D<float>(MaxOutputFloats);
@@ -144,8 +139,8 @@ public sealed class VoxelEngineService : IAsyncDisposable
                 blockInts[i] = blocks[i];
 
             _meshBlockBuffer!.CopyFromCPU(blockInts);
-            _meshOpaqueCounterBuffer!.CopyFromCPU(_counterReset);
-            _meshWaterCounterBuffer!.CopyFromCPU(_counterReset);
+            _meshOpaqueCounterBuffer!.CopyFromCPU(new int[] { 0 });
+            _meshWaterCounterBuffer!.CopyFromCPU(new int[] { 0 });
 
             _meshPaletteBuffer?.Dispose();
             _meshPaletteBuffer = _accelerator!.Allocate1D<float>(paletteColors.Length);
@@ -198,85 +193,6 @@ public sealed class VoxelEngineService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Generates heightmap mesh using the GPU kernel. Replaces CPU HeightmapMesher.
-    /// 256 threads process a 16x16 column grid in parallel.
-    /// </summary>
-    public async Task<MeshGenerationResult> GenerateHeightmapMeshAsync(
-        int[] heights, short[] blockIds, float[] paletteColors, float[] atlasUVs, float[] blockFlags,
-        int[] seabedHeights, short[] seabedBlockIds, int chunkX, int chunkZ)
-    {
-        if (_heightmapKernel == null)
-            throw new InvalidOperationException("Not initialized");
-
-        await _meshLock.WaitAsync();
-        try
-        {
-            // CopyFromJS - browser only, no fallback
-            using var jsH = new Int32Array(heights);
-            ((IBrowserMemoryBuffer)_hmHeightsBuffer!.Buffer).CopyFromJS(jsH);
-            using var jsB = new Int16Array(blockIds);
-            ((IBrowserMemoryBuffer)_hmBlockIdsBuffer!.Buffer).CopyFromJS(jsB);
-            using var jsSH = new Int32Array(seabedHeights);
-            ((IBrowserMemoryBuffer)_hmSeabedHeightsBuffer!.Buffer).CopyFromJS(jsSH);
-            using var jsSB = new Int16Array(seabedBlockIds);
-            ((IBrowserMemoryBuffer)_hmSeabedBlockIdsBuffer!.Buffer).CopyFromJS(jsSB);
-            _hmOpaqueCounterBuffer!.CopyFromCPU(_counterReset);
-            _hmWaterCounterBuffer!.CopyFromCPU(_counterReset);
-
-            _meshPaletteBuffer?.Dispose();
-            _meshPaletteBuffer = _accelerator!.Allocate1D<float>(paletteColors.Length);
-            _meshPaletteBuffer.CopyFromCPU(paletteColors);
-
-            _meshAtlasUVBuffer?.Dispose();
-            _meshAtlasUVBuffer = _accelerator!.Allocate1D<float>(atlasUVs.Length);
-            _meshAtlasUVBuffer.CopyFromCPU(atlasUVs);
-
-            _meshBlockFlagsBuffer?.Dispose();
-            _meshBlockFlagsBuffer = _accelerator!.Allocate1D<float>(blockFlags.Length);
-            _meshBlockFlagsBuffer.CopyFromCPU(blockFlags);
-
-            _heightmapKernel(
-                (Index1D)256,
-                _hmHeightsBuffer!.View,
-                _hmBlockIdsBuffer!.View,
-                _meshPaletteBuffer!.View,
-                _meshAtlasUVBuffer!.View,
-                _meshBlockFlagsBuffer!.View,
-                _hmSeabedHeightsBuffer!.View,
-                _hmSeabedBlockIdsBuffer!.View,
-                _hmOpaqueVertBuffer!.View,
-                _hmOpaqueCounterBuffer!.View,
-                _hmWaterVertBuffer!.View,
-                _hmWaterCounterBuffer!.View,
-                chunkX, chunkZ);
-
-            // Wait for kernel to finish before reading counters
-            await _accelerator!.SynchronizeAsync();
-
-            // Read counters - CopyToHostAsync internally flushes and maps
-            var opaqueCountResult = await _hmOpaqueCounterBuffer.CopyToHostAsync();
-            var waterCountResult = await _hmWaterCounterBuffer.CopyToHostAsync();
-            int opaqueFloats = Math.Min(opaqueCountResult[0], HmMaxOpaqueFloats);
-            int waterFloats = Math.Min(waterCountResult[0], HmMaxWaterFloats);
-
-            // Read vertex data directly from the output buffers - no intermediate copy
-            float[] opaqueVerts = [];
-            if (opaqueFloats > 0)
-                opaqueVerts = await _hmOpaqueVertBuffer.CopyToHostAsync(0, opaqueFloats);
-
-            float[] waterVerts = [];
-            if (waterFloats > 0)
-                waterVerts = await _hmWaterVertBuffer.CopyToHostAsync(0, waterFloats);
-
-            return new MeshGenerationResult(opaqueVerts, opaqueFloats / 11, waterVerts, waterFloats / 11);
-        }
-        finally
-        {
-            _meshLock.Release();
-        }
-    }
-
-    /// <summary>
     /// Get the native GPUBuffer from the ILGPU heightmap output buffers.
     /// For GPU-to-GPU copy without CPU readback. Data stays on GPU.
     /// </summary>
@@ -292,82 +208,13 @@ public sealed class VoxelEngineService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Dispatch heightmap kernel and return vertex counts only (no CPU readback of vertex data).
-    /// Use GetHeightmapOutputGPUBuffers() to get GPU buffer refs for GPU-to-GPU copy.
-    /// </summary>
-    public async Task<(int opaqueFloats, int waterFloats)> DispatchHeightmapKernelAsync(
-        int[] heights, short[] blockIds, float[] paletteColors, float[] atlasUVs, float[] blockFlags,
-        int[] seabedHeights, short[] seabedBlockIds, int chunkX, int chunkZ)
-    {
-        if (_heightmapKernel == null)
-            throw new InvalidOperationException("Not initialized");
-
-        await _meshLock.WaitAsync();
-        try
-        {
-            // CopyFromJS - browser only, no fallback
-            using var jsH = new Int32Array(heights);
-            ((IBrowserMemoryBuffer)_hmHeightsBuffer!.Buffer).CopyFromJS(jsH);
-            using var jsB = new Int16Array(blockIds);
-            ((IBrowserMemoryBuffer)_hmBlockIdsBuffer!.Buffer).CopyFromJS(jsB);
-            using var jsSH = new Int32Array(seabedHeights);
-            ((IBrowserMemoryBuffer)_hmSeabedHeightsBuffer!.Buffer).CopyFromJS(jsSH);
-            using var jsSB = new Int16Array(seabedBlockIds);
-            ((IBrowserMemoryBuffer)_hmSeabedBlockIdsBuffer!.Buffer).CopyFromJS(jsSB);
-            _hmOpaqueCounterBuffer!.CopyFromCPU(_counterReset);
-            _hmWaterCounterBuffer!.CopyFromCPU(_counterReset);
-
-            _meshPaletteBuffer?.Dispose();
-            _meshPaletteBuffer = _accelerator!.Allocate1D<float>(paletteColors.Length);
-            _meshPaletteBuffer.CopyFromCPU(paletteColors);
-
-            _meshAtlasUVBuffer?.Dispose();
-            _meshAtlasUVBuffer = _accelerator!.Allocate1D<float>(atlasUVs.Length);
-            _meshAtlasUVBuffer.CopyFromCPU(atlasUVs);
-
-            _meshBlockFlagsBuffer?.Dispose();
-            _meshBlockFlagsBuffer = _accelerator!.Allocate1D<float>(blockFlags.Length);
-            _meshBlockFlagsBuffer.CopyFromCPU(blockFlags);
-
-            _heightmapKernel(
-                (Index1D)256,
-                _hmHeightsBuffer!.View,
-                _hmBlockIdsBuffer!.View,
-                _meshPaletteBuffer!.View,
-                _meshAtlasUVBuffer!.View,
-                _meshBlockFlagsBuffer!.View,
-                _hmSeabedHeightsBuffer!.View,
-                _hmSeabedBlockIdsBuffer!.View,
-                _hmOpaqueVertBuffer!.View,
-                _hmOpaqueCounterBuffer!.View,
-                _hmWaterVertBuffer!.View,
-                _hmWaterCounterBuffer!.View,
-                chunkX, chunkZ);
-
-            await _accelerator!.SynchronizeAsync();
-
-            // Only read the counters (4 bytes each) - vertex data stays on GPU
-            var opaqueCountResult = await _hmOpaqueCounterBuffer.CopyToHostAsync();
-            var waterCountResult = await _hmWaterCounterBuffer.CopyToHostAsync();
-            return (
-                Math.Min(opaqueCountResult[0], HmMaxOpaqueFloats),
-                Math.Min(waterCountResult[0], HmMaxWaterFloats)
-            );
-        }
-        finally
-        {
-            _meshLock.Release();
-        }
-    }
-
-    /// <summary>
     /// Dispatch heightmap kernel from a raw binary frame ArrayBuffer.
-    /// Heights and seabedHeights go JS -> GPU via CopyFromJS (zero .NET copy).
-    /// BlockIds need ushort->int conversion (still .NET for now - kernel fix needed).
+    /// Binary layout: int32[256] heights, int16[256] blockIds, int32[256] seabedHeights, int16[256] seabedBlockIds.
+    /// Packs into HeightmapColumn[] struct and BlockPalette[] struct to keep binding count under WebGPU limit.
     /// </summary>
     public async Task<(int opaqueFloats, int waterFloats)> DispatchHeightmapFromFrameAsync(
         ArrayBuffer frameBuffer, int binaryDataOffset,
-        float[] paletteColors, float[] atlasUVs, float[] blockFlags,
+        BlockPalette[] palette,
         int chunkX, int chunkZ)
     {
         if (_heightmapKernel == null)
@@ -376,55 +223,52 @@ public sealed class VoxelEngineService : IAsyncDisposable
         await _meshLock.WaitAsync();
         try
         {
-            int off = binaryDataOffset;
+            // Read entire binary section as bytes (Uint8Array has no alignment requirement).
+            // Layout: int32[256] heights, int16[256] blockIds, int32[256] seabedHeights, int16[256] seabedBlockIds
+            // Total: 3072 bytes
+            const int binarySize = 256 * 4 + 256 * 2 + 256 * 4 + 256 * 2;
+            using var rawView = new Uint8Array(frameBuffer, binaryDataOffset, binarySize);
+            var raw = rawView.ReadBytes();
 
-            // Uint8Array views directly over the JS ArrayBuffer - zero .NET copy
-            using var hView = new Uint8Array(frameBuffer, off, 256 * 4);
-            ((IBrowserMemoryBuffer)_hmHeightsBuffer!.Buffer).CopyFromJS(hView);
-            off += 256 * 4;
+            // Cast byte spans to typed spans - no copy, just reinterpret
+            var heights = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, int>(raw.AsSpan(0, 1024));
+            var blockIds = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, short>(raw.AsSpan(1024, 512));
+            var seabedHeights = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, int>(raw.AsSpan(1536, 1024));
+            var seabedBlockIds = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, short>(raw.AsSpan(2560, 512));
 
-            using var bView = new Uint8Array(frameBuffer, off, 256 * 2);
-            ((IBrowserMemoryBuffer)_hmBlockIdsBuffer!.Buffer).CopyFromJS(bView);
-            off += 256 * 2;
+            // Pack into HeightmapColumn structs (interleave the 4 arrays)
+            var columns = _columnsPool!;
+            for (int i = 0; i < 256; i++)
+            {
+                columns[i].Height = heights[i];
+                columns[i].BlockId = blockIds[i];
+                columns[i].SeabedHeight = seabedHeights[i];
+                columns[i].SeabedBlockId = seabedBlockIds[i];
+            }
 
-            using var shView = new Uint8Array(frameBuffer, off, 256 * 4);
-            ((IBrowserMemoryBuffer)_hmSeabedHeightsBuffer!.Buffer).CopyFromJS(shView);
-            off += 256 * 4;
+            _hmColumnsBuffer!.CopyFromCPU(columns);
+            _hmCountersBuffer!.CopyFromCPU(_counterReset);
 
-            using var sbView = new Uint8Array(frameBuffer, off, 256 * 2);
-            ((IBrowserMemoryBuffer)_hmSeabedBlockIdsBuffer!.Buffer).CopyFromJS(sbView);
-
-            _hmOpaqueCounterBuffer!.CopyFromCPU(_counterReset);
-            _hmWaterCounterBuffer!.CopyFromCPU(_counterReset);
-
-            _meshPaletteBuffer?.Dispose();
-            _meshPaletteBuffer = _accelerator!.Allocate1D<float>(paletteColors.Length);
-            _meshPaletteBuffer.CopyFromCPU(paletteColors);
-
-            _meshAtlasUVBuffer?.Dispose();
-            _meshAtlasUVBuffer = _accelerator!.Allocate1D<float>(atlasUVs.Length);
-            _meshAtlasUVBuffer.CopyFromCPU(atlasUVs);
-
-            _meshBlockFlagsBuffer?.Dispose();
-            _meshBlockFlagsBuffer = _accelerator!.Allocate1D<float>(blockFlags.Length);
-            _meshBlockFlagsBuffer.CopyFromCPU(blockFlags);
+            // Palette size varies per chunk - reallocate to exact size
+            _hmPaletteBuffer?.Dispose();
+            _hmPaletteBuffer = _accelerator!.Allocate1D<BlockPalette>(palette.Length);
+            _hmPaletteBuffer.CopyFromCPU(palette);
 
             _heightmapKernel(
                 (Index1D)256,
-                _hmHeightsBuffer!.View, _hmBlockIdsBuffer!.View,
-                _meshPaletteBuffer!.View, _meshAtlasUVBuffer!.View, _meshBlockFlagsBuffer!.View,
-                _hmSeabedHeightsBuffer!.View, _hmSeabedBlockIdsBuffer!.View,
-                _hmOpaqueVertBuffer!.View, _hmOpaqueCounterBuffer!.View,
-                _hmWaterVertBuffer!.View, _hmWaterCounterBuffer!.View,
+                _hmColumnsBuffer!.View,
+                _hmPaletteBuffer!.View,
+                _hmOpaqueVertBuffer!.View,
+                _hmWaterVertBuffer!.View,
+                _hmCountersBuffer!.View,
                 chunkX, chunkZ);
 
             await _accelerator!.SynchronizeAsync();
 
-            var opaqueCountResult = await _hmOpaqueCounterBuffer.CopyToHostAsync();
-            var waterCountResult = await _hmWaterCounterBuffer.CopyToHostAsync();
+            var counters = await _hmCountersBuffer.CopyToHostAsync();
             return (
-                Math.Min(opaqueCountResult[0], HmMaxOpaqueFloats),
-                Math.Min(waterCountResult[0], HmMaxWaterFloats)
+                Math.Min(counters[0], HmMaxOpaqueFloats),
+                Math.Min(counters[1], HmMaxWaterFloats)
             );
         }
         finally
@@ -445,7 +289,6 @@ public sealed class VoxelEngineService : IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
-        _meshResultBuffer?.Dispose();
         _meshOpaqueCounterBuffer?.Dispose();
         _meshWaterCounterBuffer?.Dispose();
         _meshOpaqueVertBuffer?.Dispose();
@@ -454,14 +297,11 @@ public sealed class VoxelEngineService : IAsyncDisposable
         _meshPaletteBuffer?.Dispose();
         _meshAtlasUVBuffer?.Dispose();
         _meshBlockFlagsBuffer?.Dispose();
-        _hmHeightsBuffer?.Dispose();
-        _hmBlockIdsBuffer?.Dispose();
-        _hmSeabedHeightsBuffer?.Dispose();
-        _hmSeabedBlockIdsBuffer?.Dispose();
+        _hmColumnsBuffer?.Dispose();
+        _hmPaletteBuffer?.Dispose();
         _hmOpaqueVertBuffer?.Dispose();
-        _hmOpaqueCounterBuffer?.Dispose();
         _hmWaterVertBuffer?.Dispose();
-        _hmWaterCounterBuffer?.Dispose();
+        _hmCountersBuffer?.Dispose();
         _accelerator?.Dispose();
         _context?.Dispose();
         _meshLock.Dispose();
