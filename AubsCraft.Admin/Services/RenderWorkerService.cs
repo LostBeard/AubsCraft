@@ -78,11 +78,36 @@ public class RenderWorkerService : IRenderWorkerService
         // Load atlas in the worker - fetch directly, stays in JS
         _ = LoadAtlasAsync();
 
-        // Start chunk loading
-        _ = LoadChunksAsync();
+        // Start loading from OPFS cache
+        _ = LoadCachedChunksAsync();
 
-        // Start queue processor (runs independently of render loop)
-        _ = ChunkQueueProcessorAsync();
+        // Create JS data worker and connect via MessageChannel
+        // Render worker creates and controls the data worker (clean hierarchy)
+        _dataChannel = new MessageChannel();
+        _dataPort = _dataChannel.Port1;
+        _dataPort.OnMessage += OnDataWorkerMessage;
+        _dataPort.Start();
+
+        var location = _js.Get<Location>("location");
+        var protocol = location.Protocol == "https:" ? "wss:" : "ws:";
+        var host = location.Host;
+        location.Dispose();
+        var wsUrl = $"{protocol}//{host}/api/world/ws";
+
+        // Use absolute URL for worker script (relative paths may not resolve in nested worker context)
+        var origin = _js.Get<string>("location.origin");
+        _dataWorker = new Worker($"{origin}/data-worker.js");
+        Console.WriteLine($"[RenderWorker] Creating data worker: {origin}/data-worker.js");
+        _dataWorker.PostMessage(new
+        {
+            type = "init",
+            renderPort = _dataChannel.Port2,
+            wsUrl
+        }, new object[] { _dataChannel.Port2 });
+
+        // Signal ready for chunks (GPU is initialized)
+        _dataPort.PostMessage(new { type = "ready" });
+        Console.WriteLine("[RenderWorker] Data worker created, GPU ready, requesting first chunk");
     }
 
     /// <summary>
@@ -160,6 +185,66 @@ public class RenderWorkerService : IRenderWorkerService
         _canvas = null;
         Console.WriteLine("[RenderWorker] Canvas detached, worker stays alive");
         return Task.CompletedTask;
+    }
+
+    private MessagePort? _dataPort;
+    private MessageChannel? _dataChannel;
+    private Worker? _dataWorker;
+
+    class HeightMapMessage
+    {
+        public int Cx { get; set; }
+        public int Cz { get; set; }
+        public ArrayBuffer Buffer { get; set; }
+    }
+
+    private void OnDataWorkerMessage(MessageEvent msg)
+    {
+        try
+        {
+            // JS data worker posts: { type: "heightmap", cx, cz, buffer }
+            using var data = msg.GetData<JSObject>();
+            if (data == null) return;
+            var type = data.JSRef!.Get<string>("type");
+            if (type == "heightmap")
+            {
+                var chunk = data.JSRefCopy<HeightMapMessage>();
+                _ = ProcessDataWorkerChunkAsync(chunk.Cx, chunk.Cz, chunk.Buffer);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[RenderWorker] Data port message error: {ex.Message}");
+        }
+        finally
+        {
+            msg.Dispose();
+        }
+    }
+
+    private async Task ProcessDataWorkerChunkAsync(int cx, int cz, ArrayBuffer buffer)
+    {
+        try
+        {
+            _populatedChunks.Add((cx, cz));
+            if (!_loadedChunks.Contains((cx, cz)))
+            {
+                await RenderFromFrameAsync(buffer);
+                LoadedCount++;
+            }
+            else
+            {
+                buffer.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[RenderWorker] Chunk ({cx},{cz}) process error: {ex.Message}");
+            buffer.Dispose();
+        }
+
+        // Request next chunk (pull-based flow control)
+        _dataPort?.PostMessage(new { type = "ready" });
     }
 
     public Task SetTimeOfDay(int ticks)
@@ -262,11 +347,11 @@ public class RenderWorkerService : IRenderWorkerService
 
 
 
-    private async Task LoadChunksAsync()
+    private async Task LoadCachedChunksAsync()
     {
         _loadTimer.Start();
 
-        // Phase 1: Load nearby heightmaps from cache first, then start full 3D immediately
+        // Load from OPFS cache if available. WebSocket streaming handled by data worker.
         var regionCount = await _cache.GetCachedRegionCountAsync();
         if (regionCount > 0)
         {
@@ -332,90 +417,11 @@ public class RenderWorkerService : IRenderWorkerService
             _ = LoadFullChunksNearbyAsync(camCX, camCZ);
         }
 
-        // Phase 2: Connect WebSocket for live streaming
-        Console.WriteLine("[RenderWorker] Connecting binary WebSocket...");
-        _chunkStream.OnChunkReceived += OnChunkReceived;
-        _chunkStream.Connect(_renderer.Camera.Position);
+        // WebSocket streaming now handled by the JS data worker
+        // Chunks arrive via MessagePort -> OnDataWorkerMessage -> ProcessDataWorkerChunkAsync
     }
 
-    // Queue for WebSocket chunks - processed in batches from render loop
-    private readonly List<(int cx, int cz, byte[] frame)> _chunkQueue = new();
-    private bool _queueDirty;
-    private bool _processingBatch;
-
-    private void OnChunkReceived(int cx, int cz, ArrayBuffer frameBuffer)
-    {
-        _populatedChunks.Add((cx, cz));
-        if (_loadedChunks.Contains((cx, cz)))
-        {
-            frameBuffer.Dispose();
-            return;
-        }
-        // Read bytes and queue - don't process immediately
-        using var view = new Uint8Array(frameBuffer);
-        var bytes = view.ReadBytes();
-        frameBuffer.Dispose();
-        _chunkQueue.Add((cx, cz, bytes));
-        _queueDirty = true;
-    }
-
-    /// <summary>
-    /// Process queued WebSocket chunks in batches, nearest to camera first.
-    /// Called from OnRenderFrame so rendering stays responsive during loading.
-    /// </summary>
-    private async Task ProcessChunkBatchAsync()
-    {
-        if (_chunkQueue.Count == 0 || _processingBatch) return;
-        _processingBatch = true;
-        try
-        {
-
-        // Sort by camera distance if queue changed
-        if (_queueDirty && _chunkQueue.Count > 1)
-        {
-            int camCX = (int)MathF.Floor(_renderer.Camera.Position.X / 16f);
-            int camCZ = (int)MathF.Floor(_renderer.Camera.Position.Z / 16f);
-            _chunkQueue.Sort((a, b) =>
-            {
-                int da = (a.cx - camCX) * (a.cx - camCX) + (a.cz - camCZ) * (a.cz - camCZ);
-                int db = (b.cx - camCX) * (b.cx - camCX) + (b.cz - camCZ) * (b.cz - camCZ);
-                return da.CompareTo(db);
-            });
-            _queueDirty = false;
-        }
-
-        // Process up to 8 chunks per batch
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        int count = Math.Min(8, _chunkQueue.Count);
-        int processed = 0;
-        for (int i = 0; i < count; i++)
-        {
-            var (cx, cz, frame) = _chunkQueue[0];
-            _chunkQueue.RemoveAt(0);
-
-            if (_loadedChunks.Contains((cx, cz))) continue;
-
-            try
-            {
-                using var jsFrame = new Uint8Array(frame);
-                await RenderFromFrameAsync(jsFrame.Buffer);
-                LoadedCount++;
-                processed++;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Queue chunk ({cx},{cz}) error: {ex.Message}");
-            }
-        }
-        sw.Stop();
-        if (processed > 0)
-            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Batch: {processed} chunks in {sw.ElapsedMilliseconds}ms, queue remaining: {_chunkQueue.Count}");
-        }
-        finally
-        {
-            _processingBatch = false;
-        }
-    }
+    // Old WebSocket queue code removed - data worker handles WebSocket now
 
     /// <summary>
     /// Render a heightmap from a JS ArrayBuffer. Binary data stays in JS.
@@ -489,26 +495,6 @@ public class RenderWorkerService : IRenderWorkerService
         }
     }
 
-    /// <summary>
-    /// Independent async loop that processes queued WebSocket chunks.
-    /// Runs alongside the render loop with explicit yields so rAF can fire.
-    /// </summary>
-    private async Task ChunkQueueProcessorAsync()
-    {
-        while (!_disposed)
-        {
-            if (_chunkQueue.Count > 0 && !_processingBatch)
-            {
-                await ProcessChunkBatchAsync();
-                await Task.Delay(1); // yield to event loop so rAF fires
-            }
-            else
-            {
-                await Task.Delay(16); // idle - check every frame
-            }
-        }
-    }
-
     private void OnRenderFrame(float dt)
     {
         // Trigger full 3D loading when camera moves to a new chunk
@@ -519,7 +505,7 @@ public class RenderWorkerService : IRenderWorkerService
             _lastFullCX = camCX;
             _lastFullCZ = camCZ;
             _ = LoadFullChunksNearbyAsync(camCX, camCZ);
-            _queueDirty = true; // re-sort queue for new camera position
+            // Camera moved - data worker re-sorts its queue via camera update from main thread
         }
     }
 
@@ -661,7 +647,7 @@ public class RenderWorkerService : IRenderWorkerService
     {
         if (_disposed) return ValueTask.CompletedTask;
         _disposed = true;
-        _chunkStream.OnChunkReceived -= OnChunkReceived;
+        // Data worker handles WebSocket - no OnChunkReceived to unsubscribe
         _renderer.StopRenderLoop();
         _canvas?.Dispose();
         return ValueTask.CompletedTask;

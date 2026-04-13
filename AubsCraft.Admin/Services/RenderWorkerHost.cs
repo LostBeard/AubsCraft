@@ -1,16 +1,17 @@
+using SpawnDev.BlazorJS.JSObjects;
 using SpawnDev.BlazorJS.WebWorkers;
 
 namespace AubsCraft.Admin.Services;
 
 /// <summary>
 /// Singleton that owns the render worker's lifetime.
-/// The WebWorker and its GPU context/chunk data persist across page navigation.
-/// Map.razor attaches/detaches its canvas but never kills the worker.
+/// The render worker creates and controls the JS data worker internally.
+/// Hierarchy: Window -> Render Worker (Blazor) -> JS Data Worker
 /// </summary>
 public class RenderWorkerHost
 {
     private readonly WebWorkerService _workerService;
-    private WebWorker? _worker;
+    private WebWorker? _renderWorker;
     private IRenderWorkerService? _service;
     private readonly string _serviceKey = Guid.NewGuid().ToString();
 
@@ -21,7 +22,7 @@ public class RenderWorkerHost
     public float Pitch { get; set; }
     public float Yaw { get; set; }
 
-    public bool IsWorkerCreated => _worker != null;
+    public bool IsWorkerCreated => _renderWorker != null;
     public bool IsStarted { get; set; }
 
     public RenderWorkerHost(WebWorkerService workerService)
@@ -31,19 +32,19 @@ public class RenderWorkerHost
 
     /// <summary>
     /// Get or create the render worker. First call creates the worker thread.
-    /// Subsequent calls return the existing proxy.
+    /// The render worker internally creates the JS data worker.
     /// </summary>
     public async Task<(WebWorker worker, IRenderWorkerService service)> EnsureWorkerAsync(
-        SpawnDev.BlazorJS.JSObjects.OffscreenCanvas canvas, int width, int height)
+        OffscreenCanvas canvas, int width, int height)
     {
-        if (_worker == null)
+        if (_renderWorker == null)
         {
-            _worker = await _workerService.GetWebWorker();
-            await _worker.New<IRenderWorkerService>(_serviceKey,
+            _renderWorker = await _workerService.GetWebWorker();
+            await _renderWorker.New<IRenderWorkerService>(_serviceKey,
                 () => new RenderWorkerService(canvas, width, height));
-            _service = _worker.GetKeyedService<IRenderWorkerService>(_serviceKey);
+            _service = _renderWorker.GetKeyedService<IRenderWorkerService>(_serviceKey);
         }
-        return (_worker, _service!);
+        return (_renderWorker, _service!);
     }
 
     public IRenderWorkerService? Service => _service;
