@@ -120,6 +120,7 @@ public static class MinecraftLODKernel
             if (gy >= lodGridH - 1 || !HasSolidGroup(blocks, blockFlags, bx, by + lodSize, bz, lodSize))
             {
                 int wo = Atomic.Add(ref waterCounter[0], FloatsPerFace);
+                if (wo + FloatsPerFace > waterVerts.IntLength) return;
                 float waterY = wy + L - 0.1f;
                 WV(waterVerts, wo,      wx,   waterY, wz,   0,1,0, 0.2f,0.4f,0.8f, u0,v0);
                 WV(waterVerts, wo+11,   wx,   waterY, wz+L, 0,1,0, 0.2f,0.4f,0.8f, u0,v1);
@@ -143,6 +144,7 @@ public static class MinecraftLODKernel
             float bg = cg * 1.05f; if (bg > 1f) bg = 1f;
             float bb = cb * 1.05f; if (bb > 1f) bb = 1f;
             int oo = Atomic.Add(ref opaqueCounter[0], FloatsPerFace);
+            if (oo + FloatsPerFace > opaqueVerts.IntLength) return;
             WV(opaqueVerts, oo,      wx,   wy+L, wz,   0,1,0, br,bg,bb, u0,v0);
             WV(opaqueVerts, oo+11,   wx,   wy+L, wz+L, 0,1,0, br,bg,bb, u0,v1);
             WV(opaqueVerts, oo+22,   wx+L, wy+L, wz+L, 0,1,0, br,bg,bb, u1,v1);
@@ -156,6 +158,7 @@ public static class MinecraftLODKernel
         {
             float br = cr * 0.70f, bg = cg * 0.70f, bb = cb * 0.70f;
             int oo = Atomic.Add(ref opaqueCounter[0], FloatsPerFace);
+            if (oo + FloatsPerFace > opaqueVerts.IntLength) return;
             WV(opaqueVerts, oo,      wx,   wy, wz+L, 0,-1,0, br,bg,bb, u0,v1);
             WV(opaqueVerts, oo+11,   wx,   wy, wz,   0,-1,0, br,bg,bb, u0,v0);
             WV(opaqueVerts, oo+22,   wx+L, wy, wz,   0,-1,0, br,bg,bb, u1,v0);
@@ -169,6 +172,7 @@ public static class MinecraftLODKernel
         {
             float br = cr * 0.88f, bg = cg * 0.88f, bb = cb * 0.88f;
             int oo = Atomic.Add(ref opaqueCounter[0], FloatsPerFace);
+            if (oo + FloatsPerFace > opaqueVerts.IntLength) return;
             WV(opaqueVerts, oo,      wx+L, wy,   wz,   1,0,0, br,bg,bb, sideU0,sideV1);
             WV(opaqueVerts, oo+11,   wx+L, wy+L, wz,   1,0,0, br,bg,bb, sideU0,sideV0);
             WV(opaqueVerts, oo+22,   wx+L, wy+L, wz+L, 1,0,0, br,bg,bb, sideU1,sideV0);
@@ -182,6 +186,7 @@ public static class MinecraftLODKernel
         {
             float br = cr * 0.88f, bg = cg * 0.88f, bb = cb * 0.88f;
             int oo = Atomic.Add(ref opaqueCounter[0], FloatsPerFace);
+            if (oo + FloatsPerFace > opaqueVerts.IntLength) return;
             WV(opaqueVerts, oo,      wx, wy,   wz+L, -1,0,0, br,bg,bb, sideU0,sideV1);
             WV(opaqueVerts, oo+11,   wx, wy+L, wz+L, -1,0,0, br,bg,bb, sideU0,sideV0);
             WV(opaqueVerts, oo+22,   wx, wy+L, wz,   -1,0,0, br,bg,bb, sideU1,sideV0);
@@ -195,6 +200,7 @@ public static class MinecraftLODKernel
         {
             float br = cr * 0.82f, bg = cg * 0.82f, bb = cb * 0.82f;
             int oo = Atomic.Add(ref opaqueCounter[0], FloatsPerFace);
+            if (oo + FloatsPerFace > opaqueVerts.IntLength) return;
             WV(opaqueVerts, oo,      wx+L, wy,   wz+L, 0,0,1, br,bg,bb, sideU0,sideV1);
             WV(opaqueVerts, oo+11,   wx+L, wy+L, wz+L, 0,0,1, br,bg,bb, sideU0,sideV0);
             WV(opaqueVerts, oo+22,   wx,   wy+L, wz+L, 0,0,1, br,bg,bb, sideU1,sideV0);
@@ -208,6 +214,7 @@ public static class MinecraftLODKernel
         {
             float br = cr * 0.82f, bg = cg * 0.82f, bb = cb * 0.82f;
             int oo = Atomic.Add(ref opaqueCounter[0], FloatsPerFace);
+            if (oo + FloatsPerFace > opaqueVerts.IntLength) return;
             WV(opaqueVerts, oo,      wx,   wy,   wz, 0,0,-1, br,bg,bb, sideU0,sideV1);
             WV(opaqueVerts, oo+11,   wx,   wy+L, wz, 0,0,-1, br,bg,bb, sideU0,sideV0);
             WV(opaqueVerts, oo+22,   wx+L, wy+L, wz, 0,0,-1, br,bg,bb, sideU1,sideV0);

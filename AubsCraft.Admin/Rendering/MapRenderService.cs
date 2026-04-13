@@ -48,9 +48,8 @@ public sealed class MapRenderService : IDisposable
 
     private const int BytesPerVertex = 11 * 4; // 11 floats x 4 bytes (pos3 + normal3 + color3 + uv2)
     private const int InitialCapacityVertices = 5_000_000;
-    // WebGPU maxBufferSize typically 256 MB. At 44 bytes/vert, max ~5.8M verts.
-    // Stay under to leave room for water buffer and other GPU resources.
-    private const int MaxBufferVertices = 5_000_000;
+    // Derived from actual device limits at init time, not hardcoded
+    private int MaxBufferVertices = 5_000_000;
     private const int ChunkXZ = 16;
     private const int ChunkHeight = 384;
 
@@ -217,6 +216,13 @@ public sealed class MapRenderService : IDisposable
             ?? throw new InvalidOperationException("WebGPU queue is null");
 
         _context = context;
+
+        // Query actual device limits - never hardcode
+        using var limits = _device.Limits;
+        long maxBufferSize = limits?.MaxBufferSize ?? 268435456; // 256MB fallback
+        MaxBufferVertices = (int)Math.Min(maxBufferSize / 2 / BytesPerVertex, 10_000_000);
+        VertexBudget = (int)(MaxBufferVertices * 0.7f);
+        Console.WriteLine($"[MapRender] Device maxBufferSize={maxBufferSize}, MaxBufferVertices={MaxBufferVertices}, VertexBudget={VertexBudget}");
 
         using var navigator = _js.Get<Navigator>("navigator");
         using var gpu = navigator.Gpu;
@@ -545,35 +551,35 @@ public sealed class MapRenderService : IDisposable
             return offset;
         }
 
-        // Evict chunks beyond 2x draw distance (wide margin)
+        // Multi-chunk eviction loop - evict farthest chunks beyond draw distance
         int camCX = (int)MathF.Floor(Camera.Position.X / 16f);
         int camCZ = (int)MathF.Floor(Camera.Position.Z / 16f);
-        int evictMinDist = Math.Max(DrawDistance * 2, 40);
+        int evictMinDist = Math.Max(DrawDistance + 4, 20);
         int evictMinDistSq = evictMinDist * evictMinDist;
+        var evictedList = new List<(int, int)>();
 
-        // Find and evict the single farthest chunk beyond the safe zone
-        var bestKey = (0, 0);
-        float bestScore = -1f;
-        int bestDist = 0;
-        foreach (var ((cx, cz), slot) in _slots)
+        for (int attempt = 0; attempt < 10; attempt++)
         {
-            int dx = cx - camCX, dz = cz - camCZ;
-            int distSq = dx * dx + dz * dz;
-            if (distSq <= evictMinDistSq) continue;
-            float score = distSq * slot.VertexCount;
-            if (score > bestScore) { bestScore = score; bestKey = (cx, cz); bestDist = distSq; }
-        }
+            // Find farthest chunk beyond safe zone
+            var bestKey = (0, 0);
+            float bestScore = -1f;
+            foreach (var ((cx, cz), slot) in _slots)
+            {
+                int dx = cx - camCX, dz = cz - camCZ;
+                int distSq = dx * dx + dz * dz;
+                if (distSq <= evictMinDistSq) continue;
+                float score = distSq * slot.VertexCount;
+                if (score > bestScore) { bestScore = score; bestKey = (cx, cz); }
+            }
 
-        if (bestScore > 0)
-        {
-            Console.WriteLine($"[EVICT] Removing ({bestKey.Item1},{bestKey.Item2}) dist={MathF.Sqrt(bestDist):F0} verts={_slots[bestKey].VertexCount} evictMin={evictMinDist} drawDist={DrawDistance}");
+            if (bestScore <= 0) break; // nothing beyond threshold
+
             RemoveChunkMesh(bestKey.Item1, bestKey.Item2);
             if (_waterSlots.Remove(bestKey, out var ws))
                 _waterFreeSlots.Add((ws.FirstVertex, ws.VertexCount));
-            var evictedList = new List<(int, int)> { bestKey };
-            OnChunksEvicted?.Invoke(evictedList);
+            evictedList.Add(bestKey);
 
-            // Try free list after eviction
+            // Check if free list now has space
             for (int i = 0; i < _freeSlots.Count; i++)
             {
                 if (_freeSlots[i].vertexCount >= vertexCount)
@@ -585,9 +591,21 @@ public sealed class MapRenderService : IDisposable
                         _freeSlots[i] = (free.firstVertex + vertexCount, remainder);
                     else
                         _freeSlots.RemoveAt(i);
+                    if (evictedList.Count > 0) OnChunksEvicted?.Invoke(evictedList);
                     return offset;
                 }
             }
+        }
+
+        if (evictedList.Count > 0) OnChunksEvicted?.Invoke(evictedList);
+
+        // Issue #5: CompactBuffer as last resort
+        CompactBuffer();
+        if (_nextFreeVertex + vertexCount <= _bufferCapacityVertices)
+        {
+            int offset = _nextFreeVertex;
+            _nextFreeVertex += vertexCount;
+            return offset;
         }
 
         return -1; // truly out of space - old mesh preserved
@@ -878,10 +896,13 @@ public sealed class MapRenderService : IDisposable
             _frameCount = 0;
             _fpsAccumulator = 0;
 
-            // Draw distance only grows, never shrinks. Nothing vanishes.
-            if (Fps >= 50 && DrawDistance < MaxDrawDistance)
+            // Adaptive draw distance + vertex pressure feedback
+            float pressure = (float)TotalVertices / Math.Max(VertexBudget, 1);
+            if (pressure > 0.9f && DrawDistance > MinDrawDistance)
+                DrawDistance = Math.Max(MinDrawDistance, DrawDistance - 2);
+            else if (Fps >= 50 && pressure < 0.6f && DrawDistance < MaxDrawDistance)
                 DrawDistance += 2;
-            else if (Fps >= 40 && DrawDistance < MaxDrawDistance)
+            else if (Fps >= 40 && pressure < 0.8f && DrawDistance < MaxDrawDistance)
                 DrawDistance += 1;
 
             // Periodic diagnostic dump

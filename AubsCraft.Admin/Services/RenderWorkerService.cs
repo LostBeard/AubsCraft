@@ -227,7 +227,7 @@ public class RenderWorkerService : IRenderWorkerService
         try
         {
             _populatedChunks.Add((cx, cz));
-            if (!_loadedChunks.Contains((cx, cz)))
+            if (!_loadedChunks.Contains((cx, cz)) && !_fullChunks.Contains((cx, cz)))
             {
                 await RenderFromFrameAsync(buffer);
                 LoadedCount++;

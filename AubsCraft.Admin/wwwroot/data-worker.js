@@ -35,7 +35,8 @@ self.onmessage = (e) => {
 // ---- Render worker message handler ----
 function onRenderMessage(e) {
     const msg = e.data;
-    console.log('[DataWorker] Received from render:', msg?.type, 'queue:', chunkQueue.length);
+    // Debug: uncomment to trace port messages
+    // console.log('[DataWorker] Received from render:', msg?.type, 'queue:', chunkQueue.length);
     if (msg.type === 'ready') {
         renderReady = true;
         sendNextChunk();
