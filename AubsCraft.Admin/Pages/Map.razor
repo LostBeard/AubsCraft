@@ -22,7 +22,7 @@
                 {
                     @($"{_lastStats.Fps:F0} FPS | {_lastStats.VisibleVerts / 1000}K/{_lastStats.TotalVerts / 1000}K verts | {_lastStats.VisibleChunks}/{_lastStats.TotalChunks} chunks | draw: {_lastStats.DrawDistance} | {_lastStats.ChunksPerSecond:F1} c/s | Worker")
                 }
-                @if (!_pointerLocked) { <span> | Click to fly</span> }
+                @if (!_isPointerLocked) { <span> | Click to fly</span> }
             </small>
             <button class="btn btn-sm btn-outline-secondary" @onclick="SwitchToBlueMap">BlueMap</button>
         }
@@ -41,7 +41,7 @@
 @if (_viewMode == ViewMode.Viewer3D || _viewMode == ViewMode.Initializing)
 {
     <canvas id="map-canvas" @ref="_canvasRef"
-            style="width: 100%; height: calc(100vh - 8rem); border-radius: 4px; display: block; background: #a5cce8; cursor: @(_pointerLocked ? "none" : "pointer");"
+            style="width: 100%; height: calc(100vh - 8rem); border-radius: 4px; display: block; background: #a5cce8; cursor: @(_isPointerLocked ? "none" : "pointer");"
             tabindex="0"
             @onclick="OnCanvasClick"
             @oncontextmenu:preventDefault>
@@ -64,7 +64,8 @@ else
     private string? _blueMapUrl;
     private ViewMode _viewMode = ViewMode.Initializing;
     private string _statusMessage = "Initializing...";
-    private bool _pointerLocked;
+    private Document? _document;
+    private bool _isPointerLocked;
 
     private IRenderWorkerService? _renderService;
     private RenderStats? _lastStats;
@@ -88,6 +89,14 @@ else
     {
         if (status.TimeTicks >= 0 && _renderService != null)
             _ = _renderService.SetTimeOfDay(status.TimeTicks);
+    }
+
+    private void OnPointerLockChange()
+    {
+        bool wasLocked = _isPointerLocked;
+        _isPointerLocked = _document?.PointerLockElement != null;
+        if (wasLocked && !_isPointerLocked)
+            Input.ConsumeMouseDelta();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -144,7 +153,9 @@ else
             // Attach input service on main thread
             Input.Attach();
 
-            // Pointer lock tracked via Document.PointerLockElement (no eval, no globals)
+            // Pointer lock via event - zero per-frame JS calls
+            _document = JS.Get<Document>("document");
+            _document.OnPointerLockChange += OnPointerLockChange;
 
             _viewMode = ViewMode.Viewer3D;
             _statusMessage = "";
@@ -178,20 +189,11 @@ else
         {
             await Task.Delay(16);
 
-            using var doc = JS.Get<Document>("document");
-            bool browserLocked = doc.PointerLockElement != null;
-            if (_pointerLocked && !browserLocked)
-            {
-                _pointerLocked = false;
-                Input.ConsumeMouseDelta();
-            }
-            _pointerLocked = browserLocked;
-
-            if (_pointerLocked)
+            if (_isPointerLocked)
             {
                 if (Input.KeysDown.Contains("Escape"))
                 {
-                    _pointerLocked = false;
+                    _isPointerLocked = false;
                     Input.KeysDown.Remove("Escape");
                     continue;
                 }
@@ -233,7 +235,7 @@ else
 
     private async void OnCanvasClick()
     {
-        if (_pointerLocked) return;
+        if (_isPointerLocked) return;
         try
         {
             _canvas?.RequestPointerLock();
@@ -247,6 +249,12 @@ else
     public void Dispose()
     {
         Hub.OnServerStatusReceived -= OnServerStatus;
+        if (_document != null)
+        {
+            _document.OnPointerLockChange -= OnPointerLockChange;
+            _document.Dispose();
+            _document = null;
+        }
         _resizeObserver?.Disconnect();
         _resizeObserver?.Dispose();
         _resizeCallback?.Dispose();
