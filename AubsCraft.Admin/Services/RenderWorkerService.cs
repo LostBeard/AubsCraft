@@ -218,7 +218,9 @@ public class RenderWorkerService : IRenderWorkerService
     private HashSet<(int, int)> _fullChunks = new();
     private int _lastFullCX = int.MinValue, _lastFullCZ = int.MinValue;
     private bool _loadingFull;
-    private const int FullRenderRadius = 3;
+    // Full 3D radius tracks draw distance - everything visible should be fully rendered.
+    // The adaptive draw distance system handles device capability.
+    private int FullRenderRadius => Math.Max(3, _renderer.DrawDistance);
     private string? _baseUrl;
 
 

@@ -111,9 +111,9 @@ public sealed class MapRenderService : IDisposable
     private int _frameCount;
     private double _fpsAccumulator;
     private float _lastDt;
-    public int DrawDistance { get; private set; } = 30;
-    private const int MinDrawDistance = 25;
-    private const int MaxDrawDistance = 50;
+    public int DrawDistance { get; private set; } = 20;
+    private const int MinDrawDistance = 8;
+    private const int MaxDrawDistance = 60;
 
     public MapRenderService(BlazorJSRuntime js)
     {
@@ -732,9 +732,13 @@ public sealed class MapRenderService : IDisposable
             _frameCount = 0;
             _fpsAccumulator = 0;
 
-            // Adaptive draw distance: grow when FPS is high, shrink when low
-            if (Fps > 50 && DrawDistance < MaxDrawDistance)
+            // Adaptive draw distance - aggressive scaling for device capability
+            if (Fps >= 55 && DrawDistance < MaxDrawDistance)
                 DrawDistance += 2;
+            else if (Fps >= 45 && DrawDistance < MaxDrawDistance)
+                DrawDistance += 1;
+            else if (Fps < 20 && DrawDistance > MinDrawDistance)
+                DrawDistance = Math.Max(MinDrawDistance, DrawDistance - 4); // fast drop
             else if (Fps < 30 && DrawDistance > MinDrawDistance)
                 DrawDistance -= 2;
         }

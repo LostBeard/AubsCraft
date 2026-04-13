@@ -142,17 +142,14 @@ public sealed class VoxelEngineService : IAsyncDisposable
             _meshOpaqueCounterBuffer!.CopyFromCPU(new int[] { 0 });
             _meshWaterCounterBuffer!.CopyFromCPU(new int[] { 0 });
 
-            _meshPaletteBuffer?.Dispose();
-            _meshPaletteBuffer = _accelerator!.Allocate1D<float>(paletteColors.Length);
-            _meshPaletteBuffer.CopyFromCPU(paletteColors);
+            EnsureBuffer(ref _meshPaletteBuffer, paletteColors.Length);
+            _meshPaletteBuffer!.CopyFromCPU(paletteColors);
 
-            _meshAtlasUVBuffer?.Dispose();
-            _meshAtlasUVBuffer = _accelerator!.Allocate1D<float>(atlasUVs.Length);
-            _meshAtlasUVBuffer.CopyFromCPU(atlasUVs);
+            EnsureBuffer(ref _meshAtlasUVBuffer, atlasUVs.Length);
+            _meshAtlasUVBuffer!.CopyFromCPU(atlasUVs);
 
-            _meshBlockFlagsBuffer?.Dispose();
-            _meshBlockFlagsBuffer = _accelerator!.Allocate1D<float>(blockFlags.Length);
-            _meshBlockFlagsBuffer.CopyFromCPU(blockFlags);
+            EnsureBuffer(ref _meshBlockFlagsBuffer, blockFlags.Length);
+            _meshBlockFlagsBuffer!.CopyFromCPU(blockFlags);
 
             _meshKernel(
                 (Index1D)BlocksPerChunk,
@@ -250,8 +247,11 @@ public sealed class VoxelEngineService : IAsyncDisposable
             _hmCountersBuffer!.CopyFromCPU(_counterReset);
 
             // Palette size varies per chunk - reallocate to exact size
-            _hmPaletteBuffer?.Dispose();
-            _hmPaletteBuffer = _accelerator!.Allocate1D<BlockPalette>(palette.Length);
+            if (_hmPaletteBuffer == null || _hmPaletteBuffer.Length != palette.Length)
+            {
+                _hmPaletteBuffer?.Dispose();
+                _hmPaletteBuffer = _accelerator!.Allocate1D<BlockPalette>(palette.Length);
+            }
             _hmPaletteBuffer.CopyFromCPU(palette);
 
             _heightmapKernel(
@@ -278,9 +278,10 @@ public sealed class VoxelEngineService : IAsyncDisposable
     }
 
     /// <summary>Reuse GPU buffer if large enough, only reallocate if needed.</summary>
+    /// <summary>Reuse GPU buffer if exact size matches, only reallocate on size change.</summary>
     private void EnsureBuffer(ref MemoryBuffer1D<float, Stride1D.Dense>? buffer, int requiredLength)
     {
-        if (buffer == null || buffer.Length < requiredLength)
+        if (buffer == null || buffer.Length != requiredLength)
         {
             buffer?.Dispose();
             buffer = _accelerator!.Allocate1D<float>(requiredLength);
