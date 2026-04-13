@@ -80,9 +80,16 @@ else
     protected override async Task OnInitializedAsync()
     {
         await Hub.ConnectAsync();
+        Hub.OnServerStatusReceived += OnServerStatus;
         var config = await Hub.GetBlueMapConfigAsync();
         if (config.Enabled && !string.IsNullOrEmpty(config.Url))
             _blueMapUrl = config.Url;
+    }
+
+    private void OnServerStatus(ServerStatusDto status)
+    {
+        if (status.TimeTicks >= 0 && _renderService != null)
+            _ = _renderService.SetTimeOfDay(status.TimeTicks);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

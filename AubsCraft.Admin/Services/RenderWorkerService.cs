@@ -137,6 +137,13 @@ public class RenderWorkerService : IRenderWorkerService
         ));
     }
 
+    public Task SetTimeOfDay(int ticks)
+    {
+        if (ticks >= 0)
+            _renderer.TimeOfDay = (ticks % 24000) / 24000f;
+        return Task.CompletedTask;
+    }
+
     /// <summary>
     /// Upload chunk mesh data to the renderer (called when chunk data is ready).
     /// </summary>
@@ -193,18 +200,20 @@ public class RenderWorkerService : IRenderWorkerService
     private const int FullRenderRadius = 3;
     private string? _baseUrl;
 
+
+
     private async Task LoadChunksAsync()
     {
         _loadTimer.Start();
 
-        // Phase 1: Load from OPFS cache
+        // Phase 1: Load nearby heightmaps from cache first, then start full 3D immediately
         var regionCount = await _cache.GetCachedRegionCountAsync();
         if (regionCount > 0)
         {
             Console.WriteLine($"[RenderWorker] Loading {regionCount} cached regions...");
             var cached = await _cache.LoadAllCachedHeightmapsAsync();
 
-            // Sort by camera distance
+            // Sort by camera distance - nearest chunks load first
             int camCX = (int)MathF.Floor(_renderer.Camera.Position.X / 16f);
             int camCZ = (int)MathF.Floor(_renderer.Camera.Position.Z / 16f);
             cached.Sort((a, b) =>
@@ -214,14 +223,17 @@ public class RenderWorkerService : IRenderWorkerService
                 return da.CompareTo(db);
             });
 
+            // Load nearby heightmaps first (within full 3D radius + margin)
+            // so the full 3D pass has populated chunks to work with
+            int nearbyThreshold = (FullRenderRadius + 2) * (FullRenderRadius + 2);
             int batchCount = 0;
+            int nearbyLoaded = 0;
             var sw = System.Diagnostics.Stopwatch.StartNew();
+
             foreach (var (cx, cz, frame) in cached)
             {
                 try
                 {
-                    // Cache returns byte[] - wrap as ArrayBuffer for the render path
-                    // TODO: Switch cache to return ArrayBuffer directly (OPFS zero-copy)
                     using var jsFrame = new Uint8Array(frame);
                     await RenderFromFrameAsync(jsFrame.Buffer);
                 }
@@ -231,15 +243,33 @@ public class RenderWorkerService : IRenderWorkerService
                 }
                 LoadedCount++;
 
+                int dist = (cx - camCX) * (cx - camCX) + (cz - camCZ) * (cz - camCZ);
+                if (dist <= nearbyThreshold) nearbyLoaded++;
+
                 batchCount++;
                 if (batchCount >= 10)
                 {
                     batchCount = 0;
                     await Task.Delay(1); // yield to render loop
                 }
+
+                // After loading nearby heightmaps, kick off full 3D immediately
+                // Don't wait for all distant heightmaps to finish
+                if (nearbyLoaded >= 20 && !_loadingFull)
+                {
+                    _ = LoadFullChunksNearbyAsync(camCX, camCZ);
+                }
             }
             sw.Stop();
             Console.WriteLine($"[RenderWorker] Loaded {LoadedCount} from cache in {sw.ElapsedMilliseconds}ms");
+        }
+
+        // Ensure full 3D starts even if cache had few nearby chunks
+        if (!_loadingFull)
+        {
+            int camCX = (int)MathF.Floor(_renderer.Camera.Position.X / 16f);
+            int camCZ = (int)MathF.Floor(_renderer.Camera.Position.Z / 16f);
+            _ = LoadFullChunksNearbyAsync(camCX, camCZ);
         }
 
         // Phase 2: Connect WebSocket for live streaming

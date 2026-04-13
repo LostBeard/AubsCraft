@@ -83,6 +83,10 @@ public class ServerMonitorService : BackgroundService
         var players = await _rcon.GetPlayersAsync(ct);
         var tps = await _rcon.GetTpsAsync(ct);
 
+        // Query time (don't let failure break the status push)
+        int timeTicks = -1;
+        try { timeTicks = (await _rcon.QueryTimeAsync(ct)).Ticks; } catch { }
+
         // Push status
         var status = new ServerStatusDto(
             true,
@@ -91,7 +95,8 @@ public class ServerMonitorService : BackgroundService
             players.Players,
             tps.Tps1Min,
             tps.Tps5Min,
-            tps.Tps15Min);
+            tps.Tps15Min,
+            timeTicks);
 
         LastStatus = status;
         await _hub.Clients.All.ReceiveServerStatus(status);

@@ -228,7 +228,8 @@ public record ServerStatusDto(
     List<string> Players,
     double Tps1Min,
     double Tps5Min,
-    double Tps15Min);
+    double Tps15Min,
+    int TimeTicks = -1);
 
 public enum ActivityEventType
 {

@@ -10,4 +10,5 @@ public interface IRenderWorkerService : IAsyncDisposable
     Task ProcessInputAsync(float dx, float dy, float dt, string[] keysDown);
     Task ResizeAsync(int width, int height);
     Task<RenderStats> GetStatsAsync();
+    Task SetTimeOfDay(int ticks);
 }
