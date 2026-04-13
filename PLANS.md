@@ -297,6 +297,30 @@ Server --[binary WS]--> JS WebSocket --[stays in JS]--> IndexedDB cache
 | VR support | SpawnDev.BlazorJS WebXR wrappers (new) |
 | Crypto/auth | SpawnDev.BlazorJS.Cryptography |
 
+## Phase Z: The North Star - Browser-Based Minecraft Client
+
+Every feature we build moves us closer. This is the horizon we aim for.
+
+- [ ] Z1. **Entity rendering** - Mobs, animals, item entities with models and animations
+- [ ] Z2. **Player skin rendering** - Full player models with downloaded skins, animation
+- [ ] Z3. **Collision/physics** - Walk ON blocks, gravity, jumping (not just flying)
+- [ ] Z4. **Real-time block updates** - Server pushes block changes as they happen
+- [ ] Z5. **Block interaction** - Break and place blocks in real-time (not queued)
+- [ ] Z6. **Inventory system** - Full hotbar, crafting, chest interaction
+- [ ] Z7. **Combat** - Hit detection, damage, health, food
+- [ ] Z8. **Redstone visualization** - Powered state rendering, signal propagation
+- [ ] Z9. **Particle system** - All MC particles (torch flame, campfire smoke, enchant glitter)
+- [ ] Z10. **Biome rendering** - Per-biome grass/leaf/water colors, fog colors
+- [ ] Z11. **Chunk-level LOD** - Near: full 3D, mid: simplified, far: heightmap (seamless transitions)
+- [ ] Z12. **MC protocol bridge** - Direct MC server protocol instead of file-based world reading
+- [ ] Z13. **Mobile touch gameplay** - Play Minecraft from a phone browser, no app needed
+- [ ] Z14. **VR gameplay** - Play Minecraft in VR from a browser, no Vivecraft needed
+- [ ] Z15. **Cross-play** - Java, Bedrock, Web, and VR players all on the same server
+
+*"Aim as far as possible and you will never be disappointed how far you make it." - Captain TJ*
+
+---
+
 ### Key References (local)
 - `Research/local-world-cache.md` - IndexedDB cache design, load sequence, offline mode
 - `Research/minecraft-block-textures.md` - Atlas layout, per-face blocks, extraction

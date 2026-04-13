@@ -20,8 +20,9 @@ public sealed class ChunkStreamService : IDisposable
     private WebSocket? _ws;
     private bool _disposed;
 
-    /// <summary>Fires when a heightmap chunk is received and cached. Provides (cx, cz, rawBytes) for rendering.</summary>
-    public event Action<int, int, byte[]>? OnChunkReceived;
+    /// <summary>Fires when a heightmap chunk is received and cached. Provides (cx, cz, ArrayBuffer) for rendering.
+    /// ArrayBuffer stays in JS - caller must dispose when done.</summary>
+    public event Action<int, int, ArrayBuffer>? OnChunkReceived;
 
     /// <summary>Number of chunks received so far.</summary>
     public int ReceivedCount { get; private set; }
@@ -101,22 +102,31 @@ public sealed class ChunkStreamService : IDisposable
     {
         try
         {
-            using var arrayBuffer = msg.GetData<ArrayBuffer>();
-            var bytes = arrayBuffer.ReadBytes();
+            // Keep the ArrayBuffer in JS - do NOT call ReadBytes()
+            var arrayBuffer = msg.GetData<ArrayBuffer>();
+            int byteLength = (int)arrayBuffer.ByteLength;
 
-            if (bytes.Length >= 8)
+            if (byteLength >= 8)
             {
-                int cx = BitConverter.ToInt32(bytes, 0);
-                int cz = BitConverter.ToInt32(bytes, 4);
-                _cache.CacheHeightmap(cx, cz, bytes);
+                // Read only cx/cz (8 bytes) via a tiny Int32Array view - stays in JS
+                using var headerView = new Int32Array(arrayBuffer, 0, 2);
+                int cx = headerView[0];
+                int cz = headerView[1];
+
+                // Cache the ArrayBuffer directly to OPFS (JS -> JS, zero .NET)
+                _cache.CacheHeightmap(cx, cz, arrayBuffer);
+
                 ReceivedCount++;
                 if (ReceivedCount <= 3 || ReceivedCount % 100 == 0)
-                    Console.WriteLine($"[ChunkStream] Chunk ({cx},{cz}) received, total: {ReceivedCount}, frame size: {bytes.Length}");
-                OnChunkReceived?.Invoke(cx, cz, bytes);
+                    Console.WriteLine($"[ChunkStream] Chunk ({cx},{cz}) received, total: {ReceivedCount}, frame size: {byteLength}");
+
+                // Pass ArrayBuffer to renderer - data stays in JS
+                OnChunkReceived?.Invoke(cx, cz, arrayBuffer);
             }
             else
             {
-                Console.WriteLine($"[ChunkStream] Received frame too small: {bytes.Length} bytes");
+                Console.WriteLine($"[ChunkStream] Received frame too small: {byteLength} bytes");
+                arrayBuffer.Dispose();
             }
         }
         catch (Exception ex)
@@ -201,6 +211,80 @@ public sealed class ChunkStreamService : IDisposable
             _ws.Dispose();
             _ws = null;
         }
+    }
+
+    /// <summary>
+    /// Parse a binary frame header from a JS ArrayBuffer. Only palette strings cross to .NET.
+    /// Binary data (heights, blockIds, seabed) stays in JS for CopyFromJS.
+    /// </summary>
+    public static (int cx, int cz, List<string> palette, int binaryDataOffset)? ParseFrameHeader(ArrayBuffer frameBuffer)
+    {
+        int byteLength = (int)frameBuffer.ByteLength;
+        if (byteLength < 12) return null;
+
+        // Read header (cx, cz, paletteCount) - 12 bytes via Int32Array
+        using var headerView = new Int32Array(frameBuffer, 0, 3);
+        int cx = headerView[0];
+        int cz = headerView[1];
+        int paletteCount = headerView[2];
+        int offset = 12;
+
+        // Read the palette section into .NET (variable-length strings).
+        // Binary data at the end is exactly 3072 bytes (256*4 + 256*2 + 256*4 + 256*2).
+        // Palette section = everything between the header (12 bytes) and the binary data.
+        int binaryDataSize = 256 * 4 + 256 * 2 + 256 * 4 + 256 * 2; // 3072 bytes
+        int paletteSize = byteLength - offset - binaryDataSize;
+        if (paletteSize <= 0) return null;
+        using var paletteBytesView = new Uint8Array(frameBuffer, offset, paletteSize);
+        var paletteBytes = paletteBytesView.ReadBytes();
+
+        var palette = new List<string>(paletteCount);
+        int localOff = 0;
+        for (int i = 0; i < paletteCount; i++)
+        {
+            if (localOff + 4 > paletteBytes.Length) return null;
+            int strLen = BitConverter.ToInt32(paletteBytes, localOff); localOff += 4;
+            if (localOff + strLen > paletteBytes.Length) return null;
+            palette.Add(System.Text.Encoding.UTF8.GetString(paletteBytes, localOff, strLen));
+            localOff += strLen;
+        }
+
+        int binaryDataOffset = offset + localOff;
+        int expectedRemaining = 256 * 4 + 256 * 2 + 256 * 4 + 256 * 2;
+        if (binaryDataOffset + expectedRemaining > byteLength) return null;
+
+        if (palette.Count > 0 && palette.Count <= 3)
+            Console.WriteLine($"[ParseHeader] cx={cx} cz={cz} palette[0]={palette[0]} count={paletteCount} paletteSize={paletteSize} binaryOffset={binaryDataOffset} totalLen={byteLength}");
+
+        return (cx, cz, palette, binaryDataOffset);
+    }
+
+    /// <summary>
+    /// Parse a binary frame from .NET byte[] (legacy/fallback path).
+    /// </summary>
+    public static (int cx, int cz, List<string> palette, int binaryDataOffset)? ParseFrameHeader(byte[] frame)
+    {
+        if (frame.Length < 12) return null;
+
+        int offset = 0;
+        int cx = BitConverter.ToInt32(frame, offset); offset += 4;
+        int cz = BitConverter.ToInt32(frame, offset); offset += 4;
+        int paletteCount = BitConverter.ToInt32(frame, offset); offset += 4;
+
+        var palette = new List<string>(paletteCount);
+        for (int i = 0; i < paletteCount; i++)
+        {
+            if (offset + 4 > frame.Length) return null;
+            int strLen = BitConverter.ToInt32(frame, offset); offset += 4;
+            if (offset + strLen > frame.Length) return null;
+            palette.Add(System.Text.Encoding.UTF8.GetString(frame, offset, strLen));
+            offset += strLen;
+        }
+
+        int expectedRemaining = 256 * 4 + 256 * 2 + 256 * 4 + 256 * 2;
+        if (offset + expectedRemaining > frame.Length) return null;
+
+        return (cx, cz, palette, offset);
     }
 }
 

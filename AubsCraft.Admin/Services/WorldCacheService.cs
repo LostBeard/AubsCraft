@@ -51,7 +51,16 @@ public sealed class WorldCacheService
     /// <summary>
     /// Queue a heightmap chunk for caching. Writes are batched into region files.
     /// </summary>
-    public void CacheHeightmap(int cx, int cz, byte[] frame)
+    public void CacheHeightmap(int cx, int cz, ArrayBuffer frameBuffer)
+    {
+        // For cache writes, convert to byte[] (fire-and-forget, not hot path)
+        // Full OPFS zero-copy cache is a future optimization
+        using var view = new Uint8Array(frameBuffer);
+        var frame = view.ReadBytes();
+        CacheHeightmapBytes(cx, cz, frame);
+    }
+
+    private void CacheHeightmapBytes(int cx, int cz, byte[] frame)
     {
         int rx = cx >> 5; // divide by 32
         int rz = cz >> 5;
@@ -126,8 +135,10 @@ public sealed class WorldCacheService
     }
 
     /// <summary>
-    /// Load all cached heightmap chunks from OPFS. Returns parsed binary frames.
-    /// This is the fast startup path - 275 MB/s from OPFS region files.
+    /// Load all cached heightmap chunks from OPFS as JS ArrayBuffers.
+    /// Data stays in JS - no .NET byte[] allocation for the bulk data.
+    /// Palette strings are read into .NET (needed for BlockColorMap/TextureAtlas).
+    /// Raw binary arrays (heights, blockIds, seabed) stay as JS for CopyFromJS.
     /// </summary>
     public async Task<List<(int cx, int cz, byte[] frame)>> LoadAllCachedHeightmapsAsync()
     {
@@ -145,8 +156,9 @@ public sealed class WorldCacheService
                     try
                     {
                         using var file = await fileHandle.GetFile();
-                        using var buffer = await file.ArrayBuffer();
-                        var bytes = buffer.ReadBytes();
+                        using var jsBuffer = await file.ArrayBuffer();
+                        // One ReadBytes per region file (not per chunk) - region files are small
+                        var bytes = jsBuffer.ReadBytes();
 
                         foreach (var (cx, cz, frame) in ParseRegionEntries(bytes))
                             result.Add((cx, cz, frame));

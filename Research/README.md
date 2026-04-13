@@ -39,6 +39,10 @@ Reference data for building the AubsCraft platform. This folder is a permanent k
 - **[spectator-cam-design.md](spectator-cam-design.md)** - Full spectator system: follow modes, tracker plugin, smooth interpolation, privacy, streaming
 - **[chat-bridge-design.md](chat-bridge-design.md)** - Web-to-game chat, AubsCraftChat plugin, location sharing, screenshots, VR voice input
 - **[claim-visualization-design.md](claim-visualization-design.md)** - GP API, ILGPU claim geometry, colors, UI, admin tools
+- **[ai-villagers-design.md](ai-villagers-design.md)** - 6 villager types, Claude API, voice chat, persistent memory, VR interaction
+- **[coreprotect-integration-design.md](coreprotect-integration-design.md)** - SQLite queries, block inspector, grief detection, time-lapse replay
+- **[viewer-presence-design.md](viewer-presence-design.md)** - Web viewers visible in-game as drones/birds, spatial voice chat, game sounds in viewer
+- **[brainstorm-next-level.md](brainstorm-next-level.md)** - Underground explorer, blueprints, seasons, time machine, competitions, public page, accessibility
 
 ---
 

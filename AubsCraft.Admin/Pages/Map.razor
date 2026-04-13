@@ -20,7 +20,7 @@
             <small class="text-muted font-monospace" style="font-size: 0.7rem;">
                 @if (_lastStats != null)
                 {
-                    @($"{_lastStats.Fps:F0} FPS | {_lastStats.VisibleVerts / 1000}K/{_lastStats.TotalVerts / 1000}K verts | {_lastStats.VisibleChunks}/{_lastStats.TotalChunks} chunks | draw: {_lastStats.DrawDistance} | Worker")
+                    @($"{_lastStats.Fps:F0} FPS | {_lastStats.VisibleVerts / 1000}K/{_lastStats.TotalVerts / 1000}K verts | {_lastStats.VisibleChunks}/{_lastStats.TotalChunks} chunks | draw: {_lastStats.DrawDistance} | {_lastStats.ChunksPerSecond:F1} c/s | Worker")
                 }
                 @if (!_pointerLocked) { <span> | Click to fly</span> }
             </small>

@@ -1,53 +1,122 @@
-# AubsCraft Admin
+# AubsCraft
 
-A real-time Minecraft server admin panel built with **Blazor WebAssembly** and **ASP.NET Core**. Connects to your Paper/Spigot server via RCON and provides a full browser-based dashboard for server management - no plugins required on the Minecraft side.
+A real-time Minecraft server admin panel and **GPU-accelerated 3D world viewer** built with **Blazor WebAssembly**, **SpawnDev.ILGPU** (WebGPU), and **ASP.NET Core**. Browser-based server management with a live, interactive 3D map - no plugins required on the Minecraft side.
 
 Built by [Todd Tanner (@LostBeard)](https://github.com/LostBeard) for his daughter Aubriella's Minecraft server (mc.spawndev.com).
 
-## Features
+**Powered by the [SpawnDev](https://github.com/LostBeard) ecosystem:**
+- [SpawnDev.BlazorJS](https://github.com/LostBeard/SpawnDev.BlazorJS) - Full JS interop for Blazor WASM
+- [SpawnDev.ILGPU](https://github.com/LostBeard/SpawnDev.ILGPU) - GPU compute on all 6 backends (WebGPU, WebGL, Wasm, CUDA, OpenCL, CPU)
+
+---
+
+## 3D World Viewer
+
+![AubsCraft 3D World Viewer](screenshots/3d-viewer.png)
+
+A real-time GPU-accelerated Minecraft world renderer running entirely in the browser via WebGPU.
+
+### Rendering Features
+- **Full 3D voxel rendering** via ILGPU compute kernels on WebGPU
+- **Per-face block textures** - bark on log sides, rings on top/bottom, grass_block_side, dirt bottom (all 8 log types)
+- **Transparent water** - two-pass rendering with alpha blending, seabed visible through water at all distances
+- **Cross-shaped plant quads** - flowers, grass, and ferns render as intersecting diagonal planes (like real Minecraft)
+- **Texture atlas** - 90+ textures in a 256x256 atlas, nearest-neighbor filtering for pixel art style
+- **Dual lighting** - directional sun + fill light + ambient, per-face brightness multipliers
+- **Distance fog** - smooth quadratic falloff blending to sky color
+- **Leaf transparency** - alpha discard for leaf cutouts
+- **Adaptive draw distance** - automatically adjusts based on FPS (10-50 chunk radius)
+- **Frustum culling** - only renders visible chunks
+
+### Architecture
+- **Dedicated render worker** - entire GPU pipeline runs in a Web Worker via OffscreenCanvas
+- **Binary WebSocket streaming** - raw binary chunk data, no JSON, no base64
+- **OPFS region-file cache** - 275 MB/s reads, instant world on revisit
+- **ILGPU HeightmapMeshKernel** - GPU-accelerated heightmap meshing (replaced CPU mesher)
+- **CopyFromJS** - zero .NET allocation data path from JS WebSocket to GPU buffers
+- **Camera-prioritized loading** - chunks load outward from camera position
+
+### Controls
+- **WASD + mouse** - first-person fly camera with pointer lock
+- **Pointer lock recovery** - automatically detects when Windows steals focus
+- **FPS camera** - 60 blocks/sec movement, configurable FOV
+
+## Admin Panel
 
 ### Dashboard
-- **Real-time player count and TPS** with live history graph - all pushed via SignalR, no polling
-- **Server status** - connected/disconnected indicator, 1m/5m/15m TPS readings
+- **Real-time player count and TPS** with live history graph via SignalR
+- **Server status** - connected/disconnected, 1m/5m/15m TPS readings
 - **Who's playing** - live player list with platform detection (Java, Bedrock, VR)
 
 ### Player Management
-- **Whitelist** - add/remove with player avatars (mc-heads.net)
+- **Whitelist** - add/remove with player avatars
 - **Online players** - kick, ban, pardon with one click
-- **Gamemode control** - switch players between survival, creative, spectator, adventure
-- **Teleport** - teleport any player to any other player from the browser
-- **Player profiles** - detailed stats per player (play time, deaths, mob kills, blocks placed/broken, distance traveled, advancements)
+- **Gamemode control** - switch between survival, creative, spectator, adventure
+- **Teleport** - teleport any player to any other player
+- **Player profiles** - play time, deaths, mob kills, blocks placed/broken, distance, advancements
 
 ### World Controls
-- **In-game time display** - live clock with tick count, auto-refreshes every 10 seconds
-- **Time presets** - sunrise, noon, night, midnight
-- **Weather control** - clear, rain, thunderstorm
+- **Time/weather** - set time of day, weather, save world
 - **Server broadcast** - send messages to all players
-- **World save** - trigger save-all from the browser
+- **Activity log** - real-time timeline with filterable events
+- **Live chat** - see and respond to in-game chat
+- **Server console** - send any RCON command
+- **Plugin manager** - view, enable/disable, install from Modrinth
+- **Server control** - start, stop, restart via systemd
 
-### Server Management
-- **Activity log** - real-time timeline of player joins, leaves, deaths, advancements, chat, and whitelist rejections with filterable event types
-- **Whitelist rejection alerts** - toast notifications when non-whitelisted players attempt to join, with one-click "Whitelist Now" button
-- **Live chat** - see in-game chat and respond via the admin panel
-- **Server console** - send any RCON command directly
-- **Plugin manager** - view installed plugins, enable/disable by renaming .jar files
-- **Plugin browser** - search and install plugins from Modrinth
-- **Server control** - start, stop, restart the Minecraft service via systemd
-- **BlueMap integration** - embedded 3D world map viewer (iframe)
+---
 
-### Technical
-- **Dark/Light theme** - defaults to system preference, toggle in the top bar
-- **Cookie authentication** - first-run setup creates your admin account, bcrypt hashed
-- **Log tailing** - monitors the Minecraft server log file for events RCON doesn't expose (deaths, advancements, chat)
-- **Self-contained deployment** - single binary, no .NET runtime required on the server
-- **One-click deploy** - included `deploy-aubscraft.bat` script (build, SSH stop, xcopy, SSH start)
-- **Paper/EssentialsX compatible** - handles color codes, group prefixes, command overrides
+## Roadmap
+
+See [PLANS.md](PLANS.md) for the full 19-phase development plan with 140+ features.
+
+### Completed
+- [x] **Phase A** - Admin Panel (dashboard, players, world controls, console, plugins)
+- [x] **Phase B** - 3D World Viewer Core (WebGPU, ILGPU kernels, heightmap, atlas)
+- [x] **Phase C** - Viewer Polish (per-face textures, water transparency, plants, seabed, pointer lock)
+- [x] **Phase D (partial)** - Binary WebSocket, OPFS cache, render worker, CopyFromJS
+
+### In Progress
+- [ ] **Phase D** - Zero-copy JS ArrayBuffer pipeline, radial loading, offline mode
+- [ ] **Phase D2** - Input system (gamepad, mobile touch, fullscreen modes)
+
+### Planned
+- [ ] **Phase E** - Visual features (time-of-day lighting, weather, entities, biome tinting)
+- [ ] **Phase F** - Map navigation + HUD (compass, coordinates, minimap, deep-linking)
+- [ ] **Phase G** - Multi-user auth with admin levels
+- [ ] **Phase H** - MC account linking (AubsCraftLink plugin)
+- [ ] **Phase I** - GriefPrevention claim visualization
+- [ ] **Phase J** - Player system (live positions, skin rendering, spectate)
+- [ ] **Phase K** - Web-to-game chat bridge
+- [ ] **Phase L** - Browser creative mode (base editing from the web)
+- [ ] **Phase M** - Public player profiles
+- [ ] **Phase N** - AI villager NPCs (Claude-powered, voice chat)
+- [ ] **Phase O** - Multi-dimension maps (Nether, End)
+- [ ] **Phase P** - Spectator cam + drone cam + streaming
+- [ ] **Phase Q** - WebXR VR/AR mode (Quest 3 passthrough, tabletop world)
+- [ ] **Phase R** - Inventory management from browser
+- [ ] **Phase S** - Data analytics (CoreProtect integration, heatmaps)
+- [ ] **Phase Z** - The North Star: browser-based Minecraft client
+
+### Custom Paper Plugins (Planned)
+| Plugin | Purpose |
+|--------|---------|
+| VRDetect | VR player detection (DONE) |
+| AubsCraftLink | MC account to web account linking |
+| AubsCraftClaims | GriefPrevention claim data API |
+| AubsCraftTracker | Real-time player position broadcasting |
+| AubsCraftChat | Web-to-game chat bridge |
+| AubsCraftBuild | Browser creative mode block placement |
+| AubsCraftAI | AI villager NPCs |
+| AubsCraftInventory | Web inventory management |
+
+---
 
 ## Requirements
 
 - [.NET 10.0 SDK](https://dotnet.microsoft.com/) (for building)
 - Minecraft Paper or Spigot server with RCON enabled
-- RCON password configured in `server.properties`
+- WebGPU-capable browser (Chrome 113+, Edge 113+)
 
 ## Quick Start
 
@@ -72,104 +141,34 @@ Built by [Todd Tanner (@LostBeard)](https://github.com/LostBeard) for his daught
 4. Open the URL shown in your browser
 5. Create your admin account on first launch
 
-## Enabling RCON on Your Minecraft Server
-
-In your `server.properties`:
-```properties
-enable-rcon=true
-rcon.port=25575
-rcon.password=your_secure_password
-```
-Restart the server after changes.
-
-## Deployment
-
-### Quick (manual)
-
-```bash
-dotnet publish AubsCraft.Admin.Server -c Release -r linux-x64 --self-contained -o publish
-```
-
-Copy the `publish` folder to your server and run the binary. No .NET runtime needed.
-
-### Automated (included script)
-
-The repo includes a full deployment setup for a Linux VM with a mapped network drive:
-
-1. **First time** - copy files to server, then run:
-   ```bash
-   ssh yourserver "sudo bash /srv/aubscraft/setup-service.sh"
-   ```
-   This installs the systemd service, enables auto-start, and configures passwordless `systemctl` for deploys.
-
-2. **Every deploy after** - just run:
-   ```
-   deploy-aubscraft.bat
-   ```
-   Builds, stops the service via SSH, copies files via mapped drive, starts the service. Takes about 15 seconds.
-
-### systemd service
-
-The included `aubscraft_admin.service` runs the admin panel as a systemd service. The `setup-service.sh` script installs it, enables boot start, and adds sudoers entries so the deploy script can stop/start without a password.
-
 ## Project Structure
 
 | Project | Description |
 |---------|-------------|
-| `AubsCraft.Admin` | Blazor WebAssembly frontend - all the UI pages and components |
-| `AubsCraft.Admin.Server` | ASP.NET Core host - serves WASM, bridges RCON via SignalR, reads player stats |
+| `AubsCraft.Admin` | Blazor WebAssembly frontend - UI pages, 3D renderer, GPU kernels |
+| `AubsCraft.Admin.Server` | ASP.NET Core host - RCON bridge, SignalR, binary WebSocket, world data |
 | `SpawnDev.Rcon` | Standalone Source RCON protocol client library (TCP, async, reusable) |
-| `VRDetect` | Paper plugin (Java) - detects QuestCraft VR players and stores metadata |
-
-## Configuration Reference
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `Rcon:Host` | `127.0.0.1` | Minecraft server IP |
-| `Rcon:Port` | `25575` | RCON port |
-| `Rcon:Password` | - | RCON password (required) |
-| `Minecraft:LogPath` | `latest.log` | Path to server's latest.log |
-| `BlueMap:Url` | - | BlueMap web viewer URL for iframe embed |
-| `BlueMap:Enabled` | `false` | Enable BlueMap page |
-| `ActivityLog:MaxEvents` | `1000` | Max events in memory |
-| `ActivityLog:FilePath` | `activity-log.json` | Activity log persistence file |
-| `Auth:CredentialsPath` | `admin.json` | Admin credentials file (delete to reset) |
-
-## SpawnDev.Rcon
-
-The RCON client library is a standalone, reusable C# implementation of the [Source RCON Protocol](https://developer.valvesoftware.com/wiki/Source_RCON_Protocol). It works with any server that implements Source RCON - Minecraft, Valve Source servers, ARK, Rust, and others.
-
-Features:
-- Async/await TCP client with automatic reconnection
-- `MinecraftRconClient` with typed commands (list, whitelist, ban, kick, time, weather, TPS, etc.)
-- Paper/EssentialsX/LuckPerms-aware response parsing
-- Minecraft color code stripping (`MinecraftText.StripColorCodes`)
-- Player list parsing handles group prefixes and multiline responses
-
-## VRDetect Plugin
-
-A lightweight Paper plugin (Java) that detects QuestCraft VR players. When a player joins, VRDetect checks for VR client indicators and stores the result as persistent metadata. The admin panel reads this to show VR badges next to player names.
-
-Build:
-```bash
-cd VRDetect && bash build.sh
-```
-
-Drop the resulting `.jar` into your server's `plugins/` folder.
-
-## Cross-Platform Support
-
-The admin panel detects and displays player platforms:
-- **Java** - standard Minecraft Java Edition
-- **Bedrock** - players connecting via GeyserMC (detected by Floodgate prefix)
-- **VR** - QuestCraft players (detected by VRDetect plugin)
+| `VRDetect` | Paper plugin (Java) - detects Vivecraft VR players |
+| `Research/` | 23 design documents covering every planned feature |
 
 ## Tech Stack
 
-- **Frontend** - Blazor WebAssembly (.NET 10), Bootstrap 5, SignalR
-- **Backend** - ASP.NET Core (.NET 10), SignalR hub, Source RCON protocol
-- **Data** - Minecraft NBT player stats (read directly from `world/stats/`), SQLite for VRDetect, JSON for activity log
+- **Frontend** - Blazor WebAssembly (.NET 10), Bootstrap 5, SignalR, WebGPU
+- **GPU Compute** - SpawnDev.ILGPU (WebGPU backend) for all mesh generation
+- **JS Interop** - SpawnDev.BlazorJS for WebSocket, OPFS, IndexedDB, WebXR
+- **Backend** - ASP.NET Core (.NET 10), SignalR hub, binary WebSocket, Source RCON
+- **Caching** - OPFS region files (275 MB/s read, instant startup)
+- **Rendering** - WebGPU with WGSL shaders, two-pass opaque + transparent pipeline
+- **Worker** - Dedicated Web Worker with OffscreenCanvas for render isolation
 - **Deployment** - Self-contained linux-x64, systemd service, SSH + mapped drive deploy
+
+## Cross-Platform Support
+
+Players and viewers detected by platform:
+- **Java** - standard Minecraft Java Edition
+- **Bedrock** - players connecting via GeyserMC (Floodgate prefix)
+- **VR** - Vivecraft players (VRDetect plugin)
+- **Web Viewer** - browser-based spectators (planned: visible in-game as drones/birds)
 
 ## License
 

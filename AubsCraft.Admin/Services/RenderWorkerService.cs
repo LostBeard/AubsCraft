@@ -22,6 +22,9 @@ public class RenderWorkerService : IRenderWorkerService
     private bool _initialized;
     private bool _disposed;
     public int LoadedCount { get; private set; }
+    private System.Diagnostics.Stopwatch _loadTimer = new();
+    private int _lastLoadCount;
+    private float _chunksPerSecond;
 
     /// <summary>
     /// Constructor called via worker.New() with the transferred OffscreenCanvas.
@@ -110,6 +113,13 @@ public class RenderWorkerService : IRenderWorkerService
     /// </summary>
     public Task<RenderStats> GetStatsAsync()
     {
+        // Calculate chunks/sec over the last stats interval
+        if (_loadTimer.IsRunning && _loadTimer.ElapsedMilliseconds > 0)
+        {
+            float elapsed = _loadTimer.ElapsedMilliseconds / 1000f;
+            _chunksPerSecond = LoadedCount / elapsed;
+        }
+
         return Task.FromResult(new RenderStats(
             _renderer.Fps,
             _renderer.VisibleChunkCount,
@@ -118,6 +128,7 @@ public class RenderWorkerService : IRenderWorkerService
             _renderer.TotalVertices,
             _renderer.DrawDistance,
             LoadedCount,
+            _chunksPerSecond,
             _renderer.Camera.Position.X,
             _renderer.Camera.Position.Y,
             _renderer.Camera.Position.Z,
@@ -184,6 +195,8 @@ public class RenderWorkerService : IRenderWorkerService
 
     private async Task LoadChunksAsync()
     {
+        _loadTimer.Start();
+
         // Phase 1: Load from OPFS cache
         var regionCount = await _cache.GetCachedRegionCountAsync();
         if (regionCount > 0)
@@ -207,9 +220,10 @@ public class RenderWorkerService : IRenderWorkerService
             {
                 try
                 {
-                    var hm = ChunkStreamService.ParseFrame(frame);
-                    if (hm != null)
-                        await RenderHeightmapAsync(hm);
+                    // Cache returns byte[] - wrap as ArrayBuffer for the render path
+                    // TODO: Switch cache to return ArrayBuffer directly (OPFS zero-copy)
+                    using var jsFrame = new Uint8Array(frame);
+                    await RenderFromFrameAsync(jsFrame.Buffer);
                 }
                 catch (Exception ex)
                 {
@@ -234,53 +248,59 @@ public class RenderWorkerService : IRenderWorkerService
         _chunkStream.Connect(_renderer.Camera.Position);
     }
 
-    private void OnChunkReceived(int cx, int cz, byte[] frame)
+    private void OnChunkReceived(int cx, int cz, ArrayBuffer frameBuffer)
     {
-        _ = ProcessChunkAsync(cx, cz, frame);
+        _ = ProcessChunkAsync(cx, cz, frameBuffer);
     }
 
-    private async Task ProcessChunkAsync(int cx, int cz, byte[] frame)
+    private async Task ProcessChunkAsync(int cx, int cz, ArrayBuffer frameBuffer)
     {
-        var hm = ChunkStreamService.ParseFrame(frame);
-        if (hm == null) return;
-        _populatedChunks.Add((hm.X, hm.Z));
-        if (!_loadedChunks.Contains((hm.X, hm.Z)))
-            await RenderHeightmapAsync(hm);
+        _populatedChunks.Add((cx, cz));
+        if (_loadedChunks.Contains((cx, cz)))
+        {
+            frameBuffer.Dispose();
+            return;
+        }
+        await RenderFromFrameAsync(frameBuffer);
         LoadedCount++;
     }
 
-    private async Task RenderHeightmapAsync(HeightmapData hm)
+    /// <summary>
+    /// Render a heightmap from a JS ArrayBuffer. Binary data stays in JS.
+    /// Only palette strings cross to .NET for color/UV/flag computation.
+    /// </summary>
+    private async Task RenderFromFrameAsync(ArrayBuffer frameBuffer)
     {
-        _populatedChunks.Add((hm.X, hm.Z));
-        if (_loadedChunks.Contains((hm.X, hm.Z))) return;
+        var header = ChunkStreamService.ParseFrameHeader(frameBuffer);
+        if (header == null) return;
+        var (cx, cz, palette, binaryOffset) = header.Value;
 
-        var paletteColors = BlockColorMap.BuildPaletteColors(hm.Palette);
-        var atlasUVs = new float[hm.Palette.Count * 4];
-        for (int i = 0; i < hm.Palette.Count; i++)
+        _populatedChunks.Add((cx, cz));
+        if (_loadedChunks.Contains((cx, cz))) return;
+
+        // Palette processing stays in .NET (string lookups in BlockColorMap/TextureAtlas)
+        var paletteColors = BlockColorMap.BuildPaletteColors(palette);
+        var atlasUVs = new float[palette.Count * 4];
+        for (int i = 0; i < palette.Count; i++)
         {
-            var (u0, v0, u1, v1) = TextureAtlas.GetTileUVs(hm.Palette[i]);
+            var (u0, v0, u1, v1) = TextureAtlas.GetTileUVs(palette[i]);
             int b = i * 4;
             atlasUVs[b] = u0; atlasUVs[b + 1] = v0; atlasUVs[b + 2] = u1; atlasUVs[b + 3] = v1;
         }
-        var blockFlags = BuildBlockFlags(hm.Palette);
+        var blockFlags = BuildBlockFlags(palette);
 
-        var blockIdInts = new int[hm.BlockIds.Length];
-        for (int i = 0; i < hm.BlockIds.Length; i++)
-            blockIdInts[i] = hm.BlockIds[i];
-        var seabedIdInts = new int[hm.SeabedBlockIds.Length];
-        for (int i = 0; i < hm.SeabedBlockIds.Length; i++)
-            seabedIdInts[i] = hm.SeabedBlockIds[i];
+        // Dispatch kernel with JS ArrayBuffer - heights/seabed go JS -> GPU via CopyFromJS
+        var (opaqueFloats, waterFloats) = await _engine.DispatchHeightmapFromFrameAsync(
+            frameBuffer, binaryOffset, paletteColors, atlasUVs, blockFlags, cx, cz);
 
-        var result = await _engine.GenerateHeightmapMeshAsync(
-            hm.Heights, blockIdInts, paletteColors, atlasUVs, blockFlags,
-            hm.SeabedHeights, seabedIdInts, hm.X, hm.Z);
-
-        if (result.OpaqueVertexCount > 0)
-            _renderer.UploadChunkMesh(hm.X, hm.Z, result.OpaqueVertices);
-        if (result.WaterVertexCount > 0)
-            _renderer.UploadWaterMesh(hm.X, hm.Z, result.WaterVertices);
-        if (result.OpaqueVertexCount > 0 || result.WaterVertexCount > 0)
-            _loadedChunks.Add((hm.X, hm.Z));
+        // GPU-to-GPU copy: ILGPU output -> WebGPU vertex buffer. Zero CPU readback.
+        var (opaqueGpu, waterGpu) = _engine.GetHeightmapOutputGPUBuffers();
+        if (opaqueFloats > 0 && opaqueGpu != null)
+            _renderer.UploadChunkMeshFromGPU(cx, cz, opaqueGpu, opaqueFloats / 11);
+        if (waterFloats > 0 && waterGpu != null)
+            _renderer.UploadWaterMeshFromGPU(cx, cz, waterGpu, waterFloats / 11);
+        if (opaqueFloats > 0 || waterFloats > 0)
+            _loadedChunks.Add((cx, cz));
     }
 
     /// <summary>
@@ -432,4 +452,5 @@ public class RenderWorkerService : IRenderWorkerService
 public record RenderStats(
     float Fps, int VisibleChunks, int TotalChunks,
     int VisibleVerts, int TotalVerts, int DrawDistance, int LoadedCount,
+    float ChunksPerSecond,
     float CamX, float CamY, float CamZ, float CamPitch, float CamYaw);

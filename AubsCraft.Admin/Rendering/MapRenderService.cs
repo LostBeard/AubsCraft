@@ -75,6 +75,9 @@ public sealed class MapRenderService : IDisposable
             _canvasWidth = width;
             _canvasHeight = height;
             CreateDepthTexture();
+            // Update cached descriptor with new depth view
+            if (_cachedDepthAttachment != null)
+                _cachedDepthAttachment.View = _depthView!;
         }
     }
     public bool IsInitialized { get; private set; }
@@ -417,6 +420,63 @@ public sealed class MapRenderService : IDisposable
         _slots[key] = new ChunkSlot { FirstVertex = writeOffset, VertexCount = vertexCount };
     }
 
+    /// <summary>
+    /// Upload chunk mesh directly from a GPU buffer (zero CPU copy).
+    /// Uses CopyBufferToBuffer - data stays on GPU the entire time.
+    /// </summary>
+    public void UploadChunkMeshFromGPU(int cx, int cz, GPUBuffer sourceBuffer, int vertexCount, long sourceByteOffset = 0)
+    {
+        var key = (cx, cz);
+        if (vertexCount == 0) return;
+
+        if (_slots.Remove(key, out var oldSlot))
+            _freeSlots.Add((oldSlot.FirstVertex, oldSlot.VertexCount));
+
+        int writeOffset = -1;
+        for (int i = 0; i < _freeSlots.Count; i++)
+        {
+            if (_freeSlots[i].vertexCount >= vertexCount)
+            {
+                var free = _freeSlots[i];
+                writeOffset = free.firstVertex;
+                int remainder = free.vertexCount - vertexCount;
+                if (remainder > 100)
+                    _freeSlots[i] = (free.firstVertex + vertexCount, remainder);
+                else
+                    _freeSlots.RemoveAt(i);
+                break;
+            }
+        }
+
+        if (writeOffset < 0)
+        {
+            if (_nextFreeVertex + vertexCount > _bufferCapacityVertices)
+            {
+                int needed = _nextFreeVertex + vertexCount;
+                int newCap = Math.Min(Math.Max(needed + needed / 4, _bufferCapacityVertices + 500_000), MaxBufferVertices);
+                if (newCap < needed)
+                {
+                    Console.WriteLine($"[MapRender] Vertex buffer full, dropping chunk ({cx},{cz})");
+                    return;
+                }
+                GrowBuffer(newCap);
+            }
+            writeOffset = _nextFreeVertex;
+            _nextFreeVertex += vertexCount;
+        }
+
+        // GPU-to-GPU copy - zero CPU involvement
+        ulong destByteOffset = (ulong)writeOffset * BytesPerVertex;
+        ulong copyBytes = (ulong)vertexCount * BytesPerVertex;
+        using var encoder = _device!.CreateCommandEncoder();
+        encoder.CopyBufferToBuffer(sourceBuffer, (ulong)sourceByteOffset, _vertexBuffer!, destByteOffset, copyBytes);
+        _submitArray[0] = encoder.Finish();
+        _queue!.Submit(_submitArray);
+        _submitArray[0]?.Dispose();
+
+        _slots[key] = new ChunkSlot { FirstVertex = writeOffset, VertexCount = vertexCount };
+    }
+
     public void RemoveChunkMesh(int cx, int cz)
     {
         if (_slots.Remove((cx, cz), out var slot))
@@ -477,6 +537,55 @@ public sealed class MapRenderService : IDisposable
         ulong byteOffset = (ulong)writeOffset * BytesPerVertex;
         using var jsArray = new Float32Array(vertices);
         _queue!.WriteBuffer(_waterVertexBuffer!, byteOffset, jsArray);
+        _waterSlots[key] = new ChunkSlot { FirstVertex = writeOffset, VertexCount = vertexCount };
+    }
+
+    /// <summary>Upload water mesh from GPU buffer (zero CPU copy).</summary>
+    public void UploadWaterMeshFromGPU(int cx, int cz, GPUBuffer sourceBuffer, int vertexCount, long sourceByteOffset = 0)
+    {
+        var key = (cx, cz);
+        if (vertexCount == 0) return;
+
+        if (_waterSlots.Remove(key, out var oldSlot))
+            _waterFreeSlots.Add((oldSlot.FirstVertex, oldSlot.VertexCount));
+
+        int writeOffset = -1;
+        for (int i = 0; i < _waterFreeSlots.Count; i++)
+        {
+            if (_waterFreeSlots[i].vertexCount >= vertexCount)
+            {
+                var free = _waterFreeSlots[i];
+                writeOffset = free.firstVertex;
+                int remainder = free.vertexCount - vertexCount;
+                if (remainder > 100)
+                    _waterFreeSlots[i] = (free.firstVertex + vertexCount, remainder);
+                else
+                    _waterFreeSlots.RemoveAt(i);
+                break;
+            }
+        }
+
+        if (writeOffset < 0)
+        {
+            if (_waterNextFreeVertex + vertexCount > _waterBufferCapacity)
+            {
+                int needed = _waterNextFreeVertex + vertexCount;
+                int newCap = Math.Min(Math.Max(needed + needed / 4, _waterBufferCapacity + 200_000), WaterMaxCapacity);
+                if (newCap < needed) return;
+                GrowWaterBuffer(newCap);
+            }
+            writeOffset = _waterNextFreeVertex;
+            _waterNextFreeVertex += vertexCount;
+        }
+
+        ulong destByteOffset = (ulong)writeOffset * BytesPerVertex;
+        ulong copyBytes = (ulong)vertexCount * BytesPerVertex;
+        using var encoder = _device!.CreateCommandEncoder();
+        encoder.CopyBufferToBuffer(sourceBuffer, (ulong)sourceByteOffset, _waterVertexBuffer!, destByteOffset, copyBytes);
+        _submitArray[0] = encoder.Finish();
+        _queue!.Submit(_submitArray);
+        _submitArray[0]?.Dispose();
+
         _waterSlots[key] = new ChunkSlot { FirstVertex = writeOffset, VertexCount = vertexCount };
     }
 
