@@ -62,7 +62,8 @@ public sealed class MapRenderService : IDisposable
     private bool _disposed;
     private double _lastTimestamp;
     private ActionCallback<double>? _rafCallback;
-    private readonly float[] _uniformFloats = new float[24]; // 16 MVP + 4 camera pos + 4 time_data
+    // 16 MVP + 4 camera_pos + 4 sun_dir + 4 ambient + 4 sun_color + 4 fog_color_strength = 36 floats = 144 bytes
+    private readonly float[] _uniformFloats = new float[36];
 
     /// <summary>
     /// Time of day as 0.0-1.0 (maps to Minecraft's 24000 tick cycle).
@@ -357,7 +358,7 @@ public sealed class MapRenderService : IDisposable
 
         _uniformBuffer = _device.CreateBuffer(new GPUBufferDescriptor
         {
-            Size = 96, // 64 MVP + 16 camera pos (vec4) + 16 time_data (vec4)
+            Size = 144, // 64 MVP + 16 camera_pos + 16 sun_dir + 16 ambient + 16 sun_color + 16 fog_strength
             Usage = GPUBufferUsage.Uniform | GPUBufferUsage.CopyDst,
         });
 
@@ -759,13 +760,53 @@ public sealed class MapRenderService : IDisposable
         _uniformFloats[16] = Camera.Position.X;
         _uniformFloats[17] = Camera.Position.Y;
         _uniformFloats[18] = Camera.Position.Z;
-        _uniformFloats[19] = 0f; // padding
-        _uniformFloats[20] = TimeOfDay; // time_data.x (0.0-1.0)
-        _uniformFloats[21] = 0f; // reserved
-        _uniformFloats[22] = 0f; // reserved
-        _uniformFloats[23] = 0f; // reserved
-        _uniformBytes ??= new byte[96];
-        Buffer.BlockCopy(_uniformFloats, 0, _uniformBytes, 0, 96);
+        _uniformFloats[19] = 0f;
+
+        // Precompute time-of-day lighting on CPU once per frame (no per-pixel trig)
+        float t = TimeOfDay;
+        float angle = t * MathF.Tau;
+        float sy = -MathF.Cos(angle);
+        float sx = MathF.Sin(angle) * 0.7f;
+        float len = MathF.Sqrt(sx * sx + sy * sy + 0.35f * 0.35f);
+        _uniformFloats[20] = sx / len;  // sun_dir.x
+        _uniformFloats[21] = sy / len;  // sun_dir.y
+        _uniformFloats[22] = 0.35f / len; // sun_dir.z
+        _uniformFloats[23] = 0f;
+
+        float elevation = -MathF.Cos(angle);
+        float dayFactor = Math.Clamp(elevation * 2f + 0.5f, 0f, 1f);
+        float dawnFactor = Math.Clamp(1f - MathF.Abs(elevation) * 4f, 0f, 1f);
+
+        // Ambient
+        float ar = Lerp(0.05f, 0.30f, dayFactor); ar = Lerp(ar, 0.25f, dawnFactor * 0.6f);
+        float ag = Lerp(0.06f, 0.32f, dayFactor); ag = Lerp(ag, 0.18f, dawnFactor * 0.6f);
+        float ab = Lerp(0.12f, 0.38f, dayFactor); ab = Lerp(ab, 0.12f, dawnFactor * 0.6f);
+        _uniformFloats[24] = ar;
+        _uniformFloats[25] = ag;
+        _uniformFloats[26] = ab;
+        _uniformFloats[27] = 0f;
+
+        // Sun color
+        float sr2 = Lerp(0.15f, 1.0f, dayFactor); sr2 = Lerp(sr2, 1.0f, dawnFactor * 0.8f);
+        float sg2 = Lerp(0.18f, 0.95f, dayFactor); sg2 = Lerp(sg2, 0.55f, dawnFactor * 0.8f);
+        float sb2 = Lerp(0.35f, 0.85f, dayFactor); sb2 = Lerp(sb2, 0.25f, dawnFactor * 0.8f);
+        _uniformFloats[28] = sr2;
+        _uniformFloats[29] = sg2;
+        _uniformFloats[30] = sb2;
+        _uniformFloats[31] = 0f;
+
+        // Fog color + sun strength packed in .w
+        float fr = Lerp(0.04f, 0.65f, dayFactor); fr = Lerp(fr, 0.85f, dawnFactor * 0.7f);
+        float fg = Lerp(0.05f, 0.80f, dayFactor); fg = Lerp(fg, 0.50f, dawnFactor * 0.7f);
+        float fb = Lerp(0.10f, 0.95f, dayFactor); fb = Lerp(fb, 0.30f, dawnFactor * 0.7f);
+        float sunStrength = Math.Clamp(dayFactor * 0.55f + 0.05f, 0.05f, 0.55f);
+        _uniformFloats[32] = fr;
+        _uniformFloats[33] = fg;
+        _uniformFloats[34] = fb;
+        _uniformFloats[35] = sunStrength;
+
+        _uniformBytes ??= new byte[144];
+        Buffer.BlockCopy(_uniformFloats, 0, _uniformBytes, 0, 144);
         _queue!.WriteBuffer(_uniformBuffer!, 0, _uniformBytes);
 
         var frustum = FrustumCuller.ExtractPlanes(vp);
@@ -910,6 +951,8 @@ public sealed class MapRenderService : IDisposable
         _disposed = false;
     }
 
+    private static float Lerp(float a, float b, float t) => a + (b - a) * t;
+
     private struct ChunkSlot
     {
         public int FirstVertex;
@@ -922,7 +965,10 @@ public sealed class MapRenderService : IDisposable
 struct Uniforms {
     mvp : mat4x4<f32>,
     camera_pos : vec4<f32>,
-    time_data : vec4<f32>,  // x = time_of_day (0.0-1.0, maps to MC 24000 ticks), y/z/w reserved
+    sun_dir : vec4<f32>,       // xyz = normalized sun direction (precomputed on CPU)
+    ambient : vec4<f32>,       // xyz = ambient color (precomputed)
+    sun_color : vec4<f32>,     // xyz = sun/moon color (precomputed)
+    fog_color_str : vec4<f32>, // xyz = fog color, w = sun strength (precomputed)
 };
 
 @group(0) @binding(0) var<uniform> uniforms : Uniforms;
@@ -955,61 +1001,17 @@ fn vs_main(input : VertexInput) -> VertexOutput {
     return output;
 }
 
-// Time-of-day sun direction. MC ticks: 0=sunrise(6AM), 6000=noon, 12000=sunset, 18000=midnight
-// time_t is 0.0-1.0 mapping to 24000 ticks
-fn get_sun_dir(time_t : f32) -> vec3<f32> {
-    // Sun angle: 0=sunrise(horizon east), 0.25=noon(overhead), 0.5=sunset(horizon west)
-    let angle = time_t * 6.283185; // full circle
-    let sy = -cos(angle);          // up at noon, down at midnight
-    let sx = sin(angle) * 0.7;     // east to west
-    return normalize(vec3<f32>(sx, sy, 0.35));
-}
-
-fn get_sky_colors(time_t : f32) -> array<vec3<f32>, 4> {
-    // Sun elevation: 1.0 at noon, 0.0 at horizon, -1.0 at midnight
-    let elevation = -cos(time_t * 6.283185);
-    let day_factor = clamp(elevation * 2.0 + 0.5, 0.0, 1.0);     // 1.0 during day, 0.0 at night
-    let dawn_factor = clamp(1.0 - abs(elevation) * 4.0, 0.0, 1.0); // peaks at sunrise/sunset
-
-    // Ambient: bright blue-white during day, dark blue at night, warm at dawn/dusk
-    let day_ambient = vec3<f32>(0.30, 0.32, 0.38);
-    let night_ambient = vec3<f32>(0.05, 0.06, 0.12);
-    let dawn_ambient = vec3<f32>(0.25, 0.18, 0.12);
-    var ambient = mix(night_ambient, day_ambient, day_factor);
-    ambient = mix(ambient, dawn_ambient, dawn_factor * 0.6);
-
-    // Sun color: white-yellow at noon, orange at dawn/dusk, dim blue at night
-    let day_sun = vec3<f32>(1.0, 0.95, 0.85);
-    let dawn_sun = vec3<f32>(1.0, 0.55, 0.25);
-    let night_sun = vec3<f32>(0.15, 0.18, 0.35); // moonlight
-    var sun_col = mix(night_sun, day_sun, day_factor);
-    sun_col = mix(sun_col, dawn_sun, dawn_factor * 0.8);
-
-    // Fog color: blue sky during day, dark at night, orange at dawn/dusk
-    let day_fog = vec3<f32>(0.65, 0.80, 0.95);
-    let night_fog = vec3<f32>(0.04, 0.05, 0.10);
-    let dawn_fog = vec3<f32>(0.85, 0.50, 0.30);
-    var fog = mix(night_fog, day_fog, day_factor);
-    fog = mix(fog, dawn_fog, dawn_factor * 0.7);
-
-    // Sun strength multiplier
-    let strength = vec3<f32>(clamp(day_factor * 0.55 + 0.05, 0.05, 0.55), 0.0, 0.0);
-
-    return array<vec3<f32>, 4>(ambient, sun_col, fog, strength);
-}
-
 @fragment
 fn fs_main(input : VertexOutput) -> @location(0) vec4<f32> {
-    let time_t = uniforms.time_data.x;
-    let sun_dir = get_sun_dir(time_t);
+    // All lighting values precomputed on CPU - zero per-pixel trig
+    let sun_dir = uniforms.sun_dir.xyz;
+    let ambient = uniforms.ambient.xyz;
+    let sun_color = uniforms.sun_color.xyz;
+    let fog_color = uniforms.fog_color_str.xyz;
+    let sun_strength = uniforms.fog_color_str.w;
+
     let fill_dir = normalize(vec3<f32>(-0.3, 0.2, -0.5));
     let n = normalize(input.world_normal);
-
-    let sky = get_sky_colors(time_t);
-    let ambient = sky[0];
-    let sun_color = sky[1];
-    let fog_color = sky[2];
-    let sun_strength = sky[3].x;
 
     let sun_intensity = max(dot(n, sun_dir), 0.0);
     let fill_intensity = max(dot(n, fill_dir), 0.0);
@@ -1046,23 +1048,21 @@ fn fs_main(input : VertexOutput) -> @location(0) vec4<f32> {
     return vec4<f32>(color, 1.0);
 }
 
-// Water fragment shader - same time-of-day lighting as opaque but with alpha transparency
+// Water fragment shader - same precomputed lighting as opaque but with alpha transparency
 @fragment
 fn fs_water(input: VertexOutput) -> @location(0) vec4<f32> {
-    let time_t = uniforms.time_data.x;
     let has_texture = step(0.0, input.tex_uv.x);
     let tex_color = textureSample(atlas_texture, atlas_sampler, input.tex_uv);
     var color = mix(input.base_color, tex_color.rgb * input.base_color, has_texture);
 
-    let sky = get_sky_colors(time_t);
-    let sun_dir = get_sun_dir(time_t);
+    let sun_dir = uniforms.sun_dir.xyz;
     let sun_strength_val = max(dot(input.world_normal, sun_dir), 0.0);
-    let water_ambient = sky[0] * 1.2; // water reflects more ambient
-    let lit = water_ambient + sky[1] * sun_strength_val * sky[3].x;
+    let water_ambient = uniforms.ambient.xyz * 1.2;
+    let lit = water_ambient + uniforms.sun_color.xyz * sun_strength_val * uniforms.fog_color_str.w;
     color = color * lit;
 
-    // Distance fog (same as opaque, time-based fog color)
-    let fog_color = sky[2];
+    // Distance fog
+    let fog_color = uniforms.fog_color_str.xyz;
     let dist = length(input.world_pos - uniforms.camera_pos.xyz);
     let fog_start = 250.0;
     let fog_end = 450.0;

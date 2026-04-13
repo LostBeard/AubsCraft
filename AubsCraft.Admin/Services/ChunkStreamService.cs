@@ -253,9 +253,6 @@ public sealed class ChunkStreamService : IDisposable
         int expectedRemaining = 256 * 4 + 256 * 2 + 256 * 4 + 256 * 2;
         if (binaryDataOffset + expectedRemaining > byteLength) return null;
 
-        if (palette.Count > 0 && palette.Count <= 3)
-            Console.WriteLine($"[ParseHeader] cx={cx} cz={cz} palette[0]={palette[0]} count={paletteCount} paletteSize={paletteSize} binaryOffset={binaryDataOffset} totalLen={byteLength}");
-
         return (cx, cz, palette, binaryDataOffset);
     }
 
