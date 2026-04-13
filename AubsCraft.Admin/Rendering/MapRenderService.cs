@@ -48,7 +48,9 @@ public sealed class MapRenderService : IDisposable
 
     private const int BytesPerVertex = 11 * 4; // 11 floats x 4 bytes (pos3 + normal3 + color3 + uv2)
     private const int InitialCapacityVertices = 5_000_000;
-    private const int MaxBufferVertices = 50_000_000; // full 3D chunks at ~60K verts each need headroom
+    // WebGPU maxBufferSize typically 256 MB. At 44 bytes/vert, max ~5.8M verts.
+    // Stay under to leave room for water buffer and other GPU resources.
+    private const int MaxBufferVertices = 5_000_000;
     private const int ChunkXZ = 16;
     private const int ChunkHeight = 384;
 
@@ -111,9 +113,9 @@ public sealed class MapRenderService : IDisposable
     private int _frameCount;
     private double _fpsAccumulator;
     private float _lastDt;
-    public int DrawDistance { get; private set; } = 20;
-    private const int MinDrawDistance = 8;
-    private const int MaxDrawDistance = 60;
+    public int DrawDistance { get; private set; } = 30;
+    private const int MinDrawDistance = 12;
+    private const int MaxDrawDistance = 80;
 
     public MapRenderService(BlazorJSRuntime js)
     {

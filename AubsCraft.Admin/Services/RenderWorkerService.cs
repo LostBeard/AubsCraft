@@ -218,9 +218,10 @@ public class RenderWorkerService : IRenderWorkerService
     private HashSet<(int, int)> _fullChunks = new();
     private int _lastFullCX = int.MinValue, _lastFullCZ = int.MinValue;
     private bool _loadingFull;
-    // Full 3D radius tracks draw distance - everything visible should be fully rendered.
-    // The adaptive draw distance system handles device capability.
-    private int FullRenderRadius => Math.Max(3, _renderer.DrawDistance);
+    // Full chunk data loaded within this radius. LOD kernel reduces detail for distant chunks.
+    // LOD 0 (full detail) for radius 0-3, LOD 2 for 4-8, LOD 4 for 9-16.
+    // Heightmap from WebSocket covers beyond this radius.
+    private const int FullRenderRadius = 16;
     private string? _baseUrl;
 
 
@@ -431,8 +432,15 @@ public class RenderWorkerService : IRenderWorkerService
                     var atlasUVs = BuildFullAtlasUVs(palette);
                     var blockFlags = BuildBlockFlags(palette);
 
-                    var result = await _engine.GenerateMeshAsync(
-                        blocks, paletteColors, atlasUVs, blockFlags, cx, cz);
+                    // Select LOD level based on distance from camera
+                    int dist = (cx - camCX) * (cx - camCX) + (cz - camCZ) * (cz - camCZ);
+                    MeshGenerationResult result;
+                    if (dist <= 3 * 3)
+                        result = await _engine.GenerateMeshAsync(blocks, paletteColors, atlasUVs, blockFlags, cx, cz);
+                    else if (dist <= 8 * 8)
+                        result = await _engine.GenerateLODMeshAsync(blocks, paletteColors, atlasUVs, blockFlags, cx, cz, 2);
+                    else
+                        result = await _engine.GenerateLODMeshAsync(blocks, paletteColors, atlasUVs, blockFlags, cx, cz, 4);
 
                     if (result.OpaqueVertexCount > 100)
                         _renderer.UploadChunkMesh(cx, cz, result.OpaqueVertices);

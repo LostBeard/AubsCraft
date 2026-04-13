@@ -143,8 +143,11 @@ public static class MinecraftMeshKernel
 
     private static int GetBlock(ArrayView<int> blocks, int x, int y, int z)
     {
-        if (x < 0 || x >= SizeXZ || y < 0 || y >= Height || z < 0 || z >= SizeXZ)
-            return 0;
+        // Y out-of-bounds = air (world top/bottom should render faces)
+        if (y < 0 || y >= Height) return 0;
+        // X/Z out-of-bounds = opaque (-1) to prevent underground chunk edge faces.
+        // Adjacent chunk handles its own boundary. Prevents deep underground walls.
+        if (x < 0 || x >= SizeXZ || z < 0 || z >= SizeXZ) return -1;
         return blocks[x + z * SizeXZ + y * SizeXZ2];
     }
 
@@ -152,7 +155,7 @@ public static class MinecraftMeshKernel
     private static bool IsAirOrPlant(ArrayView<int> blocks, ArrayView<float> blockFlags, int x, int y, int z)
     {
         int id = GetBlock(blocks, x, y, z);
-        if (id == 0) return true;
+        if (id <= 0) return id == 0; // 0=air(true), -1=opaque boundary(false)
         float f = blockFlags[id];
         return f > 0.5f && f < 1.5f; // plant only, not water
     }
@@ -161,7 +164,7 @@ public static class MinecraftMeshKernel
     private static bool IsTransparent(ArrayView<int> blocks, ArrayView<float> blockFlags, int x, int y, int z)
     {
         int id = GetBlock(blocks, x, y, z);
-        if (id == 0) return true;
+        if (id <= 0) return id == 0; // 0=air(true), -1=opaque boundary(false)
         return blockFlags[id] > 0.5f; // plant (1.0) or water (2.0)
     }
 

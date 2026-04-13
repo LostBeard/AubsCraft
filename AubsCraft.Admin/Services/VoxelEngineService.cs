@@ -21,6 +21,8 @@ public sealed class VoxelEngineService : IAsyncDisposable
     // Mesh kernel + shared buffers (serialized via _meshLock)
     private Action<Index1D, ArrayView<int>, ArrayView<float>, ArrayView<float>, ArrayView<float>,
         ArrayView<float>, ArrayView<int>, ArrayView<float>, ArrayView<int>, int, int>? _meshKernel;
+    private Action<Index1D, ArrayView<int>, ArrayView<float>, ArrayView<float>, ArrayView<float>,
+        ArrayView<float>, ArrayView<int>, ArrayView<float>, ArrayView<int>, int, int, int, int>? _lodKernel;
     private MemoryBuffer1D<int, Stride1D.Dense>? _meshBlockBuffer;
     private MemoryBuffer1D<float, Stride1D.Dense>? _meshPaletteBuffer;
     private MemoryBuffer1D<float, Stride1D.Dense>? _meshAtlasUVBuffer;
@@ -90,6 +92,20 @@ public sealed class VoxelEngineService : IAsyncDisposable
             ArrayView<int>,   // waterCounter
             int, int           // chunkWorldX, chunkWorldZ
         >(MinecraftMeshKernel.MeshKernel);
+
+        _lodKernel = _accelerator.LoadAutoGroupedStreamKernel<
+            Index1D,
+            ArrayView<int>,   // blocks
+            ArrayView<float>, // paletteColors
+            ArrayView<float>, // atlasUVs
+            ArrayView<float>, // blockFlags
+            ArrayView<float>, // opaqueVerts (output)
+            ArrayView<int>,   // opaqueCounter
+            ArrayView<float>, // waterVerts (output)
+            ArrayView<int>,   // waterCounter
+            int, int,          // chunkWorldX, chunkWorldZ
+            int, int           // lodSize, lodGridW
+        >(MinecraftLODKernel.LODKernel);
 
         _heightmapKernel = _accelerator.LoadAutoGroupedStreamKernel<
             Index1D,
@@ -199,6 +215,90 @@ public sealed class VoxelEngineService : IAsyncDisposable
             if (opaqueFloats > 0)
                 opaqueVerts = await _meshOpaqueVertBuffer.CopyToHostAsync(0, opaqueFloats);
 
+            float[] waterVerts = [];
+            if (waterFloats > 0)
+                waterVerts = await _meshWaterVertBuffer.CopyToHostAsync(0, waterFloats);
+
+            return new MeshGenerationResult(opaqueVerts, opaqueFloats / 11, waterVerts, waterFloats / 11);
+        }
+        finally
+        {
+            _meshLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Generates LOD mesh from full block data at reduced detail.
+    /// lodSize: 2 = 2x2x2 super-blocks (8x fewer threads), 4 = 4x4x4 (64x fewer).
+    /// Same underground skip pre-filter as full detail.
+    /// </summary>
+    public async Task<MeshGenerationResult> GenerateLODMeshAsync(
+        ushort[] blocks, float[] paletteColors, float[] atlasUVs, float[] blockFlags,
+        int chunkX, int chunkZ, int lodSize)
+    {
+        if (_lodKernel == null)
+            throw new InvalidOperationException("Not initialized");
+
+        await _meshLock.WaitAsync();
+        try
+        {
+            var blockInts = _blockIntsPool!;
+            const int W = 16, H = 384, WW = W * W;
+            for (int y = 0; y < H; y++)
+            for (int z = 0; z < W; z++)
+            for (int x = 0; x < W; x++)
+            {
+                int idx = x + z * W + y * WW;
+                int b = blocks[idx];
+                if (b == 0) { blockInts[idx] = 0; continue; }
+                bool exposed =
+                    (x > 0 && IsTransparentBlock(blocks, blockFlags, idx - 1)) ||
+                    (x < 15 && IsTransparentBlock(blocks, blockFlags, idx + 1)) ||
+                    (z > 0 && IsTransparentBlock(blocks, blockFlags, idx - W)) ||
+                    (z < 15 && IsTransparentBlock(blocks, blockFlags, idx + W)) ||
+                    (y > 0 && IsTransparentBlock(blocks, blockFlags, idx - WW)) ||
+                    (y < 383 && IsTransparentBlock(blocks, blockFlags, idx + WW));
+                blockInts[idx] = exposed ? b : 0;
+            }
+
+            _meshBlockBuffer!.CopyFromCPU(blockInts);
+            _meshOpaqueCounterBuffer!.CopyFromCPU(new int[] { 0 });
+            _meshWaterCounterBuffer!.CopyFromCPU(new int[] { 0 });
+
+            EnsureBuffer(ref _meshPaletteBuffer, paletteColors.Length);
+            _meshPaletteBuffer!.CopyFromCPU(paletteColors);
+            EnsureBuffer(ref _meshAtlasUVBuffer, atlasUVs.Length);
+            _meshAtlasUVBuffer!.CopyFromCPU(atlasUVs);
+            EnsureBuffer(ref _meshBlockFlagsBuffer, blockFlags.Length);
+            _meshBlockFlagsBuffer!.CopyFromCPU(blockFlags);
+
+            int lodGridW = W / lodSize;
+            int lodGridH = H / lodSize;
+            int threadCount = lodGridW * lodGridW * lodGridH;
+
+            _lodKernel(
+                (Index1D)threadCount,
+                _meshBlockBuffer!.View,
+                _meshPaletteBuffer!.View,
+                _meshAtlasUVBuffer!.View,
+                _meshBlockFlagsBuffer!.View,
+                _meshOpaqueVertBuffer!.View,
+                _meshOpaqueCounterBuffer!.View,
+                _meshWaterVertBuffer!.View,
+                _meshWaterCounterBuffer!.View,
+                chunkX, chunkZ,
+                lodSize, lodGridW);
+
+            await _accelerator!.SynchronizeAsync();
+
+            var opaqueCountResult = await _meshOpaqueCounterBuffer.CopyToHostAsync();
+            var waterCountResult = await _meshWaterCounterBuffer.CopyToHostAsync();
+            int opaqueFloats = Math.Min(opaqueCountResult[0], MaxOutputFloats);
+            int waterFloats = Math.Min(waterCountResult[0], MaxOutputFloats / 4);
+
+            float[] opaqueVerts = [];
+            if (opaqueFloats > 0)
+                opaqueVerts = await _meshOpaqueVertBuffer.CopyToHostAsync(0, opaqueFloats);
             float[] waterVerts = [];
             if (waterFloats > 0)
                 waterVerts = await _meshWaterVertBuffer.CopyToHostAsync(0, waterFloats);
