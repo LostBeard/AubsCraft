@@ -134,9 +134,31 @@ public sealed class VoxelEngineService : IAsyncDisposable
         await _meshLock.WaitAsync();
         try
         {
+            // Underground skip: zero out blocks completely buried by opaque solids.
+            // The kernel skips blockId=0, so zeroed blocks cost nothing on GPU.
+            // Out-of-bounds neighbors treated as OPAQUE to prevent rendering deep
+            // underground chunk boundaries (which caused 47M+ vertex explosions).
             var blockInts = _blockIntsPool!;
-            for (int i = 0; i < blocks.Length && i < BlocksPerChunk; i++)
-                blockInts[i] = blocks[i];
+            const int W = 16, H = 384, WW = W * W;
+            for (int y = 0; y < H; y++)
+            for (int z = 0; z < W; z++)
+            for (int x = 0; x < W; x++)
+            {
+                int idx = x + z * W + y * WW;
+                int b = blocks[idx];
+                if (b == 0) { blockInts[idx] = 0; continue; }
+
+                // Check each neighbor - out of bounds = opaque (not air)
+                bool exposed =
+                    (x > 0 && IsTransparentBlock(blocks, blockFlags, idx - 1)) ||
+                    (x < 15 && IsTransparentBlock(blocks, blockFlags, idx + 1)) ||
+                    (z > 0 && IsTransparentBlock(blocks, blockFlags, idx - W)) ||
+                    (z < 15 && IsTransparentBlock(blocks, blockFlags, idx + W)) ||
+                    (y > 0 && IsTransparentBlock(blocks, blockFlags, idx - WW)) ||
+                    (y < 383 && IsTransparentBlock(blocks, blockFlags, idx + WW));
+
+                blockInts[idx] = exposed ? b : 0;
+            }
 
             _meshBlockBuffer!.CopyFromCPU(blockInts);
             _meshOpaqueCounterBuffer!.CopyFromCPU(new int[] { 0 });
@@ -278,6 +300,13 @@ public sealed class VoxelEngineService : IAsyncDisposable
     }
 
     /// <summary>Reuse GPU buffer if large enough, only reallocate if needed.</summary>
+    /// <summary>Returns true if block at index is air or transparent (plant/water).</summary>
+    private static bool IsTransparentBlock(ushort[] blocks, float[] blockFlags, int idx)
+    {
+        int b = blocks[idx];
+        return b == 0 || blockFlags[b] > 0.5f;
+    }
+
     /// <summary>Reuse GPU buffer if exact size matches, only reallocate on size change.</summary>
     private void EnsureBuffer(ref MemoryBuffer1D<float, Stride1D.Dense>? buffer, int requiredLength)
     {

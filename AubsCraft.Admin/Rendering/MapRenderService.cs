@@ -48,7 +48,7 @@ public sealed class MapRenderService : IDisposable
 
     private const int BytesPerVertex = 11 * 4; // 11 floats x 4 bytes (pos3 + normal3 + color3 + uv2)
     private const int InitialCapacityVertices = 5_000_000;
-    private const int MaxBufferVertices = 30_000_000; // increased for seabed + water geometry
+    private const int MaxBufferVertices = 50_000_000; // full 3D chunks at ~60K verts each need headroom
     private const int ChunkXZ = 16;
     private const int ChunkHeight = 384;
 
