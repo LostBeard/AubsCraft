@@ -181,7 +181,7 @@ public static class MinecraftMeshKernel
     {
         // 24 vertices per quad pair (2 diags x 2 sides x 6 verts)
         int offset = Atomic.Add(ref counter[0], FloatsPerFace * 4);
-        if (offset + FloatsPerFace * 4 > vertices.IntLength) return;
+        if (offset + FloatsPerFace * 4 > vertices.IntLength) { Atomic.Add(ref counter[0], -(FloatsPerFace * 4)); return; }
 
         // Diagonal 1: (x,z) to (x+1,z+1) - front face
         float nx1 = 0.707f, nz1 = -0.707f;
@@ -234,7 +234,7 @@ public static class MinecraftMeshKernel
         if (cb > 1f) cb = 1f;
 
         int offset = Atomic.Add(ref counter[0], FloatsPerFace);
-        if (offset + FloatsPerFace > vertices.IntLength) return;
+        if (offset + FloatsPerFace > vertices.IntLength) { Atomic.Add(ref counter[0], -FloatsPerFace); return; }
 
         switch (face)
         {

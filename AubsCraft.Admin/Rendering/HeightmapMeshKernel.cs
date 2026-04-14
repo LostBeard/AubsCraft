@@ -113,7 +113,7 @@ public static class HeightmapMeshKernel
         if (isWater)
         {
             int wo = Atomic.Add(ref counters[1], FPF);
-            if (wo + FPF > waterVerts.IntLength) return;
+            if (wo + FPF > waterVerts.IntLength) { Atomic.Add(ref counters[1], -FPF); return; }
             WV(waterVerts, wo,      wx,     ty, wz,     0, 1, 0, tr, tg, tb, u0, v0);
             WV(waterVerts, wo + 11, wx,     ty, wz + 1, 0, 1, 0, tr, tg, tb, u0, v1);
             WV(waterVerts, wo + 22, wx + 1, ty, wz + 1, 0, 1, 0, tr, tg, tb, u1, v1);
@@ -125,7 +125,7 @@ public static class HeightmapMeshKernel
         {
             // Opaque top face (counters[0])
             int oo = Atomic.Add(ref counters[0], FPF);
-            if (oo + FPF > opaqueVerts.IntLength) return;
+            if (oo + FPF > opaqueVerts.IntLength) { Atomic.Add(ref counters[0], -FPF); return; }
             WV(opaqueVerts, oo,      wx,     ty, wz,     0, 1, 0, tr, tg, tb, u0, v0);
             WV(opaqueVerts, oo + 11, wx,     ty, wz + 1, 0, 1, 0, tr, tg, tb, u0, v1);
             WV(opaqueVerts, oo + 22, wx + 1, ty, wz + 1, 0, 1, 0, tr, tg, tb, u1, v1);
@@ -229,7 +229,7 @@ public static class HeightmapMeshKernel
     {
         float snu = -1f; // no texture for sides
         int o = Atomic.Add(ref counters[0], FPF);
-        if (o + FPF > verts.IntLength) return;
+        if (o + FPF > verts.IntLength) { Atomic.Add(ref counters[0], -FPF); return; }
 
         switch (face)
         {
