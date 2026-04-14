@@ -179,6 +179,7 @@ public static class HeightmapMeshKernel
 
             float sbty = sbHeight + 1;
             int so = Atomic.Add(ref counters[0], FPF);
+            if (so + FPF > opaqueVerts.IntLength) { Atomic.Add(ref counters[0], -FPF); return; }
             WV(opaqueVerts, so,      wx,     sbty, wz,     0, 1, 0, sbr, sbg, sbb, sbu0, sbv0);
             WV(opaqueVerts, so + 11, wx,     sbty, wz + 1, 0, 1, 0, sbr, sbg, sbb, sbu0, sbv1);
             WV(opaqueVerts, so + 22, wx + 1, sbty, wz + 1, 0, 1, 0, sbr, sbg, sbb, sbu1, sbv1);
