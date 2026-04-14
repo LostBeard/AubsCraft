@@ -1045,8 +1045,17 @@ public sealed class MapRenderService : IDisposable
             int dx = cx - camCX, dz = cz - camCZ;
             if (dx * dx + dz * dz > drawDistSq) continue;
 
-            var min = new Vector3(cx * ChunkXZ, -64f, cz * ChunkXZ);
-            var max = new Vector3(cx * ChunkXZ + ChunkXZ, 320f, cz * ChunkXZ + ChunkXZ);
+            // Tighten AABB Y range based on camera - underground chunks get smaller AABBs
+            // that are more likely to fail frustum test when viewing from surface
+            float minY = -64f;
+            float maxY = 320f;
+            // If camera is above ground level, clamp chunk AABB to surface vicinity
+            if (Camera.Position.Y > 0 && Camera.Pitch > -60f)
+            {
+                minY = Math.Max(-64f, Camera.Position.Y - 100f);
+            }
+            var min = new Vector3(cx * ChunkXZ, minY, cz * ChunkXZ);
+            var max = new Vector3(cx * ChunkXZ + ChunkXZ, maxY, cz * ChunkXZ + ChunkXZ);
             if (!FrustumCuller.IsBoxVisible(in frustum, min, max)) continue;
             pass.Draw((uint)slot.VertexCount, 1, (uint)slot.FirstVertex, 0);
             visible++;
