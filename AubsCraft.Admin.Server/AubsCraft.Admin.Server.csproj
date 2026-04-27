@@ -18,4 +18,14 @@
 		<ProjectReference Include="..\AubsCraft.Admin\AubsCraft.Admin.csproj" />
 	</ItemGroup>
 
+	<!-- Runtime state files - never publish (production data lives on the server) -->
+	<ItemGroup>
+		<Content Update="users.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+		<Content Update="invite-codes.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+		<Content Update="whitelist-audit.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+		<Content Update="admin.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+		<Content Update="admin.json.migrated" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+		<Content Update="activity-log.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+	</ItemGroup>
+
 </Project>

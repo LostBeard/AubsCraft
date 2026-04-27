@@ -1,0 +1,223 @@
+@page "/play"
+
+<PageTitle>Play AubsCraft - Setup Guide</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mt-3 mb-3">
+    <h1 class="mb-0">Play AubsCraft</h1>
+    <a href="/login" class="btn btn-sm btn-outline-secondary">Server Status / Login</a>
+</div>
+<p class="lead">Setup guide for parents and families. Whatever version of Minecraft you have on PC, you can almost certainly join.</p>
+
+<!-- Server Address -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Server Address</h5>
+    </div>
+    <div class="card-body p-0">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th>Edition</th>
+                    <th>Address</th>
+                    <th>Port</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Java Edition (PC)</td>
+                    <td><code>mc.spawndev.com</code></td>
+                    <td>default (25565)</td>
+                </tr>
+                <tr>
+                    <td>Bedrock Edition (PC, phone, Switch, Xbox)</td>
+                    <td><code>mc.spawndev.com</code></td>
+                    <td><code>19132</code></td>
+                </tr>
+                <tr>
+                    <td>QuestCraft (VR)</td>
+                    <td><code>mc.spawndev.com</code></td>
+                    <td>default</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer text-muted">
+        Use the <strong>Direct Connect</strong> or <strong>Add Server</strong> option in your Minecraft client.
+        Live world map: <a href="https://map.spawndev.com:44365" target="_blank">map.spawndev.com:44365</a>
+    </div>
+</div>
+
+<!-- Quick picker -->
+<div class="alert alert-info">
+    <h5 class="alert-heading">Quick Picker - Local Co-Op with Your Kid</h5>
+    <p class="mb-2">PC Minecraft has never had native split-screen (it's a console-only feature), but there are several ways to play together at home. Pick based on your hardware:</p>
+    <ul class="mb-0">
+        <li><strong>Two PCs in the household?</strong> Use <a href="#option-a">Option A (Family Sharing)</a> - easiest, free, recommended.</li>
+        <li><strong>One PC, own the Java + Bedrock bundle?</strong> Use <a href="#option-b">Option B (dual-client)</a> - free, works today.</li>
+        <li><strong>One PC, want true single-window splitscreen?</strong> See <a href="#option-c">Option C</a> (advanced, alpha mod).</li>
+        <li><strong>One PC, Java only?</strong> See <a href="#option-d">Option D (Nucleus Co-Op)</a> (advanced).</li>
+    </ul>
+</div>
+
+<!-- What you'll need -->
+<h2 class="mt-4">What You'll Need</h2>
+<ul>
+    <li>A copy of Minecraft on PC. The standard "Minecraft: Java &amp; Bedrock Edition for PC" purchase ($29.99 on minecraft.net) includes BOTH editions in one unified launcher. If you only have one edition, that's fine too.</li>
+    <li>Xbox controllers (Bluetooth or USB) if you want controller play.</li>
+    <li>Both PCs on the same WiFi if you also want LAN play in addition to AubsCraft.</li>
+</ul>
+
+<!-- Option A -->
+<h2 class="mt-4" id="option-a">Option A: Two PCs, One Family - Recommended</h2>
+<div class="card mb-4">
+    <div class="card-body">
+        <p><strong>Best for:</strong> Households where you have a desktop AND a laptop (or two of either). Each player gets their own full screen. Zero mods. Native Xbox controller support on Bedrock.</p>
+
+        <p><strong>The trick:</strong> Microsoft's Family Sharing feature lets you share your ONE Minecraft purchase with your kid for free. Each of you signs in with your own Microsoft account, but only one of you had to buy the game.</p>
+
+        <h5 class="mt-3">One-time setup</h5>
+        <ol>
+            <li>Go to <a href="https://family.microsoft.com" target="_blank">family.microsoft.com</a> and sign in with the Microsoft account that owns Minecraft.</li>
+            <li>Click <em>Add a family member</em> and either invite your child's existing Microsoft account, or create a free child account for them.
+                <div class="alert alert-warning mt-2 mb-0">
+                    <small>For under-13 accounts in the US, Microsoft requires a one-time ~$0.50 verification charge to comply with COPPA child-safety law.</small>
+                </div>
+            </li>
+            <li>On your kid's PC: open the Microsoft Store, sign in with <strong>your</strong> Microsoft account, find Minecraft (it'll show as "Owned" thanks to family sharing), and click Install.</li>
+            <li>After install, sign OUT of the Microsoft Store on your kid's PC (so no accidental purchases on your card).</li>
+            <li>Open the Minecraft Launcher on your kid's PC, sign in with your kid's Microsoft account.</li>
+            <li>Enable multiplayer permission for your kid: go to <a href="https://account.xbox.com/settings" target="_blank">account.xbox.com/settings</a>, select their account, click Online Safety, and turn on multiplayer access. (This is OFF by default for child accounts.)</li>
+        </ol>
+
+        <h5 class="mt-3">Playing</h5>
+        <ol>
+            <li>Both PCs on the same WiFi.</li>
+            <li>Open Bedrock on each PC, signed in to its respective account.</li>
+            <li>Connect to AubsCraft using <code>mc.spawndev.com</code> port <code>19132</code>.</li>
+            <li>Plug in your Bluetooth Xbox controllers - Bedrock recognizes them automatically.</li>
+            <li>You're playing together with your kid on AubsCraft, each on your own screen.</li>
+        </ol>
+    </div>
+</div>
+
+<!-- Option B -->
+<h2 class="mt-4" id="option-b">Option B: One PC, One Account, Real Split-Screen via Java + Bedrock</h2>
+<div class="card mb-4">
+    <div class="card-body">
+        <p><strong>Best for:</strong> Households with only one PC, AND you own the Java + Bedrock bundle (the standard Minecraft purchase since 2022).</p>
+
+        <p><strong>The trick:</strong> Java and Bedrock use DIFFERENT login systems. Even though they share your Microsoft account, you can run BOTH at the same time on the same machine without one kicking the other. AubsCraft accepts both, and the Geyser plugin will show the Bedrock version of you with a <code>.</code> prefix so you don't conflict with the Java version of you.</p>
+
+        <h5 class="mt-3">Setup</h5>
+        <ol>
+            <li>In Minecraft Launcher, install both Java Edition and Bedrock Edition (both come with the bundled purchase).</li>
+            <li>For the Java side, install the <strong>Controlify</strong> mod for controller support:
+                <ul>
+                    <li>Install the Fabric loader from <a href="https://fabricmc.net/" target="_blank">fabricmc.net</a>.</li>
+                    <li>Download Controlify from <a href="https://modrinth.com/mod/controlify" target="_blank">Modrinth</a> and drop it in your <code>.minecraft/mods</code> folder.</li>
+                </ul>
+            </li>
+            <li>Launch Bedrock - put it in <strong>windowed mode</strong> (Settings -> Video -> Window Size: anything other than Fullscreen). Resize/position to take half the screen.</li>
+            <li>Launch Java in windowed mode. Position to the other half.</li>
+            <li>Plug in two Xbox controllers - one for each window. Bedrock auto-binds to one. In Java, configure the other in Options -> Controls -> Controller Settings (Controlify menu).</li>
+            <li>Both windows: connect to AubsCraft.
+                <ul>
+                    <li>Java client: <code>mc.spawndev.com</code></li>
+                    <li>Bedrock client: <code>mc.spawndev.com</code> port <code>19132</code></li>
+                </ul>
+            </li>
+            <li>Click into the window you want active to control that player.</li>
+        </ol>
+
+        <h5 class="mt-3">Caveats</h5>
+        <ul>
+            <li>This is a single-screen split-view via two windows, not true splitscreen.</li>
+            <li>The active window receives keyboard input - clicking into a window switches control. Not perfect, but workable.</li>
+            <li>Java + Bedrock characters look slightly different (different inventory UIs, slightly different physics in places). Both still play together fine.</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Option C -->
+<h2 class="mt-4" id="option-c">Option C: One PC, True Single-Window Split-Screen (Advanced)</h2>
+<div class="card mb-4">
+    <div class="card-body">
+        <p><strong>Best for:</strong> Tech-savvy parents willing to manage an alpha-quality mod.</p>
+
+        <p><strong>The mod:</strong> <a href="https://www.patreon.com/posts/controlify-alpha-127654960" target="_blank">Controlify Splitscreen</a> by isXander - actual console-style split-screen rendered in one Java window. Two players, two viewports, two controllers, one screen.</p>
+
+        <p><strong>Status as of 2026:</strong> Alpha. "Contains many bugs" (creator's own words). Windows-only. Requires Minecraft 1.21.1+ on Fabric or NeoForge.</p>
+
+        <h5 class="mt-3">Where to get it</h5>
+        <ul>
+            <li>Official builds: subscriber-only on isXander's Patreon (~$5/month).</li>
+            <li>Free fork: <a href="https://github.com/PlayerRishi/ControlifySplitscreen" target="_blank">PlayerRishi/ControlifySplitscreen</a> on GitHub - same code, but you'll likely need to build the JAR from source (clone repo, install JDK 21, run <code>./gradlew build</code>).</li>
+        </ul>
+
+        <div class="alert alert-warning mb-0">
+            <strong>Recommendation:</strong> If you're not comfortable building a Java project from source OR willing to subscribe to Patreon, skip this and use Option A or B. This option exists for completeness; Options A and B are easier and more reliable for most families.
+        </div>
+    </div>
+</div>
+
+<!-- Option D -->
+<h2 class="mt-4" id="option-d">Option D: One PC, Two Windows, Fake Split-Screen via Nucleus Co-Op (Advanced)</h2>
+<div class="card mb-4">
+    <div class="card-body">
+        <p><strong>Best for:</strong> Households on one PC who want Java only and don't want to mess with the Java + Bedrock dual-client trick.</p>
+
+        <h5 class="mt-3">The tools</h5>
+        <ul>
+            <li><a href="https://prismlauncher.org/" target="_blank">Prism Launcher</a> - lets you run two Java Minecraft instances side-by-side.</li>
+            <li><a href="https://modrinth.com/mod/controlify" target="_blank">Controlify</a> mod - controller support for Java.</li>
+            <li><a href="https://nucleus-coop.github.io/docs/games/minecraft/" target="_blank">Nucleus Co-Op</a> - positions windows automatically and assigns one controller to each instance.</li>
+        </ul>
+
+        <h5 class="mt-3">Setup</h5>
+        <p>Follow the <a href="https://nucleus-coop.github.io/docs/games/minecraft/" target="_blank">Nucleus Co-Op Minecraft guide</a>. You'll create two Prism instances, install Fabric + Controlify in both, load Nucleus's Minecraft script, assign one controller per instance, and launch.</p>
+
+        <h5 class="mt-3">Caveats</h5>
+        <p class="mb-0">Mods break across Minecraft updates. Plan to refresh this setup once or twice a year. Also requires either two Java accounts or the launcher's offline mode (which only works for LAN, not online servers like AubsCraft).</p>
+    </div>
+</div>
+
+<!-- Troubleshooting -->
+<h2 class="mt-4">Troubleshooting</h2>
+<div class="card mb-4">
+    <ul class="list-group list-group-flush">
+        <li class="list-group-item">
+            <details>
+                <summary class="fw-semibold">My kid's child account can't join multiplayer.</summary>
+                <p class="mt-2 mb-0">Multiplayer is OFF by default for child Microsoft accounts. Turn it on at <a href="https://account.xbox.com/settings" target="_blank">account.xbox.com/settings</a> -> Online Safety -> Allow Multiplayer.</p>
+            </details>
+        </li>
+        <li class="list-group-item">
+            <details>
+                <summary class="fw-semibold">Bedrock kicks me when my kid joins from the same account.</summary>
+                <p class="mt-2 mb-0">You're both signed in to the same Microsoft account. Use Option A (family sharing with separate accounts), not the same account.</p>
+            </details>
+        </li>
+        <li class="list-group-item">
+            <details>
+                <summary class="fw-semibold">Family Sharing didn't show Minecraft as Owned in the Microsoft Store.</summary>
+                <p class="mt-2 mb-0">Make sure you signed into the Microsoft Store with the OWNER's account (yours), not the child's. Install first, then sign out of the Store, THEN have your kid sign into the Minecraft Launcher with their account.</p>
+            </details>
+        </li>
+        <li class="list-group-item">
+            <details>
+                <summary class="fw-semibold">My controller doesn't work in Java.</summary>
+                <p class="mt-2 mb-0">Java doesn't support controllers natively. You need the <a href="https://modrinth.com/mod/controlify" target="_blank">Controlify</a> mod. See Options B and D for setup.</p>
+            </details>
+        </li>
+        <li class="list-group-item">
+            <details>
+                <summary class="fw-semibold">AubsCraft doesn't show up in my server list.</summary>
+                <p class="mt-2 mb-0">Use the Direct Connect option and type <code>mc.spawndev.com</code> manually. For Bedrock, also specify port <code>19132</code>.</p>
+            </details>
+        </li>
+    </ul>
+</div>
+
+<p class="text-muted small">
+    <em>Last verified: April 2026. Minecraft updates and Microsoft policy changes can break these instructions over time. If something's outdated, let TJ know.</em>
+</p>

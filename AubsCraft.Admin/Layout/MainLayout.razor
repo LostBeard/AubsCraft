@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 @inject AuthStateProvider Auth
 @inject NavigationManager Nav
+@implements IDisposable
 
 @if (!_authChecked)
 {
@@ -8,11 +9,7 @@
         <p class="text-muted">Loading...</p>
     </div>
 }
-else if (!Auth.IsAuthenticated)
-{
-    @* Redirect handled in OnInitializedAsync *@
-}
-else
+else if (Auth.IsAuthenticated)
 {
     <NotificationToast />
     <ChatPanel />
@@ -23,7 +20,13 @@ else
 
         <main>
             <div class="top-row px-4 d-flex justify-content-between align-items-center">
-                <span class="text-muted">@Auth.Username</span>
+                <span class="text-muted">
+                    @Auth.Username
+                    @if (!string.IsNullOrEmpty(Auth.Role))
+                    {
+                        <span class="badge ms-2 @RoleBadgeClass">@Auth.Role</span>
+                    }
+                </span>
                 <div class="d-flex gap-2">
                     <ThemeToggle />
                     <button class="btn btn-sm btn-outline-secondary" @onclick="LogoutAsync">Logout</button>
@@ -36,22 +39,68 @@ else
         </main>
     </div>
 }
+else if (IsPublicRoute)
+{
+    @* Anonymous users on a public route: render content only, no sidebar, no redirect. *@
+    <div class="container py-3">
+        <div class="d-flex justify-content-end mb-2">
+            <a href="/login" class="btn btn-sm btn-outline-secondary">Sign In / Sign Up</a>
+        </div>
+        @Body
+    </div>
+}
+else
+{
+    @* Redirect handled in OnInitializedAsync / location-changed *@
+}
 
 @code {
+    // Routes that anonymous visitors are allowed to view without being redirected to /login.
+    private static readonly string[] PublicRoutes = { "/play" };
+
     private bool _authChecked;
+    private bool IsPublicRoute => PublicRoutes.Any(route =>
+        Nav.ToBaseRelativePath(Nav.Uri).TrimEnd('/').Equals(route.TrimStart('/'), StringComparison.OrdinalIgnoreCase));
 
     protected override async Task OnInitializedAsync()
     {
+        Nav.LocationChanged += OnLocationChanged;
         await Auth.CheckAuthAsync();
         _authChecked = true;
+        RedirectIfPrivate();
+    }
 
-        if (!Auth.IsAuthenticated)
-            Nav.NavigateTo("/login");
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        // Re-check on navigation: a logged-out user navigating from /play to /map should bounce to /login.
+        RedirectIfPrivate();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void RedirectIfPrivate()
+    {
+        if (!_authChecked) return;
+        if (Auth.IsAuthenticated) return;
+        if (IsPublicRoute) return;
+        Nav.NavigateTo("/login");
     }
 
     private async Task LogoutAsync()
     {
         await Auth.LogoutAsync();
         Nav.NavigateTo("/login");
+    }
+
+    private string RoleBadgeClass => Auth.Role switch
+    {
+        "Owner" => "bg-warning text-dark",
+        "Admin" => "bg-primary",
+        "Friend" => "bg-info text-dark",
+        _ => "bg-secondary",
+    };
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
     }
 }

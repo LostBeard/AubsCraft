@@ -1,0 +1,192 @@
+@page "/invite-codes"
+@inject ServerHubClient Hub
+@inject AuthStateProvider Auth
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>Invite Codes - AubsCraft</PageTitle>
+
+<h1>Invite Codes</h1>
+
+@if (!Auth.IsAdmin)
+{
+    <div class="alert alert-warning">You don't have permission to view this page.</div>
+}
+else
+{
+    <p class="text-muted">
+        Hand these out to friends so they can sign up for a web account. Codes can have a max-use count and an expiry.
+    </p>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">New Code</h5>
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <label class="form-label small">Code (optional)</label>
+                    <input type="text" class="form-control text-uppercase" maxlength="32"
+                           @bind="_newCode" @bind:event="oninput" placeholder="(auto-generate)" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Max Uses</label>
+                    <input type="number" min="1" max="100" class="form-control" @bind="_maxUses" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Expires</label>
+                    <select class="form-select" @bind="_expiresInDays">
+                        <option value="1">1 day</option>
+                        <option value="7">7 days</option>
+                        <option value="30">30 days</option>
+                        <option value="0">Never</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Notes</label>
+                    <input type="text" class="form-control" @bind="_notes" @bind:event="oninput"
+                           placeholder="e.g. for school class" />
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" @onclick="CreateAsync" disabled="@_busy">
+                        @(_busy ? "..." : "Create")
+                    </button>
+                </div>
+            </div>
+            @if (!string.IsNullOrEmpty(_message))
+            {
+                <div class="alert alert-@_messageClass mt-2 mb-0 py-2 small">@_message</div>
+            }
+        </div>
+    </div>
+
+    @if (_codes == null)
+    {
+        <p class="text-muted">Loading...</p>
+    }
+    else if (_codes.Count == 0)
+    {
+        <p class="text-muted">No invite codes yet.</p>
+    }
+    else
+    {
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Uses</th>
+                    <th>Expires</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th>Created</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var c in _codes)
+                {
+                    <tr class="@(c.IsValid ? "" : "text-muted")">
+                        <td><code class="fs-6">@c.Code</code></td>
+                        <td>@(c.MaxUses - c.UsesRemaining) / @c.MaxUses</td>
+                        <td class="small">
+                            @if (c.ExpiresAt == null) { <span class="text-muted">never</span> }
+                            else { @c.ExpiresAt.Value.ToLocalTime().ToString("g") }
+                        </td>
+                        <td>
+                            @if (c.Revoked) { <span class="badge bg-secondary">Revoked</span> }
+                            else if (!c.IsValid) { <span class="badge bg-secondary">Used / expired</span> }
+                            else { <span class="badge bg-success">Active</span> }
+                        </td>
+                        <td class="small">@c.Notes</td>
+                        <td class="small text-muted">@c.CreatedBy &middot; @c.CreatedAt.ToLocalTime().ToString("g")</td>
+                        <td class="text-end">
+                            @if (!c.Revoked && c.IsValid)
+                            {
+                                <button class="btn btn-sm btn-outline-warning"
+                                        @onclick="@(() => RevokeAsync(c.Code))" disabled="@_busy">Revoke</button>
+                            }
+                            <button class="btn btn-sm btn-outline-danger ms-1"
+                                    @onclick="@(() => DeleteAsync(c.Code))" disabled="@_busy">Delete</button>
+                        </td>
+                    </tr>
+                    @if (c.Redemptions.Count > 0)
+                    {
+                        <tr>
+                            <td colspan="7" class="small text-muted ps-4">
+                                <strong>Redeemed by:</strong>
+                                @foreach (var r in c.Redemptions)
+                                {
+                                    <span class="me-2">@r.Username (@r.RedeemedAt.ToLocalTime().ToString("g"))</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private List<InviteCodeDto>? _codes;
+    private string _newCode = "";
+    private int _maxUses = 5;
+    private int _expiresInDays = 7;
+    private string _notes = "";
+    private string? _message;
+    private string _messageClass = "info";
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.CheckAuthAsync();
+        if (!Auth.IsAdmin) return;
+        await Hub.ConnectAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _codes = await Hub.ListInviteCodesAsync();
+        StateHasChanged();
+    }
+
+    private async Task CreateAsync()
+    {
+        _message = null;
+        _busy = true;
+        var requestedCode = string.IsNullOrWhiteSpace(_newCode) ? null : _newCode.Trim().ToUpperInvariant();
+        int? expiry = _expiresInDays == 0 ? null : _expiresInDays;
+        var result = await Hub.CreateInviteCodeAsync(requestedCode, _maxUses, expiry, _notes);
+        _busy = false;
+        if (result == null)
+        {
+            _message = "Failed to create code (already taken or invalid).";
+            _messageClass = "danger";
+        }
+        else
+        {
+            _message = $"Created code {result.Code}";
+            _messageClass = "success";
+            _newCode = "";
+            _notes = "";
+            await LoadAsync();
+        }
+    }
+
+    private async Task RevokeAsync(string code)
+    {
+        _busy = true;
+        await Hub.RevokeInviteCodeAsync(code);
+        _busy = false;
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(string code)
+    {
+        _busy = true;
+        await Hub.DeleteInviteCodeAsync(code);
+        _busy = false;
+        await LoadAsync();
+    }
+
+    public void Dispose() { }
+}

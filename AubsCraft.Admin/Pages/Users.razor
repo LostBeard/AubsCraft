@@ -1,0 +1,130 @@
+@page "/users"
+@inject ServerHubClient Hub
+@inject AuthStateProvider Auth
+@implements IDisposable
+
+<PageTitle>Users - AubsCraft</PageTitle>
+
+<h1>Web Users</h1>
+
+@if (!Auth.IsOwner)
+{
+    <div class="alert alert-warning">Only the Owner can manage web users.</div>
+}
+else if (_users == null)
+{
+    <p class="text-muted">Loading...</p>
+}
+else if (_users.Count == 0)
+{
+    <p class="text-muted">No users yet.</p>
+}
+else
+{
+    <p class="text-muted small">
+        Friends sign up using invite codes. Promote a friend to Admin to give them moderator powers, or delete an account
+        (and revoke all whitelist entries they added) if a code leaks.
+    </p>
+
+    <table class="table table-sm align-middle">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Created</th>
+                <th>Via Code</th>
+                <th>Last Login</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var u in _users)
+            {
+                <tr>
+                    <td><strong>@u.Username</strong></td>
+                    <td>
+                        @if (u.Role == "Owner")
+                        {
+                            <span class="badge bg-warning text-dark">Owner</span>
+                        }
+                        else
+                        {
+                            <select class="form-select form-select-sm" style="width:120px;"
+                                    @onchange="@(e => SetRoleAsync(u.Username, e.Value?.ToString() ?? u.Role))">
+                                <option value="Friend" selected="@(u.Role == "Friend")">Friend</option>
+                                <option value="Admin" selected="@(u.Role == "Admin")">Admin</option>
+                            </select>
+                        }
+                    </td>
+                    <td class="small text-muted">@u.CreatedAt.ToLocalTime().ToString("g")</td>
+                    <td class="small">
+                        @if (!string.IsNullOrEmpty(u.CreatedViaInviteCode))
+                        { <code>@u.CreatedViaInviteCode</code> }
+                        else
+                        { <span class="text-muted">--</span> }
+                    </td>
+                    <td class="small text-muted">
+                        @(u.LastLoginAt?.ToLocalTime().ToString("g") ?? "never")
+                    </td>
+                    <td class="text-end">
+                        @if (u.Role != "Owner")
+                        {
+                            <button class="btn btn-sm btn-outline-danger"
+                                    @onclick="@(() => DeleteAsync(u.Username, true))" disabled="@_busy">
+                                Delete + Revoke MC
+                            </button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (!string.IsNullOrEmpty(_message))
+{
+    <div class="alert alert-@_messageClass mt-2 py-2 small">@_message</div>
+}
+
+@code {
+    private List<UserSummaryDto>? _users;
+    private string? _message;
+    private string _messageClass = "info";
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.CheckAuthAsync();
+        if (!Auth.IsOwner) return;
+        await Hub.ConnectAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _users = await Hub.ListUsersAsync();
+        StateHasChanged();
+    }
+
+    private async Task SetRoleAsync(string username, string role)
+    {
+        _busy = true;
+        var ok = await Hub.SetUserRoleAsync(username, role);
+        _busy = false;
+        _message = ok ? $"Role updated for {username}." : "Failed to update role.";
+        _messageClass = ok ? "success" : "danger";
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(string username, bool revokeWhitelist)
+    {
+        _busy = true;
+        var result = await Hub.DeleteUserAsync(username, revokeWhitelist);
+        _busy = false;
+        _message = result.Message;
+        _messageClass = result.Success ? "success" : "danger";
+        await LoadAsync();
+    }
+
+    public void Dispose() { }
+}

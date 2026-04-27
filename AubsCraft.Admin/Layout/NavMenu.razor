@@ -1,3 +1,5 @@
+@inject AuthStateProvider Auth
+
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">AubsCraft Admin</a>
@@ -15,40 +17,75 @@
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="players">
-                <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Players
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="world">
-                <span class="bi bi-globe-nav-menu" aria-hidden="true"></span> World
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="stats">
-                <span class="bi bi-bar-chart-nav-menu" aria-hidden="true"></span> Stats
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="plugins">
-                <span class="bi bi-puzzle-nav-menu" aria-hidden="true"></span> Plugins
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
             <NavLink class="nav-link" href="map">
                 <span class="bi bi-map-nav-menu" aria-hidden="true"></span> Map
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="activity">
-                <span class="bi bi-clock-history-nav-menu" aria-hidden="true"></span> Activity Log
+            <NavLink class="nav-link" href="play">
+                <span class="bi bi-controller-nav-menu" aria-hidden="true"></span> How to Play
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="console">
-                <span class="bi bi-terminal-nav-menu" aria-hidden="true"></span> Console
+            <NavLink class="nav-link" href="account">
+                <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> My Account
             </NavLink>
         </div>
+
+        @if (Auth.IsAdmin)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="players">
+                    <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Players
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="world">
+                    <span class="bi bi-globe-nav-menu" aria-hidden="true"></span> World
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="stats">
+                    <span class="bi bi-bar-chart-nav-menu" aria-hidden="true"></span> Stats
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="plugins">
+                    <span class="bi bi-puzzle-nav-menu" aria-hidden="true"></span> Plugins
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="activity">
+                    <span class="bi bi-clock-history-nav-menu" aria-hidden="true"></span> Activity Log
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="console">
+                    <span class="bi bi-terminal-nav-menu" aria-hidden="true"></span> Console
+                </NavLink>
+            </div>
+            <div class="nav-item px-3 mt-3">
+                <span class="text-muted small px-2">ADMIN</span>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="invite-codes">
+                    <span class="bi bi-key-nav-menu" aria-hidden="true"></span> Invite Codes
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="whitelist-audit">
+                    <span class="bi bi-shield-check-nav-menu" aria-hidden="true"></span> Whitelist Audit
+                </NavLink>
+            </div>
+            @if (Auth.IsOwner)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="users">
+                        <span class="bi bi-person-gear-nav-menu" aria-hidden="true"></span> Users
+                    </NavLink>
+                </div>
+            }
+        }
     </nav>
 </div>
 
@@ -57,8 +94,5 @@
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
 
-    private void ToggleNavMenu()
-    {
-        collapseNavMenu = !collapseNavMenu;
-    }
+    private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
 }

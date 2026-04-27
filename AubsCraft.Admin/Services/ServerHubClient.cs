@@ -36,10 +36,11 @@ public class ServerHubClient : IAsyncDisposable
     {
         try
         {
-            // Use the non-params overload with CancellationToken to prevent
-            // double-wrapping of the args array. The params overload wraps our
-            // object?[] in another array, breaking server-side deserialization.
-            return await _hub!.InvokeAsync<T>(method, args, CancellationToken.None);
+            // Use InvokeCoreAsync (the explicit object?[] overload). InvokeAsync's
+            // single-arg instance overload outranks the array extension in overload
+            // resolution, which would wrap our args array as a single argument and
+            // break server-side argument binding.
+            return await _hub!.InvokeCoreAsync<T>(method, args, CancellationToken.None);
         }
         catch (Exception ex) when (ex is InvalidOperationException or HubException)
         {
@@ -52,7 +53,7 @@ public class ServerHubClient : IAsyncDisposable
     {
         try
         {
-            return await _hub!.InvokeAsync<T>(method, args, ct);
+            return await _hub!.InvokeCoreAsync<T>(method, args, ct);
         }
         catch (Exception ex) when (ex is InvalidOperationException or HubException or OperationCanceledException)
         {
@@ -195,6 +196,52 @@ public class ServerHubClient : IAsyncDisposable
 
     public Task<BlueMapConfigDto> GetBlueMapConfigAsync()
         => SafeInvokeAsync("GetBlueMapConfig", new BlueMapConfigDto("", false));
+
+    // -- Self-whitelist (any logged-in user) --
+
+    public Task<ToggleResultDto> AddOwnMcAccountAsync(string mcUsername, string platform)
+        => SafeInvokeAsync("AddOwnMcAccount",
+            new ToggleResultDto(false, "Connection lost"),
+            new AddOwnMcAccountRequestDto(mcUsername, platform));
+
+    public Task<List<WhitelistAuditEntryDto>> GetMyMcAccountsAsync()
+        => SafeInvokeAsync<List<WhitelistAuditEntryDto>>("GetMyMcAccounts", []);
+
+    // -- Whitelist audit (admin/owner) --
+
+    public Task<List<WhitelistAuditEntryDto>> GetWhitelistAuditAsync()
+        => SafeInvokeAsync<List<WhitelistAuditEntryDto>>("GetWhitelistAudit", []);
+
+    public Task<ToggleResultDto> RemoveAuditedAccountAsync(string mcUsername, string platform)
+        => SafeInvokeAsync("RemoveAuditedAccount", new ToggleResultDto(false, "Connection lost"),
+            mcUsername, platform);
+
+    // -- Invite codes (admin/owner) --
+
+    public Task<InviteCodeDto?> CreateInviteCodeAsync(string? code, int maxUses, int? expiresInDays, string notes)
+        => SafeInvokeAsync<InviteCodeDto?>("CreateInviteCode", null,
+            new CreateInviteCodeRequestDto(code, maxUses, expiresInDays, notes));
+
+    public Task<List<InviteCodeDto>> ListInviteCodesAsync()
+        => SafeInvokeAsync<List<InviteCodeDto>>("ListInviteCodes", []);
+
+    public Task<bool> RevokeInviteCodeAsync(string code)
+        => SafeInvokeAsync("RevokeInviteCode", false, code);
+
+    public Task<bool> DeleteInviteCodeAsync(string code)
+        => SafeInvokeAsync("DeleteInviteCode", false, code);
+
+    // -- User management (owner) --
+
+    public Task<List<UserSummaryDto>> ListUsersAsync()
+        => SafeInvokeAsync<List<UserSummaryDto>>("ListUsers", []);
+
+    public Task<bool> SetUserRoleAsync(string username, string role)
+        => SafeInvokeAsync("SetUserRole", false, username, role);
+
+    public Task<ToggleResultDto> DeleteUserAsync(string username, bool revokeWhitelist)
+        => SafeInvokeAsync("DeleteUser", new ToggleResultDto(false, "Connection lost"),
+            username, revokeWhitelist);
 
     public async ValueTask DisposeAsync()
     {
@@ -364,3 +411,48 @@ public class WorldStatsDto
     public long TotalSessions { get; set; }
     public int PluginCount { get; set; }
 }
+
+// -- Auth / invite / whitelist DTOs (mirror server Models/AuthModels.cs) --
+
+public record AddOwnMcAccountRequestDto(string McUsername, string Platform);
+
+public record CreateInviteCodeRequestDto(
+    string? Code,
+    int MaxUses,
+    int? ExpiresInDays,
+    string Notes);
+
+public record InviteRedemptionDto(string Username, DateTime RedeemedAt);
+
+public record InviteCodeDto(
+    string Code,
+    int MaxUses,
+    int UsesRemaining,
+    DateTime? ExpiresAt,
+    string Notes,
+    string CreatedBy,
+    DateTime CreatedAt,
+    bool Revoked,
+    bool IsValid,
+    List<InviteRedemptionDto> Redemptions);
+
+public record WhitelistAuditEntryDto(
+    string McUsername,
+    string Platform,
+    string AddedByWebUser,
+    DateTime AddedAt,
+    bool AutoAdded,
+    bool Confirmed);
+
+public record UserSummaryDto(
+    string Username,
+    string Role,
+    DateTime CreatedAt,
+    string? CreatedViaInviteCode,
+    DateTime? LastLoginAt);
+
+public record PublicStatusDto(
+    bool Connected,
+    int Online,
+    int Max,
+    List<string> Players);

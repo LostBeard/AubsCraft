@@ -1,115 +1,232 @@
 @page "/login"
 @inject AuthStateProvider Auth
 @inject NavigationManager Nav
+@inject HttpClient Http
 @layout LoginLayout
 
-<PageTitle>Login - AubsCraft Admin</PageTitle>
+<PageTitle>AubsCraft</PageTitle>
 
-<div class="d-flex justify-content-center align-items-center" style="min-height: 80vh;">
-    <div class="card shadow" style="width: 400px; max-width: 95vw;">
-        <div class="card-body p-4">
-            <h3 class="card-title text-center mb-4">AubsCraft Admin</h3>
+<div class="d-flex justify-content-center align-items-start py-4" style="min-height: 100vh;">
+    <div style="width: 460px; max-width: 95vw;">
 
-            @if (!Auth.IsChecked)
-            {
-                <p class="text-center text-muted">Loading...</p>
-            }
-            else if (Auth.NeedsSetup)
-            {
-                <p class="text-muted text-center mb-3">Create your admin account to get started.</p>
+        <h2 class="text-center mb-3">AubsCraft</h2>
 
-                <div class="mb-3">
-                    <label class="form-label">Username</label>
-                    <input type="text" class="form-control" @bind="_username" @bind:event="oninput" />
+        @if (_publicStatus != null)
+        {
+            <div class="card shadow-sm mb-3">
+                <div class="card-body py-3">
+                    @if (_publicStatus.Connected)
+                    {
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="text-muted small">Players online</div>
+                                <div class="h4 mb-0">@_publicStatus.Online / @_publicStatus.Max</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="text-muted small">Server</div>
+                                <div><span class="badge bg-success">Online</span></div>
+                            </div>
+                        </div>
+                        @if (_publicStatus.Players.Count > 0)
+                        {
+                            <hr class="my-2" />
+                            <div class="d-flex flex-wrap gap-1">
+                                @foreach (var p in _publicStatus.Players)
+                                {
+                                    <span class="badge bg-secondary">@p</span>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted">
+                            <span class="badge bg-secondary me-1">Offline</span>
+                            Server is not reachable right now.
+                        </div>
+                    }
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Password</label>
-                    <input type="password" class="form-control" @bind="_password" @bind:event="oninput" />
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Confirm Password</label>
-                    <input type="password" class="form-control" @bind="_confirmPassword" @bind:event="oninput"
-                           @onkeydown="HandleKeyDown" />
-                </div>
+            </div>
+        }
 
-                @if (!string.IsNullOrEmpty(_error))
+        <div class="card shadow">
+            <div class="card-body p-4">
+
+                @if (!Auth.IsChecked)
                 {
-                    <div class="alert alert-danger py-2">@_error</div>
+                    <p class="text-center text-muted mb-0">Loading...</p>
                 }
-
-                <button class="btn btn-primary w-100" @onclick="SetupAsync" disabled="@_loading">
-                    @(_loading ? "Creating..." : "Create Admin Account")
-                </button>
-            }
-            else
-            {
-                <div class="mb-3">
-                    <label class="form-label">Username</label>
-                    <input type="text" class="form-control" @bind="_username" @bind:event="oninput" />
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Password</label>
-                    <input type="password" class="form-control" @bind="_password" @bind:event="oninput"
-                           @onkeydown="HandleKeyDown" />
-                </div>
-
-                @if (!string.IsNullOrEmpty(_error))
+                else if (Auth.NeedsSetup)
                 {
-                    <div class="alert alert-danger py-2">@_error</div>
-                }
+                    <h5 class="card-title text-center mb-3">First-time setup</h5>
+                    <p class="text-muted text-center small mb-3">Create the Owner account.</p>
 
-                <button class="btn btn-primary w-100" @onclick="LoginAsync" disabled="@_loading">
-                    @(_loading ? "Logging in..." : "Log In")
-                </button>
-            }
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" @bind="_username" @bind:event="oninput" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" @bind="_password" @bind:event="oninput" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confirm Password</label>
+                        <input type="password" class="form-control" @bind="_confirmPassword" @bind:event="oninput"
+                               @onkeydown="HandleKeyDown" />
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(_error))
+                    {
+                        <div class="alert alert-danger py-2">@_error</div>
+                    }
+
+                    <button class="btn btn-primary w-100" @onclick="SetupAsync" disabled="@_loading">
+                        @(_loading ? "Creating..." : "Create Owner Account")
+                    </button>
+                }
+                else
+                {
+                    <ul class="nav nav-tabs mb-3">
+                        <li class="nav-item">
+                            <button class="nav-link @(_mode == Mode.SignIn ? "active" : "")"
+                                    @onclick="@(() => SwitchMode(Mode.SignIn))">Sign In</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(_mode == Mode.SignUp ? "active" : "")"
+                                    @onclick="@(() => SwitchMode(Mode.SignUp))">Sign Up</button>
+                        </li>
+                    </ul>
+
+                    @if (_mode == Mode.SignIn)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Username</label>
+                            <input type="text" class="form-control" @bind="_username" @bind:event="oninput" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" @bind="_password" @bind:event="oninput"
+                                   @onkeydown="HandleKeyDown" />
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(_error))
+                        {
+                            <div class="alert alert-danger py-2">@_error</div>
+                        }
+
+                        <button class="btn btn-primary w-100" @onclick="LoginAsync" disabled="@_loading">
+                            @(_loading ? "Logging in..." : "Log In")
+                        </button>
+                    }
+                    else
+                    {
+                        <p class="text-muted small mb-3">
+                            Have an invite code? Pick a username and password to create your account.
+                        </p>
+
+                        <div class="mb-3">
+                            <label class="form-label">Invite Code</label>
+                            <input type="text" class="form-control text-uppercase" maxlength="32"
+                                   @bind="_inviteCode" @bind:event="oninput" placeholder="e.g. AUBSCRAFT" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Username</label>
+                            <input type="text" class="form-control" @bind="_username" @bind:event="oninput"
+                                   placeholder="Pick anything you like" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" @bind="_password" @bind:event="oninput" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Confirm Password</label>
+                            <input type="password" class="form-control" @bind="_confirmPassword" @bind:event="oninput"
+                                   @onkeydown="HandleKeyDown" />
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(_error))
+                        {
+                            <div class="alert alert-danger py-2">@_error</div>
+                        }
+
+                        <button class="btn btn-success w-100" @onclick="RedeemAsync" disabled="@_loading">
+                            @(_loading ? "Creating account..." : "Create Account")
+                        </button>
+                    }
+                }
+            </div>
         </div>
+
+        <div class="text-center mt-3">
+            <a href="/play" class="btn btn-sm btn-outline-secondary">
+                First time? Setup guide for parents &amp; families
+            </a>
+        </div>
+
+        <p class="text-center text-muted small mt-3 mb-0">
+            <a href="https://map.spawndev.com:44365" class="text-decoration-none text-muted">map.spawndev.com</a>
+            &nbsp;&middot;&nbsp;
+            <a href="https://github.com/LostBeard" class="text-decoration-none text-muted">@@LostBeard</a>
+        </p>
     </div>
 </div>
 
 @code {
+    private enum Mode { SignIn, SignUp }
+    private Mode _mode = Mode.SignIn;
+
     private string _username = "";
     private string _password = "";
     private string _confirmPassword = "";
+    private string _inviteCode = "";
     private string? _error;
     private bool _loading;
+    private PublicStatusDto? _publicStatus;
 
     protected override async Task OnInitializedAsync()
     {
         await Auth.CheckAuthAsync();
         if (Auth.IsAuthenticated)
+        {
             Nav.NavigateTo("/");
+            return;
+        }
+        await LoadPublicStatusAsync();
+    }
+
+    private async Task LoadPublicStatusAsync()
+    {
+        try
+        {
+            _publicStatus = await Http.GetFromJsonAsync<PublicStatusDto>("/api/public/status");
+        }
+        catch
+        {
+            _publicStatus = new PublicStatusDto(false, 0, 0, new List<string>());
+        }
+    }
+
+    private void SwitchMode(Mode m)
+    {
+        _mode = m;
+        _error = null;
     }
 
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
         if (e.Key != "Enter") return;
-        if (Auth.NeedsSetup)
-            await SetupAsync();
-        else
-            await LoginAsync();
+        if (Auth.NeedsSetup) await SetupAsync();
+        else if (_mode == Mode.SignIn) await LoginAsync();
+        else await RedeemAsync();
     }
 
     private async Task SetupAsync()
     {
         _error = null;
-
         if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrWhiteSpace(_password))
-        {
-            _error = "Username and password are required";
-            return;
-        }
-
-        if (_password != _confirmPassword)
-        {
-            _error = "Passwords do not match";
-            return;
-        }
-
-        if (_password.Length < 4)
-        {
-            _error = "Password must be at least 4 characters";
-            return;
-        }
+        { _error = "Username and password are required"; return; }
+        if (_password != _confirmPassword) { _error = "Passwords do not match"; return; }
+        if (_password.Length < 4) { _error = "Password must be at least 4 characters"; return; }
 
         _loading = true;
         var (success, error) = await Auth.SetupAsync(_username.Trim(), _password);
@@ -117,36 +234,42 @@
 
         if (success)
         {
-            // Now log in with the new credentials
             var (loginSuccess, loginError) = await Auth.LoginAsync(_username.Trim(), _password);
-            if (loginSuccess)
-                Nav.NavigateTo("/");
-            else
-                _error = loginError;
+            if (loginSuccess) Nav.NavigateTo("/");
+            else _error = loginError;
         }
-        else
-        {
-            _error = error;
-        }
+        else _error = error;
     }
 
     private async Task LoginAsync()
     {
         _error = null;
-
         if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrWhiteSpace(_password))
-        {
-            _error = "Username and password are required";
-            return;
-        }
+        { _error = "Username and password are required"; return; }
 
         _loading = true;
         var (success, error) = await Auth.LoginAsync(_username.Trim(), _password);
         _loading = false;
 
-        if (success)
-            Nav.NavigateTo("/");
-        else
-            _error = error;
+        if (success) Nav.NavigateTo("/");
+        else _error = error;
+    }
+
+    private async Task RedeemAsync()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_inviteCode))
+        { _error = "Invite code is required"; return; }
+        if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrWhiteSpace(_password))
+        { _error = "Username and password are required"; return; }
+        if (_password != _confirmPassword) { _error = "Passwords do not match"; return; }
+        if (_password.Length < 4) { _error = "Password must be at least 4 characters"; return; }
+
+        _loading = true;
+        var (success, error) = await Auth.RedeemAsync(_inviteCode.Trim(), _username.Trim(), _password);
+        _loading = false;
+
+        if (success) Nav.NavigateTo("/");
+        else _error = error;
     }
 }

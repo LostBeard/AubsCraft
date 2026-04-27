@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using AubsCraft.Admin.Server;
 using AubsCraft.Admin.Server.Hubs;
+using AubsCraft.Admin.Server.Models;
 using AubsCraft.Admin.Server.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -14,6 +15,9 @@ builder.Services.AddSingleton<ServerMonitorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ServerMonitorService>());
 builder.Services.AddHostedService<LogTailService>();
 builder.Services.AddSingleton<AuthService>();
+builder.Services.AddSingleton<InviteCodeService>();
+builder.Services.AddSingleton<WhitelistAuditService>();
+builder.Services.AddSingleton<EmailNotificationService>();
 builder.Services.AddSingleton<PluginService>();
 builder.Services.AddSingleton<PlayerStatsService>();
 builder.Services.AddSingleton<ModrinthService>();
@@ -40,10 +44,23 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             ctx.Response.Redirect(ctx.RedirectUri);
             return Task.CompletedTask;
         };
+        options.Events.OnRedirectToAccessDenied = ctx =>
+        {
+            if (ctx.Request.Path.StartsWithSegments("/api") || ctx.Request.Path.StartsWithSegments("/hubs"))
+            {
+                ctx.Response.StatusCode = 403;
+                return Task.CompletedTask;
+            }
+            ctx.Response.Redirect(ctx.RedirectUri);
+            return Task.CompletedTask;
+        };
     });
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+// Eagerly resolve EmailNotificationService so it subscribes to ActivityLog events at startup.
+app.Services.GetRequiredService<EmailNotificationService>();
 
 app.UseWebSockets();
 app.MapStaticAssets();
@@ -52,29 +69,43 @@ app.UseAuthorization();
 
 app.MapHub<ServerHub>("/hubs/server").RequireAuthorization();
 
-// -- Auth Endpoints (anonymous) --
+// -- Public endpoints (anonymous) --
+var publicApi = app.MapGroup("/api/public");
+
+publicApi.MapGet("/status", (ServerMonitorService monitor) =>
+{
+    var s = monitor.LastStatus;
+    if (s == null)
+        return Results.Ok(new PublicStatusDto(false, 0, 0, new List<string>()));
+    return Results.Ok(new PublicStatusDto(s.Connected, s.Online, s.Max, s.Players));
+});
+
+// -- Auth endpoints (anonymous) --
 var auth = app.MapGroup("/api/auth");
 
 auth.MapGet("/status", (AuthService authService, HttpContext ctx) =>
 {
-    return Results.Ok(new
-    {
-        authenticated = ctx.User.Identity?.IsAuthenticated == true,
-        needsSetup = authService.NeedsSetup,
-        username = ctx.User.Identity?.Name,
-    });
+    var username = ctx.User.Identity?.Name;
+    string? role = null;
+    if (ctx.User.Identity?.IsAuthenticated == true && username != null)
+        role = authService.GetUser(username)?.Role;
+
+    return Results.Ok(new AuthStatusDto(
+        Authenticated: ctx.User.Identity?.IsAuthenticated == true,
+        NeedsSetup: authService.NeedsSetup,
+        Username: username,
+        Role: role));
 });
 
 auth.MapPost("/setup", async (LoginRequest req, AuthService authService) =>
 {
     if (!authService.NeedsSetup)
-        return Results.BadRequest(new { error = "Admin account already exists" });
-
+        return Results.BadRequest(new { error = "Owner account already exists" });
     if (string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
         return Results.BadRequest(new { error = "Username and password are required" });
 
-    await authService.CreateAdminAsync(req.Username.Trim(), req.Password);
-    return Results.Ok(new { message = "Admin account created" });
+    await authService.CreateOwnerAsync(req.Username.Trim(), req.Password);
+    return Results.Ok(new { message = "Owner account created" });
 });
 
 auth.MapPost("/login", async (LoginRequest req, AuthService authService, HttpContext ctx) =>
@@ -82,20 +113,40 @@ auth.MapPost("/login", async (LoginRequest req, AuthService authService, HttpCon
     if (authService.NeedsSetup)
         return Results.BadRequest(new { error = "Run setup first" });
 
-    var valid = await authService.ValidateAsync(req.Username, req.Password);
-    if (!valid)
+    var user = await authService.ValidateAsync(req.Username, req.Password);
+    if (user == null)
         return Results.Unauthorized();
 
-    var claims = new List<Claim>
-    {
-        new(ClaimTypes.Name, req.Username),
-        new(ClaimTypes.Role, "Admin"),
-    };
-    var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-    var principal = new ClaimsPrincipal(identity);
+    await SignInAsync(ctx, user);
+    return Results.Ok(new { message = "Logged in", username = user.Username, role = user.Role });
+});
 
-    await ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
-    return Results.Ok(new { message = "Logged in", username = req.Username });
+auth.MapPost("/redeem", async (RedeemRequest req, AuthService authService, InviteCodeService invites, EmailNotificationService email, HttpContext ctx) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Code) || string.IsNullOrWhiteSpace(req.Username) || string.IsNullOrWhiteSpace(req.Password))
+        return Results.BadRequest(new { error = "Code, username, and password are all required." });
+    if (req.Password.Length < 4)
+        return Results.BadRequest(new { error = "Password must be at least 4 characters." });
+
+    var trimmedCode = req.Code.Trim().ToUpperInvariant();
+    var match = invites.Peek(trimmedCode);
+    if (match == null)
+        return Results.BadRequest(new { error = "Invite code is invalid, expired, or fully used." });
+
+    User user;
+    try
+    {
+        user = await authService.CreateFriendAsync(req.Username.Trim(), req.Password, trimmedCode);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+
+    await invites.ConsumeAsync(trimmedCode, user.Username);
+    await SignInAsync(ctx, user);
+    _ = email.NotifySignupAsync(user.Username, trimmedCode);
+    return Results.Ok(new { message = "Account created", username = user.Username, role = user.Role });
 });
 
 auth.MapPost("/logout", async (HttpContext ctx) =>
@@ -104,7 +155,7 @@ auth.MapPost("/logout", async (HttpContext ctx) =>
     return Results.Ok(new { message = "Logged out" });
 });
 
-// -- Protected API endpoints (for initial data loads) --
+// -- Protected API endpoints (any logged-in user) --
 var api = app.MapGroup("/api").RequireAuthorization();
 
 api.MapGet("/status", async (RconService rcon, ILogger<Program> log, CancellationToken ct) =>
@@ -190,7 +241,6 @@ world.MapGet("/chunk/{x:int}/{z:int}", (int x, int z, WorldDataService worldData
         bw.Write(bytes.Length);
         bw.Write(bytes);
     }
-    // Raw block data as ushort[]
     var blockBytes = System.Runtime.InteropServices.MemoryMarshal.AsBytes<ushort>(chunk.Blocks).ToArray();
     bw.Write(blockBytes);
 
@@ -200,8 +250,6 @@ world.MapGet("/chunk/{x:int}/{z:int}", (int x, int z, WorldDataService worldData
 // atlas.rgba served as static file from wwwroot
 
 // Binary WebSocket endpoint for camera-prioritized chunk streaming.
-// Data flows as raw binary frames - no JSON, no base64 for bulk data.
-// Client sends camera position (text JSON), server streams chunks sorted by distance.
 world.MapGet("/ws", async (HttpContext ctx, WorldDataService worldData) =>
 {
     if (!ctx.WebSockets.IsWebSocketRequest)
@@ -218,7 +266,6 @@ world.MapGet("/ws", async (HttpContext ctx, WorldDataService worldData) =>
     var sent = new HashSet<(int, int)>();
     var cts = new CancellationTokenSource();
 
-    // Sort initial queue by distance from origin
     sendQueue.Sort((a, b) =>
     {
         var da = a.X * a.X + a.Z * a.Z;
@@ -226,7 +273,6 @@ world.MapGet("/ws", async (HttpContext ctx, WorldDataService worldData) =>
         return da.CompareTo(db);
     });
 
-    // Background task: listen for camera position updates from client
     _ = Task.Run(async () =>
     {
         var buf = new byte[256];
@@ -251,7 +297,6 @@ world.MapGet("/ws", async (HttpContext ctx, WorldDataService worldData) =>
                         {
                             camX = xp.GetSingle();
                             camZ = zp.GetSingle();
-                            // Re-sort unsent chunks by new camera position
                             lock (sendQueue)
                             {
                                 sendQueue.RemoveAll(c => sent.Contains((c.X, c.Z)));
@@ -264,7 +309,7 @@ world.MapGet("/ws", async (HttpContext ctx, WorldDataService worldData) =>
                             }
                         }
                     }
-                    catch { } // ignore malformed messages
+                    catch { }
                 }
             }
         }
@@ -272,7 +317,6 @@ world.MapGet("/ws", async (HttpContext ctx, WorldDataService worldData) =>
         catch { }
     });
 
-    // Send chunks as binary frames, closest to camera first
     while (ws.State == System.Net.WebSockets.WebSocketState.Open && !cts.IsCancellationRequested)
     {
         ChunkCoord? next = null;
@@ -291,11 +335,6 @@ world.MapGet("/ws", async (HttpContext ctx, WorldDataService worldData) =>
             continue;
         }
 
-        // Binary frame format:
-        // [int32 cx][int32 cz][int32 paletteCount]
-        // For each palette string: [int32 byteLength][utf8 bytes]
-        // [int32[256] heights][ushort[256] blockIds]
-        // [int32[256] seabedHeights][ushort[256] seabedBlockIds]
         using var ms = new MemoryStream();
         using var bw = new BinaryWriter(ms);
         bw.Write(next.X);
@@ -322,7 +361,6 @@ world.MapGet("/ws", async (HttpContext ctx, WorldDataService worldData) =>
         sent.Add((next.X, next.Z));
     }
 
-    // Clean close
     if (ws.State == System.Net.WebSockets.WebSocketState.Open)
     {
         try { await ws.CloseAsync(System.Net.WebSockets.WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None); }
@@ -341,5 +379,14 @@ app.MapFallbackToFile("index.html");
 
 app.Run();
 
-// Request DTOs
-public record LoginRequest(string Username, string Password);
+static async Task SignInAsync(HttpContext ctx, User user)
+{
+    var claims = new List<Claim>
+    {
+        new(ClaimTypes.Name, user.Username),
+        new(ClaimTypes.Role, user.Role),
+    };
+    var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+    var principal = new ClaimsPrincipal(identity);
+    await ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
+}

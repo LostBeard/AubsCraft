@@ -1,0 +1,102 @@
+@page "/whitelist-audit"
+@inject ServerHubClient Hub
+@inject AuthStateProvider Auth
+@implements IDisposable
+
+<PageTitle>Whitelist Audit - AubsCraft</PageTitle>
+
+<h1>Whitelist Audit</h1>
+
+@if (!Auth.IsAdmin)
+{
+    <div class="alert alert-warning">You don't have permission to view this page.</div>
+}
+else
+{
+    <p class="text-muted">
+        Every Minecraft account added through the web admin is logged here with the web user that added it.
+        If a friend's web account turns out to be a problem, you can remove their MC accounts in one click.
+    </p>
+
+    @if (_entries == null)
+    {
+        <p class="text-muted">Loading...</p>
+    }
+    else if (_entries.Count == 0)
+    {
+        <p class="text-muted">No web-initiated whitelist entries yet.</p>
+    }
+    else
+    {
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>MC Username</th>
+                    <th>Platform</th>
+                    <th>Added By</th>
+                    <th>Added At</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var e in _entries)
+                {
+                    <tr>
+                        <td>
+                            <img src="https://mc-heads.net/avatar/@e.McUsername/24" alt="@e.McUsername"
+                                 class="rounded me-2" style="width:24px;height:24px;" />
+                            <strong>@e.McUsername</strong>
+                        </td>
+                        <td><span class="badge bg-secondary">@e.Platform</span></td>
+                        <td>@e.AddedByWebUser</td>
+                        <td class="small text-muted">@e.AddedAt.ToLocalTime().ToString("g")</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-danger"
+                                    @onclick="@(() => RemoveAsync(e.McUsername, e.Platform))" disabled="@_busy">
+                                Remove from whitelist
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert alert-@_messageClass mt-2 py-2 small">@_message</div>
+    }
+}
+
+@code {
+    private List<WhitelistAuditEntryDto>? _entries;
+    private string? _message;
+    private string _messageClass = "info";
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.CheckAuthAsync();
+        if (!Auth.IsAdmin) return;
+        await Hub.ConnectAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _entries = await Hub.GetWhitelistAuditAsync();
+        StateHasChanged();
+    }
+
+    private async Task RemoveAsync(string mcUsername, string platform)
+    {
+        _busy = true;
+        var result = await Hub.RemoveAuditedAccountAsync(mcUsername, platform);
+        _busy = false;
+        _message = result.Message;
+        _messageClass = result.Success ? "success" : "danger";
+        await LoadAsync();
+    }
+
+    public void Dispose() { }
+}
