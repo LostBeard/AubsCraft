@@ -561,6 +561,12 @@ public class RenderWorkerService : IRenderWorkerService
                     // Split into 16x16x16 sections and upload
                     bool uploaded = UploadSectionMeshes(cx, cz, result);
 
+                    // Compute per-section connectivity for cave-culling BFS.
+                    // Sodium-style flood-fill on transparent blocks; one 36-bit
+                    // mask per section. Computed CPU-side here (we already have
+                    // blocks parsed, transparent-mask is 96KB total per chunk).
+                    UploadSectionConnectivity(cx, cz, palette, blocks);
+
                     // Only mark as loaded if upload actually succeeded
                     if (uploaded)
                     {
@@ -603,6 +609,48 @@ public class RenderWorkerService : IRenderWorkerService
                 flags[i] = 3f;
         }
         return flags;
+    }
+
+    /// <summary>
+    /// Compute Sodium-style connectivity for each of the 24 sections in a chunk
+    /// and push the masks to the renderer for BFS cave-culling.
+    /// `blocks` is laid out as `x + z*16 + y*256` per the kernel.
+    /// World Y range is [0, 384); section sy spans [sy*16, sy*16+16).
+    /// Section sy=0 is at world Y -64 (which is chunk-local Y=0).
+    /// </summary>
+    private void UploadSectionConnectivity(int cx, int cz, List<string> palette, ushort[] blocks)
+    {
+        // 1. Per-palette transparency lookup. We treat air as transparent for
+        //    sight; everything else (including water, glass, leaves) is opaque
+        //    for cave-culling purposes - the under-cull bias keeps us safe
+        //    (never hide visible geometry).
+        var paletteIsAir = new bool[palette.Count];
+        for (int i = 0; i < palette.Count; i++)
+            paletteIsAir[i] = palette[i] == "minecraft:air";
+
+        var transparent = new bool[4096]; // reused across sections
+        for (int sy = 0; sy < 24; sy++)
+        {
+            int yBase = sy * 16;
+            for (int yOff = 0; yOff < 16; yOff++)
+            {
+                int chunkY = yBase + yOff; // 0..383
+                int yLayerStart = chunkY * 256;
+                int sectionLayerStart = yOff << 8;
+                for (int z = 0; z < 16; z++)
+                {
+                    int rowStartChunk = yLayerStart + z * 16;
+                    int rowStartSection = sectionLayerStart + (z << 4);
+                    for (int x = 0; x < 16; x++)
+                    {
+                        ushort block = blocks[rowStartChunk + x];
+                        transparent[rowStartSection + x] = paletteIsAir[block];
+                    }
+                }
+            }
+            long conn = SectionVisibility.ComputeConnectivity(transparent);
+            _renderer.SetSectionConnectivity(cx, sy, cz, conn);
+        }
     }
 
     /// <summary>Per-face atlas UVs for full 3D kernel (12 floats per block).</summary>

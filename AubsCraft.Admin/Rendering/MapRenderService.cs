@@ -46,6 +46,14 @@ public sealed class MapRenderService : IDisposable
     private const int WaterInitialCapacity = 1_000_000;
     private const int WaterMaxCapacity = 5_000_000;
 
+    // Per-section connectivity for Sodium-style cave-culling BFS.
+    // Populated by RenderWorkerService.UploadSectionConnectivity at chunk load.
+    // Sections without an entry (eg heightmap-mode chunks, currently-loading
+    // chunks) are treated as fully connected by SectionVisibility - safe under-
+    // cull. Rebuilt once per frame in Render() to avoid per-section LookUp.
+    private readonly Dictionary<(int cx, int sy, int cz), long> _connectivityMap = new();
+    private HashSet<(int sx, int sy, int sz)>? _visibleSectionsCache;
+
     private const int BytesPerVertex = 11 * 4; // 11 floats x 4 bytes (pos3 + normal3 + color3 + uv2)
     private const int InitialCapacityVertices = 5_000_000;
     // Derived from actual device limits at init time, not hardcoded
@@ -458,6 +466,17 @@ public sealed class MapRenderService : IDisposable
     }
 
     /// <summary>
+    /// Store per-section connectivity for cave-culling BFS. Called by the
+    /// render worker after parsing chunk binary. The 36-bit mask encodes
+    /// "from face A you can reach face B via flood fill through transparent
+    /// blocks" per Sodium's algorithm.
+    /// </summary>
+    public void SetSectionConnectivity(int cx, int sy, int cz, long connectivity)
+    {
+        _connectivityMap[(cx, sy, cz)] = connectivity;
+    }
+
+    /// <summary>
     /// Upload section mesh vertices. Returns true if upload succeeded.
     /// Bug fix: old slot is NOT freed until new allocation succeeds.
     /// This prevents sections from vanishing when the buffer is full.
@@ -627,6 +646,9 @@ public sealed class MapRenderService : IDisposable
             }
             _freeSlots.Add((start, count));
         }
+        // Drop the section's connectivity entry so a stale mask doesn't bias
+        // future BFS runs after an evicted section is reloaded.
+        _connectivityMap.Remove((cx, sy, cz));
     }
 
     /// <summary>Remove all 24 sections for a column (cx, cz). Used by eviction.</summary>
@@ -1041,6 +1063,19 @@ public sealed class MapRenderService : IDisposable
         int camCZ = (int)MathF.Floor(Camera.Position.Z / ChunkXZ);
         int drawDistSq = DrawDistance * DrawDistance;
 
+        // Sodium-style cave-culling BFS: compute visible section set once per
+        // frame, before opaque pass. Heightmap-only sections + currently-loading
+        // sections have no connectivity entry; SectionVisibility treats those
+        // as fully connected (safe under-cull). The set is reused for the
+        // water pass below.
+        int camSx = camCX;
+        int camSy = Math.Clamp((int)MathF.Floor((Camera.Position.Y + 64f) / 16f), 0, 23);
+        int camSz = camCZ;
+        _visibleSectionsCache = SectionVisibility.ComputeVisibleSections(
+            (camSx, camSy, camSz),
+            coord => _connectivityMap.TryGetValue(coord, out var c) ? c : (long?)null,
+            DrawDistance);
+
         foreach (var ((cx, sy, cz), slot) in _slots)
         {
             if (slot.VertexCount == 0) continue;
@@ -1049,6 +1084,9 @@ public sealed class MapRenderService : IDisposable
             // Quick XZ distance check before expensive frustum test
             int dx = cx - camCX, dz = cz - camCZ;
             if (dx * dx + dz * dz > drawDistSq) continue;
+
+            // Cave culling: skip sections not reachable from the camera section
+            if (!_visibleSectionsCache.Contains((cx, sy, cz))) continue;
 
             // Tight 16x16x16 AABB per section - the foundation of cave culling
             float minY = sy * 16 - 64f;
@@ -1072,15 +1110,18 @@ public sealed class MapRenderService : IDisposable
             pass.SetBindGroup(0, _waterBindGroup!);
             pass.SetVertexBuffer(0, _waterVertexBuffer);
 
-            // Sort water sections back-to-front - reuse pre-allocated list, zero LINQ
+            // Sort water sections back-to-front - reuse pre-allocated list, zero LINQ.
+            // Apply cave-culling visibility filter same as opaque pass; reuses
+            // the cached visible-set computed before the opaque pass.
             _waterSortList.Clear();
             foreach (var ((cx2, sy2, cz2), slot2) in _waterSlots)
             {
                 if (slot2.VertexCount == 0) continue;
                 int ddx = cx2 - camCX, ddz = cz2 - camCZ;
                 int dist = ddx * ddx + ddz * ddz;
-                if (dist <= drawDistSq)
-                    _waterSortList.Add((dist, (cx2, sy2, cz2), slot2));
+                if (dist > drawDistSq) continue;
+                if (_visibleSectionsCache != null && !_visibleSectionsCache.Contains((cx2, sy2, cz2))) continue;
+                _waterSortList.Add((dist, (cx2, sy2, cz2), slot2));
             }
             _waterSortList.Sort((a, b) => b.dist.CompareTo(a.dist)); // back-to-front
 
