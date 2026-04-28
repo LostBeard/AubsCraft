@@ -255,19 +255,22 @@ public class RenderWorkerService : IRenderWorkerService
     }
 
     /// <summary>
-    /// Upload chunk mesh data to the renderer (called when chunk data is ready).
+    /// Upload mesh result split into 16x16x16 sections.
+    /// Each section gets its own slot in the renderer for tight AABB culling.
+    /// Returns true if at least one opaque section was uploaded.
     /// </summary>
-    public void UploadChunkMesh(int cx, int cz, float[] vertices)
+    private bool UploadSectionMeshes(int cx, int cz, MeshGenerationResult result)
     {
-        _renderer.UploadChunkMesh(cx, cz, vertices);
-    }
-
-    /// <summary>
-    /// Upload water mesh data to the renderer.
-    /// </summary>
-    public void UploadWaterMesh(int cx, int cz, float[] vertices)
-    {
-        _renderer.UploadWaterMesh(cx, cz, vertices);
+        var (opaqueSections, waterSections) = result.SplitIntoSections();
+        bool anyUploaded = false;
+        for (int sy = 0; sy < 24; sy++)
+        {
+            if (opaqueSections[sy] is { Length: > 0 } opaqueVerts)
+                anyUploaded |= _renderer.UploadChunkMesh(cx, sy, cz, opaqueVerts);
+            if (waterSections[sy] is { Length: > 0 } waterVerts)
+                _renderer.UploadWaterMesh(cx, sy, cz, waterVerts);
+        }
+        return anyUploaded;
     }
 
     private async Task LoadAtlasAsync()
@@ -426,6 +429,7 @@ public class RenderWorkerService : IRenderWorkerService
     /// <summary>
     /// Render a heightmap from a JS ArrayBuffer. Binary data stays in JS.
     /// Only palette strings cross to .NET for color/UV/flag computation.
+    /// Splits output into 16x16x16 sections for tight AABB frustum culling.
     /// </summary>
     private async Task RenderFromFrameAsync(ArrayBuffer frameBuffer)
     {
@@ -439,18 +443,16 @@ public class RenderWorkerService : IRenderWorkerService
         // Build BlockPalette[] struct array (packs colors + UVs + flags into single binding)
         var paletteData = BuildBlockPalette(palette);
 
-        // Dispatch kernel with JS ArrayBuffer - binary data packed into HeightmapColumn structs
-        var (opaqueFloats, waterFloats) = await _engine.DispatchHeightmapFromFrameAsync(
+        // Dispatch kernel - returns CPU vertex data for section splitting
+        var result = await _engine.DispatchHeightmapFromFrameAsync(
             frameBuffer, binaryOffset, paletteData, cx, cz);
 
-        // GPU-to-GPU copy: ILGPU output -> WebGPU vertex buffer. Zero CPU readback.
-        var (opaqueGpu, waterGpu) = _engine.GetHeightmapOutputGPUBuffers();
-        if (opaqueFloats > 0 && opaqueGpu != null)
-            _renderer.UploadChunkMeshFromGPU(cx, cz, opaqueGpu, opaqueFloats / 11);
-        if (waterFloats > 0 && waterGpu != null)
-            _renderer.UploadWaterMeshFromGPU(cx, cz, waterGpu, waterFloats / 11);
-        if (opaqueFloats > 0 || waterFloats > 0)
+        // Upload split into 16x16x16 sections
+        if (result.OpaqueVertexCount > 0 || result.WaterVertexCount > 0)
+        {
+            UploadSectionMeshes(cx, cz, result);
             _loadedChunks.Add((cx, cz));
+        }
     }
 
     /// <summary>
@@ -486,12 +488,13 @@ public class RenderWorkerService : IRenderWorkerService
         return result;
     }
 
-    private void OnChunksEvicted(List<(int cx, int cz)> evicted)
+    private void OnChunksEvicted(List<(int cx, int sy, int cz)> evicted)
     {
-        foreach (var key in evicted)
+        foreach (var (cx, _, cz) in evicted)
         {
-            _fullChunks.Remove(key);
-            _loadedChunks.Remove(key);
+            // Column-level tracking - if any section evicted, mark column for reload
+            _fullChunks.Remove((cx, cz));
+            _loadedChunks.Remove((cx, cz));
         }
     }
 
@@ -555,11 +558,8 @@ public class RenderWorkerService : IRenderWorkerService
                     else
                         result = await _engine.GenerateLODMeshAsync(blocks, paletteColors, atlasUVs, blockFlags, cx, cz, lod);
 
-                    bool uploaded = false;
-                    if (result.OpaqueVertexCount > 0)
-                        uploaded = _renderer.UploadChunkMesh(cx, cz, result.OpaqueVertices);
-                    if (result.WaterVertexCount > 0)
-                        _renderer.UploadWaterMesh(cx, cz, result.WaterVertices);
+                    // Split into 16x16x16 sections and upload
+                    bool uploaded = UploadSectionMeshes(cx, cz, result);
 
                     // Only mark as loaded if upload actually succeeded
                     if (uploaded)

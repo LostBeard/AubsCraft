@@ -312,26 +312,11 @@ public sealed class VoxelEngineService : IAsyncDisposable
     }
 
     /// <summary>
-    /// Get the native GPUBuffer from the ILGPU heightmap output buffers.
-    /// For GPU-to-GPU copy without CPU readback. Data stays on GPU.
-    /// </summary>
-    public (GPUBuffer? opaqueBuffer, GPUBuffer? waterBuffer) GetHeightmapOutputGPUBuffers()
-    {
-        GPUBuffer? opaqueGpu = null;
-        GPUBuffer? waterGpu = null;
-        if (_hmOpaqueVertBuffer?.Buffer is SpawnDev.ILGPU.WebGPU.Backend.WebGPUMemoryBuffer oMem)
-            opaqueGpu = oMem.NativeBuffer?.NativeBuffer;
-        if (_hmWaterVertBuffer?.Buffer is SpawnDev.ILGPU.WebGPU.Backend.WebGPUMemoryBuffer wMem)
-            waterGpu = wMem.NativeBuffer?.NativeBuffer;
-        return (opaqueGpu, waterGpu);
-    }
-
-    /// <summary>
     /// Dispatch heightmap kernel from a raw binary frame ArrayBuffer.
-    /// Binary layout: int32[256] heights, int16[256] blockIds, int32[256] seabedHeights, int16[256] seabedBlockIds.
-    /// Packs into HeightmapColumn[] struct and BlockPalette[] struct to keep binding count under WebGPU limit.
+    /// Returns MeshGenerationResult with CPU vertex data for section splitting.
+    /// Heightmap meshes are small (~5K-20K verts) so CPU readback is acceptable.
     /// </summary>
-    public async Task<(int opaqueFloats, int waterFloats)> DispatchHeightmapFromFrameAsync(
+    public async Task<MeshGenerationResult> DispatchHeightmapFromFrameAsync(
         ArrayBuffer frameBuffer, int binaryDataOffset,
         BlockPalette[] palette,
         int chunkX, int chunkZ)
@@ -388,10 +373,19 @@ public sealed class VoxelEngineService : IAsyncDisposable
             await _accelerator!.SynchronizeAsync();
 
             var counters = await _hmCountersBuffer.CopyToHostAsync();
-            return (
-                Math.Min(counters[0], HmMaxOpaqueFloats),
-                Math.Min(counters[1], HmMaxWaterFloats)
-            );
+            int opaqueFloats = Math.Min(counters[0], HmMaxOpaqueFloats);
+            int waterFloats = Math.Min(counters[1], HmMaxWaterFloats);
+
+            // Read vertex data back to CPU for section splitting
+            // Heightmap meshes are small (~5K-20K verts) - readback cost is negligible
+            float[] opaqueVerts = [];
+            if (opaqueFloats > 0)
+                opaqueVerts = await _hmOpaqueVertBuffer!.CopyToHostAsync(0, opaqueFloats);
+            float[] waterVerts = [];
+            if (waterFloats > 0)
+                waterVerts = await _hmWaterVertBuffer!.CopyToHostAsync(0, waterFloats);
+
+            return new MeshGenerationResult(opaqueVerts, opaqueFloats / 11, waterVerts, waterFloats / 11);
         }
         finally
         {
@@ -442,4 +436,53 @@ public sealed class VoxelEngineService : IAsyncDisposable
 
 public record MeshGenerationResult(
     float[] OpaqueVertices, int OpaqueVertexCount,
-    float[] WaterVertices, int WaterVertexCount);
+    float[] WaterVertices, int WaterVertexCount)
+{
+    /// <summary>
+    /// Split flat vertex arrays into 24 section buckets by Y position.
+    /// Section sy maps to Y range [sy*16-64, sy*16-64+16).
+    /// Returns arrays indexed by section Y (0-23). Empty sections have null entries.
+    /// </summary>
+    public (float[]?[] opaqueSections, float[]?[] waterSections) SplitIntoSections()
+    {
+        var opaque = SplitVerticesBySectionY(OpaqueVertices, OpaqueVertexCount);
+        var water = SplitVerticesBySectionY(WaterVertices, WaterVertexCount);
+        return (opaque, water);
+    }
+
+    private static float[]?[] SplitVerticesBySectionY(float[] vertices, int vertexCount)
+    {
+        const int FloatsPerVertex = 11;
+        // Count vertices per section first (avoid list resizing)
+        Span<int> counts = stackalloc int[24];
+        for (int v = 0; v < vertexCount; v++)
+        {
+            float worldY = vertices[v * FloatsPerVertex + 1]; // position.y
+            int sy = Math.Clamp((int)MathF.Floor((worldY + 64f) / 16f), 0, 23);
+            counts[sy]++;
+        }
+
+        // Allocate per-section arrays
+        var sections = new float[]?[24];
+        var offsets = new int[24];
+        for (int s = 0; s < 24; s++)
+        {
+            if (counts[s] > 0)
+                sections[s] = new float[counts[s] * FloatsPerVertex];
+        }
+
+        // Distribute vertices into section arrays
+        for (int v = 0; v < vertexCount; v++)
+        {
+            int baseIdx = v * FloatsPerVertex;
+            float worldY = vertices[baseIdx + 1];
+            int sy = Math.Clamp((int)MathF.Floor((worldY + 64f) / 16f), 0, 23);
+            var arr = sections[sy]!;
+            int dst = offsets[sy] * FloatsPerVertex;
+            vertices.AsSpan(baseIdx, FloatsPerVertex).CopyTo(arr.AsSpan(dst, FloatsPerVertex));
+            offsets[sy]++;
+        }
+
+        return sections;
+    }
+};

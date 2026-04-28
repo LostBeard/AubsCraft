@@ -34,14 +34,14 @@ public sealed class MapRenderService : IDisposable
     private GPUBuffer? _vertexBuffer;
     private int _bufferCapacityVertices;
     private int _nextFreeVertex;
-    private readonly Dictionary<(int cx, int cz), ChunkSlot> _slots = new();
+    private readonly Dictionary<(int cx, int sy, int cz), ChunkSlot> _slots = new();
     private readonly List<(int firstVertex, int vertexCount)> _freeSlots = new();
 
     // Water vertex buffer (transparent pass)
     private GPUBuffer? _waterVertexBuffer;
     private int _waterBufferCapacity;
     private int _waterNextFreeVertex;
-    private readonly Dictionary<(int cx, int cz), ChunkSlot> _waterSlots = new();
+    private readonly Dictionary<(int cx, int sy, int cz), ChunkSlot> _waterSlots = new();
     private readonly List<(int firstVertex, int vertexCount)> _waterFreeSlots = new();
     private const int WaterInitialCapacity = 1_000_000;
     private const int WaterMaxCapacity = 5_000_000;
@@ -101,7 +101,7 @@ public sealed class MapRenderService : IDisposable
     private GPURenderPassDescriptor? _cachedPassDescriptor;
 
     // Pre-allocated water sort list - reused every frame, zero allocations
-    private readonly List<(int dist, (int cx, int cz) key, ChunkSlot slot)> _waterSortList = new(256);
+    private readonly List<(int dist, (int cx, int sy, int cz) key, ChunkSlot slot)> _waterSortList = new(256);
     // Cached submit array - reused every frame
     private readonly GPUCommandBuffer[] _submitArray = new GPUCommandBuffer[1];
     public float FrameTimeMs { get; private set; }
@@ -120,8 +120,8 @@ public sealed class MapRenderService : IDisposable
     private const int MaxVertexBudget = 5_000_000;
     public bool IsOverBudget => TotalVertices > VertexBudget;
 
-    /// <summary>Fired when chunks are evicted to make room. Loader should clear tracking for these.</summary>
-    public Action<List<(int cx, int cz)>>? OnChunksEvicted;
+    /// <summary>Fired when sections are evicted to make room. Loader should clear tracking for these.</summary>
+    public Action<List<(int cx, int sy, int cz)>>? OnChunksEvicted;
 
     public MapRenderService(BlazorJSRuntime js)
     {
@@ -458,13 +458,13 @@ public sealed class MapRenderService : IDisposable
     }
 
     /// <summary>
-    /// Upload chunk mesh vertices. Returns true if upload succeeded.
+    /// Upload section mesh vertices. Returns true if upload succeeded.
     /// Bug fix: old slot is NOT freed until new allocation succeeds.
-    /// This prevents chunks from vanishing when the buffer is full.
+    /// This prevents sections from vanishing when the buffer is full.
     /// </summary>
-    public bool UploadChunkMesh(int cx, int cz, float[] vertices)
+    public bool UploadChunkMesh(int cx, int sy, int cz, float[] vertices)
     {
-        var key = (cx, cz);
+        var key = (cx, sy, cz);
         int vertexCount = vertices.Length / 11;
         if (vertexCount == 0) return false;
 
@@ -477,7 +477,7 @@ public sealed class MapRenderService : IDisposable
         {
             _freeSlots.Add((oldSlot.FirstVertex, oldSlot.VertexCount));
             if (oldSlot.VertexCount > 1000)
-                Console.WriteLine($"[DIAG] Replacing large slot ({cx},{cz}): old={oldSlot.VertexCount} new={vertexCount}");
+                Console.WriteLine($"[DIAG] Replacing large section ({cx},{sy},{cz}): old={oldSlot.VertexCount} new={vertexCount}");
         }
 
         ulong byteOffset = (ulong)writeOffset * BytesPerVertex;
@@ -492,12 +492,12 @@ public sealed class MapRenderService : IDisposable
     /// Uses CopyBufferToBuffer - data stays on GPU the entire time.
     /// </summary>
     /// <summary>
-    /// Upload chunk mesh from GPU buffer. Returns true if upload succeeded.
+    /// Upload section mesh from GPU buffer. Returns true if upload succeeded.
     /// Same safe allocation as CPU path - old slot preserved on failure.
     /// </summary>
-    public bool UploadChunkMeshFromGPU(int cx, int cz, GPUBuffer sourceBuffer, int vertexCount, long sourceByteOffset = 0)
+    public bool UploadChunkMeshFromGPU(int cx, int sy, int cz, GPUBuffer sourceBuffer, int vertexCount, long sourceByteOffset = 0)
     {
-        var key = (cx, cz);
+        var key = (cx, sy, cz);
         if (vertexCount == 0) return false;
 
         int writeOffset = FindOrAllocateSlot(key, vertexCount);
@@ -525,7 +525,7 @@ public sealed class MapRenderService : IDisposable
     /// Does NOT free the existing slot for this key (caller does that after success).
     /// Returns write offset or -1 if truly out of space.
     /// </summary>
-    private int FindOrAllocateSlot((int, int) excludeKey, int vertexCount)
+    private int FindOrAllocateSlot((int, int, int) excludeKey, int vertexCount)
     {
         // Search free list
         for (int i = 0; i < _freeSlots.Count; i++)
@@ -551,30 +551,30 @@ public sealed class MapRenderService : IDisposable
             return offset;
         }
 
-        // Multi-chunk eviction loop - evict farthest chunks beyond draw distance
+        // Multi-section eviction loop - evict farthest sections beyond draw distance
         int camCX = (int)MathF.Floor(Camera.Position.X / 16f);
         int camCZ = (int)MathF.Floor(Camera.Position.Z / 16f);
         int evictMinDist = Math.Max(DrawDistance + 4, 20);
         int evictMinDistSq = evictMinDist * evictMinDist;
-        var evictedList = new List<(int, int)>();
+        var evictedList = new List<(int, int, int)>();
 
         for (int attempt = 0; attempt < 10; attempt++)
         {
-            // Find farthest chunk beyond safe zone
-            var bestKey = (0, 0);
+            // Find farthest section beyond safe zone (distance is XZ only)
+            var bestKey = (0, 0, 0);
             float bestScore = -1f;
-            foreach (var ((cx, cz), slot) in _slots)
+            foreach (var ((cx, sy, cz), slot) in _slots)
             {
                 int dx = cx - camCX, dz = cz - camCZ;
                 int distSq = dx * dx + dz * dz;
                 if (distSq <= evictMinDistSq) continue;
                 float score = distSq * slot.VertexCount;
-                if (score > bestScore) { bestScore = score; bestKey = (cx, cz); }
+                if (score > bestScore) { bestScore = score; bestKey = (cx, sy, cz); }
             }
 
             if (bestScore <= 0) break; // nothing beyond threshold
 
-            RemoveChunkMesh(bestKey.Item1, bestKey.Item2);
+            RemoveSectionMesh(bestKey.Item1, bestKey.Item2, bestKey.Item3);
             if (_waterSlots.Remove(bestKey, out var ws))
                 _waterFreeSlots.Add((ws.FirstVertex, ws.VertexCount));
             evictedList.Add(bestKey);
@@ -611,10 +611,9 @@ public sealed class MapRenderService : IDisposable
         return -1; // truly out of space - old mesh preserved
     }
 
-    public void RemoveChunkMesh(int cx, int cz)
+    public void RemoveSectionMesh(int cx, int sy, int cz)
     {
-        Console.WriteLine($"[DIAG] RemoveChunkMesh({cx},{cz}) called");
-        if (_slots.Remove((cx, cz), out var slot))
+        if (_slots.Remove((cx, sy, cz), out var slot))
         {
             int start = slot.FirstVertex;
             int count = slot.VertexCount;
@@ -630,19 +629,25 @@ public sealed class MapRenderService : IDisposable
         }
     }
 
-    /// <summary>
-    /// Evict the farthest chunk(s) to free vertex budget space.
-    /// Prioritizes evicting LOD 0 (most verts) at max distance first.
-    /// Returns total vertices freed.
-    /// </summary>
-    /// <summary>
-    /// Evict the farthest chunk(s) beyond draw distance to free vertex budget space.
-    /// Only evicts chunks OUTSIDE the visible draw distance - never removes visible geometry.
-    /// Returns list of evicted chunk keys so the loading pipeline can clear its tracking.
-    /// </summary>
-    public List<(int cx, int cz)> EvictFarthestChunks(float camX, float camZ, int vertsNeeded)
+    /// <summary>Remove all 24 sections for a column (cx, cz). Used by eviction.</summary>
+    public void RemoveColumnMesh(int cx, int cz)
     {
-        var evicted = new List<(int, int)>();
+        for (int sy = 0; sy < 24; sy++)
+        {
+            RemoveSectionMesh(cx, sy, cz);
+            if (_waterSlots.Remove((cx, sy, cz), out var ws))
+                _waterFreeSlots.Add((ws.FirstVertex, ws.VertexCount));
+        }
+    }
+
+    /// <summary>
+    /// Evict the farthest sections beyond draw distance to free vertex budget space.
+    /// Only evicts sections OUTSIDE the visible draw distance - never removes visible geometry.
+    /// Returns list of evicted section keys so the loading pipeline can clear its tracking.
+    /// </summary>
+    public List<(int cx, int sy, int cz)> EvictFarthestChunks(float camX, float camZ, int vertsNeeded)
+    {
+        var evicted = new List<(int, int, int)>();
         int freed = 0;
         int camCX = (int)MathF.Floor(camX / 16f);
         int camCZ = (int)MathF.Floor(camZ / 16f);
@@ -652,23 +657,23 @@ public sealed class MapRenderService : IDisposable
 
         while (freed < vertsNeeded && _slots.Count > 0)
         {
-            var bestKey = (0, 0);
+            var bestKey = (0, 0, 0);
             float bestScore = -1f;
-            foreach (var ((cx, cz), slot) in _slots)
+            foreach (var ((cx, sy, cz), slot) in _slots)
             {
                 int dx = cx - camCX, dz = cz - camCZ;
                 int distSq = dx * dx + dz * dz;
-                // Only evict chunks beyond draw distance
+                // Only evict sections beyond draw distance (XZ distance)
                 if (distSq <= drawDistSq) continue;
                 float score = distSq * slot.VertexCount;
-                if (score > bestScore) { bestScore = score; bestKey = (cx, cz); }
+                if (score > bestScore) { bestScore = score; bestKey = (cx, sy, cz); }
             }
             if (bestScore <= 0) break; // nothing beyond draw distance to evict
 
             if (_slots.TryGetValue(bestKey, out var evictSlot))
             {
                 freed += evictSlot.VertexCount;
-                RemoveChunkMesh(bestKey.Item1, bestKey.Item2);
+                RemoveSectionMesh(bestKey.Item1, bestKey.Item2, bestKey.Item3);
                 if (_waterSlots.Remove(bestKey, out var ws))
                     _waterFreeSlots.Add((ws.FirstVertex, ws.VertexCount));
                 evicted.Add(bestKey);
@@ -677,10 +682,10 @@ public sealed class MapRenderService : IDisposable
         return evicted;
     }
 
-    /// <summary>Uploads water mesh vertices for a chunk to the transparent vertex buffer.</summary>
-    public void UploadWaterMesh(int cx, int cz, float[] vertices)
+    /// <summary>Uploads water mesh vertices for a section to the transparent vertex buffer.</summary>
+    public void UploadWaterMesh(int cx, int sy, int cz, float[] vertices)
     {
-        var key = (cx, cz);
+        var key = (cx, sy, cz);
         int vertexCount = vertices.Length / 11;
         if (vertexCount == 0) return;
 
@@ -723,9 +728,9 @@ public sealed class MapRenderService : IDisposable
     }
 
     /// <summary>Upload water mesh from GPU buffer (zero CPU copy).</summary>
-    public void UploadWaterMeshFromGPU(int cx, int cz, GPUBuffer sourceBuffer, int vertexCount, long sourceByteOffset = 0)
+    public void UploadWaterMeshFromGPU(int cx, int sy, int cz, GPUBuffer sourceBuffer, int vertexCount, long sourceByteOffset = 0)
     {
-        var key = (cx, cz);
+        var key = (cx, sy, cz);
         if (vertexCount == 0) return;
 
         if (_waterSlots.Remove(key, out var oldSlot))
@@ -813,7 +818,7 @@ public sealed class MapRenderService : IDisposable
         // Copy each live slot contiguously into the new buffer
         using var encoder = _device.CreateCommandEncoder();
         int writePos = 0;
-        var newSlots = new Dictionary<(int, int), ChunkSlot>();
+        var newSlots = new Dictionary<(int, int, int), ChunkSlot>();
         foreach (var (key, slot) in sortedSlots)
         {
             encoder.CopyBufferToBuffer(
@@ -949,11 +954,11 @@ public sealed class MapRenderService : IDisposable
         // Precompute time-of-day lighting on CPU once per frame (no per-pixel trig)
         float t = TimeOfDay;
         float angle = t * MathF.Tau;
-        float sy = -MathF.Cos(angle);
+        float sunY = -MathF.Cos(angle);
         float sx = MathF.Sin(angle) * 0.7f;
-        float len = MathF.Sqrt(sx * sx + sy * sy + 0.35f * 0.35f);
+        float len = MathF.Sqrt(sx * sx + sunY * sunY + 0.35f * 0.35f);
         _uniformFloats[20] = sx / len;  // sun_dir.x
-        _uniformFloats[21] = sy / len;  // sun_dir.y
+        _uniformFloats[21] = sunY / len;  // sun_dir.y
         _uniformFloats[22] = 0.35f / len; // sun_dir.z
         _uniformFloats[23] = 0f;
 
@@ -1036,24 +1041,18 @@ public sealed class MapRenderService : IDisposable
         int camCZ = (int)MathF.Floor(Camera.Position.Z / ChunkXZ);
         int drawDistSq = DrawDistance * DrawDistance;
 
-        foreach (var ((cx, cz), slot) in _slots)
+        foreach (var ((cx, sy, cz), slot) in _slots)
         {
             if (slot.VertexCount == 0) continue;
             totalVerts += slot.VertexCount;
 
-            // Quick distance check before expensive frustum test
+            // Quick XZ distance check before expensive frustum test
             int dx = cx - camCX, dz = cz - camCZ;
             if (dx * dx + dz * dz > drawDistSq) continue;
 
-            // Tighten AABB Y range based on camera - underground chunks get smaller AABBs
-            // that are more likely to fail frustum test when viewing from surface
-            float minY = -64f;
-            float maxY = 320f;
-            // If camera is above ground level, clamp chunk AABB to surface vicinity
-            if (Camera.Position.Y > 0 && Camera.Pitch > -60f)
-            {
-                minY = Math.Max(-64f, Camera.Position.Y - 100f);
-            }
+            // Tight 16x16x16 AABB per section - the foundation of cave culling
+            float minY = sy * 16 - 64f;
+            float maxY = minY + 16f;
             var min = new Vector3(cx * ChunkXZ, minY, cz * ChunkXZ);
             var max = new Vector3(cx * ChunkXZ + ChunkXZ, maxY, cz * ChunkXZ + ChunkXZ);
             if (!FrustumCuller.IsBoxVisible(in frustum, min, max)) continue;
@@ -1073,22 +1072,24 @@ public sealed class MapRenderService : IDisposable
             pass.SetBindGroup(0, _waterBindGroup!);
             pass.SetVertexBuffer(0, _waterVertexBuffer);
 
-            // Sort water chunks back-to-front - reuse pre-allocated list, zero LINQ
+            // Sort water sections back-to-front - reuse pre-allocated list, zero LINQ
             _waterSortList.Clear();
-            foreach (var ((cx2, cz2), slot2) in _waterSlots)
+            foreach (var ((cx2, sy2, cz2), slot2) in _waterSlots)
             {
                 if (slot2.VertexCount == 0) continue;
                 int ddx = cx2 - camCX, ddz = cz2 - camCZ;
                 int dist = ddx * ddx + ddz * ddz;
                 if (dist <= drawDistSq)
-                    _waterSortList.Add((dist, (cx2, cz2), slot2));
+                    _waterSortList.Add((dist, (cx2, sy2, cz2), slot2));
             }
             _waterSortList.Sort((a, b) => b.dist.CompareTo(a.dist)); // back-to-front
 
             foreach (var (_, key, slot) in _waterSortList)
             {
-                var min = new Vector3(key.cx * ChunkXZ, -64f, key.cz * ChunkXZ);
-                var max = new Vector3(key.cx * ChunkXZ + ChunkXZ, 320f, key.cz * ChunkXZ + ChunkXZ);
+                float wMinY = key.sy * 16 - 64f;
+                float wMaxY = wMinY + 16f;
+                var min = new Vector3(key.cx * ChunkXZ, wMinY, key.cz * ChunkXZ);
+                var max = new Vector3(key.cx * ChunkXZ + ChunkXZ, wMaxY, key.cz * ChunkXZ + ChunkXZ);
                 if (!FrustumCuller.IsBoxVisible(in frustum, min, max)) continue;
                 pass.Draw((uint)slot.VertexCount, 1, (uint)slot.FirstVertex, 0);
             }
