@@ -5,6 +5,7 @@ using AubsCraft.Admin.Services;
 using SpawnDev.BlazorJS;
 using SpawnDev.BlazorJS.WebWorkers;
 using SpawnDev.BlazorJS.JSObjects;
+using SpawnDev.BlazorJS.TangoADB;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
@@ -13,6 +14,9 @@ builder.Services.AddBlazorJSRuntime(out var JS);
 
 // Add WebWorkerService - we create dedicated workers ourselves, not via TaskPool
 builder.Services.AddWebWorkerService();
+
+// TangoADB - ADB over WebUSB for the /quest installer page
+builder.Services.AddTangoADB();
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddScoped<AuthStateProvider>();

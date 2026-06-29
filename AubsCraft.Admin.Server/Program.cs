@@ -23,6 +23,8 @@ builder.Services.AddSingleton<PlayerStatsService>();
 builder.Services.AddSingleton<ModrinthService>();
 builder.Services.AddSingleton<ServerControlService>();
 builder.Services.AddSingleton<WorldDataService>();
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<QuestAssetService>();
 builder.Services.AddSignalR();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -78,6 +80,30 @@ publicApi.MapGet("/status", (ServerMonitorService monitor) =>
     if (s == null)
         return Results.Ok(new PublicStatusDto(false, 0, 0, new List<string>()));
     return Results.Ok(new PublicStatusDto(s.Connected, s.Online, s.Max, s.Players));
+});
+
+// -- Quest installer endpoints (anonymous - the /quest page is a public family setup page) --
+var quest = app.MapGroup("/api/quest");
+
+quest.MapGet("/manifest", async (QuestAssetService svc, CancellationToken ct) =>
+{
+    var m = await svc.GetManifestAsync(ct);
+    // Client-facing shape - upstream download URLs stay server-side; the browser fetches /asset/{id}.
+    return Results.Ok(new
+    {
+        questCraft = new { id = m.QuestCraft.Id, version = m.QuestCraft.Version, filename = m.QuestCraft.Filename },
+        mods = m.Mods.Select(x => new { id = x.Id, name = x.Name, version = x.Version, filename = x.Filename, targetFilename = x.TargetFilename, size = x.Size }),
+        modsDirTemplate = m.ModsDirTemplate,
+        packageHints = m.PackageHints,
+    });
+});
+
+quest.MapGet("/asset/{id}", async (string id, QuestAssetService svc, CancellationToken ct) =>
+{
+    var asset = await svc.OpenAssetAsync(id, ct);
+    if (asset == null) return Results.NotFound();
+    // Seekable FileStream -> Content-Length is set automatically (drives browser download progress).
+    return Results.File(asset.Value.Stream, asset.Value.ContentType, enableRangeProcessing: true);
 });
 
 // -- Auth endpoints (anonymous) --

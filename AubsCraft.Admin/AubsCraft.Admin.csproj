@@ -25,6 +25,8 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\SpawnDev.Rcon\SpawnDev.Rcon.csproj" />
+		<!-- ProjectReference during /quest bring-up; switch to PackageReference once TangoADB 1.0.0 ships -->
+		<ProjectReference Include="..\..\SpawnDev.BlazorJS.TangoADB\SpawnDev.BlazorJS.TangoADB\SpawnDev.BlazorJS.TangoADB\SpawnDev.BlazorJS.TangoADB.csproj" />
 	</ItemGroup>
 
 </Project>

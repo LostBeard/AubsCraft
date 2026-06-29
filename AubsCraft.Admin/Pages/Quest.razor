@@ -1,0 +1,263 @@
+@page "/quest"
+@using System.Net.Http.Json
+@using SpawnDev.BlazorJS
+@using SpawnDev.BlazorJS.JSObjects
+@using SpawnDev.BlazorJS.TangoADB
+@inject TangoService Tango
+@inject HttpClient Http
+@inject BlazorJSRuntime JS
+@implements IDisposable
+
+<PageTitle>Set up QuestCraft - AubsCraft</PageTitle>
+
+<div class="container py-4" style="max-width: 820px;">
+    <h2 class="mb-1"><span class="bi bi-headset"></span> Set up your Quest</h2>
+    <p class="text-muted">
+        Plug your Quest 3/3S into this computer with a USB-C cable, enable Developer Mode, then connect below.
+        This installs (or updates) QuestCraft and the mods AubsCraft needs - including voice chat - straight onto the headset.
+    </p>
+
+    @if (!Tango.IsWebUsbSupported)
+    {
+        <div class="alert alert-warning">
+            This page needs WebUSB - use <b>Chrome</b>, <b>Edge</b>, or another Chromium browser on a computer (not in the headset).
+        </div>
+    }
+
+    <!-- Step 1: connect -->
+    <div class="card bg-dark text-light mb-3">
+        <div class="card-body">
+            <h5 class="card-title">1. Connect the headset</h5>
+            @if (!Tango.IsConnected)
+            {
+                <button class="btn btn-primary" @onclick="ConnectQuest" disabled="@busy">
+                    <span class="bi bi-usb-symbol"></span> Connect Quest
+                </button>
+                <div class="form-text">You'll see a USB chooser, then "Allow USB debugging?" inside the headset - accept both.</div>
+            }
+            else
+            {
+                <p class="mb-1"><span class="badge bg-success">Connected</span> @deviceLabel</p>
+                <button class="btn btn-outline-light btn-sm" @onclick="Disconnect" disabled="@busy">Disconnect</button>
+            }
+        </div>
+    </div>
+
+    @if (Tango.IsConnected && manifest != null)
+    {
+        <!-- Step 2: QuestCraft -->
+        <div class="card bg-dark text-light mb-3">
+            <div class="card-body">
+                <h5 class="card-title">2. QuestCraft</h5>
+                @if (installedPackage == null)
+                {
+                    <p class="mb-2"><span class="bi bi-exclamation-triangle text-warning"></span> QuestCraft is not installed yet.</p>
+                }
+                else
+                {
+                    <p class="mb-2"><span class="bi bi-check-circle text-success"></span> Installed: <code>@installedPackage</code> @(installedVersion is null ? "" : $"(v{installedVersion})")</p>
+                }
+                <p class="text-muted small">Latest QuestCraft: <b>@manifest.QuestCraft.Version</b> (@manifest.QuestCraft.Filename)</p>
+                <button class="btn btn-primary" @onclick="InstallQuestCraft" disabled="@busy">
+                    <span class="bi bi-box-arrow-down"></span> @(installedPackage == null ? "Install QuestCraft" : "Update QuestCraft")
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 3: mods -->
+        <div class="card bg-dark text-light mb-3">
+            <div class="card-body">
+                <h5 class="card-title">3. Required mods</h5>
+                @if (installedPackage == null)
+                {
+                    <p class="text-muted">Install QuestCraft first, then add the mods.</p>
+                }
+                else
+                {
+                    <ul class="list-unstyled mb-2">
+                        @foreach (var mod in manifest.Mods)
+                        {
+                            <li><span class="bi bi-puzzle"></span> @mod.Name <span class="text-muted small">@mod.Version</span></li>
+                        }
+                    </ul>
+                    <p class="text-muted small">Pushed to <code>@ModsDir()</code></p>
+                    <button class="btn btn-primary" @onclick="InstallMods" disabled="@busy">
+                        <span class="bi bi-cloud-arrow-up"></span> Install / update mods
+                    </button>
+                }
+            </div>
+        </div>
+
+        <!-- Step 4: one-time in-headset setting -->
+        <div class="card bg-dark text-light mb-3">
+            <div class="card-body">
+                <h5 class="card-title">4. Turn on voice (one time, in the headset)</h5>
+                <p class="mb-1">Put the headset on, launch <b>QuestCraft</b>, and join the server. Then:</p>
+                <ol class="mb-1">
+                    <li>Press the <b>B</b> button on the right controller to open the menu.</li>
+                    <li>Open <b>Voice Chat Menu</b>.</li>
+                    <li>Change the activation from <i>Push to Talk</i> to <b>Voice Activated</b>.</li>
+                </ol>
+                <p class="text-muted small mb-0">A speaker icon appears above your head when voice is active. (You'll hear "some modules could not be loaded" on join - that's a harmless QuestCraft message; voice still works.)</p>
+            </div>
+        </div>
+    }
+
+    @if (busy)
+    {
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+            <span>@busyLabel</span>
+        </div>
+    }
+
+    @if (log.Count > 0)
+    {
+        <div class="card bg-black text-light">
+            <div class="card-body">
+                <pre class="mb-0" style="white-space:pre-wrap;font-size:.85rem;color:#9be29b;">@string.Join("\n", log)</pre>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    ManifestDto? manifest;
+    string deviceLabel = "";
+    string? installedPackage;
+    string? installedVersion;
+    string? instance;
+    bool busy;
+    string busyLabel = "";
+    readonly List<string> log = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Tango.ConnectionChanged += OnConnectionChanged;
+        try { manifest = await Http.GetFromJsonAsync<ManifestDto>("api/quest/manifest"); }
+        catch (Exception ex) { Log($"Could not load install manifest: {ex.Message}"); }
+    }
+
+    void OnConnectionChanged() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Tango.ConnectionChanged -= OnConnectionChanged;
+
+    string ModsDir() => manifest == null || installedPackage == null
+        ? ""
+        : manifest.ModsDirTemplate.Replace("{package}", installedPackage).Replace("{instance}", instance ?? "1.21.5");
+
+    async Task ConnectQuest()
+    {
+        await Run("Connecting...", async () =>
+        {
+            var adb = await Tango.RequestAndConnect("AubsCraft Quest Setup");
+            if (adb == null) { Log("No device selected."); return; }
+            var model = await adb.GetProp("ro.product.model");
+            deviceLabel = $"{model} ({adb.Serial})";
+            Log($"Connected to {deviceLabel}.");
+            await DetectQuestCraft(adb);
+        });
+    }
+
+    async Task DetectQuestCraft(Adb adb)
+    {
+        installedPackage = null; installedVersion = null;
+        var listText = await adb.Subprocess.NoneProtocol.SpawnWaitText("pm list packages");
+        var packages = listText.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(l => l.StartsWith("package:") ? l["package:".Length..] : l).ToList();
+        installedPackage = packages.FirstOrDefault(p => manifest!.PackageHints.Any(h => p.Contains(h, StringComparison.OrdinalIgnoreCase)));
+        if (installedPackage != null)
+        {
+            Log($"QuestCraft detected: {installedPackage}");
+            try
+            {
+                var dump = await adb.Subprocess.NoneProtocol.SpawnWaitText($"dumpsys package {installedPackage} | grep versionName");
+                var idx = dump.IndexOf("versionName=", StringComparison.Ordinal);
+                if (idx >= 0) installedVersion = dump[(idx + "versionName=".Length)..].Split('\n', '\r', ' ')[0].Trim();
+            }
+            catch { }
+            // Detect the QCXR instance folder (e.g. "1.21.5") that holds the mods dir.
+            try
+            {
+                var ls = await adb.Subprocess.NoneProtocol.SpawnWaitText($"ls /sdcard/Android/data/{installedPackage}/files/instances/");
+                instance = ls.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+                if (instance != null) Log($"QuestCraft instance: {instance} (mods -> {ModsDir()})");
+            }
+            catch { }
+        }
+        else Log("QuestCraft not installed yet.");
+    }
+
+    async Task InstallQuestCraft()
+    {
+        if (Tango.Adb == null || manifest == null) return;
+        await Run("Installing QuestCraft (this can take a minute)...", async () =>
+        {
+            Log($"Streaming {manifest.QuestCraft.Filename} to the headset...");
+            using var response = await JS.Fetch($"api/quest/asset/{manifest.QuestCraft.Id}");
+            if (!response.Ok) { Log($"Download failed (HTTP {response.Status})."); return; }
+            using var body = response.Body!;
+            var pm = new PackageManager(Tango.Adb);
+            var result = await pm.PushAndInstallStream(body, new PackageManagerInstallOptions { SkipExisting = false });
+            Log(string.IsNullOrWhiteSpace(result) ? "QuestCraft installed." : result.Trim());
+            await DetectQuestCraft(Tango.Adb);
+        });
+    }
+
+    async Task InstallMods()
+    {
+        if (Tango.Adb == null || manifest == null || installedPackage == null) return;
+        await Run("Installing mods...", async () =>
+        {
+            var dir = ModsDir();
+            var sync = await Tango.Adb.Sync();
+            try
+            {
+                foreach (var mod in manifest.Mods)
+                {
+                    Log($"Pushing {mod.Filename}...");
+                    using var response = await JS.Fetch($"api/quest/asset/{mod.Id}");
+                    if (!response.Ok) { Log($"  download failed (HTTP {response.Status})."); continue; }
+                    using var body = response.Body!;
+                    var targetName = string.IsNullOrEmpty(mod.TargetFilename) ? mod.Filename : mod.TargetFilename;
+                    await sync.Write(new AdbSyncWriteOptions { Filename = $"{dir}/{targetName}", File = body });
+                    Log($"  {mod.Name} installed as {targetName}.");
+                }
+            }
+            finally { await sync.Release(); sync.Dispose(); }
+
+            // Ensure QuestCraft has microphone permission - voice chat can't transmit without it
+            // (QuestCraft doesn't request it itself; this replaces the manual SideQuest grant step).
+            try
+            {
+                Log("Granting microphone permission...");
+                await Tango.Adb.Subprocess.NoneProtocol.SpawnWaitText($"pm grant {installedPackage} android.permission.RECORD_AUDIO");
+                Log("  Microphone permission granted.");
+            }
+            catch (Exception ex) { Log($"  (could not grant mic permission automatically: {ex.Message})"); }
+
+            Log("Done! One step left in the headset - see below.");
+        });
+    }
+
+    async Task Disconnect() => await Run("Disconnecting...", () => Tango.Disconnect());
+
+    async Task Run(string label, Func<Task> action)
+    {
+        busy = true; busyLabel = label; StateHasChanged();
+        try { await action(); }
+        catch (Exception ex) { Log($"[error] {ex.Message}"); }
+        finally { busy = false; busyLabel = ""; StateHasChanged(); }
+    }
+
+    void Log(string msg) { log.Add(msg); InvokeAsync(StateHasChanged); }
+
+    class ManifestDto
+    {
+        public QuestCraftDto QuestCraft { get; set; } = new();
+        public List<ModDto> Mods { get; set; } = new();
+        public string ModsDirTemplate { get; set; } = "";
+        public List<string> PackageHints { get; set; } = new();
+    }
+    class QuestCraftDto { public string Id { get; set; } = ""; public string Version { get; set; } = ""; public string Filename { get; set; } = ""; }
+    class ModDto { public string Id { get; set; } = ""; public string Name { get; set; } = ""; public string Version { get; set; } = ""; public string Filename { get; set; } = ""; public string TargetFilename { get; set; } = ""; public long Size { get; set; } }
+}

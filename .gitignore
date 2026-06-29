@@ -12,3 +12,8 @@ activity-log.json
 voicechat-bukkit-*.jar
 VRDetect/target/
 VRDetect/build/
+quest-cache/
+AubsCraft.Admin.Server/quest-cache/
+# Auth / account data - never commit
+users.json
+admin.json.migrated
