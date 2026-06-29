@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
@@ -318,22 +319,25 @@ public record ToggleResultDto(bool Success, string Message);
 
 public class ModrinthSearchResultDto
 {
-    public string ProjectId { get; set; } = "";
+    // The hub sends these snake_case (the server DTO uses [JsonPropertyName]); without matching
+    // attributes here, ProjectId/IconUrl deserialize to empty - which broke plugin install
+    // (GetPluginVersions was called with an empty project id -> "No compatible version found").
+    [JsonPropertyName("project_id")] public string ProjectId { get; set; } = "";
     public string Slug { get; set; } = "";
     public string Title { get; set; } = "";
     public string Description { get; set; } = "";
     public string Author { get; set; } = "";
     public long Downloads { get; set; }
-    public string? IconUrl { get; set; }
+    [JsonPropertyName("icon_url")] public string? IconUrl { get; set; }
 }
 
 public class ModrinthVersionDto
 {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
-    public string VersionNumber { get; set; } = "";
-    public string VersionType { get; set; } = "";
-    public DateTime DatePublished { get; set; }
+    [JsonPropertyName("version_number")] public string VersionNumber { get; set; } = "";
+    [JsonPropertyName("version_type")] public string VersionType { get; set; } = "";
+    [JsonPropertyName("date_published")] public DateTime DatePublished { get; set; }
     public List<ModrinthFileDto> Files { get; set; } = [];
 }
 
