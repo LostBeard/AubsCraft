@@ -53,7 +53,11 @@ public class ModrinthService
     {
         try
         {
-            var url = $"project/{projectId}/version?game_versions=[\"{_gameVersion}\"]&loaders=[\"bukkit\",\"paper\",\"spigot\"]";
+            // The bracket/quote JSON array params MUST be URL-encoded - unencoded, Modrinth returns
+            // nothing (which surfaced as "No compatible version found" on install).
+            var gameVersions = Uri.EscapeDataString($"[\"{_gameVersion}\"]");
+            var loaders = Uri.EscapeDataString("[\"bukkit\",\"paper\",\"spigot\",\"purpur\",\"folia\"]");
+            var url = $"project/{Uri.EscapeDataString(projectId)}/version?game_versions={gameVersions}&loaders={loaders}";
             return await _http.GetFromJsonAsync<List<ModrinthVersion>>(url) ?? [];
         }
         catch (Exception ex)
