@@ -31,7 +31,10 @@ public class ModrinthService
     {
         try
         {
-            var facets = $"[[\"categories:bukkit\"],[\"categories:paper\"],[\"project_type:mod\"]]";
+            // Modrinth facets: the OUTER array is AND, INNER arrays are OR. We want "compatible with
+            // ANY common server platform", so all server loaders go in one inner (OR) array. The old
+            // form ANDed bukkit+paper+mod, which matched almost nothing (e.g. Simple Voice Chat).
+            var facets = "[[\"categories:bukkit\",\"categories:paper\",\"categories:spigot\",\"categories:purpur\",\"categories:folia\"]]";
             var url = $"search?query={Uri.EscapeDataString(query)}&limit={limit}&facets={Uri.EscapeDataString(facets)}";
             var response = await _http.GetFromJsonAsync<ModrinthSearchResponse>(url);
             return response?.Hits ?? [];
