@@ -89,6 +89,65 @@ public partial class PluginService
         }
     }
 
+    /// <summary>
+    /// Installs a downloaded plugin jar, replacing any existing copy of the SAME plugin (matched by
+    /// its plugin.yml name, so an update doesn't leave a duplicate older jar that would crash the
+    /// server). Also removes a disabled copy of the same plugin. Returns a status message.
+    /// </summary>
+    public (bool success, string message) InstallPlugin(byte[] jarData, string filename)
+    {
+        try
+        {
+            Directory.CreateDirectory(_pluginsPath);
+            var newName = TryReadPluginName(jarData);
+            int replaced = 0;
+            if (!string.IsNullOrEmpty(newName))
+            {
+                foreach (var existing in GetPlugins())
+                {
+                    if (string.Equals(existing.FileName, filename, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!string.Equals(existing.Name, newName, StringComparison.OrdinalIgnoreCase)) continue;
+                    try
+                    {
+                        File.Delete(Path.Combine(_pluginsPath, existing.FileName));
+                        replaced++;
+                        _logger.LogInformation("Removed old copy of {Plugin}: {FileName}", newName, existing.FileName);
+                    }
+                    catch (Exception ex) { _logger.LogWarning(ex, "Could not remove old plugin {FileName}", existing.FileName); }
+                }
+            }
+
+            File.WriteAllBytes(Path.Combine(_pluginsPath, filename), jarData);
+            var sizeKb = jarData.Length / 1024;
+            _logger.LogInformation("Installed plugin {FileName} ({Size} bytes, {Replaced} replaced)", filename, jarData.Length, replaced);
+            var msg = replaced > 0
+                ? $"Installed {filename} ({sizeKb}KB) and removed {replaced} older copy. Restart the server to apply."
+                : $"Installed {filename} ({sizeKb}KB). Restart the server to apply.";
+            return (true, msg);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Install failed for {FileName}", filename);
+            return (false, $"Install failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>Reads the plugin name from a jar's plugin.yml/paper-plugin.yml held in memory.</summary>
+    private string? TryReadPluginName(byte[] jarData)
+    {
+        try
+        {
+            using var ms = new MemoryStream(jarData);
+            using var zip = new ZipArchive(ms, ZipArchiveMode.Read);
+            var ymlEntry = zip.GetEntry("plugin.yml") ?? zip.GetEntry("paper-plugin.yml");
+            if (ymlEntry == null) return null;
+            using var stream = ymlEntry.Open();
+            using var reader = new StreamReader(stream);
+            return ExtractYamlValue(reader.ReadToEnd(), "name");
+        }
+        catch { return null; }
+    }
+
     private PluginInfo? ReadPluginInfo(string jarPath)
     {
         var fileName = Path.GetFileName(jarPath);

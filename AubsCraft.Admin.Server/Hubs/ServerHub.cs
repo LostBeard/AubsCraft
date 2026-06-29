@@ -314,11 +314,9 @@ public class ServerHub : Hub<IServerHubClient>
             return (false, "Download failed");
 
         var (data, _) = result.Value;
-        var path = Path.Combine(_plugins.PluginsPath, filename);
-
-        await File.WriteAllBytesAsync(path, data);
-        _logger.LogInformation("Plugin installed: {Path} ({Size} bytes)", path, data.Length);
-        return (true, $"Installed {filename} ({data.Length / 1024}KB). Restart the server to load it.");
+        // Replaces any existing copy of the same plugin (matched by plugin.yml name) so an update
+        // doesn't leave a duplicate older jar.
+        return _plugins.InstallPlugin(data, filename);
     }
 
     // -- Server Control (admin/owner) --
