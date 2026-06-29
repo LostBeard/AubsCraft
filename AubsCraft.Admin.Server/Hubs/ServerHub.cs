@@ -94,14 +94,15 @@ public class ServerHub : Hub<IServerHubClient>
 
     // -- Self-whitelist (any logged-in user, capped for Friends) --
 
-    public async Task<(bool success, string message)> AddOwnMcAccount(AddOwnMcAccountRequest req)
+    public async Task<HubResult> AddOwnMcAccount(AddOwnMcAccountRequest req)
     {
         var user = _auth.GetUser(CurrentUsername);
         if (user == null)
-            return (false, "User record missing - log out and back in.");
+            return new HubResult(false, "User record missing - log out and back in.");
 
         var capped = user.Role == Roles.Friend;
-        return await _whitelistAudit.AddOnBehalfAsync(req.McUsername, req.Platform, CurrentUsername, isFriendCapped: capped);
+        var (success, message) = await _whitelistAudit.AddOnBehalfAsync(req.McUsername, req.Platform, CurrentUsername, isFriendCapped: capped);
+        return new HubResult(success, message);
     }
 
     public List<WhitelistAuditEntryDto> GetMyMcAccounts()
@@ -116,9 +117,10 @@ public class ServerHub : Hub<IServerHubClient>
     }
 
     [Authorize(Roles = Roles.OwnerOrAdmin)]
-    public async Task<(bool success, string message)> RemoveAuditedAccount(string mcUsername, string platform)
+    public async Task<HubResult> RemoveAuditedAccount(string mcUsername, string platform)
     {
-        return await _whitelistAudit.RemoveAsync(mcUsername, platform);
+        var (success, message) = await _whitelistAudit.RemoveAsync(mcUsername, platform);
+        return new HubResult(success, message);
     }
 
     // -- Invite codes (admin/owner only) --
@@ -164,21 +166,21 @@ public class ServerHub : Hub<IServerHubClient>
     }
 
     [Authorize(Roles = Roles.Owner)]
-    public async Task<(bool success, string message)> DeleteUser(string username, bool revokeWhitelist)
+    public async Task<HubResult> DeleteUser(string username, bool revokeWhitelist)
     {
         try
         {
             var deleted = await _auth.DeleteUserAsync(username);
-            if (!deleted) return (false, "User not found.");
+            if (!deleted) return new HubResult(false, "User not found.");
             int revokedCount = 0;
             if (revokeWhitelist)
                 revokedCount = await _whitelistAudit.RevokeAllByWebUserAsync(username);
-            return (true,
+            return new HubResult(true,
                 revokeWhitelist ? $"Deleted {username} and revoked {revokedCount} whitelist entries." : $"Deleted {username}.");
         }
         catch (Exception ex)
         {
-            return (false, ex.Message);
+            return new HubResult(false, ex.Message);
         }
     }
 
@@ -287,10 +289,11 @@ public class ServerHub : Hub<IServerHubClient>
     }
 
     [Authorize(Roles = Roles.OwnerOrAdmin)]
-    public (bool success, string message) TogglePlugin(string fileName)
+    public HubResult TogglePlugin(string fileName)
     {
         _logger.LogInformation("TogglePlugin: {FileName} by {User}", fileName, CurrentUsername);
-        return _plugins.TogglePlugin(fileName);
+        var (success, message) = _plugins.TogglePlugin(fileName);
+        return new HubResult(success, message);
     }
 
     [Authorize(Roles = Roles.OwnerOrAdmin)]
@@ -306,46 +309,47 @@ public class ServerHub : Hub<IServerHubClient>
     }
 
     [Authorize(Roles = Roles.OwnerOrAdmin)]
-    public async Task<(bool success, string message)> InstallPlugin(string downloadUrl, string filename)
+    public async Task<HubResult> InstallPlugin(string downloadUrl, string filename)
     {
         _logger.LogInformation("Installing plugin: {Filename} from {Url} by {User}", filename, downloadUrl, CurrentUsername);
         var result = await _modrinth.DownloadAsync(downloadUrl);
         if (result == null)
-            return (false, "Download failed");
+            return new HubResult(false, "Download failed");
 
         var (data, _) = result.Value;
         // Replaces any existing copy of the same plugin (matched by plugin.yml name) so an update
         // doesn't leave a duplicate older jar.
-        return _plugins.InstallPlugin(data, filename);
+        var (success, message) = _plugins.InstallPlugin(data, filename);
+        return new HubResult(success, message);
     }
 
     // -- Server Control (admin/owner) --
 
     [Authorize(Roles = Roles.OwnerOrAdmin)]
-    public async Task<(bool success, string message)> RestartServer()
+    public async Task<HubResult> RestartServer()
     {
         _logger.LogInformation("Server restart requested by {User}", CurrentUsername);
         var (success, output) = await _serverControl.RestartAsync();
         if (success) _ = _email.NotifyServerLifecycleAsync("restarted", CurrentUsername);
-        return (success, success ? "Server restarting..." : $"Restart failed: {output}");
+        return new HubResult(success, success ? "Server restarting..." : $"Restart failed: {output}");
     }
 
     [Authorize(Roles = Roles.OwnerOrAdmin)]
-    public async Task<(bool success, string message)> StopServer()
+    public async Task<HubResult> StopServer()
     {
         _logger.LogInformation("Server stop requested by {User}", CurrentUsername);
         var (success, output) = await _serverControl.StopAsync();
         if (success) _ = _email.NotifyServerLifecycleAsync("stopped", CurrentUsername);
-        return (success, success ? "Server stopped" : $"Stop failed: {output}");
+        return new HubResult(success, success ? "Server stopped" : $"Stop failed: {output}");
     }
 
     [Authorize(Roles = Roles.OwnerOrAdmin)]
-    public async Task<(bool success, string message)> StartServer()
+    public async Task<HubResult> StartServer()
     {
         _logger.LogInformation("Server start requested by {User}", CurrentUsername);
         var (success, output) = await _serverControl.StartAsync();
         if (success) _ = _email.NotifyServerLifecycleAsync("started", CurrentUsername);
-        return (success, success ? "Server starting..." : $"Start failed: {output}");
+        return new HubResult(success, success ? "Server starting..." : $"Start failed: {output}");
     }
 
     // -- Player Positions (any logged-in user - read only) --
@@ -391,3 +395,10 @@ public class ServerHub : Hub<IServerHubClient>
     private static WhitelistAuditEntryDto ToDto(WhitelistAuditEntry e) => new(
         e.McUsername, e.Platform, e.AddedByWebUser, e.AddedAt, e.AutoAdded, e.Confirmed);
 }
+
+/// <summary>
+/// A success/message result for hub methods. A named record (not a ValueTuple) - System.Text.Json,
+/// and therefore SignalR's JsonHubProtocol, does not serialize ValueTuples (their Item1/Item2 are
+/// fields, dropped by default), which silently blanked every result. Serializes as {Success,Message}.
+/// </summary>
+public record HubResult(bool Success, string Message);

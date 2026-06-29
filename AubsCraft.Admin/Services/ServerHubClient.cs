@@ -315,13 +315,9 @@ public class PluginInfoDto
     public string? Error { get; set; }
 }
 
-// The hub methods return C# ValueTuples (bool success, string message), which System.Text.Json
-// serializes as {"Item1":...,"Item2":...} (the element names are compile-time only). Map those
-// wire names so Success/Message actually populate - otherwise every result banner is blank and
-// Success is always false (which suppressed the install/toggle feedback and list refresh).
-public record ToggleResultDto(
-    [property: JsonPropertyName("Item1")] bool Success,
-    [property: JsonPropertyName("Item2")] string Message);
+// Matches the server's HubResult record (named Success/Message properties). The hub no longer
+// returns ValueTuples, which System.Text.Json/SignalR could not serialize (they blanked out).
+public record ToggleResultDto(bool Success, string Message);
 
 public class ModrinthSearchResultDto
 {
