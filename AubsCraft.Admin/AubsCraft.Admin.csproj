@@ -21,12 +21,11 @@
 		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.2" />
 		<PackageReference Include="SpawnDev.BlazorJS.WebWorkers" Version="3.2.1" />
 		<PackageReference Include="SpawnDev.ILGPU" Version="4.9.2-rc.24" />
+		<PackageReference Include="SpawnDev.BlazorJS.TangoADB" Version="1.0.0" />
 	</ItemGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\SpawnDev.Rcon\SpawnDev.Rcon.csproj" />
-		<!-- ProjectReference during /quest bring-up; switch to PackageReference once TangoADB 1.0.0 ships -->
-		<ProjectReference Include="..\..\SpawnDev.BlazorJS.TangoADB\SpawnDev.BlazorJS.TangoADB\SpawnDev.BlazorJS.TangoADB\SpawnDev.BlazorJS.TangoADB.csproj" />
 	</ItemGroup>
 
 </Project>
