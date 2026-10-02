@@ -29,6 +29,9 @@ self.onmessage = (e) => {
         cameraChunkX = Math.floor(msg.x / 16);
         cameraChunkZ = Math.floor(msg.z / 16);
         resortQueue();
+        // The server re-sorts its send queue around this position (before open, onopen sends it)
+        if (ws && ws.readyState === WebSocket.OPEN)
+            ws.send(JSON.stringify({ x: msg.x, z: msg.z }));
     }
 };
 

@@ -357,7 +357,7 @@ world.MapGet("/ws", async (HttpContext ctx, WorldDataService worldData) =>
         var hm = worldData.GetHeightmap(next.X, next.Z);
         if (hm == null)
         {
-            sent.Add((next.X, next.Z));
+            lock (sendQueue) sent.Add((next.X, next.Z)); // the receive loop reads `sent` under this lock
             continue;
         }
 
@@ -384,7 +384,7 @@ world.MapGet("/ws", async (HttpContext ctx, WorldDataService worldData) =>
         }
         catch { break; }
 
-        sent.Add((next.X, next.Z));
+        lock (sendQueue) sent.Add((next.X, next.Z));
     }
 
     if (ws.State == System.Net.WebSockets.WebSocketState.Open)

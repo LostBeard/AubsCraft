@@ -65,30 +65,38 @@ internal static class SectionVisibility
     /// don't have a stored connectivity (not loaded yet) are treated as
     /// fully connected so we don't accidentally hide visible-but-still-loading
     /// chunks; this can over-render briefly but never under-renders.
+    /// The search is bounded by horizontal (XZ) distance from the camera section,
+    /// matching the renderer's draw-distance test, and by the world's section rows
+    /// [minSy, maxSy]. Returns null when the camera section is sealed solid (camera
+    /// inside terrain): graph culling from there would hide the whole world, so the
+    /// caller should draw without it, as Sodium does for a camera inside an opaque block.
     /// </summary>
-    public static HashSet<(int sx, int sy, int sz)> ComputeVisibleSections(
+    public static HashSet<(int sx, int sy, int sz)>? ComputeVisibleSections(
         (int sx, int sy, int sz) cameraSection,
         Func<(int sx, int sy, int sz), long?> getConnectivity,
-        int maxDistance)
+        int maxDistance, int minSy, int maxSy)
     {
-        var visible = new HashSet<(int sx, int sy, int sz)> { cameraSection };
-        var queue = new Queue<((int sx, int sy, int sz) coord, int entryFace, int depth)>();
-
         var camConn = getConnectivity(cameraSection) ?? AllConnected;
+        if (camConn == SelfOnly) return null;
+
+        var visible = new HashSet<(int sx, int sy, int sz)> { cameraSection };
+        var queue = new Queue<((int sx, int sy, int sz) coord, int entryFace)>();
+        int maxDistSq = maxDistance * maxDistance;
+
         for (int face = 0; face < 6; face++)
         {
-            // Camera section "exits" through every face that has any outgoing
-            // connection from any other face (we entered from no specific face,
-            // so use a permissive seed: any face that connects to anything).
-            if (!HasAnyOutgoing(camConn, face)) continue;
+            // Camera section "exits" through every face (we entered from no
+            // specific face, so seed permissively).
             var neighbor = Neighbor(cameraSection, face);
-            queue.Enqueue((neighbor, OppositeFace[face], 1));
+            queue.Enqueue((neighbor, OppositeFace[face]));
         }
 
         while (queue.Count > 0)
         {
-            var (coord, entryFace, depth) = queue.Dequeue();
-            if (depth > maxDistance) continue;
+            var (coord, entryFace) = queue.Dequeue();
+            if (coord.sy < minSy || coord.sy > maxSy) continue;
+            int dx = coord.sx - cameraSection.sx, dz = coord.sz - cameraSection.sz;
+            if (dx * dx + dz * dz > maxDistSq) continue;
             if (!visible.Add(coord)) continue;
 
             var conn = getConnectivity(coord) ?? AllConnected;
@@ -96,7 +104,7 @@ internal static class SectionVisibility
             {
                 if (exitFace == entryFace) continue;
                 if (!HasFaceToFace(conn, entryFace, exitFace)) continue;
-                queue.Enqueue((Neighbor(coord, exitFace), OppositeFace[exitFace], depth + 1));
+                queue.Enqueue((Neighbor(coord, exitFace), OppositeFace[exitFace]));
             }
         }
 
@@ -105,15 +113,11 @@ internal static class SectionVisibility
 
     private const long AllConnected = (1L << 36) - 1; // bits 0..35 all set
 
+    // Only the always-set self bits (face A -> face A): no face reaches any other face.
+    private const long SelfOnly = (1L << 0) | (1L << 7) | (1L << 14) | (1L << 21) | (1L << 28) | (1L << 35);
+
     private static bool HasFaceToFace(long conn, int entryFace, int exitFace)
         => (conn & (1L << (entryFace * 6 + exitFace))) != 0;
-
-    private static bool HasAnyOutgoing(long conn, int face)
-    {
-        // Any of the 6 bits at face*6 .. face*6+5 set?
-        long mask = 0x3FL << (face * 6);
-        return (conn & mask) != 0;
-    }
 
     private static (int sx, int sy, int sz) Neighbor((int sx, int sy, int sz) c, int face)
     {

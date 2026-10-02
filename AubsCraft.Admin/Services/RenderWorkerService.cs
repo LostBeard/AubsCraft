@@ -103,6 +103,8 @@ public class RenderWorkerService : IRenderWorkerService
             renderPort = _dataChannel.Port2,
             wsUrl
         }, new object[] { _dataChannel.Port2 });
+        // The data worker (and the server behind its WebSocket) streams nearest-the-camera first
+        PostCameraToDataWorker();
 
         // Signal ready for chunks (GPU is initialized)
         _dataPort.PostMessage(new { type = "ready" });
@@ -226,6 +228,9 @@ public class RenderWorkerService : IRenderWorkerService
         try
         {
             _populatedChunks.Add((cx, cz));
+            // A heightmap arriving inside the full-3D radius makes that chunk loadable in 3D;
+            // the render loop picks it up (the camera may never change chunk on its own).
+            if (!_fullChunks.Contains((cx, cz)) && IsInFullRadius(cx, cz)) _fullDirty = true;
             if (!_loadedChunks.Contains((cx, cz)) && !_fullChunks.Contains((cx, cz)))
             {
                 await RenderFromFrameAsync(buffer);
@@ -311,6 +316,7 @@ public class RenderWorkerService : IRenderWorkerService
     private HashSet<(int, int)> _fullChunks = new();
     private int _lastFullCX = int.MinValue, _lastFullCZ = int.MinValue;
     private bool _loadingFull;
+    private bool _fullDirty;
     // Full chunk data loaded within this radius. LOD kernel reduces detail for distant chunks.
     // Heightmap from WebSocket covers beyond this radius.
     private const int FullRenderRadius = 16;
@@ -499,33 +505,84 @@ public class RenderWorkerService : IRenderWorkerService
         }
     }
 
+    private int _lastStreamCX = int.MinValue, _lastStreamCZ = int.MinValue;
+
+    /// <summary>
+    /// Tells the data worker where the camera is. It re-sorts its queue and forwards the position
+    /// to the server, which re-sorts what it streams. Without this, heightmaps stream outward from
+    /// (0, 0) no matter where the camera is or goes.
+    /// </summary>
+    private void PostCameraToDataWorker()
+    {
+        if (_dataWorker == null) return;
+        var (camCX, camCZ) = CameraChunk();
+        _lastStreamCX = camCX;
+        _lastStreamCZ = camCZ;
+        _dataWorker.PostMessage(new { type = "camera", x = _renderer.Camera.Position.X, z = _renderer.Camera.Position.Z });
+    }
+
     private void OnRenderFrame(float dt)
     {
         // Trigger full 3D loading when camera moves to a new chunk
-        int camCX = (int)MathF.Floor(_renderer.Camera.Position.X / 16f);
-        int camCZ = (int)MathF.Floor(_renderer.Camera.Position.Z / 16f);
-        if (!_loadingFull && (camCX != _lastFullCX || camCZ != _lastFullCZ))
+        var (camCX, camCZ) = CameraChunk();
+        if (camCX != _lastStreamCX || camCZ != _lastStreamCZ) PostCameraToDataWorker();
+        if (!_loadingFull && (_fullDirty || camCX != _lastFullCX || camCZ != _lastFullCZ))
         {
             _lastFullCX = camCX;
             _lastFullCZ = camCZ;
+            _fullDirty = false;
             _ = LoadFullChunksNearbyAsync(camCX, camCZ);
-            // Camera moved - data worker re-sorts its queue via camera update from main thread
         }
     }
 
+    private (int cx, int cz) CameraChunk()
+        => ((int)MathF.Floor(_renderer.Camera.Position.X / 16f), (int)MathF.Floor(_renderer.Camera.Position.Z / 16f));
+
+    private bool IsInFullRadius(int cx, int cz)
+    {
+        var (camCX, camCZ) = CameraChunk();
+        int dx = cx - camCX, dz = cz - camCZ;
+        return dx * dx + dz * dz <= FullRenderRadius * FullRenderRadius;
+    }
+
+    /// <summary>
+    /// The not-yet-3D chunk nearest the camera, among chunks whose heightmap has arrived
+    /// (so the server has them). Null when every such chunk in range is already 3D.
+    /// </summary>
+    private (int cx, int cz)? NearestPendingFullChunk(int camCX, int camCZ, HashSet<(int, int)> skip)
+    {
+        (int, int)? best = null;
+        int bestDist = int.MaxValue;
+        for (int dz = -FullRenderRadius; dz <= FullRenderRadius; dz++)
+        for (int dx = -FullRenderRadius; dx <= FullRenderRadius; dx++)
+        {
+            int d = dx * dx + dz * dz;
+            if (d > FullRenderRadius * FullRenderRadius || d >= bestDist) continue;
+            var c = (camCX + dx, camCZ + dz);
+            if (_fullChunks.Contains(c) || !_populatedChunks.Contains(c) || skip.Contains(c)) continue;
+            best = c;
+            bestDist = d;
+        }
+        return best;
+    }
+
+    /// <summary>
+    /// Loads full 3D chunks nearest-first around the CURRENT camera position (re-read every
+    /// chunk), so a moving camera always gets detail where it is, not where it was.
+    /// </summary>
     private async Task LoadFullChunksNearbyAsync(int camCX, int camCZ)
     {
         _loadingFull = true;
+        var attempted = new HashSet<(int, int)>(); // a chunk that fails is retried on the next pass, not this one
         try
         {
-            for (int dz = -FullRenderRadius; dz <= FullRenderRadius; dz++)
-            for (int dx = -FullRenderRadius; dx <= FullRenderRadius; dx++)
+            while (true)
             {
-                if (dx * dx + dz * dz > FullRenderRadius * FullRenderRadius) continue;
-                int cx = camCX + dx;
-                int cz = camCZ + dz;
-                if (_fullChunks.Contains((cx, cz))) continue;
-                if (!_populatedChunks.Contains((cx, cz))) continue;
+                (camCX, camCZ) = CameraChunk();
+                var next = NearestPendingFullChunk(camCX, camCZ, attempted);
+                if (next == null) break;
+                var (cx, cz) = next.Value;
+                attempted.Add((cx, cz));
 
                 try
                 {

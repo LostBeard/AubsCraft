@@ -168,6 +168,8 @@ public static class TextureAtlas
 
         // Row 5 continued (indices 89-95): plant/flower textures for cross-quad rendering
         ["minecraft:short_grass"] = 89,
+        ["minecraft:bush"] = 89,
+        ["minecraft:firefly_bush"] = 89,
         ["minecraft:tall_grass"] = 89,
         ["minecraft:grass"] = 89,
         ["minecraft:fern"] = 90,
@@ -214,6 +216,7 @@ public static class TextureAtlas
         "minecraft:lily_of_the_valley", "minecraft:rose_bush", "minecraft:lilac",
         "minecraft:peony", "minecraft:sunflower", "minecraft:wildflowers",
         "minecraft:dead_bush", "minecraft:sweet_berry_bush",
+        "minecraft:bush", "minecraft:firefly_bush", // 1.21.5 grass-tinted bushes
         "minecraft:sugar_cane", "minecraft:bamboo",
     };
 

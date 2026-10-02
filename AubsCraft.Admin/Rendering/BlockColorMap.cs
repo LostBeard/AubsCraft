@@ -37,6 +37,7 @@ public static class BlockColorMap
         ["minecraft:mossy_cobblestone"] = (0.40f, 0.50f, 0.35f),
         ["minecraft:smooth_stone"] = (0.55f, 0.55f, 0.55f),
         ["minecraft:stone_bricks"] = (0.50f, 0.50f, 0.50f),
+        ["minecraft:mossy_stone_bricks"] = (0.45f, 0.50f, 0.40f),
         ["minecraft:deepslate"] = (0.30f, 0.30f, 0.32f),
         ["minecraft:cobbled_deepslate"] = (0.32f, 0.32f, 0.34f),
         ["minecraft:tuff"] = (0.45f, 0.47f, 0.42f),
@@ -178,6 +179,7 @@ public static class BlockColorMap
         ["minecraft:rose_bush"] = (0.70f, 0.15f, 0.12f),
         ["minecraft:wildflowers"] = (0.75f, 0.50f, 0.60f),
         ["minecraft:firefly_bush"] = (0.30f, 0.55f, 0.20f),
+        ["minecraft:bush"] = (0.28f, 0.55f, 0.18f),
         ["minecraft:sugar_cane"] = (0.45f, 0.70f, 0.30f),
         ["minecraft:kelp"] = (0.20f, 0.45f, 0.25f),
         ["minecraft:kelp_plant"] = (0.18f, 0.42f, 0.22f),
@@ -353,6 +355,8 @@ public static class BlockColorMap
         ["minecraft:beacon"] = (0.50f, 0.85f, 0.85f),
         ["minecraft:tnt"] = (0.75f, 0.20f, 0.15f),
         ["minecraft:sponge"] = (0.80f, 0.80f, 0.30f),
+        ["minecraft:spawner"] = (0.15f, 0.20f, 0.25f),
+        ["minecraft:air"] = (0f, 0f, 0f), // palette entry only; air is never meshed
     };
 
     /// <summary>
@@ -360,8 +364,14 @@ public static class BlockColorMap
     /// </summary>
     public static (float R, float G, float B) GetColor(string blockName)
     {
-        return Colors.GetValueOrDefault(blockName, Unknown);
+        if (Colors.TryGetValue(blockName, out var color)) return color;
+        lock (ReportedUnknown)
+            if (ReportedUnknown.Add(blockName)) Console.WriteLine($"[BlockColorMap] No color for {blockName} (renders magenta)");
+        return Unknown;
     }
+
+    // Each unknown block is reported once, so new Minecraft blocks are easy to spot.
+    private static readonly HashSet<string> ReportedUnknown = new();
 
     /// <summary>
     /// Build a flat float array of RGB colors for a palette (3 floats per entry).

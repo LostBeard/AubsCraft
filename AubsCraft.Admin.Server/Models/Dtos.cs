@@ -30,6 +30,11 @@ public record BlueMapConfigDto(
     string Url,
     bool Enabled);
 
+public record WorldSpawnDto(
+    int X,
+    int Z,
+    bool Known);
+
 public record HeightmapStreamDto(
     int X,
     int Z,

@@ -198,6 +198,9 @@ public class ServerHubClient : IAsyncDisposable
     public Task<BlueMapConfigDto> GetBlueMapConfigAsync()
         => SafeInvokeAsync("GetBlueMapConfig", new BlueMapConfigDto("", false));
 
+    public Task<WorldSpawnDto> GetWorldSpawnAsync()
+        => SafeInvokeAsync("GetWorldSpawn", new WorldSpawnDto(0, 0, false));
+
     // -- Self-whitelist (any logged-in user) --
 
     public Task<ToggleResultDto> AddOwnMcAccountAsync(string mcUsername, string platform)
@@ -260,6 +263,11 @@ public record WorldTimeWeatherDto(
 public record BlueMapConfigDto(
     string Url,
     bool Enabled);
+
+public record WorldSpawnDto(
+    int X,
+    int Z,
+    bool Known);
 
 // HeightmapStreamDto and ChunkStreamDto removed - binary WebSocket + binary HTTP replaced SignalR streaming
 

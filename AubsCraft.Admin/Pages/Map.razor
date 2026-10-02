@@ -21,7 +21,7 @@
             <small class="text-muted font-monospace" style="font-size: 0.7rem;">
                 @if (_lastStats != null)
                 {
-                    @($"{_lastStats.Fps:F0} FPS | {_lastStats.VisibleVerts / 1000}K/{_lastStats.TotalVerts / 1000}K verts | {_lastStats.VisibleChunks}/{_lastStats.TotalChunks} chunks | draw: {_lastStats.DrawDistance} | {_lastStats.ChunksPerSecond:F1} c/s | Worker")
+                    @($"{_lastStats.Fps:F0} FPS | {_lastStats.VisibleVerts / 1000}K/{_lastStats.TotalVerts / 1000}K verts | {_lastStats.VisibleChunks}/{_lastStats.TotalChunks} chunks | draw: {_lastStats.DrawDistance} | {_lastStats.ChunksPerSecond:F1} c/s | Worker | XYZ {_lastStats.CamX:F0} {_lastStats.CamY:F0} {_lastStats.CamZ:F0}")
                 }
                 @if (!_isPointerLocked) { <span> | Click to fly</span> }
             </small>
@@ -146,6 +146,13 @@ else
                 {
                     (camX, camY, camZ, pitch, yaw) = savedCam.Value;
                     System.Console.WriteLine($"[Map] Restored camera: ({camX:F0}, {camY:F0}, {camZ:F0})");
+                }
+                else
+                {
+                    // First visit: start above the world spawn, not over (0, 0)
+                    var spawn = await Hub.GetWorldSpawnAsync();
+                    if (spawn.Known) (camX, camZ) = (spawn.X, spawn.Z);
+                    System.Console.WriteLine($"[Map] Starting at world spawn: ({camX:F0}, {camZ:F0}) known={spawn.Known}");
                 }
 
                 await _renderService.StartAsync(camX, camY, camZ, pitch, yaw);

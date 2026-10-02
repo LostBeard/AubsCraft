@@ -50,9 +50,13 @@ public sealed class MapRenderService : IDisposable
     // Populated by RenderWorkerService.UploadSectionConnectivity at chunk load.
     // Sections without an entry (eg heightmap-mode chunks, currently-loading
     // chunks) are treated as fully connected by SectionVisibility - safe under-
-    // cull. Rebuilt once per frame in Render() to avoid per-section LookUp.
+    // cull. The visible set is recomputed only when the camera changes section,
+    // the draw distance changes, or a section's connectivity changes.
+    // A null visible set means "no graph culling" (camera sealed inside terrain).
     private readonly Dictionary<(int cx, int sy, int cz), long> _connectivityMap = new();
     private HashSet<(int sx, int sy, int sz)>? _visibleSectionsCache;
+    private int _connectivityVersion, _visibleSetVersion = -1, _visibleSetDrawDistance;
+    private (int sx, int sy, int sz) _visibleSetCamera;
 
     private const int BytesPerVertex = 11 * 4; // 11 floats x 4 bytes (pos3 + normal3 + color3 + uv2)
     private const int InitialCapacityVertices = 5_000_000;
@@ -478,6 +482,7 @@ public sealed class MapRenderService : IDisposable
     public void SetSectionConnectivity(int cx, int sy, int cz, long connectivity)
     {
         _connectivityMap[(cx, sy, cz)] = connectivity;
+        _connectivityVersion++;
     }
 
     /// <summary>
@@ -652,7 +657,7 @@ public sealed class MapRenderService : IDisposable
         }
         // Drop the section's connectivity entry so a stale mask doesn't bias
         // future BFS runs after an evicted section is reloaded.
-        _connectivityMap.Remove((cx, sy, cz));
+        if (_connectivityMap.Remove((cx, sy, cz))) _connectivityVersion++;
     }
 
     /// <summary>Remove all 24 sections for a column (cx, cz). Used by eviction.</summary>
@@ -1075,10 +1080,17 @@ public sealed class MapRenderService : IDisposable
         int camSx = camCX;
         int camSy = Math.Clamp((int)MathF.Floor((Camera.Position.Y + 64f) / 16f), 0, 23);
         int camSz = camCZ;
-        _visibleSectionsCache = SectionVisibility.ComputeVisibleSections(
-            (camSx, camSy, camSz),
-            coord => _connectivityMap.TryGetValue(coord, out var c) ? c : (long?)null,
-            DrawDistance);
+        if (_visibleSetVersion != _connectivityVersion || _visibleSetDrawDistance != DrawDistance
+            || _visibleSetCamera != (camSx, camSy, camSz))
+        {
+            _visibleSectionsCache = SectionVisibility.ComputeVisibleSections(
+                (camSx, camSy, camSz),
+                coord => _connectivityMap.TryGetValue(coord, out var c) ? c : (long?)null,
+                DrawDistance, 0, 23);
+            _visibleSetVersion = _connectivityVersion;
+            _visibleSetDrawDistance = DrawDistance;
+            _visibleSetCamera = (camSx, camSy, camSz);
+        }
 
         foreach (var ((cx, sy, cz), slot) in _slots)
         {
@@ -1090,7 +1102,7 @@ public sealed class MapRenderService : IDisposable
             if (dx * dx + dz * dz > drawDistSq) continue;
 
             // Cave culling: skip sections not reachable from the camera section
-            if (!_visibleSectionsCache.Contains((cx, sy, cz))) continue;
+            if (_visibleSectionsCache != null && !_visibleSectionsCache.Contains((cx, sy, cz))) continue;
 
             // Tight 16x16x16 AABB per section - the foundation of cave culling
             float minY = sy * 16 - 64f;
