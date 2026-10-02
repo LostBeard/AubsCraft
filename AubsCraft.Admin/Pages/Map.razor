@@ -3,12 +3,13 @@
 @inject InputService Input
 @inject WorldCacheService WorldCache
 @inject RenderWorkerHost WorkerHost
-@inject BlazorJSRuntime JS
+@inject SpawnJSRuntime JS
 @implements IDisposable
 @using AubsCraft.Admin.Services
-@using SpawnDev.BlazorJS
-@using SpawnDev.BlazorJS.JSObjects
-@using SpawnDev.BlazorJS.WebWorkers
+@using SpawnDev.SpawnJS
+@using SpawnDev.SpawnJS.Blazor
+@using SpawnDev.SpawnJS.JSObjects
+@using SpawnDev.SpawnJS.WebWorkers
 
 <PageTitle>Map - AubsCraft Admin</PageTitle>
 
@@ -61,7 +62,7 @@ else
 }
 
 @code {
-    private ElementReference _canvasRef;
+    private ElementRef<HTMLCanvasElement> _canvasRef;
     private string? _blueMapUrl;
     private ViewMode _viewMode = ViewMode.Initializing;
     private string _statusMessage = "Initializing...";
@@ -110,7 +111,7 @@ else
             StateHasChanged();
 
             // Transfer the canvas to the worker
-            _canvas = new HTMLCanvasElement(_canvasRef);
+            _canvas = _canvasRef.Get() ?? throw new InvalidOperationException("Canvas was not rendered.");
             int width = _canvas.ClientWidth;
             int height = _canvas.ClientHeight;
             _lastCanvasW = width;
@@ -122,7 +123,7 @@ else
             // ResizeObserver fires ONLY when size changes
             _resizeCallback = new ActionCallback<ResizeObserverEntry[]>(OnCanvasResized);
             _resizeObserver = new ResizeObserver(_resizeCallback);
-            _resizeObserver.Observe(_canvasRef);
+            _resizeObserver.Observe(_canvas);
 
             if (WorkerHost.IsStarted)
             {

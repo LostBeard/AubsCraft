@@ -8,20 +8,29 @@
 		<StaticWebAssetsFingerprintContent>false</StaticWebAssetsFingerprintContent>
 		<!-- Not compression needed -->
 		<CompressionEnabled>false</CompressionEnabled>
-		<!-- Disable IL trimming to preserve ILGPU kernel methods invoked via reflection -->
-		<PublishTrimmed>false</PublishTrimmed>
-		<!-- Disable AOT compilation - ILGPU needs IL reflection to work -->
-		<RunAOTCompilation>false</RunAOTCompilation>
 		<WasmEnableThreads>false</WasmEnableThreads>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.2" />
-		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.2" PrivateAssets="all" />
-		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.2" />
-		<PackageReference Include="SpawnDev.BlazorJS.WebWorkers" Version="3.2.1" />
-		<PackageReference Include="SpawnDev.ILGPU" Version="4.9.2-rc.24" />
-		<PackageReference Include="SpawnDev.BlazorJS.TangoADB" Version="1.0.0" />
+		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.12" />
+		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.12" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.12" />
+		<!-- 3.0.1-local.1: reads records (no parameterless ctor) through their constructor - RenderStats from the render worker -->
+		<PackageReference Include="SpawnDev.SpawnJS" Version="3.0.1-local.1" />
+		<PackageReference Include="SpawnDev.SpawnJS.Blazor" Version="3.0.1" />
+		<PackageReference Include="SpawnDev.SpawnJS.WebWorkers" Version="2.2.1" />
+		<!-- 5.3.2-local.6 (local SpawnDevPackages feed): carries the WGSL/GLSL early-return structurizer fix (MinecraftLODKernel hung
+		     compiling on 5.0.0-5.3.1). Swap to the stable version once it ships. -->
+		<PackageReference Include="SpawnDev.ILGPU" Version="5.3.2-local.6" />
+		<!-- 1.0.0-local.1 (local SpawnDevPackages feed); swap to the stable version once it is on nuget.org -->
+		<PackageReference Include="SpawnDev.SpawnJS.TangoADB" Version="1.0.0-local.1" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- The admin client runs only in the browser (SpawnJS, WebGPU, WebUSB). -->
+		<AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
+			<_Parameter1>browser</_Parameter1>
+		</AssemblyAttribute>
 	</ItemGroup>
 
 	<ItemGroup>

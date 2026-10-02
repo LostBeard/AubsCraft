@@ -1,5 +1,5 @@
-using SpawnDev.BlazorJS;
-using SpawnDev.BlazorJS.JSObjects;
+using SpawnDev.SpawnJS;
+using SpawnDev.SpawnJS.JSObjects;
 using System.Numerics;
 
 namespace AubsCraft.Admin.Services;
@@ -15,7 +15,7 @@ namespace AubsCraft.Admin.Services;
 /// </summary>
 public sealed class ChunkStreamService : IDisposable
 {
-    private readonly BlazorJSRuntime _js;
+    private readonly SpawnJSRuntime _js;
     private readonly WorldCacheService _cache;
     private WebSocket? _ws;
     private bool _disposed;
@@ -30,7 +30,7 @@ public sealed class ChunkStreamService : IDisposable
     /// <summary>True when the WebSocket is connected and streaming.</summary>
     public bool IsConnected => _ws?.ReadyState == 1;
 
-    public ChunkStreamService(BlazorJSRuntime js, WorldCacheService cache)
+    public ChunkStreamService(SpawnJSRuntime js, WorldCacheService cache)
     {
         _js = js;
         _cache = cache;

@@ -2,15 +2,15 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using AubsCraft.Admin;
 using AubsCraft.Admin.Services;
-using SpawnDev.BlazorJS;
-using SpawnDev.BlazorJS.WebWorkers;
-using SpawnDev.BlazorJS.JSObjects;
-using SpawnDev.BlazorJS.TangoADB;
+using SpawnDev.SpawnJS;
+using SpawnDev.SpawnJS.WebWorkers;
+using SpawnDev.SpawnJS.JSObjects;
+using SpawnDev.SpawnJS.TangoADB;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
 // Initialize BlazorJS runtime (required for SpawnDev.ILGPU and JS interop)
-builder.Services.AddBlazorJSRuntime(out var JS);
+builder.Services.AddSpawnJSRuntime(out var JS);
 
 // Add WebWorkerService - we create dedicated workers ourselves, not via TaskPool
 builder.Services.AddWebWorkerService();
@@ -35,4 +35,4 @@ if (JS.IsWindow)
     builder.RootComponents.Add<HeadOutlet>("head::after");
 }
 
-await builder.Build().BlazorJSRunAsync();
+await builder.Build().SpawnJSRunAsync();

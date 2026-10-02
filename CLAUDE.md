@@ -96,19 +96,23 @@ AubsCraft/
 
 ## SpawnDev Libraries Used
 
-- **SpawnDev.BlazorJS** - JS interop (never write raw JavaScript)
+- **SpawnDev.SpawnJS** (+ SpawnDev.SpawnJS.Blazor) - JS interop (never write raw JavaScript). Ported from SpawnDev.BlazorJS 2026-10-02.
+- **SpawnDev.SpawnJS.WebWorkers** - the render worker (`RenderWorkerHost` / `RenderWorkerService`)
+- **SpawnDev.SpawnJS.TangoADB** - ADB over WebUSB for the `/quest` installer
+- SpawnJS handles are MANUAL: dispose every wrapper you get back (`using var layout = pipeline.GetBindGroupLayout(0);`).
+- `@ref` elements: `ElementRef<HTMLCanvasElement>` field + `.Get()` (SpawnDev.SpawnJS.Blazor).
 - **SpawnDev.ILGPU** - GPU compute (WebGPU backend for mesh kernels)
 - Use DI correctly - never bypass the service container
 
 ### Banned Patterns - NO EXCEPTIONS
 
-- **NEVER use `eval()`** - SpawnDev.BlazorJS has typed wrappers for every browser API
-- **NEVER use `IJSRuntime`** - always inject `BlazorJSRuntime`. IJSRuntime requires Captain's explicit consent.
-- **NEVER use `window.__globals`** to pass state between JS and .NET - use C# fields and BlazorJS typed properties
+- **NEVER use `eval()`** - SpawnDev.SpawnJS has typed wrappers for every browser API
+- **NEVER use `IJSRuntime`** - always inject `SpawnJSRuntime`. IJSRuntime requires Captain's explicit consent.
+- **NEVER use `window.__globals`** to pass state between JS and .NET - use C# fields and SpawnJS typed properties
 - **NEVER use `AddEventListener` with raw strings** - use ActionEvent properties (OnPointerLockChange, OnClick, etc.)
 - **NEVER call JS every frame** for state that can be tracked by an event handler updating a C# field
 
-**If you are unsure how to do something with SpawnDev.BlazorJS or any SpawnDev library - ASK TJ.** He wrote them. He knows every API. Guessing leads to eval() and IJSRuntime hacks. Asking takes 30 seconds and gets the right answer.
+**If you are unsure how to do something with SpawnDev.SpawnJS or any SpawnDev library - ASK TJ.** He wrote them. He knows every API. Guessing leads to eval() and IJSRuntime hacks. Asking takes 30 seconds and gets the right answer.
 
 ## Reference Codebase
 

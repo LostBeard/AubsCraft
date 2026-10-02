@@ -1,5 +1,5 @@
-using SpawnDev.BlazorJS;
-using SpawnDev.BlazorJS.JSObjects;
+using SpawnDev.SpawnJS;
+using SpawnDev.SpawnJS.JSObjects;
 
 namespace AubsCraft.Admin.Services;
 
@@ -9,7 +9,7 @@ namespace AubsCraft.Admin.Services;
 /// </summary>
 public sealed class InputService : IAsyncDisposable
 {
-    private readonly BlazorJSRuntime _js;
+    private readonly SpawnJSRuntime _js;
     private Window? _window;
 
     public HashSet<string> KeysDown { get; } = new(StringComparer.Ordinal);
@@ -17,7 +17,7 @@ public sealed class InputService : IAsyncDisposable
     public double MouseDeltaY { get; private set; }
     public bool IsAttached { get; private set; }
 
-    public InputService(BlazorJSRuntime js)
+    public InputService(SpawnJSRuntime js)
     {
         _js = js;
     }

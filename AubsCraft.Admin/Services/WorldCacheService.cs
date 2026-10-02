@@ -1,5 +1,5 @@
-using SpawnDev.BlazorJS;
-using SpawnDev.BlazorJS.JSObjects;
+using SpawnDev.SpawnJS;
+using SpawnDev.SpawnJS.JSObjects;
 
 namespace AubsCraft.Admin.Services;
 
@@ -21,7 +21,7 @@ namespace AubsCraft.Admin.Services;
 /// </summary>
 public sealed class WorldCacheService
 {
-    private readonly BlazorJSRuntime _js;
+    private readonly SpawnJSRuntime _js;
     private FileSystemDirectoryHandle? _heightmapDir;
     private FileSystemDirectoryHandle? _rootDir;
 
@@ -31,7 +31,7 @@ public sealed class WorldCacheService
     private readonly Dictionary<(int rx, int rz), List<(int cx, int cz, byte[] frame)>> _pendingWrites = new();
     private bool _flushScheduled;
 
-    public WorldCacheService(BlazorJSRuntime js)
+    public WorldCacheService(SpawnJSRuntime js)
     {
         _js = js;
     }

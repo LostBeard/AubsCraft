@@ -1,5 +1,5 @@
-using SpawnDev.BlazorJS.JSObjects;
-using SpawnDev.BlazorJS.WebWorkers;
+using SpawnDev.SpawnJS.JSObjects;
+using SpawnDev.SpawnJS.WebWorkers;
 
 namespace AubsCraft.Admin.Services;
 
@@ -39,7 +39,8 @@ public class RenderWorkerHost
     {
         if (_renderWorker == null)
         {
-            _renderWorker = await _workerService.GetWebWorker();
+            _renderWorker = await _workerService.GetWebWorker()
+                ?? throw new InvalidOperationException("Could not start the render worker.");
             await _renderWorker.New<IRenderWorkerService>(_serviceKey,
                 () => new RenderWorkerService(canvas, width, height));
             _service = _renderWorker.GetKeyedService<IRenderWorkerService>(_serviceKey);

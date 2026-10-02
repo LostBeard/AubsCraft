@@ -5,7 +5,7 @@ A real-time Minecraft server admin panel and **GPU-accelerated 3D world viewer**
 Built by [Todd Tanner (@LostBeard)](https://github.com/LostBeard) for his daughter Aubriella's Minecraft server (mc.spawndev.com).
 
 **Powered by the [SpawnDev](https://github.com/LostBeard) ecosystem:**
-- [SpawnDev.BlazorJS](https://github.com/LostBeard/SpawnDev.BlazorJS) - Full JS interop for Blazor WASM
+- [SpawnDev.SpawnJS](https://github.com/LostBeard/SpawnDev.SpawnJS) - Full JS interop for .NET in the browser
 - [SpawnDev.ILGPU](https://github.com/LostBeard/SpawnDev.ILGPU) - GPU compute on all 6 backends (WebGPU, WebGL, Wasm, CUDA, OpenCL, CPU)
 
 ---
@@ -155,7 +155,7 @@ See [PLANS.md](PLANS.md) for the full 19-phase development plan with 140+ featur
 
 - **Frontend** - Blazor WebAssembly (.NET 10), Bootstrap 5, SignalR, WebGPU
 - **GPU Compute** - SpawnDev.ILGPU (WebGPU backend) for all mesh generation
-- **JS Interop** - SpawnDev.BlazorJS for WebSocket, OPFS, IndexedDB, WebXR
+- **JS Interop** - SpawnDev.SpawnJS for WebSocket, OPFS, IndexedDB, WebXR
 - **Backend** - ASP.NET Core (.NET 10), SignalR hub, binary WebSocket, Source RCON
 - **Caching** - OPFS region files (275 MB/s read, instant startup)
 - **Rendering** - WebGPU with WGSL shaders, two-pass opaque + transparent pipeline

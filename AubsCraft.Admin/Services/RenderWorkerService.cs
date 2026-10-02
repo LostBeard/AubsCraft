@@ -1,19 +1,19 @@
-using SpawnDev.BlazorJS;
-using SpawnDev.BlazorJS.JSObjects;
-using SpawnDev.BlazorJS.WebWorkers;
+using SpawnDev.SpawnJS;
+using SpawnDev.SpawnJS.JSObjects;
+using SpawnDev.SpawnJS.WebWorkers;
 using AubsCraft.Admin.Rendering;
 using System.Numerics;
 
 namespace AubsCraft.Admin.Services;
 
 /// <summary>
-/// Render pipeline running in a dedicated Web Worker via SpawnDev.BlazorJS.WebWorkers.
+/// Render pipeline running in a dedicated Web Worker via SpawnDev.SpawnJS.WebWorkers.
 /// Owns the OffscreenCanvas, WebGPU device, ILGPU accelerator, and render loop.
 /// Main thread sends input/camera updates, this service does ALL GPU work.
 /// </summary>
 public class RenderWorkerService : IRenderWorkerService
 {
-    private readonly BlazorJSRuntime _js;
+    private readonly SpawnJSRuntime _js;
     private readonly VoxelEngineService _engine;
     private readonly MapRenderService _renderer;
     private readonly WorldCacheService _cache;
@@ -23,7 +23,6 @@ public class RenderWorkerService : IRenderWorkerService
     private bool _disposed;
     public int LoadedCount { get; private set; }
     private System.Diagnostics.Stopwatch _loadTimer = new();
-    private int _lastLoadCount;
     private float _chunksPerSecond;
 
     /// <summary>
@@ -33,7 +32,7 @@ public class RenderWorkerService : IRenderWorkerService
     /// </summary>
     public RenderWorkerService(
         OffscreenCanvas canvas, int width, int height,
-        [FromServices] BlazorJSRuntime? js = null,
+        [FromServices] SpawnJSRuntime? js = null,
         [FromServices] VoxelEngineService? engine = null,
         [FromServices] MapRenderService? renderer = null,
         [FromServices] WorldCacheService? cache = null,
@@ -195,7 +194,7 @@ public class RenderWorkerService : IRenderWorkerService
     {
         public int Cx { get; set; }
         public int Cz { get; set; }
-        public ArrayBuffer Buffer { get; set; }
+        public ArrayBuffer Buffer { get; set; } = null!;
     }
 
     private void OnDataWorkerMessage(MessageEvent msg)
@@ -203,7 +202,7 @@ public class RenderWorkerService : IRenderWorkerService
         try
         {
             // JS data worker posts: { type: "heightmap", cx, cz, buffer }
-            using var data = msg.GetData<JSObject>();
+            using var data = msg.GetData<SpawnJSObject>();
             if (data == null) return;
             var type = data.JSRef!.Get<string>("type");
             if (type == "heightmap")
@@ -250,7 +249,9 @@ public class RenderWorkerService : IRenderWorkerService
     public Task SetTimeOfDay(int ticks)
     {
         if (ticks >= 0)
-            _renderer.TimeOfDay = (ticks % 24000) / 24000f;
+            // Minecraft tick 0 is 06:00 (sunrise), 6000 noon, 18000 midnight; the renderer's TimeOfDay is 0 = midnight,
+            // 0.5 = noon. Without the +6000 the server's noon rendered as sunrise (sun on the horizon, dark terrain).
+            _renderer.TimeOfDay = ((ticks + 6000) % 24000) / 24000f;
         return Task.CompletedTask;
     }
 

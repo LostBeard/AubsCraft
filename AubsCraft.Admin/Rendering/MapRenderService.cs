@@ -1,5 +1,5 @@
-using SpawnDev.BlazorJS;
-using SpawnDev.BlazorJS.JSObjects;
+using SpawnDev.SpawnJS;
+using SpawnDev.SpawnJS.JSObjects;
 using SpawnDev.ILGPU.WebGPU;
 using ILGPU.Runtime;
 using System.Numerics;
@@ -13,7 +13,7 @@ namespace AubsCraft.Admin.Rendering;
 /// </summary>
 public sealed class MapRenderService : IDisposable
 {
-    private readonly BlazorJSRuntime _js;
+    private readonly SpawnJSRuntime _js;
 
     private GPUDevice? _device;
     private GPUQueue? _queue;
@@ -79,7 +79,7 @@ public sealed class MapRenderService : IDisposable
     /// 0.0=sunrise(6AM), 0.25=noon, 0.5=sunset(6PM), 0.75=midnight.
     /// Set from RCON time query via RenderWorkerService.
     /// </summary>
-    public float TimeOfDay { get; set; } = 0.25f; // default to noon
+    public float TimeOfDay { get; set; } = 0.5f; // 0 = midnight, 0.25 = sunrise, 0.5 = noon (sun elevation = -cos(2*pi*t)); noon until the server reports its time
     private byte[]? _uniformBytes;
 
     public FpsCamera Camera { get; } = new();
@@ -131,7 +131,7 @@ public sealed class MapRenderService : IDisposable
     /// <summary>Fired when sections are evicted to make room. Loader should clear tracking for these.</summary>
     public Action<List<(int cx, int sy, int cz)>>? OnChunksEvicted;
 
-    public MapRenderService(BlazorJSRuntime js)
+    public MapRenderService(SpawnJSRuntime js)
     {
         _js = js;
     }
@@ -409,18 +409,21 @@ public sealed class MapRenderService : IDisposable
 
     private void CreateBindGroup()
     {
+        // CreateView / GetBindGroupLayout each return a fresh JS handle: dispose them once the bind groups hold them.
+        using var atlasView = _atlasTexture!.CreateView();
         var entries = new[]
         {
             new GPUBindGroupEntry { Binding = 0, Resource = new GPUBufferBinding { Buffer = _uniformBuffer! } },
-            new GPUBindGroupEntry { Binding = 1, Resource = _atlasTexture!.CreateView() },
+            new GPUBindGroupEntry { Binding = 1, Resource = atlasView },
             new GPUBindGroupEntry { Binding = 2, Resource = _atlasSampler! },
         };
 
         // Opaque pipeline bind group
         _uniformBindGroup?.Dispose();
+        using var opaqueLayout = _pipeline!.GetBindGroupLayout(0);
         _uniformBindGroup = _device!.CreateBindGroup(new GPUBindGroupDescriptor
         {
-            Layout = _pipeline!.GetBindGroupLayout(0),
+            Layout = opaqueLayout,
             Entries = entries,
         });
 
@@ -428,9 +431,10 @@ public sealed class MapRenderService : IDisposable
         _waterBindGroup?.Dispose();
         if (_transparentPipeline != null)
         {
+            using var waterLayout = _transparentPipeline.GetBindGroupLayout(0);
             _waterBindGroup = _device!.CreateBindGroup(new GPUBindGroupDescriptor
             {
-                Layout = _transparentPipeline.GetBindGroupLayout(0),
+                Layout = waterLayout,
                 Entries = entries,
             });
         }

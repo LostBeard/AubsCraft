@@ -1,7 +1,7 @@
 using ILGPU;
 using ILGPU.Runtime;
-using SpawnDev.BlazorJS;
-using SpawnDev.BlazorJS.JSObjects;
+using SpawnDev.SpawnJS;
+using SpawnDev.SpawnJS.JSObjects;
 using SpawnDev.ILGPU;
 using AubsCraft.Admin.Rendering;
 
@@ -14,7 +14,7 @@ namespace AubsCraft.Admin.Services;
 /// </summary>
 public sealed class VoxelEngineService : IAsyncDisposable
 {
-    private readonly BlazorJSRuntime _js;
+    private readonly SpawnJSRuntime _js;
     private Context? _context;
     private Accelerator? _accelerator;
 
@@ -64,7 +64,7 @@ public sealed class VoxelEngineService : IAsyncDisposable
     public bool IsInitialized { get; private set; }
     public string? BackendName { get; private set; }
 
-    public VoxelEngineService(BlazorJSRuntime js)
+    public VoxelEngineService(SpawnJSRuntime js)
     {
         _js = js;
     }

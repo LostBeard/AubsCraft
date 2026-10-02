@@ -1,10 +1,10 @@
-using SpawnDev.BlazorJS.JSObjects;
+using SpawnDev.SpawnJS.JSObjects;
 
 namespace AubsCraft.Admin.Services;
 
 /// <summary>
 /// Interface for the render worker service running in a dedicated Web Worker.
-/// All methods are async for cross-worker RPC via SpawnDev.BlazorJS.WebWorkers.
+/// All methods are async for cross-worker RPC via SpawnDev.SpawnJS.WebWorkers.
 /// </summary>
 public interface IRenderWorkerService : IAsyncDisposable
 {
