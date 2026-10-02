@@ -24,6 +24,9 @@ echo.
 
 REM -- Step 1: Build and Publish --
 echo [1/5] Publishing release build for linux-x64...
+REM Start from an empty publish folder: publishing into the old one kept every previous build's fingerprinted
+REM _framework files, and xcopy then shipped them to the server (stale SpawnDev.BlazorJS*.wasm after the SpawnJS port).
+if exist "%PUBLISH_DIR%" rmdir /s /q "%PUBLISH_DIR%"
 dotnet publish "%PROJECT%" -c Release -r linux-x64 --self-contained true -o "%PUBLISH_DIR%"
 if errorlevel 1 (
     echo PUBLISH FAILED
