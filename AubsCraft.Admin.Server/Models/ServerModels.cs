@@ -34,6 +34,11 @@ public class ServerDefinition
     public string RconPassword { get; set; } = "";
     /// <summary>The Minecraft (Java) port the server listens on.</summary>
     public int GamePort { get; set; } = 25565;
+    /// <summary>
+    /// Internal Simple Voice Chat UDP port (behind the proxy every server needs its own; the proxy relays the
+    /// public voice port to it). 0 = not set.
+    /// </summary>
+    public int VoicePort { get; set; }
     /// <summary>JVM max heap (-Xmx) in MB. Used to warn before starting more servers than the machine has RAM for.</summary>
     public int MemoryMb { get; set; } = 3072;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -77,6 +82,37 @@ public class ServerDefinition
 public class ServerRegistryFile
 {
     public List<ServerDefinition> Servers { get; set; } = [];
+    /// <summary>The Velocity proxy in front of the servers; null until it is set up.</summary>
+    public ProxyDefinition? Proxy { get; set; }
+}
+
+/// <summary>
+/// The Velocity proxy players connect to. It owns the public ports (Java, Bedrock via Geyser, voice chat);
+/// every server behind it listens on 127.0.0.1 only and trusts the proxy through modern forwarding.
+/// </summary>
+public class ProxyDefinition
+{
+    /// <summary>The proxy's folder (velocity.jar, velocity.toml, plugins/).</summary>
+    public string Path { get; set; } = "/opt/minecraft/velocity";
+    public string ServiceName { get; set; } = "velocity";
+    /// <summary>Velocity release line. 4.x: current Geyser needs its newer Adventure API (3.5.1 throws NoSuchMethodError); needs Java 25.</summary>
+    public string VelocityVersion { get; set; } = "4.2.0";
+    public string BindHost { get; set; } = "0.0.0.0";
+    /// <summary>Public Java port (players and the SRV record point here).</summary>
+    public int Port { get; set; } = 25565;
+    /// <summary>Public Bedrock (Geyser) UDP port.</summary>
+    public int BedrockPort { get; set; } = 19132;
+    /// <summary>Public Simple Voice Chat UDP port (the proxy relays to each server's internal voice port).</summary>
+    public int VoicePort { get; set; } = 24454;
+    /// <summary>Velocircon RCON, bound to 127.0.0.1 - how the panel runs proxy commands (velocity reload, glist).</summary>
+    public int RconPort { get; set; } = 25576;
+    public string RconPassword { get; set; } = "";
+    /// <summary>Mojang authentication at the proxy. Only tests turn it off.</summary>
+    public bool OnlineMode { get; set; } = true;
+    /// <summary>Server-list message (MiniMessage).</summary>
+    public string Motd { get; set; } = "<aqua>AubsCraft</aqua>";
+    /// <summary>Hostname -> server ids (e.g. "creative.spawndev.com" -> ["creative"]): that hostname joins that server first.</summary>
+    public Dictionary<string, List<string>> ForcedHosts { get; set; } = [];
 }
 
 /// <summary>Client-facing summary of one server (no secrets).</summary>

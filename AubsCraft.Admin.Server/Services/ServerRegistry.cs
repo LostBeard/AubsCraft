@@ -17,6 +17,7 @@ public sealed partial class ServerRegistry
     private readonly ILogger<ServerRegistry> _logger;
     private readonly Lock _lock = new();
     private List<ServerDefinition> _servers;
+    private ProxyDefinition? _proxy;
 
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
 
@@ -44,6 +45,22 @@ public sealed partial class ServerRegistry
     public ServerDefinition? Primary
     {
         get { lock (_lock) return _servers.FirstOrDefault(); }
+    }
+
+    /// <summary>The proxy definition, or null before the proxy is set up.</summary>
+    public ProxyDefinition? Proxy
+    {
+        get { lock (_lock) return _proxy; }
+    }
+
+    public void SetProxy(ProxyDefinition? proxy)
+    {
+        lock (_lock)
+        {
+            _proxy = proxy;
+            Save();
+        }
+        Changed?.Invoke();
     }
 
     public void Add(ServerDefinition def)
@@ -102,7 +119,9 @@ public sealed partial class ServerRegistry
             var file = JsonSerializer.Deserialize<ServerRegistryFile>(File.ReadAllText(_path))
                 ?? throw new InvalidDataException($"{_path} is empty or not a server registry.");
             foreach (var s in file.Servers) ValidateId(s.Id);
-            _logger.LogInformation("Loaded {Count} server(s) from {Path}", file.Servers.Count, _path);
+            _proxy = file.Proxy;
+            _logger.LogInformation("Loaded {Count} server(s) from {Path}{Proxy}", file.Servers.Count, _path,
+                file.Proxy != null ? " (behind a proxy)" : "");
             return file.Servers;
         }
 
@@ -158,7 +177,10 @@ public sealed partial class ServerRegistry
         // Write-then-rename so a crash mid-write never leaves a truncated registry (it holds RCON passwords
         // and would otherwise be re-seeded from the legacy config, losing every added server).
         var tmp = _path + ".tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(new ServerRegistryFile { Servers = _servers }, JsonOpts));
+        File.WriteAllText(tmp, JsonSerializer.Serialize(new ServerRegistryFile { Servers = _servers, Proxy = _proxy }, JsonOpts));
+        // Owner-only: it holds RCON passwords (the first write on the VM came out 0644).
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(tmp, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         File.Move(tmp, _path, overwrite: true);
     }
 }

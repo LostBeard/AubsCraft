@@ -17,3 +17,6 @@ AubsCraft.Admin.Server/quest-cache/
 # Auth / account data - never commit
 users.json
 admin.json.migrated
+
+# Test bot dependencies (package-lock.json is committed)
+node_modules/

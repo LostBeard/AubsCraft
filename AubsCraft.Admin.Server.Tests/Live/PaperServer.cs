@@ -60,25 +60,32 @@ public sealed class PaperServer : IAsyncDisposable
         MemoryMb = 1024,
     };
 
+    /// <summary>
+    /// Starts a server. fresh = wipe the world, lists, config and plugins first (libraries/, cache/ and
+    /// versions/ stay: Paper's one-time downloads); fresh = false restarts it as it is on disk (after a test
+    /// edited its config). beforeStart runs on the folder just before java starts (e.g. to add plugins).
+    /// </summary>
     public static async Task<PaperServer> StartAsync(string name, int port, int rconPort, int maxPlayers,
-        string levelType, string levelName, TimeSpan timeout)
+        string levelType, string levelName, TimeSpan timeout, bool fresh = true, Func<string, Task>? beforeStart = null)
     {
         var jar = await EnsureJarAsync();
         var dir = Path.Combine(CacheRoot, "servers", name);
         Directory.CreateDirectory(dir);
+        string rconPassword;
 
-        // Fresh world and lists every run; libraries/, cache/ and versions/ stay (Paper's one-time downloads).
-        foreach (var d in Directory.GetDirectories(dir))
+        if (fresh)
         {
-            var n = Path.GetFileName(d);
-            if (n is "libraries" or "cache" or "versions") continue;
-            Directory.Delete(d, recursive: true);
-        }
-        foreach (var f in Directory.GetFiles(dir)) File.Delete(f);
+            foreach (var d in Directory.GetDirectories(dir))
+            {
+                var n = Path.GetFileName(d);
+                if (n is "libraries" or "cache" or "versions") continue;
+                Directory.Delete(d, recursive: true);
+            }
+            foreach (var f in Directory.GetFiles(dir)) File.Delete(f);
 
-        File.WriteAllText(Path.Combine(dir, "eula.txt"), "eula=true\n");
-        var rconPassword = "test-" + Guid.NewGuid().ToString("N")[..12];
-        File.WriteAllText(Path.Combine(dir, "server.properties"), string.Join('\n',
+            File.WriteAllText(Path.Combine(dir, "eula.txt"), "eula=true\n");
+            rconPassword = "test-" + Guid.NewGuid().ToString("N")[..12];
+            File.WriteAllText(Path.Combine(dir, "server.properties"), string.Join('\n',
             "server-ip=127.0.0.1",
             $"server-port={port}",
             "enable-rcon=true",
@@ -93,8 +100,16 @@ public sealed class PaperServer : IAsyncDisposable
             "simulation-distance=4",
             "enable-query=false",
             "") );
+        }
+        else
+        {
+            rconPassword = File.ReadLines(Path.Combine(dir, "server.properties"))
+                .First(l => l.StartsWith("rcon.password=", StringComparison.Ordinal))["rcon.password=".Length..];
+        }
+        if (beforeStart != null) await beforeStart(dir);
 
-        var psi = new ProcessStartInfo("java", ["-Xms512M", "-Xmx1G", "-jar", jar, "--nogui"])
+        // The production VM's Java (25), not whatever is on PATH.
+        var psi = new ProcessStartInfo(await Jdk.JavaAsync(), ["-Xms512M", "-Xmx1G", "-jar", jar, "--nogui"])
         {
             WorkingDirectory = dir,
             RedirectStandardInput = true,

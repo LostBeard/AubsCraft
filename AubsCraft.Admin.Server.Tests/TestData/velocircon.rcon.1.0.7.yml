@@ -1,0 +1,13 @@
+enable: false
+host: 0.0.0.0
+port: 25575
+password: PASSWORD
+colors: true
+console-output: true
+permissions:
+  luck-perms:
+    enable: false
+    group: '*'
+  regex:
+    enable: false
+    regex: minecraft\.(.*)

@@ -1,0 +1,8 @@
+{
+  "name": "aubscraft-test-bot",
+  "private": true,
+  "description": "A real Minecraft Java client (mineflayer) the live tests connect through the Velocity proxy.",
+  "dependencies": {
+    "mineflayer": "4.39.0"
+  }
+}
