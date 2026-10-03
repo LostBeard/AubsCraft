@@ -450,17 +450,24 @@ public record MeshGenerationResult(
         return (opaque, water);
     }
 
-    private static float[]?[] SplitVerticesBySectionY(float[] vertices, int vertexCount)
+    /// <summary>
+    /// Buckets whole FACES (6 vertices, 2 triangles) by the section holding the face's vertical
+    /// midpoint. Every kernel emits faces as 6 consecutive vertices. Bucketing single vertices tore
+    /// faces apart: a side face of a block whose top lies on a section boundary put its 3 bottom
+    /// vertices in one section and its 3 top vertices in the next, leaving each section a zero-area
+    /// triangle, so those faces vanished in a stripe every 16 blocks.
+    /// </summary>
+    internal static float[]?[] SplitVerticesBySectionY(float[] vertices, int vertexCount)
     {
         const int FloatsPerVertex = 11;
-        // Count vertices per section first (avoid list resizing)
+        const int VerticesPerFace = 6;
+        const int FloatsPerFace = FloatsPerVertex * VerticesPerFace;
+        int faceCount = vertexCount / VerticesPerFace;
+
+        // Count faces per section first (avoid list resizing)
         Span<int> counts = stackalloc int[24];
-        for (int v = 0; v < vertexCount; v++)
-        {
-            float worldY = vertices[v * FloatsPerVertex + 1]; // position.y
-            int sy = Math.Clamp((int)MathF.Floor((worldY + 64f) / 16f), 0, 23);
-            counts[sy]++;
-        }
+        for (int f = 0; f < faceCount; f++)
+            counts[FaceSection(vertices, f * FloatsPerFace)]++;
 
         // Allocate per-section arrays
         var sections = new float[]?[24];
@@ -468,21 +475,30 @@ public record MeshGenerationResult(
         for (int s = 0; s < 24; s++)
         {
             if (counts[s] > 0)
-                sections[s] = new float[counts[s] * FloatsPerVertex];
+                sections[s] = new float[counts[s] * FloatsPerFace];
         }
 
-        // Distribute vertices into section arrays
-        for (int v = 0; v < vertexCount; v++)
+        // Distribute faces into section arrays
+        for (int f = 0; f < faceCount; f++)
         {
-            int baseIdx = v * FloatsPerVertex;
-            float worldY = vertices[baseIdx + 1];
-            int sy = Math.Clamp((int)MathF.Floor((worldY + 64f) / 16f), 0, 23);
-            var arr = sections[sy]!;
-            int dst = offsets[sy] * FloatsPerVertex;
-            vertices.AsSpan(baseIdx, FloatsPerVertex).CopyTo(arr.AsSpan(dst, FloatsPerVertex));
+            int baseIdx = f * FloatsPerFace;
+            int sy = FaceSection(vertices, baseIdx);
+            vertices.AsSpan(baseIdx, FloatsPerFace).CopyTo(sections[sy]!.AsSpan(offsets[sy] * FloatsPerFace, FloatsPerFace));
             offsets[sy]++;
         }
 
         return sections;
+
+        static int FaceSection(float[] v, int faceBase)
+        {
+            float minY = float.MaxValue, maxY = float.MinValue;
+            for (int i = 0; i < VerticesPerFace; i++)
+            {
+                float y = v[faceBase + i * FloatsPerVertex + 1]; // position.y
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+            return Math.Clamp((int)MathF.Floor(((minY + maxY) * 0.5f + 64f) / 16f), 0, 23);
+        }
     }
 };
