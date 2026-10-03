@@ -407,32 +407,8 @@ public class ServerHub : Hub<IServerHubClient>
             _configuration.GetValue<bool>("BlueMap:Enabled"));
     }
 
-    /// <summary>
-    /// A server's overworld spawn (X, Z), so a first-time map visitor starts over the world instead of at (0, 0).
-    /// level.dat is readable only by the minecraft user, so this uses BlueMap's map settings, whose
-    /// startPos BlueMap takes from the world spawn. Known = false when BlueMap's file is missing.
-    /// </summary>
-    public WorldSpawnDto GetWorldSpawn(string serverId)
-    {
-        try
-        {
-            var serverPath = Server(serverId).Definition.Path;
-            var settingsPath = Path.Combine(serverPath, "bluemap", "web", "maps", "world", "settings.json");
-            if (!File.Exists(settingsPath)) return new WorldSpawnDto(0, 0, false);
-            using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(settingsPath));
-            if (doc.RootElement.TryGetProperty("startPos", out var pos) && pos.GetArrayLength() >= 2)
-                return new WorldSpawnDto(pos[0].GetInt32(), pos[1].GetInt32(), true);
-        }
-        catch (HubException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Could not read the world spawn from BlueMap settings");
-        }
-        return new WorldSpawnDto(0, 0, false);
-    }
+    /// <summary>Where a first-time map visitor starts on this server's world (see WorldDataService.GetSpawn).</summary>
+    public WorldSpawnDto GetWorldSpawn(string serverId) => Server(serverId).World.GetSpawn();
 
     // -- Player Stats (any logged-in user - read only) --
 

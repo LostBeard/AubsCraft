@@ -28,6 +28,14 @@ public sealed class NbtReader
         return reader.ReadRootCompound();
     }
 
+    /// <summary>Reads an NBT compound from a gzip stream (the format of level.dat).</summary>
+    public static NbtCompound ReadGzip(Stream stream)
+    {
+        using var gzip = new GZipStream(stream, CompressionMode.Decompress, leaveOpen: true);
+        using var buffered = new BufferedStream(gzip, 8192);
+        return new NbtReader(buffered).ReadRootCompound();
+    }
+
     public NbtCompound ReadRootCompound()
     {
         var tagType = (NbtTagType)_reader.ReadByte();
