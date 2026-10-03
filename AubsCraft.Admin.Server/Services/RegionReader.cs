@@ -14,13 +14,21 @@ public sealed class RegionReader
     private const int TotalHeight = SectionsPerChunk * SectionHeight; // 384
 
     /// <summary>
+    /// Opens a region file the running Minecraft server may be writing. File.OpenRead denies other writers,
+    /// which on Windows fails with a sharing violation while the server holds the file open (Linux has no
+    /// such locks, so production never saw it); the reader must allow concurrent writes.
+    /// </summary>
+    private static FileStream OpenShared(string path) =>
+        new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+
+    /// <summary>
     /// Reads a single chunk column from a region file.
     /// Returns a flat ushort array [16 * 384 * 16] indexed as x + z*16 + y*256.
     /// Block ID 0 = air. Other IDs are indices into the returned palette.
     /// </summary>
     public static ChunkResult? ReadChunk(string regionPath, int localX, int localZ)
     {
-        using var fs = File.OpenRead(regionPath);
+        using var fs = OpenShared(regionPath);
         using var reader = new BinaryReader(fs);
 
         // Read the chunk offset from the header
@@ -55,7 +63,7 @@ public sealed class RegionReader
     public static List<(int localX, int localZ)> ListChunks(string regionPath)
     {
         var chunks = new List<(int, int)>();
-        using var fs = File.OpenRead(regionPath);
+        using var fs = OpenShared(regionPath);
         using var reader = new BinaryReader(fs);
 
         for (int i = 0; i < 1024; i++)

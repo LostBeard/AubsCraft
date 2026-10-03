@@ -6,11 +6,13 @@ namespace AubsCraft.Admin.Server.Services;
 /// <summary>
 /// Tracks who added which Minecraft account to the whitelist via the web admin.
 /// Lets admins audit Friend self-adds and revoke them in bulk if a Friend goes rogue.
+/// The whitelist is NETWORK-WIDE: adds/removes go to every reachable server, and NetworkModerationService
+/// re-applies these entries to a server when it comes online (it may have been stopped during the change).
 /// </summary>
 public class WhitelistAuditService
 {
     private readonly string _path;
-    private readonly RconService _rcon;
+    private readonly ServerManager _servers;
     private readonly EmailNotificationService _email;
     private readonly ILogger<WhitelistAuditService> _logger;
     private WhitelistAuditFile? _cached;
@@ -20,10 +22,10 @@ public class WhitelistAuditService
 
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
 
-    public WhitelistAuditService(IConfiguration configuration, RconService rcon, EmailNotificationService email, ILogger<WhitelistAuditService> logger)
+    public WhitelistAuditService(IConfiguration configuration, ServerManager servers, EmailNotificationService email, ILogger<WhitelistAuditService> logger)
     {
         _logger = logger;
-        _rcon = rcon;
+        _servers = servers;
         _email = email;
         _path = configuration.GetValue<string>("Auth:WhitelistAuditPath") ?? "whitelist-audit.json";
     }
@@ -79,19 +81,10 @@ public class WhitelistAuditService
                     return (false, $"You've reached the limit of {MaxAccountsPerFriend} Minecraft accounts. Ask an admin if you need more.");
             }
 
-            string rconResponse;
-            try
-            {
-                if (platform == "Bedrock")
-                    rconResponse = await _rcon.SendCommandAsync($"fwhitelist add {mcUsername}");
-                else
-                    rconResponse = await _rcon.WhitelistAddAsync(mcUsername);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "RCON whitelist add failed for {Player}", mcUsername);
-                return (false, $"Server is offline or RCON failed: {ex.Message}");
-            }
+            var results = await _servers.RunOnAllAsync(rcon => AddCommand(rcon, mcUsername, platform));
+            if (results.Count > 0 && results.All(r => r.Ok && IsRejected(r.Response)))
+                return (false, string.Join("; ", results.Select(r => r.Response)));
+            var rconResponse = Summarize(results);
 
             var entry = new WhitelistAuditEntry
             {
@@ -129,19 +122,8 @@ public class WhitelistAuditService
         try
         {
             var file = LoadFromDisk();
-            string rconResponse;
-            try
-            {
-                if (platform == "Bedrock")
-                    rconResponse = await _rcon.SendCommandAsync($"fwhitelist remove {mcUsername}");
-                else
-                    rconResponse = await _rcon.WhitelistRemoveAsync(mcUsername);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "RCON whitelist remove failed for {Player}", mcUsername);
-                return (false, $"Server is offline or RCON failed: {ex.Message}");
-            }
+            var results = await _servers.RunOnAllAsync(rcon => RemoveCommand(rcon, mcUsername, platform));
+            var rconResponse = Summarize(results);
 
             file.Entries.RemoveAll(e =>
                 e.McUsername.Equals(mcUsername, StringComparison.OrdinalIgnoreCase)
@@ -174,17 +156,9 @@ public class WhitelistAuditService
 
             foreach (var entry in toRemove)
             {
-                try
-                {
-                    if (entry.Platform.Equals("Bedrock", StringComparison.OrdinalIgnoreCase))
-                        await _rcon.SendCommandAsync($"fwhitelist remove {entry.McUsername}");
-                    else
-                        await _rcon.WhitelistRemoveAsync(entry.McUsername);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to remove {Mc} during revoke-all for {Web}", entry.McUsername, webUsername);
-                }
+                var results = await _servers.RunOnAllAsync(rcon => RemoveCommand(rcon, entry.McUsername, entry.Platform));
+                foreach (var r in results.Where(r => !r.Ok))
+                    _logger.LogWarning("Revoke-all for {Web}: removing {Mc} on '{Server}' failed: {Response}", webUsername, entry.McUsername, r.ServerId, r.Response);
             }
 
             file.Entries.RemoveAll(e => e.AddedByWebUser.Equals(webUsername, StringComparison.OrdinalIgnoreCase));
@@ -197,6 +171,31 @@ public class WhitelistAuditService
         {
             _ioLock.Release();
         }
+    }
+
+    /// <summary>Java accounts go through /whitelist, Bedrock accounts through Floodgate's /fwhitelist.</summary>
+    internal static Task<string> AddCommand(RconService rcon, string mcUsername, string platform) =>
+        string.Equals(platform, "Bedrock", StringComparison.OrdinalIgnoreCase)
+            ? rcon.SendCommandAsync($"fwhitelist add {mcUsername}")
+            : rcon.WhitelistAddAsync(mcUsername);
+
+    internal static Task<string> RemoveCommand(RconService rcon, string mcUsername, string platform) =>
+        string.Equals(platform, "Bedrock", StringComparison.OrdinalIgnoreCase)
+            ? rcon.SendCommandAsync($"fwhitelist remove {mcUsername}")
+            : rcon.WhitelistRemoveAsync(mcUsername);
+
+    /// <summary>Vanilla's answer when the name is not a real account: then nothing is recorded.</summary>
+    private static bool IsRejected(string response) =>
+        response.Contains("does not exist", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>One line per server: what it answered, or that it will get the change when it next starts.</summary>
+    internal static string Summarize(List<ServerCommandResult> results)
+    {
+        if (results.Count == 0) return "No servers are configured.";
+        if (results.Count == 1)
+            return results[0].Ok ? results[0].Response : "The server is offline: the change is applied when it starts.";
+        return string.Join("; ", results.Select(r =>
+            r.Ok ? $"{r.ServerName}: {r.Response}" : $"{r.ServerName}: offline, applied when it starts"));
     }
 
     private WhitelistAuditFile LoadCached()

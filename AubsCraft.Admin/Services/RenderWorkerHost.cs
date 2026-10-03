@@ -24,6 +24,26 @@ public class RenderWorkerHost
 
     public bool IsWorkerCreated => _renderWorker != null;
     public bool IsStarted { get; set; }
+    /// <summary>The server whose world the running worker renders. A different server needs a new worker (ResetAsync).</summary>
+    public string? ServerId { get; set; }
+
+    /// <summary>
+    /// Ends the current worker (terminating it also ends its JS data worker and WebSocket) so the next
+    /// EnsureWorkerAsync starts fresh - used when the panel switches to another server's world.
+    /// </summary>
+    public async Task ResetAsync()
+    {
+        if (_service != null)
+        {
+            try { await _service.DisposeAsync(); }
+            catch (Exception ex) { Console.WriteLine($"[RenderWorkerHost] Worker dispose failed: {ex.Message}"); }
+        }
+        _renderWorker?.Dispose();
+        _renderWorker = null;
+        _service = null;
+        IsStarted = false;
+        ServerId = null;
+    }
 
     public RenderWorkerHost(WebWorkerService workerService)
     {

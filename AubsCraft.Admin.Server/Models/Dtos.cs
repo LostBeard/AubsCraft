@@ -20,7 +20,8 @@ public record ServerStatusDto(
     double Tps1Min,
     double Tps5Min,
     double Tps15Min,
-    int TimeTicks = -1);
+    int TimeTicks = -1,
+    string? ServerId = null);
 
 public record WorldTimeWeatherDto(
     int TimeTicks,
@@ -60,18 +61,21 @@ public record ActivityEventDto(
     DateTime Timestamp,
     ActivityEventType Type,
     string? PlayerName,
-    string Details);
+    string Details,
+    string? ServerId = null);
 
 public record ChatMessageDto(
     DateTime Timestamp,
     string PlayerName,
-    string Message);
+    string Message,
+    string? ServerId = null);
 
 public record TpsReadingDto(
     DateTime Timestamp,
     double Tps1Min,
     double Tps5Min,
-    double Tps15Min);
+    double Tps15Min,
+    string? ServerId = null);
 
 public class PluginInfo
 {

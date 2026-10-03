@@ -1,6 +1,8 @@
 @inherits LayoutComponentBase
 @inject AuthStateProvider Auth
 @inject NavigationManager Nav
+@inject ServerHubClient Hub
+@inject RenderWorkerHost MapWorker
 @implements IDisposable
 
 @if (!_authChecked)
@@ -20,20 +22,25 @@ else if (Auth.IsAuthenticated)
 
         <main>
             <div class="top-row px-4 d-flex justify-content-between align-items-center">
-                <span class="text-muted">
-                    @Auth.Username
-                    @if (!string.IsNullOrEmpty(Auth.Role))
-                    {
-                        <span class="badge ms-2 @RoleBadgeClass">@Auth.Role</span>
-                    }
-                </span>
+                <div class="d-flex align-items-center gap-3">
+                    <ServerPicker />
+                    <span class="text-muted">
+                        @Auth.Username
+                        @if (!string.IsNullOrEmpty(Auth.Role))
+                        {
+                            <span class="badge ms-2 @RoleBadgeClass">@Auth.Role</span>
+                        }
+                    </span>
+                </div>
                 <div class="d-flex gap-2">
                     <ThemeToggle />
                     <button class="btn btn-sm btn-outline-secondary" @onclick="LogoutAsync">Logout</button>
                 </div>
             </div>
 
-            <article class="content px-4">
+            @* Keyed by the selected server: switching servers re-creates the page, so it loads that server's data
+               from scratch (no page has to track the switch itself). *@
+            <article class="content px-4" @key="Hub.SelectedServerId">
                 @Body
             </article>
         </main>
@@ -65,10 +72,20 @@ else
     protected override async Task OnInitializedAsync()
     {
         Nav.LocationChanged += OnLocationChanged;
+        Hub.OnSelectedServerChanged += OnSelectedServerChanged;
         await Auth.CheckAuthAsync();
+        if (Auth.IsAuthenticated)
+        {
+            // Connect (and learn the server list + selection) BEFORE the first page renders, so pages start
+            // on the right server instead of mounting once with no server and again when it arrives.
+            try { await Hub.ConnectAsync(); }
+            catch (Exception ex) { Console.WriteLine($"[MainLayout] Hub connect failed: {ex.Message}"); }
+        }
         _authChecked = true;
         RedirectIfPrivate();
     }
+
+    private void OnSelectedServerChanged() => InvokeAsync(StateHasChanged);
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
@@ -88,6 +105,9 @@ else
     private async Task LogoutAsync()
     {
         await Auth.LogoutAsync();
+        // Close everything the login cookie opened: the hub connection and the map worker's world WebSocket.
+        await Hub.DisconnectAsync();
+        await MapWorker.ResetAsync();
         Nav.NavigateTo("/login");
     }
 
@@ -102,5 +122,6 @@ else
     public void Dispose()
     {
         Nav.LocationChanged -= OnLocationChanged;
+        Hub.OnSelectedServerChanged -= OnSelectedServerChanged;
     }
 }

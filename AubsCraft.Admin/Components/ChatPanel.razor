@@ -18,6 +18,10 @@
                 {
                     <div class="mb-1">
                         <small class="text-muted">@msg.Timestamp.ToString("HH:mm")</small>
+                        @if (Hub.IsMultiServer)
+                        {
+                            <span class="badge bg-secondary ms-1">@Hub.ServerName(msg.ServerId)</span>
+                        }
                         <img src="https://mc-heads.net/avatar/@msg.PlayerName/16" alt="" class="mx-1 rounded" style="width:16px;height:16px;" />
                         <strong>@msg.PlayerName</strong>
                         <span>@msg.Message</span>
@@ -28,7 +32,7 @@
     </div>
     <div class="card-footer p-2">
         <div class="input-group input-group-sm">
-            <input type="text" class="form-control" placeholder="Send message..."
+            <input type="text" class="form-control" placeholder="@SendPlaceholder"
                    @bind="_message" @bind:event="oninput" @onkeydown="HandleKeyDown" />
             <button class="btn btn-primary" @onclick="SendAsync" disabled="@string.IsNullOrWhiteSpace(_message)">Send</button>
         </div>
@@ -64,6 +68,9 @@
 
         InvokeAsync(StateHasChanged);
     }
+
+    // Messages go to the selected server (each server has its own chat).
+    private string SendPlaceholder => Hub.IsMultiServer && Hub.SelectedServer is { } s ? $"Say on {s.Name}..." : "Send message...";
 
     private void Toggle()
     {

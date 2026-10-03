@@ -107,19 +107,27 @@ public class MinecraftRconClient : IAsyncDisposable, IDisposable
     public Task<string> PardonAsync(string playerName, CancellationToken cancellationToken = default)
         => _client.SendCommandAsync($"pardon {playerName}", cancellationToken);
 
+    /// <summary>
+    /// The banned player names. The server answers "There are N ban(s):" followed by one
+    /// "{name} was banned by {source}: {reason}" entry per ban, and over RCON those lines arrive CONCATENATED
+    /// with no separator ("...by an operator.Griefer was banned by..."). Names are therefore found by
+    /// Minecraft's name rules: 1-16 of [A-Za-z0-9_] (Floodgate Bedrock names add a leading '.'), not preceded
+    /// by another name character. A ban reason that ENDS in a letter, digit or '_' runs straight into the
+    /// next name: reason "griefing" + name "Alex" comes back as "griefingAlex", which no parser can tell from
+    /// a real name. Read the server's banned-players.json when the exact list matters.
+    /// </summary>
     public async Task<List<string>> BanListAsync(CancellationToken cancellationToken = default)
     {
         var response = await _client.SendCommandAsync("banlist", cancellationToken);
-        // "There are no bans" or "There are N ban(s): name1, name2"
-        var colonIndex = response.IndexOf(':');
-        if (colonIndex < 0 || colonIndex >= response.Length - 1)
-            return [];
-
-        return response[(colonIndex + 1)..]
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(n => !string.IsNullOrWhiteSpace(n))
-            .ToList();
+        return ParseBanList(response);
     }
+
+    private static readonly System.Text.RegularExpressions.Regex BanEntryPattern = new(
+        @"(?<![A-Za-z0-9_])(\.?[A-Za-z0-9_]{1,16}) was banned by ", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>Extracts the names from a "banlist" response (see BanListAsync for the format).</summary>
+    public static List<string> ParseBanList(string response) =>
+        BanEntryPattern.Matches(response).Select(m => m.Groups[1].Value).ToList();
 
     // -- Server Messages --
 

@@ -16,10 +16,10 @@ public partial class PluginService
 
     public string PluginsPath => _pluginsPath;
 
-    public PluginService(IConfiguration configuration, ILogger<PluginService> logger)
+    public PluginService(string pluginsPath, ILogger<PluginService> logger)
     {
         _logger = logger;
-        _pluginsPath = configuration.GetValue<string>("Minecraft:PluginsPath") ?? "/opt/minecraft/server/plugins";
+        _pluginsPath = pluginsPath;
     }
 
     public List<PluginInfo> GetPlugins()

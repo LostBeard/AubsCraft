@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="AubsCraft.Admin.Server/AubsCraft.Admin.Server.csproj" />
   <Project Path="AubsCraft.Admin/AubsCraft.Admin.csproj" />
+  <Project Path="AubsCraft.Admin.Server.Tests/AubsCraft.Admin.Server.Tests.csproj" />
   <Project Path="SpawnDev.Rcon/SpawnDev.Rcon.csproj" />
 </Solution>

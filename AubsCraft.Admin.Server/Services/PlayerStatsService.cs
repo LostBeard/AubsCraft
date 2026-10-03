@@ -29,14 +29,17 @@ public class PlayerStatsService
 
     private readonly bool _enableSqlite;
 
-    public PlayerStatsService(IConfiguration configuration, RconService rcon, ILogger<PlayerStatsService> logger)
+    public PlayerStatsService(ServerDefinition server, RconService rcon, bool enableSqlite, ILogger<PlayerStatsService> logger)
     {
         _logger = logger;
         _rcon = rcon;
-        _serverPath = configuration.GetValue<string>("Minecraft:ServerPath") ?? "/opt/minecraft/server";
+        _server = server;
+        _serverPath = server.Path;
         // SQLite over SSHFS breaks CoreProtect's WAL checkpoints - only enable when running locally
-        _enableSqlite = configuration.GetValue("Minecraft:EnableSqliteQueries", !OperatingSystem.IsWindows());
+        _enableSqlite = enableSqlite;
     }
+
+    private readonly ServerDefinition _server;
 
     /// <summary>
     /// Gets a list of all known players from Essentials userdata.
@@ -59,7 +62,7 @@ public class PlayerStatsService
                 var logoutMs = ExtractYamlLong(yaml, "timestamps.logout");
 
                 // Read play time from native stats
-                var statsFile = Path.Combine(_serverPath, "world", "stats", $"{uuid}.json");
+                var statsFile = Path.Combine(_server.WorldPath, "stats", $"{uuid}.json");
                 long playTimeTicks = 0;
                 if (File.Exists(statsFile))
                 {
@@ -124,7 +127,7 @@ public class PlayerStatsService
         }
 
         // -- Native Stats --
-        var statsFile = Path.Combine(_serverPath, "world", "stats", $"{uuid}.json");
+        var statsFile = Path.Combine(_server.WorldPath, "stats", $"{uuid}.json");
         if (File.Exists(statsFile))
         {
             var json = File.ReadAllText(statsFile);
@@ -159,7 +162,7 @@ public class PlayerStatsService
         }
 
         // -- Advancements --
-        var advFile = Path.Combine(_serverPath, "world", "advancements", $"{uuid}.json");
+        var advFile = Path.Combine(_server.WorldPath, "advancements", $"{uuid}.json");
         if (File.Exists(advFile))
         {
             try
@@ -361,7 +364,7 @@ public class PlayerStatsService
             stats.TotalPlayers = Directory.GetFiles(userdataPath, "*.yml").Length;
 
         // Aggregate native stats
-        var statsDir = Path.Combine(_serverPath, "world", "stats");
+        var statsDir = Path.Combine(_server.WorldPath, "stats");
         if (Directory.Exists(statsDir))
         {
             foreach (var file in Directory.GetFiles(statsDir, "*.json"))
@@ -414,9 +417,9 @@ public class PlayerStatsService
 
         // World age from level.dat would need NBT parsing - skip for now
         // Plugin count
-        var pluginsPath = Path.Combine(_serverPath, "plugins");
-        if (Directory.Exists(pluginsPath))
-            stats.PluginCount = Directory.GetFiles(pluginsPath, "*.jar").Length;
+        var addonsPath = _server.AddonsPath;
+        if (addonsPath != null && Directory.Exists(addonsPath))
+            stats.PluginCount = Directory.GetFiles(addonsPath, "*.jar").Length;
 
         return stats;
     }

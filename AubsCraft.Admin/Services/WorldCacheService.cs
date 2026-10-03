@@ -7,8 +7,8 @@ namespace AubsCraft.Admin.Services;
 /// Client-side world data cache using OPFS (Origin Private File System) region files.
 /// Benchmark-proven: 275 MB/s read, 124 MB/s write (vs IndexedDB 21 MB/s read, 1.1 MB/s write).
 ///
-/// Storage layout:
-///   /aubscraft-cache/
+/// Storage layout (one folder per Minecraft server - each has its own world; set ServerId first):
+///   /aubscraft-cache/servers/{serverId}/
 ///     heightmaps/r_{rx}_{rz}.bin   - packed binary heightmap frames per 32x32 region
 ///     meta.json                    - camera position, last sync timestamp
 ///
@@ -23,7 +23,7 @@ public sealed class WorldCacheService
 {
     private readonly SpawnJSRuntime _js;
     private FileSystemDirectoryHandle? _heightmapDir;
-    private FileSystemDirectoryHandle? _rootDir;
+    private string _serverId = "";
 
     // In-memory index: which chunks are in which region files
     private readonly Dictionary<(int rx, int rz), List<(int cx, int cz, int offset, int length)>> _regionIndex = new();
@@ -36,33 +36,86 @@ public sealed class WorldCacheService
         _js = js;
     }
 
+    /// <summary>
+    /// The Minecraft server whose world this cache holds. Every server gets its own folder, so switching
+    /// servers never shows another world's cached chunks. Changing it drops the in-memory region index.
+    /// </summary>
+    public string ServerId
+    {
+        get => _serverId;
+        set
+        {
+            if (value == _serverId) return;
+            _serverId = value;
+            _heightmapDir?.Dispose();
+            _heightmapDir = null;
+            _regionIndex.Clear();
+            _pendingWrites.Clear();
+        }
+    }
+
+    /// <summary>aubscraft-cache/servers/{ServerId}, created on demand. Caller disposes.</summary>
+    private async Task<FileSystemDirectoryHandle> GetServerDir(bool create = true)
+    {
+        if (string.IsNullOrEmpty(_serverId))
+            throw new InvalidOperationException("WorldCacheService.ServerId must be set before the cache is used.");
+        using var storage = _js.Get<StorageManager>("navigator.storage");
+        using var root = await storage.GetDirectory();
+        using var cacheDir = await root.GetDirectoryHandle("aubscraft-cache", create);
+        await RemoveLegacySingleServerCacheAsync(cacheDir);
+        using var servers = await cacheDir.GetDirectoryHandle("servers", create);
+        return await servers.GetDirectoryHandle(_serverId, create);
+    }
+
+    private bool _legacyChecked;
+
+    /// <summary>
+    /// Before multi-server support the cache lived directly in aubscraft-cache/ (heightmaps/ + meta.json). It
+    /// belongs to no server folder and would never be read again, so it is deleted once.
+    /// </summary>
+    private async Task RemoveLegacySingleServerCacheAsync(FileSystemDirectoryHandle cacheDir)
+    {
+        if (_legacyChecked) return;
+        _legacyChecked = true;
+        foreach (var name in new[] { "heightmaps", "meta.json" })
+        {
+            try
+            {
+                await cacheDir.RemoveEntry(name, true);
+                Console.WriteLine($"[WorldCache] Removed the old single-server cache entry '{name}'");
+            }
+            catch
+            {
+                // NotFoundError: nothing left from the single-server layout.
+            }
+        }
+    }
+
     private async Task<FileSystemDirectoryHandle> GetHeightmapDir()
     {
         if (_heightmapDir != null) return _heightmapDir;
-
-        using var storage = _js.Get<StorageManager>("navigator.storage");
-        _rootDir = await storage.GetDirectory();
-        var cacheDir = await _rootDir.GetDirectoryHandle("aubscraft-cache", true);
-        _heightmapDir = await cacheDir.GetDirectoryHandle("heightmaps", true);
-        cacheDir.Dispose();
+        using var serverDir = await GetServerDir();
+        _heightmapDir = await serverDir.GetDirectoryHandle("heightmaps", true);
         return _heightmapDir;
     }
 
     /// <summary>
-    /// Clear all cached data from OPFS (heightmaps, regions, camera position).
+    /// Clear this server's cached data from OPFS (heightmaps, regions, camera position).
     /// </summary>
-    public async Task ClearAllAsync()
+    public async Task ClearAsync()
     {
         try
         {
             using var storage = _js.Get<StorageManager>("navigator.storage");
-            var root = await storage.GetDirectory();
-            await root.RemoveEntry("aubscraft-cache", true);
+            using var root = await storage.GetDirectory();
+            using var cacheDir = await root.GetDirectoryHandle("aubscraft-cache", true);
+            using var servers = await cacheDir.GetDirectoryHandle("servers", true);
+            await servers.RemoveEntry(_serverId, true);
             _heightmapDir?.Dispose();
             _heightmapDir = null;
-            _rootDir?.Dispose();
-            _rootDir = null;
-            Console.WriteLine("[WorldCache] OPFS cache cleared");
+            _regionIndex.Clear();
+            _pendingWrites.Clear();
+            Console.WriteLine($"[WorldCache] OPFS cache cleared for server '{_serverId}'");
         }
         catch (Exception ex)
         {
@@ -298,12 +351,8 @@ public sealed class WorldCacheService
     {
         try
         {
-            var dir = await GetHeightmapDir();
-            // Go up to parent cache dir
-            using var storage = _js.Get<StorageManager>("navigator.storage");
-            using var root = await storage.GetDirectory();
-            using var cacheDir = await root.GetDirectoryHandle("aubscraft-cache", true);
-            using var fileHandle = await cacheDir.GetFileHandle("meta.json", true);
+            using var serverDir = await GetServerDir();
+            using var fileHandle = await serverDir.GetFileHandle("meta.json", true);
             using var writable = await fileHandle.CreateWritable();
             var json = $"{{\"x\":{x:F1},\"y\":{y:F1},\"z\":{z:F1},\"pitch\":{pitch:F1},\"yaw\":{yaw:F1}}}";
             await writable.Write(json);
@@ -317,10 +366,8 @@ public sealed class WorldCacheService
     {
         try
         {
-            using var storage = _js.Get<StorageManager>("navigator.storage");
-            using var root = await storage.GetDirectory();
-            using var cacheDir = await root.GetDirectoryHandle("aubscraft-cache");
-            using var fileHandle = await cacheDir.GetFileHandle("meta.json");
+            using var serverDir = await GetServerDir(create: false);
+            using var fileHandle = await serverDir.GetFileHandle("meta.json");
             using var file = await fileHandle.GetFile();
             var text = await file.Text();
             var doc = System.Text.Json.JsonDocument.Parse(text);

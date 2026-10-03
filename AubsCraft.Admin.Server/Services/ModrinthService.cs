@@ -1,22 +1,22 @@
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
+using AubsCraft.Admin.Server.Models;
 
 namespace AubsCraft.Admin.Server.Services;
 
 /// <summary>
-/// Client for the Modrinth API. Searches and downloads Minecraft plugins.
+/// Client for the Modrinth API. Searches and downloads add-ons for a server: plugins for Paper, mods for
+/// Fabric / Forge / NeoForge, matched to that server's loader and Minecraft version.
 /// https://docs.modrinth.com/
 /// </summary>
 public class ModrinthService
 {
     private readonly HttpClient _http;
     private readonly ILogger<ModrinthService> _logger;
-    private readonly string _gameVersion;
 
-    public ModrinthService(IConfiguration configuration, ILogger<ModrinthService> logger)
+    public ModrinthService(ILogger<ModrinthService> logger)
     {
         _logger = logger;
-        _gameVersion = configuration.GetValue<string>("Minecraft:GameVersion") ?? "1.21.5";
         _http = new HttpClient
         {
             BaseAddress = new Uri("https://api.modrinth.com/v2/"),
@@ -24,17 +24,39 @@ public class ModrinthService
         _http.DefaultRequestHeaders.Add("User-Agent", "AubsCraft-Admin/1.0 (https://github.com/LostBeard)");
     }
 
-    /// <summary>
-    /// Search for plugins on Modrinth.
-    /// </summary>
-    public async Task<List<ModrinthSearchResult>> SearchAsync(string query, int limit = 20)
+    /// <summary>The Modrinth loader names whose builds run on a server of this type.</summary>
+    public static string[] LoadersFor(ServerLoader loader) => loader switch
     {
+        ServerLoader.Paper => ["bukkit", "paper", "spigot", "purpur", "folia"],
+        ServerLoader.Fabric => ["fabric"],
+        ServerLoader.Forge => ["forge"],
+        ServerLoader.NeoForge => ["neoforge"],
+        _ => [],
+    };
+
+    /// <summary>
+    /// Modrinth search facets for add-ons that run on this server. The OUTER array is AND, INNER arrays are
+    /// OR: "built for ANY of this server's loaders". For the mod loaders, also AND "runs on a server"
+    /// (client-only mods are useless there) and "built for this exact Minecraft version" (mods, unlike
+    /// Paper plugins, break across versions). The old plugin form ANDed bukkit+paper+mod, which matched
+    /// almost nothing (e.g. Simple Voice Chat).
+    /// </summary>
+    public static string FacetsFor(ServerDefinition server)
+    {
+        var loaders = "[" + string.Join(",", LoadersFor(server.Loader).Select(l => $"\"categories:{l}\"")) + "]";
+        if (server.Loader == ServerLoader.Paper) return "[" + loaders + "]";
+        return "[" + loaders + ",[\"server_side:required\",\"server_side:optional\"],[\"versions:" + server.GameVersion + "\"]]";
+    }
+
+    /// <summary>
+    /// Search Modrinth for add-ons that run on this server. Empty for a server with no add-on loader (Vanilla).
+    /// </summary>
+    public async Task<List<ModrinthSearchResult>> SearchAsync(ServerDefinition server, string query, int limit = 20)
+    {
+        if (LoadersFor(server.Loader).Length == 0) return [];
         try
         {
-            // Modrinth facets: the OUTER array is AND, INNER arrays are OR. We want "compatible with
-            // ANY common server platform", so all server loaders go in one inner (OR) array. The old
-            // form ANDed bukkit+paper+mod, which matched almost nothing (e.g. Simple Voice Chat).
-            var facets = "[[\"categories:bukkit\",\"categories:paper\",\"categories:spigot\",\"categories:purpur\",\"categories:folia\"]]";
+            var facets = FacetsFor(server);
             var url = $"search?query={Uri.EscapeDataString(query)}&limit={limit}&facets={Uri.EscapeDataString(facets)}";
             var response = await _http.GetFromJsonAsync<ModrinthSearchResponse>(url);
             return response?.Hits ?? [];
@@ -47,16 +69,17 @@ public class ModrinthService
     }
 
     /// <summary>
-    /// Get versions for a project that are compatible with the server.
+    /// Get versions of a project that run on this server (its loader and Minecraft version).
     /// </summary>
-    public async Task<List<ModrinthVersion>> GetVersionsAsync(string projectId)
+    public async Task<List<ModrinthVersion>> GetVersionsAsync(ServerDefinition server, string projectId)
     {
+        if (LoadersFor(server.Loader).Length == 0) return [];
         try
         {
             // The bracket/quote JSON array params MUST be URL-encoded - unencoded, Modrinth returns
             // nothing (which surfaced as "No compatible version found" on install).
-            var gameVersions = Uri.EscapeDataString($"[\"{_gameVersion}\"]");
-            var loaders = Uri.EscapeDataString("[\"bukkit\",\"paper\",\"spigot\",\"purpur\",\"folia\"]");
+            var gameVersions = Uri.EscapeDataString($"[\"{server.GameVersion}\"]");
+            var loaders = Uri.EscapeDataString("[" + string.Join(",", LoadersFor(server.Loader).Select(l => $"\"{l}\"")) + "]");
             var url = $"project/{Uri.EscapeDataString(projectId)}/version?game_versions={gameVersions}&loaders={loaders}";
             return await _http.GetFromJsonAsync<List<ModrinthVersion>>(url) ?? [];
         }

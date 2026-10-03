@@ -3,7 +3,7 @@ using System.Diagnostics;
 namespace AubsCraft.Admin.Server.Services;
 
 /// <summary>
-/// Controls the Minecraft server process via systemd.
+/// Controls ONE Minecraft server's process via its systemd unit.
 /// Requires sudoers entry for the running user.
 /// </summary>
 public class ServerControlService
@@ -11,11 +11,13 @@ public class ServerControlService
     private readonly ILogger<ServerControlService> _logger;
     private readonly string _serviceName;
 
-    public ServerControlService(IConfiguration configuration, ILogger<ServerControlService> logger)
+    public ServerControlService(string serviceName, ILogger<ServerControlService> logger)
     {
         _logger = logger;
-        _serviceName = configuration.GetValue<string>("Minecraft:ServiceName") ?? "minecraft";
+        _serviceName = serviceName;
     }
+
+    public string ServiceName => _serviceName;
 
     public async Task<(bool success, string output)> RestartAsync()
     {

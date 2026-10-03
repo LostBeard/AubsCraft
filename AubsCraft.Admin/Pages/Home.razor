@@ -4,7 +4,7 @@
 
 <PageTitle>AubsCraft Admin</PageTitle>
 
-<h1>AubsCraft Dashboard</h1>
+<h1>@(Hub.SelectedServer?.Name ?? "AubsCraft") Dashboard</h1>
 
 @if (_status == null)
 {
@@ -98,6 +98,9 @@ else
         Hub.OnTpsReadingReceived += OnTpsReading;
         await Hub.ConnectAsync();
         _status = await Hub.GetCurrentStatusAsync();
+        // Fill the graph from the server's recent readings instead of starting empty on every visit
+        var history = await Hub.GetTpsHistoryAsync();
+        _tpsHistory.AddRange(history.TakeLast(MaxTpsHistory));
     }
 
     private void OnStatusReceived(ServerStatusDto status)

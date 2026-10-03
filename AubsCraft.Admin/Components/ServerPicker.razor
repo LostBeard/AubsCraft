@@ -1,0 +1,47 @@
+@inject ServerHubClient Hub
+@implements IDisposable
+
+@* Which Minecraft server the panel is looking at. Every per-server page follows this selection. *@
+@if (Hub.Servers.Count > 0)
+{
+    <div class="d-flex align-items-center gap-2">
+        <span class="server-dot @(Hub.SelectedServer?.Connected == true ? "online" : "offline")"
+              title="@(Hub.SelectedServer?.Connected == true ? "Online" : "Offline")"></span>
+        @if (Hub.Servers.Count == 1)
+        {
+            <span class="fw-semibold">@Hub.Servers[0].Name</span>
+        }
+        else
+        {
+            <select class="form-select form-select-sm" style="min-width: 11rem;" aria-label="Server"
+                    value="@Hub.SelectedServerId" @onchange="OnChange">
+                @foreach (var s in Hub.Servers)
+                {
+                    <option value="@s.Id">@s.Name@(s.Connected ? $" ({s.Online}/{s.Max})" : " (offline)")</option>
+                }
+            </select>
+        }
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        Hub.OnServerListReceived += OnServerList;
+        Hub.OnSelectedServerChanged += OnSelectionChanged;
+    }
+
+    private void OnChange(ChangeEventArgs e)
+    {
+        if (e.Value is string id) Hub.SelectServer(id);
+    }
+
+    private void OnServerList(List<ServerSummaryDto> _) => InvokeAsync(StateHasChanged);
+    private void OnSelectionChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Hub.OnServerListReceived -= OnServerList;
+        Hub.OnSelectedServerChanged -= OnSelectionChanged;
+    }
+}

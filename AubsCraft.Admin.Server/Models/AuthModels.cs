@@ -108,7 +108,17 @@ public record WhitelistAuditEntryDto(
     bool AutoAdded,
     bool Confirmed);
 
+/// <summary>Public (anonymous) network status: totals over every server that is up, plus one line per server.</summary>
 public record PublicStatusDto(
+    bool Connected,
+    int Online,
+    int Max,
+    List<string> Players,
+    List<PublicServerStatusDto>? Servers = null);
+
+public record PublicServerStatusDto(
+    string Id,
+    string Name,
     bool Connected,
     int Online,
     int Max,

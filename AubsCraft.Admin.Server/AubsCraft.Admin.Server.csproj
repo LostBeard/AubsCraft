@@ -26,6 +26,8 @@
 		<Content Update="admin.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
 		<Content Update="admin.json.migrated" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
 		<Content Update="activity-log.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+		<Content Update="servers.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+		<Content Update="bans.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
 	</ItemGroup>
 
 </Project>

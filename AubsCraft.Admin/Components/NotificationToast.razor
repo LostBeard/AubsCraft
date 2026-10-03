@@ -36,7 +36,9 @@
         if (evt.Type is not (ActivityEventType.PlayerJoin or ActivityEventType.PlayerLeave or ActivityEventType.WhitelistRejection or ActivityEventType.Death or ActivityEventType.Advancement))
             return;
 
-        var toast = new ToastItem(evt.Type, evt.PlayerName, evt.Details, DateTime.UtcNow);
+        // With several servers, say which one it happened on.
+        var message = Hub.IsMultiServer ? $"[{Hub.ServerName(evt.ServerId)}] {evt.Details}" : evt.Details;
+        var toast = new ToastItem(evt.Type, evt.PlayerName, message, DateTime.UtcNow);
         _toasts.Add(toast);
 
         // Auto-dismiss after 6 seconds

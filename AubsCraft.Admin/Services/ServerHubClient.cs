@@ -2,31 +2,116 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
+using SpawnDev.SpawnJS;
+using SpawnDev.SpawnJS.JSObjects;
 
 namespace AubsCraft.Admin.Services;
 
 /// <summary>
-/// SignalR client managing the real-time connection to the server hub.
-/// Replaces the HTTP-based RconApiClient with push-based updates.
+/// SignalR client managing the real-time connection to the server hub, and which Minecraft server the
+/// panel is looking at. Per-server calls go to the SELECTED server (SelectedServerId); per-server pushes
+/// (status, TPS) are raised only for it. Activity and chat pushes from every server are raised, tagged
+/// with ServerId, so the panel can show the whole network. The selection is remembered in localStorage.
 /// </summary>
 public class ServerHubClient : IAsyncDisposable
 {
-    private HubConnection? _hub;
-    private readonly NavigationManager _nav;
+    private const string SelectedServerKey = "aubscraft.selectedServer";
 
-    public ServerHubClient(NavigationManager nav)
+    private HubConnection? _hub;
+    private Task? _connectTask;
+    private readonly NavigationManager _nav;
+    private readonly SpawnJSRuntime _js;
+
+    public ServerHubClient(NavigationManager nav, SpawnJSRuntime js)
     {
         _nav = nav;
+        _js = js;
     }
 
     public HubConnectionState State => _hub?.State ?? HubConnectionState.Disconnected;
     public bool IsConnected => _hub?.State == HubConnectionState.Connected;
 
+    // -- Server selection --
+
+    /// <summary>Every managed server, in registry order (the first is the primary). Refreshed by the 3-second push.</summary>
+    public List<ServerSummaryDto> Servers { get; private set; } = [];
+
+    /// <summary>The server per-server calls target. Null until connected (or when no server is configured).</summary>
+    public string? SelectedServerId { get; private set; }
+
+    public ServerSummaryDto? SelectedServer => Servers.FirstOrDefault(s => s.Id == SelectedServerId);
+
+    /// <summary>A server's display name (its id when unknown), for tagging network-wide events.</summary>
+    public string ServerName(string? serverId) =>
+        Servers.FirstOrDefault(s => s.Id == serverId)?.Name ?? serverId ?? "";
+
+    /// <summary>True when more than one server exists, so events need a server tag.</summary>
+    public bool IsMultiServer => Servers.Count > 1;
+
+    public event Action? OnSelectedServerChanged;
+    public event Action<List<ServerSummaryDto>>? OnServerListReceived;
+
+    public void SelectServer(string serverId)
+    {
+        if (serverId == SelectedServerId || Servers.All(s => s.Id != serverId)) return;
+        SelectedServerId = serverId;
+        try
+        {
+            using var storage = _js.Get<Storage>("localStorage");
+            storage.SetItem(SelectedServerKey, serverId);
+        }
+        catch (Exception ex)
+        {
+            // Storage can be unavailable (private window, blocked site data); the selection still works for this session.
+            Console.WriteLine($"[ServerHubClient] Could not remember the selected server: {ex.Message}");
+        }
+        OnSelectedServerChanged?.Invoke();
+    }
+
+    private string? ReadRememberedServer()
+    {
+        try
+        {
+            using var storage = _js.Get<Storage>("localStorage");
+            return storage.GetItem(SelectedServerKey);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ServerHubClient] Could not read the remembered server: {ex.Message}");
+            return null;
+        }
+    }
+
+    private void ApplyServerList(List<ServerSummaryDto> servers)
+    {
+        Servers = servers;
+        // Keep the selection when it still exists; otherwise fall back to the primary (first) server.
+        if (SelectedServerId == null || servers.All(s => s.Id != SelectedServerId))
+        {
+            var remembered = ReadRememberedServer();
+            var next = servers.FirstOrDefault(s => s.Id == remembered)?.Id ?? servers.FirstOrDefault()?.Id;
+            if (next != SelectedServerId)
+            {
+                SelectedServerId = next;
+                OnSelectedServerChanged?.Invoke();
+            }
+        }
+        OnServerListReceived?.Invoke(servers);
+    }
+
+    private bool IsSelected(string? serverId) => serverId != null && serverId == SelectedServerId;
+
     // -- Events (server pushes) --
 
+    /// <summary>Status of the SELECTED server.</summary>
     public event Action<ServerStatusDto>? OnServerStatusReceived;
+    /// <summary>Status of ANY server (each carries ServerId).</summary>
+    public event Action<ServerStatusDto>? OnAnyServerStatusReceived;
+    /// <summary>Activity from every server (each carries ServerId).</summary>
     public event Action<ActivityEventDto>? OnActivityEventReceived;
+    /// <summary>Chat from every server (each carries ServerId).</summary>
     public event Action<ChatMessageDto>? OnChatMessageReceived;
+    /// <summary>TPS readings of the SELECTED server.</summary>
     public event Action<TpsReadingDto>? OnTpsReadingReceived;
     public event Action<HubConnectionState>? OnStateChanged;
     public event Action<string>? OnError;
@@ -64,17 +149,41 @@ public class ServerHubClient : IAsyncDisposable
         }
     }
 
-    public async Task ConnectAsync()
-    {
-        if (_hub != null) return;
+    /// <summary>
+    /// Connects (once) and loads the server list. Every caller awaits the SAME connect: returning early while
+    /// another component's connect was still starting let its first calls run unconnected (empty fallbacks).
+    /// </summary>
+    public Task ConnectAsync() => _connectTask ??= ConnectCoreAsync();
 
+    private async Task ConnectCoreAsync()
+    {
+        try
+        {
+            await StartHubAsync();
+        }
+        catch
+        {
+            // Let the next ConnectAsync try again instead of replaying this failure forever.
+            var failed = _hub;
+            _hub = null;
+            _connectTask = null;
+            if (failed != null) await failed.DisposeAsync();
+            throw;
+        }
+    }
+
+    private async Task StartHubAsync()
+    {
         _hub = new HubConnectionBuilder()
             .WithUrl(_nav.ToAbsoluteUri("/hubs/server"))
             .WithAutomaticReconnect()
             .Build();
 
         _hub.On<ServerStatusDto>("ReceiveServerStatus", status =>
-            OnServerStatusReceived?.Invoke(status));
+        {
+            OnAnyServerStatusReceived?.Invoke(status);
+            if (IsSelected(status.ServerId)) OnServerStatusReceived?.Invoke(status);
+        });
 
         _hub.On<ActivityEventDto>("ReceiveActivityEvent", evt =>
             OnActivityEventReceived?.Invoke(evt));
@@ -83,7 +192,11 @@ public class ServerHubClient : IAsyncDisposable
             OnChatMessageReceived?.Invoke(msg));
 
         _hub.On<TpsReadingDto>("ReceiveTpsReading", reading =>
-            OnTpsReadingReceived?.Invoke(reading));
+        {
+            if (IsSelected(reading.ServerId)) OnTpsReadingReceived?.Invoke(reading);
+        });
+
+        _hub.On<List<ServerSummaryDto>>("ReceiveServerList", ApplyServerList);
 
         _hub.Reconnecting += _ => { OnStateChanged?.Invoke(HubConnectionState.Reconnecting); return Task.CompletedTask; };
         _hub.Reconnected += _ => { OnStateChanged?.Invoke(HubConnectionState.Connected); return Task.CompletedTask; };
@@ -91,7 +204,26 @@ public class ServerHubClient : IAsyncDisposable
 
         await _hub.StartAsync();
         OnStateChanged?.Invoke(HubConnectionState.Connected);
+        ApplyServerList(await SafeInvokeAsync<List<ServerSummaryDto>>("GetServers", []));
     }
+
+    /// <summary>
+    /// Closes the connection (on logout). The connection was authorized by the login cookie and stays
+    /// authorized for as long as it is open, so leaving it up after logout would keep hub access alive.
+    /// </summary>
+    public async Task DisconnectAsync()
+    {
+        var hub = _hub;
+        _hub = null;
+        _connectTask = null;
+        Servers = [];
+        SelectedServerId = null;
+        if (hub != null) await hub.DisposeAsync();
+        OnStateChanged?.Invoke(HubConnectionState.Disconnected);
+    }
+
+    /// <summary>The selected server's id for a per-server call. "" (rejected by the hub as unknown) when none is selected.</summary>
+    private string Sid => SelectedServerId ?? "";
 
     // -- Hub invocations (client calls server) --
 
@@ -102,13 +234,13 @@ public class ServerHubClient : IAsyncDisposable
         => SafeInvokeAsync("WhitelistRemove", "", playerName);
 
     public Task<List<string>> GetWhitelistAsync()
-        => SafeInvokeAsync<List<string>>("GetWhitelist", []);
+        => SafeInvokeAsync<List<string>>("GetWhitelist", [], Sid);
 
     public Task<List<ActivityEventDto>> GetRecentActivityAsync(int count = 100, string? typeFilter = null)
-        => SafeInvokeAsync<List<ActivityEventDto>>("GetRecentActivity", [], count, typeFilter);
+        => SafeInvokeAsync<List<ActivityEventDto>>("GetRecentActivity", [], count, typeFilter, null);
 
     public Task<string> KickAsync(string playerName, string? reason = null)
-        => SafeInvokeAsync("KickPlayer", "", playerName, reason);
+        => SafeInvokeAsync("KickPlayer", "", Sid, playerName, reason);
 
     public Task<string> BanAsync(string playerName, string? reason = null)
         => SafeInvokeAsync("BanPlayer", "", playerName, reason);
@@ -117,81 +249,89 @@ public class ServerHubClient : IAsyncDisposable
         => SafeInvokeAsync("PardonPlayer", "", playerName);
 
     public Task<List<string>> GetBanListAsync()
-        => SafeInvokeAsync<List<string>>("GetBanList", []);
+        => SafeInvokeAsync<List<string>>("GetBanList", [], Sid);
 
     public Task<string> SayAsync(string message)
-        => SafeInvokeAsync("Say", "", message);
+        => SafeInvokeAsync("Say", "", Sid, message);
 
     public Task<string> SetTimeAsync(string time)
-        => SafeInvokeAsync("SetTime", "", time);
+        => SafeInvokeAsync("SetTime", "", Sid, time);
 
     public Task<string> SetWeatherAsync(string weather)
-        => SafeInvokeAsync("SetWeather", "", weather);
+        => SafeInvokeAsync("SetWeather", "", Sid, weather);
+
+    /// <summary>The selected server's recent TPS readings (for the dashboard graph on page load).</summary>
+    public Task<List<TpsReadingDto>> GetTpsHistoryAsync()
+        => SafeInvokeAsync<List<TpsReadingDto>>("GetTpsHistory", [], Sid);
 
     public Task<ServerStatusDto?> GetCurrentStatusAsync()
-        => SafeInvokeAsync<ServerStatusDto?>("GetCurrentStatus", null);
+        => SafeInvokeAsync<ServerStatusDto?>("GetCurrentStatus", null, Sid);
 
     public Task<string> SetGamemodeAsync(string playerName, string mode)
-        => SafeInvokeAsync("SetGamemode", "", playerName, mode);
+        => SafeInvokeAsync("SetGamemode", "", Sid, playerName, mode);
 
     public Task<string> TeleportPlayerAsync(string playerName, string destination)
-        => SafeInvokeAsync("TeleportPlayer", "", playerName, destination);
+        => SafeInvokeAsync("TeleportPlayer", "", Sid, playerName, destination);
 
     public Task<string> GiveItemAsync(string playerName, string item, int count = 1)
-        => SafeInvokeAsync("GiveItem", "", playerName, item, count);
+        => SafeInvokeAsync("GiveItem", "", Sid, playerName, item, count);
 
     public Task<string> SaveWorldAsync()
-        => SafeInvokeAsync("SaveWorld", "");
+        => SafeInvokeAsync("SaveWorld", "", Sid);
 
     public Task<string> SendCommandAsync(string command)
-        => SafeInvokeAsync("SendCommand", "", command);
+        => SafeInvokeAsync("SendCommand", "", Sid, command);
 
     public Task<WorldTimeWeatherDto> GetWorldTimeWeatherAsync()
-        => SafeInvokeAsync("GetWorldTimeWeather", new WorldTimeWeatherDto(0, "..."));
+        => SafeInvokeAsync("GetWorldTimeWeather", new WorldTimeWeatherDto(0, "..."), Sid);
 
     public Task<List<PluginInfoDto>> GetPluginsAsync()
-        => SafeInvokeAsync<List<PluginInfoDto>>("GetPlugins", []);
+        => SafeInvokeAsync<List<PluginInfoDto>>("GetPlugins", [], Sid);
 
     public Task<ToggleResultDto> TogglePluginAsync(string fileName)
-        => SafeInvokeAsync("TogglePlugin", new ToggleResultDto(false, "Connection lost"), fileName);
+        => SafeInvokeAsync("TogglePlugin", new ToggleResultDto(false, "Connection lost"), Sid, fileName);
 
     public Task<List<PlayerSummaryDto>> GetAllPlayersAsync()
-        => SafeInvokeAsync<List<PlayerSummaryDto>>("GetAllPlayers", []);
+        => SafeInvokeAsync<List<PlayerSummaryDto>>("GetAllPlayers", [], Sid);
 
     public Task<PlayerProfileDto?> GetPlayerProfileAsync(string uuid)
-        => SafeInvokeAsync<PlayerProfileDto?>("GetPlayerProfile", null, uuid);
+        => SafeInvokeAsync<PlayerProfileDto?>("GetPlayerProfile", null, Sid, uuid);
 
     public Task<WorldStatsDto> GetWorldStatsAsync()
-        => SafeInvokeAsync("GetWorldStats", new WorldStatsDto());
+        => SafeInvokeAsync("GetWorldStats", new WorldStatsDto(), Sid);
 
     // -- Plugin Browser --
 
     public Task<List<ModrinthSearchResultDto>> SearchPluginsAsync(string query)
-        => SafeInvokeAsync<List<ModrinthSearchResultDto>>("SearchPlugins", [], query);
+        => SafeInvokeAsync<List<ModrinthSearchResultDto>>("SearchPlugins", [], Sid, query);
 
     public Task<List<ModrinthVersionDto>> GetPluginVersionsAsync(string projectId)
-        => SafeInvokeAsync<List<ModrinthVersionDto>>("GetPluginVersions", [], projectId);
+        => SafeInvokeAsync<List<ModrinthVersionDto>>("GetPluginVersions", [], Sid, projectId);
 
     public Task<ToggleResultDto> InstallPluginAsync(string downloadUrl, string filename)
-        => SafeInvokeAsync("InstallPlugin", new ToggleResultDto(false, "Connection lost"), downloadUrl, filename);
+        => SafeInvokeAsync("InstallPlugin", new ToggleResultDto(false, "Connection lost"), Sid, downloadUrl, filename);
 
     // -- Server Control --
 
     public Task<ToggleResultDto> RestartServerAsync()
-        => SafeInvokeAsync("RestartServer", new ToggleResultDto(false, "Connection lost"));
+        => SafeInvokeAsync("RestartServer", new ToggleResultDto(false, "Connection lost"), Sid);
 
     public Task<ToggleResultDto> StopServerAsync()
-        => SafeInvokeAsync("StopServer", new ToggleResultDto(false, "Connection lost"));
+        => SafeInvokeAsync("StopServer", new ToggleResultDto(false, "Connection lost"), Sid);
+
+    /// <summary>What starting the selected server would ask of the machine (warnings, never a block).</summary>
+    public Task<HostCapacityDto?> GetStartCapacityAsync()
+        => SafeInvokeAsync<HostCapacityDto?>("GetStartCapacity", null, Sid);
 
     public Task<ToggleResultDto> StartServerAsync()
-        => SafeInvokeAsync("StartServer", new ToggleResultDto(false, "Connection lost"));
+        => SafeInvokeAsync("StartServer", new ToggleResultDto(false, "Connection lost"), Sid);
 
     // Map data streaming removed - replaced by binary WebSocket + binary HTTP endpoints
     // Heightmaps: binary WebSocket at /api/world/ws
     // Full chunks: binary HTTP at /api/world/chunk/{x}/{z}
 
     public Task<List<PlayerPositionDto>> GetPlayerPositionsAsync()
-        => SafeInvokeAsync<List<PlayerPositionDto>>("GetPlayerPositions", []);
+        => SafeInvokeAsync<List<PlayerPositionDto>>("GetPlayerPositions", [], Sid);
 
     // -- Config --
 
@@ -199,7 +339,7 @@ public class ServerHubClient : IAsyncDisposable
         => SafeInvokeAsync("GetBlueMapConfig", new BlueMapConfigDto("", false));
 
     public Task<WorldSpawnDto> GetWorldSpawnAsync()
-        => SafeInvokeAsync("GetWorldSpawn", new WorldSpawnDto(0, 0, false));
+        => SafeInvokeAsync("GetWorldSpawn", new WorldSpawnDto(0, 0, false), Sid);
 
     // -- Self-whitelist (any logged-in user) --
 
@@ -285,7 +425,8 @@ public record ServerStatusDto(
     double Tps1Min,
     double Tps5Min,
     double Tps15Min,
-    int TimeTicks = -1);
+    int TimeTicks = -1,
+    string? ServerId = null);
 
 public enum ActivityEventType
 {
@@ -297,18 +438,21 @@ public record ActivityEventDto(
     DateTime Timestamp,
     ActivityEventType Type,
     string? PlayerName,
-    string Details);
+    string Details,
+    string? ServerId = null);
 
 public record ChatMessageDto(
     DateTime Timestamp,
     string PlayerName,
-    string Message);
+    string Message,
+    string? ServerId = null);
 
 public record TpsReadingDto(
     DateTime Timestamp,
     double Tps1Min,
     double Tps5Min,
-    double Tps15Min);
+    double Tps15Min,
+    string? ServerId = null);
 
 public class PluginInfoDto
 {
@@ -469,4 +613,29 @@ public record PublicStatusDto(
     bool Connected,
     int Online,
     int Max,
+    List<string> Players,
+    List<PublicServerStatusDto>? Servers = null);
+
+public record PublicServerStatusDto(
+    string Id,
+    string Name,
+    bool Connected,
+    int Online,
+    int Max,
     List<string> Players);
+
+/// <summary>Mirrors the server's HostCapacityDto.</summary>
+public record HostCapacityDto(long TotalMemoryMb, int Cores, int RunningServers, long NeededMemoryMb, List<string> Warnings);
+
+/// <summary>One managed Minecraft server (mirrors the server's ServerSummaryDto).</summary>
+public record ServerSummaryDto(
+    string Id,
+    string Name,
+    string Loader,
+    string GameVersion,
+    int GamePort,
+    int MemoryMb,
+    bool IsPrimary,
+    bool Connected,
+    int Online,
+    int Max);

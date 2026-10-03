@@ -5,6 +5,13 @@
 <PageTitle>Players - AubsCraft Admin</PageTitle>
 
 <h1>Player Management</h1>
+@if (Hub.IsMultiServer)
+{
+    <p class="text-muted">
+        Whitelist and bans apply to <strong>every server</strong> (a server that is stopped gets the change when it starts).
+        The lists below are what <strong>@Hub.SelectedServer?.Name</strong> enforces right now. Kick, gamemode, teleport and give act on @Hub.SelectedServer?.Name.
+    </p>
+}
 
 <div class="row">
     <!-- Whitelist -->

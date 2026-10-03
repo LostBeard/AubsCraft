@@ -53,8 +53,11 @@ public class RenderWorkerService : IRenderWorkerService
     /// <summary>
     /// Initialize GPU and start the render loop + chunk loading.
     /// </summary>
-    public async Task StartAsync(float camX, float camY, float camZ, float pitch, float yaw)
+    public async Task StartAsync(string serverId, float camX, float camY, float camZ, float pitch, float yaw)
     {
+        _serverQuery = "server=" + Uri.EscapeDataString(serverId);
+        _cache.ServerId = serverId;
+
         // Init ILGPU + WebGPU in the worker
         await _engine.InitAsync();
         _renderer.InitOffscreen(_canvas!, _engine.Accelerator!);
@@ -91,7 +94,7 @@ public class RenderWorkerService : IRenderWorkerService
         var protocol = location.Protocol == "https:" ? "wss:" : "ws:";
         var host = location.Host;
         location.Dispose();
-        var wsUrl = $"{protocol}//{host}/api/world/ws";
+        var wsUrl = $"{protocol}//{host}/api/world/ws?{_serverQuery}";
 
         // Use absolute URL for worker script (relative paths may not resolve in nested worker context)
         var origin = _js.Get<string>("location.origin");
@@ -356,6 +359,8 @@ public class RenderWorkerService : IRenderWorkerService
         }
     }
     private string? _baseUrl;
+    /// <summary>"server={id}" for every world request: the server whose world this worker renders.</summary>
+    private string _serverQuery = "";
 
 
 
@@ -593,7 +598,7 @@ public class RenderWorkerService : IRenderWorkerService
                 try
                 {
                     // Binary endpoint - raw bytes, no JSON, no base64
-                    using var response = await _js.Fetch($"{_baseUrl}/api/world/chunk/{cx}/{cz}",
+                    using var response = await _js.Fetch($"{_baseUrl}/api/world/chunk/{cx}/{cz}?{_serverQuery}",
                         new FetchOptions { Credentials = "include" });
                     if (!response.Ok)
                     {

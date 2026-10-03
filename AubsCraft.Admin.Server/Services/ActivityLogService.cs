@@ -41,11 +41,14 @@ public class ActivityLogService : IDisposable
         EventAdded?.Invoke(evt);
     }
 
-    public List<ActivityEventDto> GetRecent(int count, ActivityEventType? filter = null)
+    /// <summary>The most recent events, oldest first. serverId null = every server.</summary>
+    public List<ActivityEventDto> GetRecent(int count, ActivityEventType? filter = null, string? serverId = null)
     {
         var query = _events.AsEnumerable().Reverse();
         if (filter.HasValue)
             query = query.Where(e => e.Type == filter.Value);
+        if (serverId != null)
+            query = query.Where(e => string.Equals(e.ServerId, serverId, StringComparison.OrdinalIgnoreCase));
         return query.Take(count).Reverse().ToList();
     }
 
@@ -73,8 +76,10 @@ public class ActivityLogService : IDisposable
             var events = JsonSerializer.Deserialize<List<ActivityEventDto>>(json);
             if (events != null)
             {
+                // Events saved before multi-server support carry no server id: they all came from the
+                // original single server, which the registry seeds as ServerRegistry.LegacyServerId.
                 foreach (var evt in events)
-                    _events.Enqueue(evt);
+                    _events.Enqueue(evt.ServerId == null ? evt with { ServerId = ServerRegistry.LegacyServerId } : evt);
                 _logger.LogInformation("Loaded {Count} activity events from {Path}", events.Count, _filePath);
             }
         }

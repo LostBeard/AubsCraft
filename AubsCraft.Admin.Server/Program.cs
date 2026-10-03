@@ -9,8 +9,13 @@ using Microsoft.AspNetCore.Components.WebAssembly.Server;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddSingleton<RconService>();
 builder.Services.AddSingleton<ActivityLogService>();
+// The managed Minecraft servers (servers.json) and one ServerInstance per server: RCON, systemd control,
+// add-ons, stats, world data and log tailing all live on the instance.
+builder.Services.AddSingleton<ServerRegistry>();
+builder.Services.AddSingleton<ServerManager>();
+builder.Services.AddSingleton<NetworkModerationService>();
+builder.Services.AddSingleton<HostCapacityService>();
 builder.Services.AddSingleton<ServerMonitorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ServerMonitorService>());
 builder.Services.AddHostedService<LogTailService>();
@@ -18,11 +23,7 @@ builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<InviteCodeService>();
 builder.Services.AddSingleton<WhitelistAuditService>();
 builder.Services.AddSingleton<EmailNotificationService>();
-builder.Services.AddSingleton<PluginService>();
-builder.Services.AddSingleton<PlayerStatsService>();
 builder.Services.AddSingleton<ModrinthService>();
-builder.Services.AddSingleton<ServerControlService>();
-builder.Services.AddSingleton<WorldDataService>();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<QuestAssetService>();
 builder.Services.AddSignalR();
@@ -74,12 +75,19 @@ app.MapHub<ServerHub>("/hubs/server").RequireAuthorization();
 // -- Public endpoints (anonymous) --
 var publicApi = app.MapGroup("/api/public");
 
-publicApi.MapGet("/status", (ServerMonitorService monitor) =>
+// Whole-network status: Connected if any server is up, players summed over every server, plus each server's line.
+publicApi.MapGet("/status", (ServerManager servers) =>
 {
-    var s = monitor.LastStatus;
-    if (s == null)
-        return Results.Ok(new PublicStatusDto(false, 0, 0, new List<string>()));
-    return Results.Ok(new PublicStatusDto(s.Connected, s.Online, s.Max, s.Players));
+    var lines = servers.All.Select(i => new PublicServerStatusDto(
+        i.Id, i.Definition.Name, i.LastStatus?.Connected == true,
+        i.LastStatus?.Online ?? 0, i.LastStatus?.Max ?? 0, i.LastStatus?.Players ?? [])).ToList();
+    var up = lines.Where(l => l.Connected).ToList();
+    return Results.Ok(new PublicStatusDto(
+        up.Count > 0,
+        up.Sum(l => l.Online),
+        up.Sum(l => l.Max),
+        up.SelectMany(l => l.Players).Distinct().ToList(),
+        lines));
 });
 
 // -- Quest installer endpoints (anonymous - the /quest page is a public family setup page) --
@@ -184,8 +192,10 @@ auth.MapPost("/logout", async (HttpContext ctx) =>
 // -- Protected API endpoints (any logged-in user) --
 var api = app.MapGroup("/api").RequireAuthorization();
 
-api.MapGet("/status", async (RconService rcon, ILogger<Program> log, CancellationToken ct) =>
+api.MapGet("/status", async (string? server, ServerManager servers, ILogger<Program> log, CancellationToken ct) =>
 {
+    if (servers.Get(server) is not { } instance) return Results.NotFound();
+    var rcon = instance.Rcon;
     if (!rcon.IsConnected)
     {
         var connected = await rcon.ConnectAsync(ct);
@@ -209,11 +219,12 @@ api.MapGet("/status", async (RconService rcon, ILogger<Program> log, Cancellatio
     }
 });
 
-api.MapGet("/whitelist", async (RconService rcon, ILogger<Program> log, CancellationToken ct) =>
+api.MapGet("/whitelist", (string? server, ServerManager servers, ILogger<Program> log) =>
 {
+    if (servers.Get(server) is not { } instance) return Results.NotFound();
     try
     {
-        var list = await rcon.GetWhitelistAsync(ct);
+        var list = instance.ReadWhitelist();
         return Results.Ok(list);
     }
     catch (Exception ex)
@@ -223,11 +234,12 @@ api.MapGet("/whitelist", async (RconService rcon, ILogger<Program> log, Cancella
     }
 });
 
-api.MapGet("/banlist", async (RconService rcon, ILogger<Program> log, CancellationToken ct) =>
+api.MapGet("/banlist", (string? server, ServerManager servers, ILogger<Program> log) =>
 {
+    if (servers.Get(server) is not { } instance) return Results.NotFound();
     try
     {
-        var list = await rcon.GetBanListAsync(ct);
+        var list = instance.ReadBannedPlayers();
         return Results.Ok(list);
     }
     catch (Exception ex)
@@ -238,23 +250,27 @@ api.MapGet("/banlist", async (RconService rcon, ILogger<Program> log, Cancellati
 });
 
 // -- World Data API (for 3D viewer) --
+// Every world endpoint takes ?server=<id> (default: the primary server).
 var world = app.MapGroup("/api/world").RequireAuthorization();
 
-world.MapGet("/regions", (WorldDataService worldData) =>
+world.MapGet("/regions", (string? server, ServerManager servers) =>
 {
-    return Results.Ok(worldData.GetRegions());
+    if (servers.Get(server) is not { } instance) return Results.NotFound();
+    return Results.Ok(instance.World.GetRegions());
 });
 
-world.MapGet("/chunks", (WorldDataService worldData) =>
+world.MapGet("/chunks", (string? server, ServerManager servers) =>
 {
-    return Results.Ok(worldData.GetPopulatedChunks());
+    if (servers.Get(server) is not { } instance) return Results.NotFound();
+    return Results.Ok(instance.World.GetPopulatedChunks());
 });
 
 // Binary chunk endpoint - raw bytes, no base64, no JSON.
 // Format: [int32 paletteCount][palette strings: int32 len + utf8 bytes each][ushort[] blocks]
-world.MapGet("/chunk/{x:int}/{z:int}", (int x, int z, WorldDataService worldData, HttpContext ctx) =>
+world.MapGet("/chunk/{x:int}/{z:int}", (int x, int z, string? server, ServerManager servers, HttpContext ctx) =>
 {
-    var chunk = worldData.GetChunk(x, z);
+    if (servers.Get(server) is not { } instance) return Results.NotFound();
+    var chunk = instance.World.GetChunk(x, z);
     if (chunk == null) return Results.NotFound();
 
     ctx.Response.ContentType = "application/octet-stream";
@@ -276,13 +292,19 @@ world.MapGet("/chunk/{x:int}/{z:int}", (int x, int z, WorldDataService worldData
 // atlas.rgba served as static file from wwwroot
 
 // Binary WebSocket endpoint for camera-prioritized chunk streaming.
-world.MapGet("/ws", async (HttpContext ctx, WorldDataService worldData) =>
+world.MapGet("/ws", async (HttpContext ctx, string? server, ServerManager servers) =>
 {
     if (!ctx.WebSockets.IsWebSocketRequest)
     {
         ctx.Response.StatusCode = 400;
         return;
     }
+    if (servers.Get(server) is not { } instance)
+    {
+        ctx.Response.StatusCode = 404;
+        return;
+    }
+    var worldData = instance.World;
 
     using var ws = await ctx.WebSockets.AcceptWebSocketAsync();
     var chunks = worldData.GetPopulatedChunks();
@@ -290,7 +312,10 @@ world.MapGet("/ws", async (HttpContext ctx, WorldDataService worldData) =>
     var camZ = 0f;
     var sendQueue = new List<ChunkCoord>(chunks);
     var sent = new HashSet<(int, int)>();
-    var cts = new CancellationTokenSource();
+    // Set when the client closes: stops the send loop. Never passed to a WebSocket call - cancelling a pending
+    // WebSocket send or receive ABORTS the socket, which skips the close handshake (the browser sees 1006).
+    using var clientClosed = new CancellationTokenSource();
+    var aborted = ctx.RequestAborted;
 
     sendQueue.Sort((a, b) =>
     {
@@ -299,17 +324,18 @@ world.MapGet("/ws", async (HttpContext ctx, WorldDataService worldData) =>
         return da.CompareTo(db);
     });
 
-    _ = Task.Run(async () =>
+    // The receive side: camera updates, and the client's close. Only this loop calls ReceiveAsync (one at a time).
+    var receiveLoop = Task.Run(async () =>
     {
         var buf = new byte[256];
         try
         {
-            while (ws.State == System.Net.WebSockets.WebSocketState.Open)
+            while (ws.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.CloseSent)
             {
-                var result = await ws.ReceiveAsync(buf, cts.Token);
+                var result = await ws.ReceiveAsync(buf, aborted);
                 if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Close)
                 {
-                    cts.Cancel();
+                    clientClosed.Cancel();
                     break;
                 }
                 if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Text)
@@ -343,7 +369,7 @@ world.MapGet("/ws", async (HttpContext ctx, WorldDataService worldData) =>
         catch { }
     });
 
-    while (ws.State == System.Net.WebSockets.WebSocketState.Open && !cts.IsCancellationRequested)
+    while (ws.State == System.Net.WebSockets.WebSocketState.Open && !clientClosed.IsCancellationRequested)
     {
         ChunkCoord? next = null;
         lock (sendQueue)
@@ -377,26 +403,34 @@ world.MapGet("/ws", async (HttpContext ctx, WorldDataService worldData) =>
         foreach (var h in hm.SeabedHeights) bw.Write(h);
         foreach (var b in hm.SeabedBlockIds) bw.Write(b);
 
-        var frame = ms.ToArray();
+        bw.Flush();
         try
         {
-            await ws.SendAsync(frame, System.Net.WebSockets.WebSocketMessageType.Binary, true, cts.Token);
+            // The stream's own buffer, no ToArray() copy.
+            await ws.SendAsync(new ArraySegment<byte>(ms.GetBuffer(), 0, (int)ms.Length),
+                System.Net.WebSockets.WebSocketMessageType.Binary, true, aborted);
         }
         catch { break; }
 
         lock (sendQueue) sent.Add((next.X, next.Z));
     }
 
-    if (ws.State == System.Net.WebSockets.WebSocketState.Open)
+    // Finish the close handshake from the send side (CloseOutputAsync sends our close frame; the receive loop,
+    // which owns ReceiveAsync, reads the client's). Covers both orders: we finished sending (Open -> CloseSent)
+    // or the client closed first (CloseReceived -> Closed).
+    if (ws.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.CloseReceived)
     {
-        try { await ws.CloseAsync(System.Net.WebSockets.WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None); }
+        try { await ws.CloseOutputAsync(System.Net.WebSockets.WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None); }
         catch { }
     }
+    try { await receiveLoop.WaitAsync(TimeSpan.FromSeconds(10), aborted); }
+    catch { }
 });
 
-world.MapPost("/cache/clear", (WorldDataService worldData) =>
+world.MapPost("/cache/clear", (string? server, ServerManager servers) =>
 {
-    worldData.ClearCache();
+    if (servers.Get(server) is not { } instance) return Results.NotFound();
+    instance.World.ClearCache();
     return Results.Ok(new { message = "Cache cleared" });
 });
 
@@ -416,3 +450,6 @@ static async Task SignInAsync(HttpContext ctx, User user)
     var principal = new ClaimsPrincipal(identity);
     await ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
 }
+
+/// <summary>Visible to the integration tests (WebApplicationFactory&lt;Program&gt;).</summary>
+public partial class Program;

@@ -4,7 +4,7 @@
 <PageTitle>Plugins - AubsCraft Admin</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="mb-0">Plugins</h1>
+    <h1 class="mb-0">@AddonsTitle</h1>
     <div class="d-flex gap-2">
         <button class="btn btn-sm btn-success" @onclick="StartServerAsync" disabled="@_controlBusy">
             @(_controlAction == "start" ? "Starting..." : "Start")
@@ -17,6 +17,21 @@
         </button>
     </div>
 </div>
+
+@if (_startWarnings != null)
+{
+    <div class="alert alert-warning">
+        <strong>Starting @Hub.SelectedServer?.Name may overload the machine:</strong>
+        <ul class="mb-2">
+            @foreach (var w in _startWarnings)
+            {
+                <li>@w</li>
+            }
+        </ul>
+        <button class="btn btn-sm btn-warning" @onclick="StartAnywayAsync">Start anyway</button>
+        <button class="btn btn-sm btn-outline-secondary ms-2" @onclick="() => _startWarnings = null">Cancel</button>
+    </div>
+}
 
 <!-- Tabs -->
 <ul class="nav nav-tabs mb-3">
@@ -231,8 +246,26 @@ else
         _controlAction = null;
     }
 
+    // Paper servers run plugins; Fabric / Forge / NeoForge servers run mods.
+    private string AddonsTitle => Hub.SelectedServer?.Loader is null or "Paper" ? "Plugins" : "Mods";
+
+    // Capacity warnings for the pending start (null = none pending). A warning, never a block.
+    private List<string>? _startWarnings;
+
     private async Task StartServerAsync()
     {
+        var capacity = await Hub.GetStartCapacityAsync();
+        if (capacity is { Warnings.Count: > 0 })
+        {
+            _startWarnings = capacity.Warnings;
+            return;
+        }
+        await StartAnywayAsync();
+    }
+
+    private async Task StartAnywayAsync()
+    {
+        _startWarnings = null;
         _controlBusy = true;
         _controlAction = "start";
         var result = await Hub.StartServerAsync();

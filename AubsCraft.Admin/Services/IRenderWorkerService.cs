@@ -8,7 +8,8 @@ namespace AubsCraft.Admin.Services;
 /// </summary>
 public interface IRenderWorkerService : IAsyncDisposable
 {
-    Task StartAsync(float camX, float camY, float camZ, float pitch, float yaw);
+    /// <summary>Starts rendering serverId's world (the worker serves ONE server for its whole life).</summary>
+    Task StartAsync(string serverId, float camX, float camY, float camZ, float pitch, float yaw);
     Task AttachCanvasAsync(OffscreenCanvas canvas, int width, int height);
     Task DetachCanvasAsync();
     Task ProcessInputAsync(float dx, float dy, float dt, string[] keysDown);

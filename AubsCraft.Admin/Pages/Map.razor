@@ -125,6 +125,15 @@ else
             _resizeObserver = new ResizeObserver(_resizeCallback);
             _resizeObserver.Observe(_canvas);
 
+            // The worker renders ONE server's world: after a server switch, end the old server's worker.
+            var serverId = Hub.SelectedServerId ?? throw new InvalidOperationException("No server is selected.");
+            WorldCache.ServerId = serverId;
+            if (WorkerHost.IsStarted && WorkerHost.ServerId != serverId)
+            {
+                System.Console.WriteLine($"[Map] Switching worlds: '{WorkerHost.ServerId}' -> '{serverId}'");
+                await WorkerHost.ResetAsync();
+            }
+
             if (WorkerHost.IsStarted)
             {
                 // Worker already running from previous visit - just re-attach canvas
@@ -155,8 +164,9 @@ else
                     System.Console.WriteLine($"[Map] Starting at world spawn: ({camX:F0}, {camZ:F0}) known={spawn.Known}");
                 }
 
-                await _renderService.StartAsync(camX, camY, camZ, pitch, yaw);
+                await _renderService.StartAsync(serverId, camX, camY, camZ, pitch, yaw);
                 WorkerHost.IsStarted = true;
+                WorkerHost.ServerId = serverId;
             }
 
             // Attach input service on main thread
@@ -257,7 +267,7 @@ else
 
     private async Task ClearCacheAsync()
     {
-        await WorldCache.ClearAllAsync();
+        await WorldCache.ClearAsync();
         System.Console.WriteLine("[Map] OPFS cache cleared");
     }
 

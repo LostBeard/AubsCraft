@@ -3,56 +3,77 @@ using AubsCraft.Admin.Server.Models;
 namespace AubsCraft.Admin.Server.Services;
 
 /// <summary>
-/// Background service that tails the Minecraft server log file.
-/// Uses FileSystemWatcher for notifications with a timer-based fallback.
-/// Parses each new line for player events and feeds ActivityLogService.
+/// Background service that tails every managed server's log (one LogTailer per server, owned by its
+/// ServerInstance). FileSystemWatcher gives prompt reads; this timer is the fallback in case it misses events.
 /// </summary>
 public class LogTailService : BackgroundService
 {
-    private readonly ActivityLogService _activityLog;
+    private readonly ServerManager _servers;
     private readonly ILogger<LogTailService> _logger;
-    private readonly string _logPath;
 
-    private long _lastPosition;
-    private long _lastFileSize;
-    private FileSystemWatcher? _watcher;
-    private readonly SemaphoreSlim _readLock = new(1, 1);
-
-    public LogTailService(
-        ActivityLogService activityLog,
-        IConfiguration configuration,
-        ILogger<LogTailService> logger)
+    public LogTailService(ServerManager servers, ILogger<LogTailService> logger)
     {
-        _activityLog = activityLog;
+        _servers = servers;
         _logger = logger;
-        _logPath = configuration.GetValue<string>("Minecraft:LogPath") ?? "latest.log";
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("LogTailService starting, watching: {Path}", _logPath);
+        _logger.LogInformation("LogTailService starting");
 
         // Wait for app to start
         await Task.Delay(3000, stoppingToken);
 
-        // Read recent history on startup (last portion of the log)
-        if (File.Exists(_logPath))
-        {
-            await LoadRecentHistoryAsync();
-        }
-
-        // Set up FileSystemWatcher
-        TrySetupWatcher();
-
-        // Fallback timer in case FSW misses events
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
-
-        while (await timer.WaitForNextTickAsync(stoppingToken))
+        do
         {
-            await ReadNewLinesAsync();
+            foreach (var server in _servers.All)
+                await server.LogTail.PollAsync();
         }
+        while (await timer.WaitForNextTickAsync(stoppingToken));
 
         _logger.LogInformation("LogTailService stopped");
+    }
+}
+
+/// <summary>
+/// Tails ONE server's latest.log. Parses each new line for player events and feeds ActivityLogService,
+/// tagged with the server's id. The first poll loads the existing log as history.
+/// </summary>
+public sealed class LogTailer : IDisposable
+{
+    private readonly string _serverId;
+    private readonly ActivityLogService _activityLog;
+    private readonly ILogger<LogTailer> _logger;
+    private readonly string _logPath;
+
+    private long _lastPosition;
+    private long _lastFileSize;
+    private bool _started;
+    private FileSystemWatcher? _watcher;
+    private readonly SemaphoreSlim _readLock = new(1, 1);
+
+    public LogTailer(string serverId, string logPath, ActivityLogService activityLog, ILogger<LogTailer> logger)
+    {
+        _serverId = serverId;
+        _logPath = logPath;
+        _activityLog = activityLog;
+        _logger = logger;
+    }
+
+    /// <summary>Reads new lines. The first call loads the current log as history and starts the watcher.</summary>
+    public async Task PollAsync()
+    {
+        if (!_started)
+        {
+            _started = true;
+            _logger.LogInformation("Tailing {Path} for server '{Server}'", _logPath, _serverId);
+            if (File.Exists(_logPath))
+                await LoadRecentHistoryAsync();
+            TrySetupWatcher();
+            return;
+        }
+        await ReadNewLinesAsync();
     }
 
     private void TrySetupWatcher()
@@ -108,7 +129,7 @@ public class LogTailService : BackgroundService
                 var evt = LogLineParser.Parse(line);
                 if (evt != null)
                 {
-                    _activityLog.AddEvent(evt);
+                    _activityLog.AddEvent(evt with { ServerId = _serverId });
                 }
             }
 
@@ -150,7 +171,7 @@ public class LogTailService : BackgroundService
                 var evt = LogLineParser.Parse(line);
                 if (evt != null)
                 {
-                    _activityLog.AddEvent(evt);
+                    _activityLog.AddEvent(evt with { ServerId = _serverId });
                     eventCount++;
                 }
             }
@@ -170,10 +191,8 @@ public class LogTailService : BackgroundService
         }
     }
 
-    public override void Dispose()
+    public void Dispose()
     {
         _watcher?.Dispose();
-        _readLock.Dispose();
-        base.Dispose();
     }
 }

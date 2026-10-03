@@ -89,7 +89,7 @@ public class EmailNotificationService : IDisposable
 
         _ = SendAsync(
             subject: $"[AubsCraft] {evt.PlayerName} joined the server",
-            body: $"{evt.PlayerName} just joined the Minecraft server (first time today).\n\nTime: {evt.Timestamp:u}\nDetails: {evt.Details}");
+            body: $"{evt.PlayerName} just joined the Minecraft server (first time today).\n\nServer: {evt.ServerId}\nTime: {evt.Timestamp:u}\nDetails: {evt.Details}");
     }
 
     private async Task SendAsync(string subject, string body)

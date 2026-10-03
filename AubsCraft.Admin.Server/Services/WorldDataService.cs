@@ -1,26 +1,28 @@
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
+using AubsCraft.Admin.Server.Models;
 
 namespace AubsCraft.Admin.Server.Services;
 
 /// <summary>
-/// Provides access to Minecraft world data by reading region files from the server filesystem.
+/// Provides access to ONE server's Minecraft world data by reading region files from the server filesystem.
 /// Caches parsed chunk data in memory.
 /// </summary>
 public sealed class WorldDataService
 {
-    private readonly string _worldPath;
+    private readonly ServerDefinition _server;
     private readonly ILogger<WorldDataService> _logger;
     private readonly ConcurrentDictionary<(int, int), ChunkResult> _chunkCache = new();
     private static readonly Regex RegionFilePattern = new(@"r\.(-?\d+)\.(-?\d+)\.mca", RegexOptions.Compiled);
 
-    public WorldDataService(IConfiguration configuration, ILogger<WorldDataService> logger)
+    public WorldDataService(ServerDefinition server, ILogger<WorldDataService> logger)
     {
-        _worldPath = Path.Combine(
-            configuration["Minecraft:ServerPath"] ?? "/opt/minecraft/server",
-            "world");
+        _server = server;
         _logger = logger;
     }
+
+    /// <summary>The overworld folder (server.properties level-name), resolved per call so a world reset is picked up.</summary>
+    private string _worldPath => _server.WorldPath;
 
     /// <summary>
     /// Lists all region coordinates that exist in the world.

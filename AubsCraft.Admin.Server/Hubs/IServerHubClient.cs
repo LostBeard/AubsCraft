@@ -4,7 +4,7 @@ namespace AubsCraft.Admin.Server.Hubs;
 
 /// <summary>
 /// Strongly-typed SignalR client interface.
-/// Defines all server-to-client push methods.
+/// Defines all server-to-client push methods. Per-server pushes carry the server's id (ServerId).
 /// </summary>
 public interface IServerHubClient
 {
@@ -12,4 +12,5 @@ public interface IServerHubClient
     Task ReceiveActivityEvent(ActivityEventDto evt);
     Task ReceiveChatMessage(ChatMessageDto msg);
     Task ReceiveTpsReading(TpsReadingDto reading);
+    Task ReceiveServerList(List<ServerSummaryDto> servers);
 }

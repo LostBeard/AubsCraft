@@ -37,6 +37,10 @@ else
                                 <strong>@evt.PlayerName</strong>
                             }
                             <span class="text-muted ms-1">@evt.Details</span>
+                            @if (Hub.IsMultiServer)
+                            {
+                                <span class="badge bg-secondary ms-2">@Hub.ServerName(evt.ServerId)</span>
+                            }
                         </div>
                         <small class="text-muted text-nowrap ms-2">@FormatTime(evt.Timestamp)</small>
                     </div>

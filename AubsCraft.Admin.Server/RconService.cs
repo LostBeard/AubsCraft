@@ -3,7 +3,7 @@ using SpawnDev.Rcon;
 namespace AubsCraft.Admin.Server;
 
 /// <summary>
-/// Singleton service managing the RCON connection to the Minecraft server.
+/// The RCON connection to ONE Minecraft server (each ServerInstance owns one).
 /// Handles connection lifecycle, reconnection, and provides thread-safe command execution.
 /// </summary>
 public class RconService : IAsyncDisposable
@@ -15,10 +15,10 @@ public class RconService : IAsyncDisposable
 
     public bool IsConnected => _client?.IsConnected == true;
 
-    public RconService(ILogger<RconService> logger, IConfiguration configuration)
+    public RconService(RconSettings settings, ILogger<RconService> logger)
     {
         _logger = logger;
-        _settings = configuration.GetSection("Rcon").Get<RconSettings>() ?? new RconSettings();
+        _settings = settings;
     }
 
     public async Task<bool> ConnectAsync(CancellationToken cancellationToken = default)
@@ -172,7 +172,7 @@ public class RconService : IAsyncDisposable
 
 public class RconSettings
 {
-    public string Host { get; set; } = "192.168.1.142";
+    public string Host { get; set; } = "127.0.0.1";
     public int Port { get; set; } = 25575;
     public string Password { get; set; } = "";
 }

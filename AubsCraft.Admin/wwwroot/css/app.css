@@ -115,3 +115,14 @@ h1:focus {
 .console-muted {
     color: var(--bs-secondary-color);
 }
+
+/* Server picker status dot (Components/ServerPicker.razor) */
+.server-dot {
+    display: inline-block;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.server-dot.online { background-color: var(--bs-success); }
+.server-dot.offline { background-color: var(--bs-secondary); }
