@@ -314,6 +314,8 @@ public class RenderWorkerService : IRenderWorkerService
     private HashSet<(int, int)> _populatedChunks = new();
     private HashSet<(int, int)> _loadedChunks = new();
     private HashSet<(int, int)> _fullChunks = new();
+    // LOD each full chunk was meshed at (0 = full detail); a chunk is re-meshed finer when the camera comes closer
+    private readonly Dictionary<(int, int), int> _fullChunkLod = new();
     private int _lastFullCX = int.MinValue, _lastFullCZ = int.MinValue;
     private bool _loadingFull;
     private bool _fullDirty;
@@ -480,8 +482,9 @@ public class RenderWorkerService : IRenderWorkerService
                 flag = 1f; // plant: tinted, cross-quad
             else if (name is "minecraft:water" or "minecraft:flowing_water")
                 flag = 2f; // water: tinted, transparent
-            else if (name.Contains("grass") || name.Contains("leaves")
-                  || name.Contains("vine") || name.Contains("fern")
+            else if (name.Contains("leaves"))
+                flag = 4f; // leaves: solid tinted, see-through for neighbors
+            else if (name.Contains("grass") || name.Contains("vine") || name.Contains("fern")
                   || name.Contains("lily"))
                 flag = 3f; // solid tinted: biome color multiplied with texture
 
@@ -501,6 +504,7 @@ public class RenderWorkerService : IRenderWorkerService
         {
             // Column-level tracking - if any section evicted, mark column for reload
             _fullChunks.Remove((cx, cz));
+            _fullChunkLod.Remove((cx, cz));
             _loadedChunks.Remove((cx, cz));
         }
     }
@@ -546,8 +550,9 @@ public class RenderWorkerService : IRenderWorkerService
     }
 
     /// <summary>
-    /// The not-yet-3D chunk nearest the camera, among chunks whose heightmap has arrived
-    /// (so the server has them). Null when every such chunk in range is already 3D.
+    /// The chunk nearest the camera that needs (re)meshing in 3D: not yet 3D, or meshed at a coarser LOD
+    /// than its distance now calls for (distant LOD chunks have their caves filled, so they must be re-meshed
+    /// when approached). Only chunks whose heightmap has arrived (so the server has them) are considered.
     /// </summary>
     private (int cx, int cz)? NearestPendingFullChunk(int camCX, int camCZ, HashSet<(int, int)> skip)
     {
@@ -559,7 +564,8 @@ public class RenderWorkerService : IRenderWorkerService
             int d = dx * dx + dz * dz;
             if (d > FullRenderRadius * FullRenderRadius || d >= bestDist) continue;
             var c = (camCX + dx, camCZ + dz);
-            if (_fullChunks.Contains(c) || !_populatedChunks.Contains(c) || skip.Contains(c)) continue;
+            if (!_populatedChunks.Contains(c) || skip.Contains(c)) continue;
+            if (_fullChunks.Contains(c) && _fullChunkLod.GetValueOrDefault(c) <= SelectLOD(d)) continue;
             best = c;
             bestDist = d;
         }
@@ -603,18 +609,28 @@ public class RenderWorkerService : IRenderWorkerService
                     var (palette, blocks) = parsed.Value;
                     if (blocks.Length != 16 * 384 * 16) continue;
 
+                    // Budget-aware LOD selection
+                    int distSq = (cx - camCX) * (cx - camCX) + (cz - camCZ) * (cz - camCZ);
+                    int lod = SelectLOD(distSq);
+
+                    // Distant (LOD) chunks fill their deep caves with this palette entry before meshing:
+                    // a camera chunks away cannot see into them. Near chunks keep their caves.
+                    int caveFillId = -1;
+                    if (lod > 0)
+                    {
+                        palette.Add("minecraft:stone");
+                        caveFillId = palette.Count - 1;
+                    }
+
                     var paletteColors = BlockColorMap.BuildPaletteColors(palette);
                     var atlasUVs = BuildFullAtlasUVs(palette);
                     var blockFlags = BuildBlockFlags(palette);
 
-                    // Budget-aware LOD selection
-                    int distSq = (cx - camCX) * (cx - camCX) + (cz - camCZ) * (cz - camCZ);
-                    int lod = SelectLOD(distSq);
                     MeshGenerationResult result;
                     if (lod == 0)
                         result = await _engine.GenerateMeshAsync(blocks, paletteColors, atlasUVs, blockFlags, cx, cz);
                     else
-                        result = await _engine.GenerateLODMeshAsync(blocks, paletteColors, atlasUVs, blockFlags, cx, cz, lod);
+                        result = await _engine.GenerateLODMeshAsync(blocks, paletteColors, atlasUVs, blockFlags, cx, cz, lod, caveFillId);
 
                     // Split into 16x16x16 sections and upload
                     bool uploaded = UploadSectionMeshes(cx, cz, result);
@@ -629,6 +645,7 @@ public class RenderWorkerService : IRenderWorkerService
                     if (uploaded)
                     {
                         _fullChunks.Add((cx, cz));
+                        _fullChunkLod[(cx, cz)] = lod;
                         if (_fullChunks.Count <= 3)
                             Console.WriteLine($"[RenderWorker] Full3D ({cx},{cz}): palette={palette.Count}, opaque={result.OpaqueVertexCount}, water={result.WaterVertexCount}");
                     }
@@ -661,8 +678,9 @@ public class RenderWorkerService : IRenderWorkerService
                 flags[i] = 1f;
             else if (name is "minecraft:water" or "minecraft:flowing_water")
                 flags[i] = 2f;
-            else if (name.Contains("grass") || name.Contains("leaves")
-                  || name.Contains("vine") || name.Contains("fern")
+            else if (name.Contains("leaves"))
+                flags[i] = 4f; // leaves: tinted solid that neighbors still show faces through
+            else if (name.Contains("grass") || name.Contains("vine") || name.Contains("fern")
                   || name.Contains("lily"))
                 flags[i] = 3f;
         }
@@ -678,32 +696,35 @@ public class RenderWorkerService : IRenderWorkerService
     /// </summary>
     private void UploadSectionConnectivity(int cx, int cz, List<string> palette, ushort[] blocks)
     {
-        // 1. Per-palette transparency lookup. We treat air as transparent for
-        //    sight; everything else (including water, glass, leaves) is opaque
-        //    for cave-culling purposes - the under-cull bias keeps us safe
-        //    (never hide visible geometry).
-        var paletteIsAir = new bool[palette.Count];
+        // 1. Per-palette "sight passes through" lookup: air, water, plants, leaves and glass. Counting a
+        //    see-through block as solid would HIDE what is behind it (a section full of ocean water blocked
+        //    the seabed below it); counting too much as see-through only draws a little extra.
+        var flags = BuildBlockFlags(palette);
+        var paletteSeeThrough = new bool[palette.Count];
         for (int i = 0; i < palette.Count; i++)
-            paletteIsAir[i] = palette[i] == "minecraft:air";
+        {
+            float f = flags[i];
+            paletteSeeThrough[i] = palette[i] is "minecraft:air" or "minecraft:cave_air" or "minecraft:void_air"
+                || (f > 0.5f && f < 2.5f) || f > 3.5f // plant, water, leaves
+                || palette[i].Contains("glass");
+        }
 
-        var transparent = new bool[4096]; // reused across sections
+        Span<ulong> transparent = stackalloc ulong[SectionVisibility.SectionWords]; // reused across sections
         for (int sy = 0; sy < 24; sy++)
         {
+            transparent.Clear();
             int yBase = sy * 16;
             for (int yOff = 0; yOff < 16; yOff++)
             {
-                int chunkY = yBase + yOff; // 0..383
-                int yLayerStart = chunkY * 256;
-                int sectionLayerStart = yOff << 8;
+                int yLayerStart = (yBase + yOff) * 256; // chunk Y 0..383
                 for (int z = 0; z < 16; z++)
                 {
                     int rowStartChunk = yLayerStart + z * 16;
-                    int rowStartSection = sectionLayerStart + (z << 4);
+                    ulong row = 0;
                     for (int x = 0; x < 16; x++)
-                    {
-                        ushort block = blocks[rowStartChunk + x];
-                        transparent[rowStartSection + x] = paletteIsAir[block];
-                    }
+                        if (paletteSeeThrough[blocks[rowStartChunk + x]]) row |= 1UL << x;
+                    var (word, bit) = SectionVisibility.CellBit(0, yOff, z);
+                    transparent[word] |= row << bit;
                 }
             }
             long conn = SectionVisibility.ComputeConnectivity(transparent);

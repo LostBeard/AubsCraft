@@ -31,32 +31,103 @@ internal static class SectionVisibility
         (0, -1, 0),   // -Y
     };
 
+    /// <summary>Words in a section bitset: cell (x, y, z) is bit ((z &amp; 3) * 16 + x) of word (y * 4 + (z &gt;&gt; 2)).</summary>
+    public const int SectionWords = 64;
+
+    /// <summary>Bitset word and bit for section cell (x, y, z), each 0..15.</summary>
+    public static (int word, int bit) CellBit(int x, int y, int z) => (y * 4 + (z >> 2), ((z & 3) << 4) + x);
+
+    // x = 0 / x = 15 bit of every 16-bit z lane
+    private const ulong LaneX0 = 0x0001_0001_0001_0001UL;
+    private const ulong LaneX15 = 0x8000_8000_8000_8000UL;
+
     /// <summary>
     /// Compute the 36-bit connectivity mask for a single 16x16x16 section.
-    /// `transparentMask` is a 4096-bool array (length 16*16*16) where true
-    /// means "sight passes through this cell" (air, water, plants, glass).
-    /// Bit layout: bit (entryFace * 6 + exitFace) is set if flood-fill from
-    /// air on entryFace reaches air on exitFace.
+    /// `transparent` is the section as a 64-word bitset (<see cref="CellBit"/>); a set bit means
+    /// "sight passes through this cell". Bit (entryFace * 6 + exitFace) of the result is set if a
+    /// flood fill from the see-through cells on entryFace reaches see-through cells on exitFace.
+    /// The fill grows the whole frontier at once with shifts and masks (no queue, no per-cell work),
+    /// and all-see-through / all-solid sections (most of a chunk) return without filling.
     /// </summary>
-    public static long ComputeConnectivity(ReadOnlySpan<bool> transparentMask)
+    public static long ComputeConnectivity(ReadOnlySpan<ulong> transparent)
     {
-        long connectivity = 0;
-        // Self-connection bits (face A → face A) are always set; they're never
-        // queried but seeding helps a future "is face F connected to anything"
-        // shortcut.
-        for (int f = 0; f < 6; f++) connectivity |= (1L << (f * 6 + f));
+        bool any = false, all = true;
+        for (int w = 0; w < SectionWords; w++)
+        {
+            any |= transparent[w] != 0;
+            all &= transparent[w] == ulong.MaxValue;
+        }
+        if (all) return AllConnected;
+        // Self-connection bits (face A -> face A) are always set; they're never queried.
+        if (!any) return SelfOnly;
 
+        long connectivity = SelfOnly;
+        Span<ulong> reach = stackalloc ulong[SectionWords];
         for (int entryFace = 0; entryFace < 6; entryFace++)
         {
-            var reachable = FloodFillFromFace(transparentMask, entryFace);
+            bool seeded = false;
+            for (int w = 0; w < SectionWords; w++)
+            {
+                reach[w] = FaceMask(entryFace, w) & transparent[w];
+                seeded |= reach[w] != 0;
+            }
+            if (!seeded) continue;
+            Flood(reach, transparent);
             for (int exitFace = 0; exitFace < 6; exitFace++)
             {
                 if (exitFace == entryFace) continue;
-                if (FaceReached(reachable, exitFace))
-                    connectivity |= (1L << (entryFace * 6 + exitFace));
+                for (int w = 0; w < SectionWords; w++)
+                {
+                    if ((reach[w] & FaceMask(exitFace, w)) != 0)
+                    {
+                        connectivity |= 1L << (entryFace * 6 + exitFace);
+                        break;
+                    }
+                }
             }
         }
         return connectivity;
+    }
+
+    /// <summary>The cells of word w that lie on the given section face.</summary>
+    private static ulong FaceMask(int face, int w) => face switch
+    {
+        NegX => LaneX0,
+        PosX => LaneX15,
+        NegZ => (w & 3) == 0 ? 0xFFFFUL : 0UL,
+        PosZ => (w & 3) == 3 ? 0xFFFFUL << 48 : 0UL,
+        NegY => w < 4 ? ulong.MaxValue : 0UL,
+        PosY => w >= SectionWords - 4 ? ulong.MaxValue : 0UL,
+        _ => 0UL,
+    };
+
+    /// <summary>Grows `reach` through `transparent` (6-connected) until it stops changing.</summary>
+    private static void Flood(Span<ulong> reach, ReadOnlySpan<ulong> transparent)
+    {
+        bool changed = true;
+        while (changed)
+        {
+            changed = false;
+            for (int w = 0; w < SectionWords; w++)
+            {
+                ulong r = reach[w];
+                ulong g = r
+                    | ((r << 1) & ~LaneX0)   // x + 1 (not across z lanes)
+                    | ((r >> 1) & ~LaneX15)  // x - 1
+                    | (r << 16) | (r >> 16); // z +/- 1 inside the word
+                int zw = w & 3;
+                if (zw > 0) g |= reach[w - 1] >> 48;  // z + 1 from the previous word's last lane
+                if (zw < 3) g |= reach[w + 1] << 48;  // z - 1 from the next word's first lane
+                if (w >= 4) g |= reach[w - 4];        // y + 1
+                if (w < SectionWords - 4) g |= reach[w + 4]; // y - 1
+                g &= transparent[w];
+                if (g != r)
+                {
+                    reach[w] = g;
+                    changed = true;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -125,82 +196,4 @@ internal static class SectionVisibility
         return (c.sx + dx, c.sy + dy, c.sz + dz);
     }
 
-    private static bool[] FloodFillFromFace(ReadOnlySpan<bool> transparent, int face)
-    {
-        var visited = new bool[4096];
-        var queue = new Queue<int>();
-        SeedFace(transparent, face, visited, queue);
-
-        while (queue.Count > 0)
-        {
-            int idx = queue.Dequeue();
-            int x = idx & 15;
-            int z = (idx >> 4) & 15;
-            int y = idx >> 8;
-            TryEnqueue(transparent, x + 1, y, z, visited, queue);
-            TryEnqueue(transparent, x - 1, y, z, visited, queue);
-            TryEnqueue(transparent, x, y + 1, z, visited, queue);
-            TryEnqueue(transparent, x, y - 1, z, visited, queue);
-            TryEnqueue(transparent, x, y, z + 1, visited, queue);
-            TryEnqueue(transparent, x, y, z - 1, visited, queue);
-        }
-        return visited;
-    }
-
-    private static void SeedFace(ReadOnlySpan<bool> transparent, int face, bool[] visited, Queue<int> queue)
-    {
-        for (int a = 0; a < 16; a++)
-            for (int b = 0; b < 16; b++)
-            {
-                int x, y, z;
-                switch (face)
-                {
-                    case PosX: x = 15; y = b; z = a; break;
-                    case NegX: x = 0; y = b; z = a; break;
-                    case PosZ: x = a; y = b; z = 15; break;
-                    case NegZ: x = a; y = b; z = 0; break;
-                    case PosY: x = a; y = 15; z = b; break;
-                    case NegY: x = a; y = 0; z = b; break;
-                    default: continue;
-                }
-                int idx = x + (z << 4) + (y << 8);
-                if (transparent[idx] && !visited[idx])
-                {
-                    visited[idx] = true;
-                    queue.Enqueue(idx);
-                }
-            }
-    }
-
-    private static bool FaceReached(bool[] visited, int face)
-    {
-        for (int a = 0; a < 16; a++)
-            for (int b = 0; b < 16; b++)
-            {
-                int x, y, z;
-                switch (face)
-                {
-                    case PosX: x = 15; y = b; z = a; break;
-                    case NegX: x = 0; y = b; z = a; break;
-                    case PosZ: x = a; y = b; z = 15; break;
-                    case NegZ: x = a; y = b; z = 0; break;
-                    case PosY: x = a; y = 15; z = b; break;
-                    case NegY: x = a; y = 0; z = b; break;
-                    default: continue;
-                }
-                int idx = x + (z << 4) + (y << 8);
-                if (visited[idx]) return true;
-            }
-        return false;
-    }
-
-    private static void TryEnqueue(ReadOnlySpan<bool> transparent, int x, int y, int z, bool[] visited, Queue<int> queue)
-    {
-        if ((uint)x >= 16 || (uint)y >= 16 || (uint)z >= 16) return;
-        int idx = x + (z << 4) + (y << 8);
-        if (visited[idx]) return;
-        if (!transparent[idx]) return;
-        visited[idx] = true;
-        queue.Enqueue(idx);
-    }
 }

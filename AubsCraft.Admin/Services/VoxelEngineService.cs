@@ -23,6 +23,7 @@ public sealed class VoxelEngineService : IAsyncDisposable
         ArrayView<float>, ArrayView<int>, ArrayView<float>, ArrayView<int>, int, int>? _meshKernel;
     private Action<Index1D, ArrayView<int>, ArrayView<float>, ArrayView<float>, ArrayView<float>,
         ArrayView<float>, ArrayView<int>, ArrayView<float>, ArrayView<int>, int, int, int, int>? _lodKernel;
+    private Action<Index1D, ArrayView<int>, ArrayView<float>, int>? _caveFillKernel;
     private MemoryBuffer1D<int, Stride1D.Dense>? _meshBlockBuffer;
     private MemoryBuffer1D<float, Stride1D.Dense>? _meshPaletteBuffer;
     private MemoryBuffer1D<float, Stride1D.Dense>? _meshAtlasUVBuffer;
@@ -107,6 +108,13 @@ public sealed class VoxelEngineService : IAsyncDisposable
             int, int           // lodSize, lodGridW
         >(MinecraftLODKernel.LODKernel);
 
+        _caveFillKernel = _accelerator.LoadAutoGroupedStreamKernel<
+            Index1D,
+            ArrayView<int>,   // blocks (filled in place)
+            ArrayView<float>, // blockFlags
+            int               // fillId: opaque palette entry written into deep-underground cells
+        >(CaveFillKernel.Kernel);
+
         _heightmapKernel = _accelerator.LoadAutoGroupedStreamKernel<
             Index1D,
             ArrayView<HeightmapColumn>, // columns (256) - height, blockId, seabedHeight, seabedBlockId
@@ -150,32 +158,7 @@ public sealed class VoxelEngineService : IAsyncDisposable
         await _meshLock.WaitAsync();
         try
         {
-            // Underground skip: zero out blocks completely buried by opaque solids.
-            // The kernel skips blockId=0, so zeroed blocks cost nothing on GPU.
-            // Out-of-bounds neighbors treated as OPAQUE to prevent rendering deep
-            // underground chunk boundaries (which caused 47M+ vertex explosions).
-            var blockInts = _blockIntsPool!;
-            const int W = 16, H = 384, WW = W * W;
-            for (int y = 0; y < H; y++)
-            for (int z = 0; z < W; z++)
-            for (int x = 0; x < W; x++)
-            {
-                int idx = x + z * W + y * WW;
-                int b = blocks[idx];
-                if (b == 0) { blockInts[idx] = 0; continue; }
-
-                // Check each neighbor - out of bounds = opaque (not air)
-                bool exposed =
-                    (x > 0 && IsTransparentBlock(blocks, blockFlags, idx - 1)) ||
-                    (x < 15 && IsTransparentBlock(blocks, blockFlags, idx + 1)) ||
-                    (z > 0 && IsTransparentBlock(blocks, blockFlags, idx - W)) ||
-                    (z < 15 && IsTransparentBlock(blocks, blockFlags, idx + W)) ||
-                    (y > 0 && IsTransparentBlock(blocks, blockFlags, idx - WW)) ||
-                    (y < 383 && IsTransparentBlock(blocks, blockFlags, idx + WW));
-
-                blockInts[idx] = exposed ? b : 0;
-            }
-
+            var blockInts = ToBlockInts(blocks);
             _meshBlockBuffer!.CopyFromCPU(blockInts);
             _meshOpaqueCounterBuffer!.CopyFromCPU(new int[] { 0 });
             _meshWaterCounterBuffer!.CopyFromCPU(new int[] { 0 });
@@ -230,11 +213,12 @@ public sealed class VoxelEngineService : IAsyncDisposable
     /// <summary>
     /// Generates LOD mesh from full block data at reduced detail.
     /// lodSize: 2 = 2x2x2 super-blocks (8x fewer threads), 4 = 4x4x4 (64x fewer).
-    /// Same underground skip pre-filter as full detail.
+    /// caveFillId >= 0: first run <see cref="CaveFillKernel"/> with that opaque palette entry, so deep
+    /// underground caves (invisible from a distant camera) produce no faces.
     /// </summary>
     public async Task<MeshGenerationResult> GenerateLODMeshAsync(
         ushort[] blocks, float[] paletteColors, float[] atlasUVs, float[] blockFlags,
-        int chunkX, int chunkZ, int lodSize)
+        int chunkX, int chunkZ, int lodSize, int caveFillId = -1)
     {
         if (_lodKernel == null)
             throw new InvalidOperationException("Not initialized");
@@ -242,25 +226,8 @@ public sealed class VoxelEngineService : IAsyncDisposable
         await _meshLock.WaitAsync();
         try
         {
-            var blockInts = _blockIntsPool!;
-            const int W = 16, H = 384, WW = W * W;
-            for (int y = 0; y < H; y++)
-            for (int z = 0; z < W; z++)
-            for (int x = 0; x < W; x++)
-            {
-                int idx = x + z * W + y * WW;
-                int b = blocks[idx];
-                if (b == 0) { blockInts[idx] = 0; continue; }
-                bool exposed =
-                    (x > 0 && IsTransparentBlock(blocks, blockFlags, idx - 1)) ||
-                    (x < 15 && IsTransparentBlock(blocks, blockFlags, idx + 1)) ||
-                    (z > 0 && IsTransparentBlock(blocks, blockFlags, idx - W)) ||
-                    (z < 15 && IsTransparentBlock(blocks, blockFlags, idx + W)) ||
-                    (y > 0 && IsTransparentBlock(blocks, blockFlags, idx - WW)) ||
-                    (y < 383 && IsTransparentBlock(blocks, blockFlags, idx + WW));
-                blockInts[idx] = exposed ? b : 0;
-            }
-
+            var blockInts = ToBlockInts(blocks);
+            const int W = 16, H = 384;
             _meshBlockBuffer!.CopyFromCPU(blockInts);
             _meshOpaqueCounterBuffer!.CopyFromCPU(new int[] { 0 });
             _meshWaterCounterBuffer!.CopyFromCPU(new int[] { 0 });
@@ -271,6 +238,9 @@ public sealed class VoxelEngineService : IAsyncDisposable
             _meshAtlasUVBuffer!.CopyFromCPU(atlasUVs);
             EnsureBuffer(ref _meshBlockFlagsBuffer, blockFlags.Length);
             _meshBlockFlagsBuffer!.CopyFromCPU(blockFlags);
+
+            if (caveFillId >= 0)
+                _caveFillKernel!((Index1D)(W * W), _meshBlockBuffer!.View, _meshBlockFlagsBuffer!.View, caveFillId);
 
             int lodGridW = W / lodSize;
             int lodGridH = H / lodSize;
@@ -393,12 +363,18 @@ public sealed class VoxelEngineService : IAsyncDisposable
         }
     }
 
-    /// <summary>Reuse GPU buffer if large enough, only reallocate if needed.</summary>
-    /// <summary>Returns true if block at index is air or transparent (plant/water).</summary>
-    private static bool IsTransparentBlock(ushort[] blocks, float[] blockFlags, int idx)
+    /// <summary>
+    /// Widens the chunk's ushort block ids into the pooled int array the kernels read. No filtering: the
+    /// kernels emit a face only toward an air/see-through neighbor (out-of-chunk X/Z neighbors count as
+    /// opaque). The old pre-filter here zeroed every buried block, which turned it into AIR for the kernel,
+    /// so every exposed block also emitted faces into the rock behind it (~2x the faces of the real surface).
+    /// </summary>
+    private int[] ToBlockInts(ushort[] blocks)
     {
-        int b = blocks[idx];
-        return b == 0 || blockFlags[b] > 0.5f;
+        var blockInts = _blockIntsPool!;
+        for (int i = 0; i < BlocksPerChunk; i++)
+            blockInts[i] = blocks[i];
+        return blockInts;
     }
 
     /// <summary>Reuse GPU buffer if exact size matches, only reallocate on size change.</summary>

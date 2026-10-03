@@ -61,6 +61,10 @@ deploy-aubscraft.bat
 
 **Deploy after EVERY code change.** Don't batch changes - deploy, verify, iterate.
 
+**The client is AOT compiled** (`RunAOTCompilation` + `WasmStripILAfterAOT=false` so ILGPU still has IL to compile
+kernels from, + `WasmDedup=false` for a ~7 minute publish instead of an hour). `deploy-aubscraft.bat` deletes the
+client's Release bin/obj first so every AOT build is clean. `dotnet build` (Debug) is not AOT and stays fast.
+
 **Always check the build timestamp** in the browser console on startup to verify you're running the latest code.
 
 ## Project Structure

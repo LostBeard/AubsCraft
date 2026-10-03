@@ -9,6 +9,13 @@
 		<!-- Not compression needed -->
 		<CompressionEnabled>false</CompressionEnabled>
 		<WasmEnableThreads>false</WasmEnableThreads>
+		<!-- AOT: the render loop, cave culling and chunk processing run in .NET every frame; interpreted they are
+		     roughly 2x slower (Anaglyphohol measured 43.8 -> 21.7 ms/frame). WasmStripILAfterAOT=false keeps the IL
+		     that ILGPU compiles kernels from. WasmDedup=false compiles generic instances per assembly in parallel
+		     (Anaglyphohol: 65 min -> 5 min build, same runtime speed, larger dotnet.native.wasm). -->
+		<RunAOTCompilation>true</RunAOTCompilation>
+		<WasmStripILAfterAOT>false</WasmStripILAfterAOT>
+		<WasmDedup>false</WasmDedup>
 	</PropertyGroup>
 
 	<ItemGroup>

@@ -10,7 +10,13 @@ public sealed class FpsCamera
 {
     public Vector3 Position { get; set; } = new(0f, 80f, 0f);
     public float Yaw { get; set; } = -90f;
-    public float Pitch { get; set; } = -15f;
+    /// <summary>
+    /// Degrees, clamped to [-89, 89]. Straight up/down makes Front parallel to the LookAt up vector: far from
+    /// the origin the tiny horizontal residue of cos(90 deg) rounds away against the position, the view matrix
+    /// goes NaN and nothing is drawn (the map's -90 top-down start was blank at the world spawn).
+    /// </summary>
+    public float Pitch { get => _pitch; set => _pitch = Math.Clamp(value, -89f, 89f); }
+    private float _pitch = -15f;
     public float MovementSpeed { get; set; } = 60f;
     public float MouseSensitivity { get; set; } = 0.15f;
     public float FovDegrees { get; set; } = 70f;
@@ -36,7 +42,6 @@ public sealed class FpsCamera
     {
         Yaw += dx * MouseSensitivity;
         Pitch -= dy * MouseSensitivity;
-        Pitch = Math.Clamp(Pitch, -89f, 89f);
     }
 
     public void ProcessKeyboard(HashSet<string> keysDown, float deltaTime)

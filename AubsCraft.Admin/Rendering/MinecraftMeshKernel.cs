@@ -10,7 +10,8 @@ namespace AubsCraft.Admin.Rendering;
 /// Vertex format: 11 floats per vertex (position.xyz + normal.xyz + color.rgb + uv.xy).
 /// Uses atomic counters for variable-length output.
 /// Produces two vertex streams: opaque geometry and transparent geometry (water).
-/// Block flags: 0 = solid opaque, 1 = plant (cross-quad, transparent), 2 = water (transparent).
+/// Block flags: 0 = solid opaque, 1 = plant (cross-quad, transparent), 2 = water (transparent),
+/// 3 = solid tinted (grass block, vines), 4 = leaves (solid, tinted, see-through: neighbors keep their faces).
 /// </summary>
 public static class MinecraftMeshKernel
 {
@@ -160,12 +161,15 @@ public static class MinecraftMeshKernel
         return f > 0.5f && f < 1.5f; // plant only, not water
     }
 
-    /// <summary>Returns true if neighbor is air or any transparent block (plant or water).</summary>
+    /// <summary>Returns true if neighbor is air or a see-through block (plant, water or leaves).</summary>
     private static bool IsTransparent(ArrayView<int> blocks, ArrayView<float> blockFlags, int x, int y, int z)
     {
         int id = GetBlock(blocks, x, y, z);
         if (id <= 0) return id == 0; // 0=air(true), -1=opaque boundary(false)
-        return blockFlags[id] > 0.5f; // plant (1.0) or water (2.0)
+        float f = blockFlags[id];
+        // plant (1) or water (2) or leaves (4). Tinted solids (3, grass blocks) are opaque: counting them as
+        // transparent made every grass block emit its sides toward its neighbors and the dirt under it a top face.
+        return (f > 0.5f && f < 2.5f) || f > 3.5f;
     }
 
     /// <summary>
