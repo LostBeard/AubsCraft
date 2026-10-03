@@ -58,8 +58,8 @@ else
                                             <td>@BackupReason(s.Id, b.FileName)</td>
                                             <td class="text-nowrap">@Size(b.SizeBytes)</td>
                                             <td class="text-end text-nowrap">
-                                                <a class="btn btn-sm btn-outline-secondary" href="@($"api/servers/{s.Id}/backups/{Uri.EscapeDataString(b.FileName)}")" download="@b.FileName" title="Download">
-                                                    <span class="bi bi-download"></span>
+                                                <a class="btn btn-sm btn-outline-secondary" href="@($"api/servers/{s.Id}/backups/{Uri.EscapeDataString(b.FileName)}")" download="@b.FileName" title="Download this backup to this computer">
+                                                    <span class="bi bi-download"></span> Download
                                                 </a>
                                                 @if (_confirm == "restore:" + b.FileName)
                                                 {
@@ -77,7 +77,7 @@ else
                                                         <span class="bi bi-arrow-counterclockwise"></span> Restore
                                                     </button>
                                                     <button class="btn btn-sm btn-outline-danger" @onclick="@(() => _confirm = "delete:" + b.FileName)" disabled="@_running" title="Delete this backup">
-                                                        <span class="bi bi-trash"></span>
+                                                        <span class="bi bi-trash"></span> Delete
                                                     </button>
                                                 }
                                             </td>
