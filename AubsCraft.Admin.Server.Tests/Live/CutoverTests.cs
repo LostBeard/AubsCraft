@@ -44,7 +44,8 @@ public class CutoverTests
             else { if (Proxy != null) await Proxy.DisposeAsync(); Proxy = null; }
         }
 
-        public Task EnableAsync(string serviceName, CancellationToken ct = default) => Task.CompletedTask;
+        public readonly List<string> Enabled = [];
+        public Task EnableAsync(string serviceName, CancellationToken ct = default) { Enabled.Add(serviceName); return Task.CompletedTask; }
         public Task DisableAsync(string serviceName, CancellationToken ct = default) => Task.CompletedTask;
     }
 
@@ -180,6 +181,7 @@ public class CutoverTests
             Assert.That(e != null && TestBot.Kind(e.Value) != "spawn", "joined without the proxy: " + sneaky.Transcript);
         }
         Assert.That(steps.Last(), Does.StartWith("Done"), string.Join(" | ", steps));
+        Assert.That(_runner.Enabled, Does.Contain(ProxyService_), "the proxy starts at boot (a VM restart once left it down)");
     }
 
     [Test]

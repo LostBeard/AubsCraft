@@ -95,6 +95,8 @@ public class ProxyCutoverService
             await _runner.StartAsync(plan.Proxy.ServiceName, ct);
             proxyStarted = true;
             await WaitUntilAsync(() => RconUpAsync("127.0.0.1", plan.Proxy.RconPort, plan.Proxy.RconPassword, ct), "the proxy to start", ct);
+            // Start at boot too: without this a VM restart left the proxy down (2026-10-03) and nobody could connect.
+            await _runner.EnableAsync(plan.Proxy.ServiceName, ct);
             Step("Done: players now connect through the proxy");
         }
         catch (Exception ex)

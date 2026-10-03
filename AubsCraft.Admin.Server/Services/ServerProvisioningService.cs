@@ -106,6 +106,8 @@ public class ServerProvisioningService
             Step("3/7 Installing add-ons");
             await InstallAddonsAsync(def, req.ExtraModrinthProjects, Step, ct);
 
+            PreseedVoiceChat(def);
+
             Step("4/7 First start (the server and its add-ons write their config)");
             await _runner.StartAsync(def.ServiceName, ct);
             await WaitUntilAsync(() => RconUpAsync(def, ct), "the first start", ct);
@@ -222,6 +224,22 @@ public class ServerProvisioningService
             await _downloader.DownloadAsync(a, Path.Combine(folder, a.FileName), ct);
             step($"    {a.FileName}");
         }
+    }
+
+    /// <summary>
+    /// Simple Voice Chat's default port is the proxy's public voice port (24454): without this, the FIRST start
+    /// tries it, fails to bind (the proxy holds it) and logs an error. A properties file with just the port
+    /// and bind address is completed by the add-on with its other defaults.
+    /// </summary>
+    private static void PreseedVoiceChat(ServerDefinition def)
+    {
+        var addons = def.AddonsPath!;
+        if (!Directory.EnumerateFiles(addons, "*voicechat*.jar").Any()) return;
+        var configDir = def.Loader == ServerLoader.Paper ? Path.Combine(addons, "voicechat") : Path.Combine(def.Path, "config", "voicechat");
+        Directory.CreateDirectory(configDir);
+        var props = Path.Combine(configDir, "voicechat-server.properties");
+        ConfigFiles.SetProperty(props, "port", def.VoicePort.ToString());
+        ConfigFiles.SetProperty(props, "bind_address", "127.0.0.1");
     }
 
     private static async Task<bool> RconUpAsync(ServerDefinition def, CancellationToken ct)

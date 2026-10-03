@@ -143,6 +143,13 @@ public class ProvisioningTests
         var output = _runner.Servers[def.ServiceName].Output;
         Assert.That(output.Any(l => l.Contains($"Voice chat server started at 127.0.0.1:{def.VoicePort}")), Is.True,
             string.Join("\n", output.Where(l => l.Contains("oice"))));
+
+        // The FIRST start too (its log is rotated to logs/*.log.gz): voice must already use the server's own
+        // port - the default 24454 is the proxy's public voice port and fails to bind on the VM.
+        var firstStart = Directory.GetFiles(Path.Combine(def.Path, "logs"), "*.log.gz").Order().First();
+        using var gz = new System.IO.Compression.GZipStream(File.OpenRead(firstStart), System.IO.Compression.CompressionMode.Decompress);
+        using var reader = new StreamReader(gz);
+        Assert.That(reader.ReadToEnd(), Does.Contain($"Voice chat server started at 127.0.0.1:{def.VoicePort}"), "first start: " + firstStart);
     }
 
     [Test, Order(2)]
