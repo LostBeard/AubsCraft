@@ -90,10 +90,11 @@ public class CutoverTests
         return def;
     }
 
-    private void Build(string proxyDir)
+    private void Build(string proxyDir, string? backupsPath = null)
     {
         _dir = TestUtil.NewTempDir();
-        var config = TestUtil.Config(("Servers:RegistryPath", Path.Combine(_dir, "servers.json")), ("Backups:Path", Path.Combine(_dir, "backups")));
+        var config = TestUtil.Config(("Servers:RegistryPath", Path.Combine(_dir, "servers.json")),
+            ("Backups:Path", backupsPath ?? Path.Combine(_dir, "backups")));
         _registry = new ServerRegistry(config, TestUtil.Log<ServerRegistry>());
         _registry.Remove(ServerRegistry.LegacyServerId);
         _backups = new BackupService(config, TestUtil.Log<BackupService>());
@@ -176,6 +177,31 @@ public class CutoverTests
             Assert.That(e != null && TestBot.Kind(e.Value) != "spawn", "joined without the proxy: " + sneaky.Transcript);
         }
         Assert.That(steps.Last(), Does.StartWith("Done"), string.Join(" | ", steps));
+    }
+
+    [Test]
+    public async Task ABackupFailure_LeavesTheServerRunningAsItWas()
+    {
+        // What happened on the VM: the backup step failed (permissions) after the server was stopped, and the
+        // server stayed down. Here the backup folder is a FILE, so creating the backup fails with a real IO error.
+        var blocker = Path.Combine(TestUtil.NewTempDir(), "not-a-folder");
+        File.WriteAllText(blocker, "");
+        var proxyDir = FreshProxyDir("velocity-cutover-backupfail");
+        Build(proxyDir, backupsPath: blocker);
+        var def = await StartProductionLikeServerAsync();
+        _registry.Add(def);
+
+        var steps = new List<string>();
+        Assert.CatchAsync(() => Cutover().CutoverAsync(
+            new ProxyCutoverService.CutoverPlan(ServerId, NewProxy(proxyDir), InternalPort, InternalVoice), new Progress<string>(steps.Add)));
+
+        Assert.That(_runner.Server, Is.Not.Null, "the server was started again");
+        Assert.That(_runner.ProxyStarts, Is.Zero, "the proxy was never started");
+        Assert.That(_registry.Proxy, Is.Null);
+        Assert.That(_registry.Get(ServerId)!.GamePort, Is.EqualTo(PublicPort));
+        await using (var bot = TestBot.Start("127.0.0.1", PublicPort, "BackupFailBot"))
+            await bot.WaitForSpawnAsync(TimeSpan.FromSeconds(60));
+        Assert.That(steps, Has.Some.Contains("is running as before"), string.Join(" | ", steps));
     }
 
     [Test]

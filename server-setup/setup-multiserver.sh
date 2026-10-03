@@ -5,7 +5,9 @@
 # Safe to re-run (every step is idempotent). Does NOT touch the existing server
 # (/opt/minecraft/server, minecraft.service) or start/stop anything.
 #
-# After this, the admin panel (user zed) creates, starts and stops servers itself:
+# After this, the admin panel runs as user minecraft (the user that owns the servers' files: Minecraft
+# writes level.dat and playerdata as owner-only 0600, so only that user can back up, restore or reset them)
+# and creates, starts and stops servers itself:
 #   /opt/minecraft/servers/<id>/   one folder per added server (owned minecraft, group-writable)
 #   minecraft@<id>.service         systemd template: runs a server from its folder
 #   /opt/minecraft/velocity/       the Velocity proxy, velocity.service
@@ -20,13 +22,13 @@ ROOT=/opt/minecraft
 
 if [[ $EUID -ne 0 ]]; then echo "Run with sudo." >&2; exit 1; fi
 
-echo "[1/5] Folders (setgid + group-writable so panel and servers share files)"
+echo "[1/7] Folders (setgid + group-writable: deploys run as zed, in the minecraft group)"
 for d in "$ROOT/servers" "$ROOT/velocity" "$ROOT/backups"; do
     install -d -o "$MC_USER" -g "$MC_GROUP" -m 2775 "$d"
 done
 usermod -aG "$MC_GROUP" "$PANEL_USER"
 
-echo "[2/5] minecraft@.service template"
+echo "[2/7] minecraft@.service template"
 cat > /etc/systemd/system/minecraft@.service <<'UNIT'
 [Unit]
 Description=AubsCraft Minecraft server %i
@@ -55,7 +57,7 @@ RestartSec=10
 WantedBy=multi-user.target
 UNIT
 
-echo "[3/5] velocity.service"
+echo "[3/7] velocity.service"
 cat > /etc/systemd/system/velocity.service <<'UNIT'
 [Unit]
 Description=AubsCraft Velocity proxy
@@ -77,24 +79,45 @@ RestartSec=10
 WantedBy=multi-user.target
 UNIT
 
-echo "[4/5] Panel files group-writable (UMask drop-in for aubscraft_admin)"
+echo "[4/7] The panel runs as minecraft (drop-in for aubscraft_admin)"
 install -d /etc/systemd/system/aubscraft_admin.service.d
-cat > /etc/systemd/system/aubscraft_admin.service.d/umask.conf <<'UNIT'
+rm -f /etc/systemd/system/aubscraft_admin.service.d/umask.conf
+cat > /etc/systemd/system/aubscraft_admin.service.d/run-as-minecraft.conf <<'UNIT'
 [Service]
+User=minecraft
+Group=minecraft
 UMask=0002
 UNIT
 
-echo "[5/5] Narrow sudo rule for the panel + deploys (systemctl on the Minecraft, proxy and panel units only)"
+echo "[5/7] Ownership: everything under /opt/minecraft and /srv/aubscraft belongs to minecraft"
+# Earlier copies over the M: drive left zed-owned 0700 files in the server folder (plugins-backup/, some jars).
+chown -R "$MC_USER:$MC_GROUP" "$ROOT" /srv/aubscraft
+find /srv/aubscraft -type d -exec chmod 2775 {} +
+find /srv/aubscraft -type f -exec chmod g+rw {} +
+# Secrets and state stay owner-only (RCON passwords, accounts).
+for f in appsettings.json appsettings.Production.json appsettings.Development.json servers.json users.json \
+         invite-codes.json whitelist-audit.json bans.json activity-log.json admin.json admin.json.migrated; do
+    if [[ -f "/srv/aubscraft/$f" ]]; then chmod 600 "/srv/aubscraft/$f"; fi
+done
+
+echo "[6/7] minecraft.service: exit 143 (SIGTERM, saved and stopped) is a clean stop"
+install -d /etc/systemd/system/minecraft.service.d
+cat > /etc/systemd/system/minecraft.service.d/clean-stop.conf <<'UNIT'
+[Service]
+SuccessExitStatus=143
+UNIT
+
+echo "[7/7] Narrow sudo rule for the panel (minecraft) + deploys (zed): systemctl on these units only"
 # sudo 1.9.10+ regex arguments: exactly one action and one Minecraft unit, nothing else.
 cat > /etc/sudoers.d/aubscraft-panel <<'SUDO'
-zed ALL=(root) NOPASSWD: /usr/bin/systemctl ^(start|stop|restart|status|enable|disable|is-active) (minecraft|velocity|aubscraft_admin|minecraft@[a-z0-9-]+)(\.service)?$
+zed, minecraft ALL=(root) NOPASSWD: /usr/bin/systemctl ^(start|stop|restart|status|enable|disable|is-active) (minecraft|velocity|aubscraft_admin|minecraft@[a-z0-9-]+)(\.service)?$
 SUDO
 chmod 0440 /etc/sudoers.d/aubscraft-panel
 visudo -cf /etc/sudoers.d/aubscraft-panel
 
 systemctl daemon-reload
 echo
-echo "Done. Restart the panel once so it picks up group + UMask:  sudo systemctl restart aubscraft_admin"
+echo "Done. Restart the panel so it runs as minecraft:  sudo systemctl restart aubscraft_admin"
 echo "Optional hardening: /etc/sudoers also grants zed ALL of systemctl without a password."
 echo "With the rule above in place, remove that line with 'sudo visudo' so the internet-facing panel"
 echo "cannot use systemctl beyond the Minecraft units."

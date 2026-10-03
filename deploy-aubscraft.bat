@@ -60,9 +60,12 @@ echo.
 
 REM -- Step 3: Swap in place on the VM (local copy, no network in the window the site is down) --
 echo [3/4] Stopping %SERVICE%, installing, restoring server config...
-REM The server keeps its own appsettings.json (real RCON password, paths); servers.json, users.json, bans.json,
-REM activity-log.json etc. are not in the publish output, so they are never touched. Config files stay owner-only.
-ssh %HOST% "set -e; sudo systemctl stop %SERVICE%; cp -p %REMOTE_DIR%/appsettings.json %REMOTE_DIR%/appsettings.json.bak; rm -f %STAGING%/appsettings.json; cp -a %STAGING%/. %REMOTE_DIR%/; chmod +x %REMOTE_DIR%/AubsCraft.Admin.Server; chmod 600 %REMOTE_DIR%/appsettings*.json %REMOTE_DIR%/servers.json 2>/dev/null || true"
+REM The server keeps its own appsettings.json / appsettings.Production.json (RCON password, paths); servers.json,
+REM users.json, bans.json etc. are not in the publish output, so they are never touched. The panel's folder belongs
+REM to the minecraft user (the panel runs as it); zed is in its group, so files are REPLACED (--remove-destination:
+REM unlink + create, allowed by group write) rather than rewritten in place, and modes come from staging (no
+REM --preserve: chmod on minecraft-owned folders would fail).
+ssh %HOST% "set -e; chmod +x %STAGING%/AubsCraft.Admin.Server; rm -f %STAGING%/appsettings.json %STAGING%/appsettings.Production.json; sudo systemctl stop %SERVICE%; cp -r --remove-destination %STAGING%/. %REMOTE_DIR%/"
 if errorlevel 1 (
     echo INSTALL FAILED - starting the service anyway so the site comes back
     ssh %HOST% "sudo systemctl start %SERVICE%"

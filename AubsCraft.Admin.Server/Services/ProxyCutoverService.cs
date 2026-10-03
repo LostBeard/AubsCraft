@@ -50,10 +50,23 @@ public class ProxyCutoverService
 
         Step($"2/6 Stopping {original.Name}");
         await _runner.StopAsync(original.ServiceName, ct);
-        await WaitUntilAsync(async () => !await RconUpAsync(original.RconHost, original.RconPort, original.RconPassword, ct), "the server to stop", ct);
 
-        Step("3/6 Backing up the server");
-        var backup = await _backups.CreateAsync(original, "before-proxy", ct);
+        // From here on the server is DOWN: every failure must bring it back. Until the backup exists nothing
+        // has been changed, so recovery is just starting it again (a failed backup once left it stopped).
+        BackupService.BackupInfo backup;
+        try
+        {
+            await WaitUntilAsync(async () => !await RconUpAsync(original.RconHost, original.RconPort, original.RconPassword, ct), "the server to stop", ct);
+            Step("3/6 Backing up the server");
+            backup = await _backups.CreateAsync(original, "before-proxy", ct);
+        }
+        catch (Exception ex)
+        {
+            Step($"FAILED ({ex.Message}) - nothing was changed, starting {original.Name} again");
+            await StartAndWaitAsync(original);
+            Step($"{original.Name} is running as before");
+            throw;
+        }
 
         var moved = Clone(original);
         moved.GamePort = plan.NewGamePort;
@@ -106,8 +119,14 @@ public class ProxyCutoverService
         await _backups.RestoreAsync(original, backupFile);
         _registry.SetProxy(null);
         _registry.Update(original);
-        await _runner.StartAsync(original.ServiceName);
-        await WaitUntilAsync(() => RconUpAsync(original.RconHost, original.RconPort, original.RconPassword, default), "the server to start after rollback", default);
+        await StartAndWaitAsync(original);
+    }
+
+    /// <summary>Starts a server and waits for its RCON. No cancellation: this is the recovery path.</summary>
+    private async Task StartAndWaitAsync(ServerDefinition server)
+    {
+        await _runner.StartAsync(server.ServiceName);
+        await WaitUntilAsync(() => RconUpAsync(server.RconHost, server.RconPort, server.RconPassword, default), $"{server.Name} to start", default);
     }
 
     private static ServerDefinition Clone(ServerDefinition d) =>
