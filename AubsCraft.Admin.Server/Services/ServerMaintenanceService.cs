@@ -69,6 +69,10 @@ public class ServerMaintenanceService
         {
             progress?.Report($"Restoring {backupFile}");
             await _backups.RestoreAsync(def, backupFile, ct);
+            // The backup may predate today's setup (the pre-proxy backup has the public port and online-mode on):
+            // re-apply what the panel and the proxy rely on, so the restored server joins the network as it is now.
+            progress?.Report("Re-applying this server's ports, RCON and proxy settings");
+            ApplyCurrentSettings(def);
         }
         finally
         {
@@ -140,6 +144,16 @@ public class ServerMaintenanceService
             catch (IOException) when (i < 5) { await Task.Delay(1000, ct); } // a just-stopped JVM can hold files briefly
         }
         progress?.Report($"{def.Name} removed");
+    }
+
+    private void ApplyCurrentSettings(ServerDefinition def)
+    {
+        var props = Path.Combine(def.Path, "server.properties");
+        ConfigFiles.SetProperty(props, "enable-rcon", "true");
+        ConfigFiles.SetProperty(props, "rcon.port", def.RconPort.ToString());
+        ConfigFiles.SetProperty(props, "rcon.password", def.RconPassword);
+        if (_registry.Proxy is { } proxy) _proxy.ConfigureBackend(proxy, def);
+        else ConfigFiles.SetProperty(props, "server-port", def.GamePort.ToString());
     }
 
     private async Task StopAsync(ServerDefinition def, CancellationToken ct)

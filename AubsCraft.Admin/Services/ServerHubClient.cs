@@ -348,6 +348,26 @@ public class ServerHubClient : IAsyncDisposable
     public Task<List<string>> GetCreateLogAsync()
         => SafeInvokeAsync<List<string>>("GetCreateLog", []);
 
+    // -- Backup / restore / new world / remove (owner) - progress arrives as OnOperationProgress ("server-op") --
+
+    public Task<List<BackupDto>> ListBackupsAsync(string serverId)
+        => SafeInvokeAsync<List<BackupDto>>("ListBackups", [], serverId);
+
+    public Task<ToggleResultDto> BackupServerAsync(string serverId)
+        => SafeInvokeAsync("BackupServer", new ToggleResultDto(false, "Connection lost"), serverId);
+
+    public Task<ToggleResultDto> RestoreBackupAsync(string serverId, string fileName)
+        => SafeInvokeAsync("RestoreBackup", new ToggleResultDto(false, "Connection lost"), serverId, fileName);
+
+    public Task<ToggleResultDto> DeleteBackupAsync(string serverId, string fileName)
+        => SafeInvokeAsync("DeleteBackup", new ToggleResultDto(false, "Connection lost"), serverId, fileName);
+
+    public Task<ToggleResultDto> ResetWorldAsync(string serverId, string? seed)
+        => SafeInvokeAsync("ResetWorld", new ToggleResultDto(false, "Connection lost"), serverId, seed);
+
+    public Task<ToggleResultDto> RemoveServerAsync(string serverId)
+        => SafeInvokeAsync("RemoveServer", new ToggleResultDto(false, "Connection lost"), serverId);
+
     public Task<HostCapacityDto?> GetCreateCapacityAsync(int memoryMb)
         => SafeInvokeAsync<HostCapacityDto?>("GetCreateCapacity", null, memoryMb);
 
@@ -663,6 +683,8 @@ public record CutoverPreviewDto(string ServerId, string ServerName, int PublicPo
     int NewGamePort, int NewVoicePort, List<PrerequisiteDto> Prerequisites, List<string> Log);
 public record ProxyStatusDto(bool Online, int Port, int BedrockPort, int VoicePort, string Version, string? Players);
 public record OperationProgressDto(string Operation, string Message, bool Done, bool Failed);
+
+public record BackupDto(string FileName, long SizeBytes, DateTime CreatedUtc);
 
 /// <summary>Mirrors the server's HostCapacityDto.</summary>
 public record HostCapacityDto(long TotalMemoryMb, int Cores, int RunningServers, long NeededMemoryMb, List<string> Warnings);

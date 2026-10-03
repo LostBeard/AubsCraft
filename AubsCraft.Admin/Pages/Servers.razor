@@ -9,7 +9,7 @@
 
 @if (!Auth.IsOwner)
 {
-    <div class="alert alert-warning">Only the owner can add servers.</div>
+    <div class="alert alert-warning">Only the owner can manage servers.</div>
 }
 else
 {
@@ -23,10 +23,128 @@ else
                     <span class="text-muted ms-2">@s.Loader @s.GameVersion</span>
                     @if (s.IsPrimary) { <span class="badge bg-secondary ms-2">players arrive here</span> }
                 </div>
-                <div class="text-muted small">
-                    <code>/server @s.Id</code> &middot; @(s.Connected ? $"{s.Online}/{s.Max} online" : "offline") &middot; @((s.MemoryMb / 1024.0).ToString("0.#")) GB
+                <div class="text-muted small d-flex align-items-center gap-2">
+                    <span><code>/server @s.Id</code> &middot; @(s.Connected ? $"{s.Online}/{s.Max} online" : "offline") &middot; @((s.MemoryMb / 1024.0).ToString("0.#")) GB</span>
+                    <button class="btn btn-sm @(_manage == s.Id ? "btn-secondary" : "btn-outline-secondary")" @onclick="() => ToggleManageAsync(s.Id)">
+                        <span class="bi bi-gear"></span> Manage
+                    </button>
                 </div>
             </div>
+            @if (_manage == s.Id)
+            {
+                <div class="list-group-item bg-body-tertiary">
+                    @* Backups *@
+                    <div class="d-flex align-items-center mb-2">
+                        <strong>Backups</strong>
+                        <span class="text-muted small ms-2">A running server keeps running while it is backed up.</span>
+                        <button class="btn btn-sm btn-primary ms-auto" @onclick="() => StartAsync(Hub.BackupServerAsync(s.Id))" disabled="@_running">
+                            <span class="bi bi-archive"></span> Back up now
+                        </button>
+                    </div>
+                    @if (_backups.Count == 0)
+                    {
+                        <p class="text-muted small">No backups yet.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-3">
+                                <thead><tr><th>Taken</th><th>Why</th><th>Size</th><th></th></tr></thead>
+                                <tbody>
+                                    @foreach (var b in _backups)
+                                    {
+                                        <tr>
+                                            <td class="text-nowrap">@b.CreatedUtc.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</td>
+                                            <td>@BackupReason(s.Id, b.FileName)</td>
+                                            <td class="text-nowrap">@Size(b.SizeBytes)</td>
+                                            <td class="text-end text-nowrap">
+                                                <a class="btn btn-sm btn-outline-secondary" href="@($"api/servers/{s.Id}/backups/{Uri.EscapeDataString(b.FileName)}")" download="@b.FileName" title="Download">
+                                                    <span class="bi bi-download"></span>
+                                                </a>
+                                                @if (_confirm == "restore:" + b.FileName)
+                                                {
+                                                    <button class="btn btn-sm btn-warning" @onclick="() => StartAsync(Hub.RestoreBackupAsync(s.Id, b.FileName))" disabled="@_running">Yes, restore</button>
+                                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => _confirm = null">Cancel</button>
+                                                }
+                                                else if (_confirm == "delete:" + b.FileName)
+                                                {
+                                                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteBackupAsync(s.Id, b.FileName)" disabled="@_running">Yes, delete</button>
+                                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => _confirm = null">Cancel</button>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-sm btn-outline-warning" @onclick="@(() => _confirm = "restore:" + b.FileName)" disabled="@_running" title="Put the server back to this backup">
+                                                        <span class="bi bi-arrow-counterclockwise"></span> Restore
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger" @onclick="@(() => _confirm = "delete:" + b.FileName)" disabled="@_running" title="Delete this backup">
+                                                        <span class="bi bi-trash"></span>
+                                                    </button>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        @if (_confirm?.StartsWith("restore:") == true)
+                        {
+                            <div class="alert alert-warning small py-2">Restoring stops @s.Name (players are moved off), replaces its files with the backup, and starts it again. Anything built since that backup is lost - back up first if you want to keep it.</div>
+                        }
+                    }
+
+                    @* New world *@
+                    <div class="border-top pt-3 mb-3">
+                        <strong>New world</strong>
+                        <div class="text-muted small mb-2">Starts @s.Name over with a fresh world. Mods, settings and the whitelist stay. The old world is backed up first, so it can be restored.</div>
+                        @if (_confirm == "reset")
+                        {
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <input class="form-control form-control-sm" style="max-width: 16rem;" placeholder="Seed (blank = random)" @bind="_resetSeed" />
+                                <button class="btn btn-sm btn-warning" @onclick="() => StartAsync(Hub.ResetWorldAsync(s.Id, string.IsNullOrWhiteSpace(_resetSeed) ? null : _resetSeed))" disabled="@_running">Yes, new world</button>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => _confirm = null">Cancel</button>
+                            </div>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-outline-warning" @onclick="@(() => { _confirm = "reset"; _resetSeed = ""; })" disabled="@_running">
+                                <span class="bi bi-globe"></span> New world...
+                            </button>
+                        }
+                    </div>
+
+                    @* Remove *@
+                    <div class="border-top pt-3">
+                        <strong>Remove server</strong>
+                        @if (s.IsPrimary)
+                        {
+                            <div class="text-muted small">@s.Name is where players arrive, so it cannot be removed.</div>
+                        }
+                        else
+                        {
+                            <div class="text-muted small mb-2">Stops @s.Name, takes it out of <code>/server</code>, and deletes it. A final backup is kept in this list's folder on the machine.</div>
+                            @if (_confirm == "remove")
+                            {
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <input class="form-control form-control-sm" style="max-width: 16rem;" placeholder="Type @s.Id to confirm" @bind="_removeTyped" @bind:event="oninput" />
+                                    <button class="btn btn-sm btn-danger" @onclick="() => StartAsync(Hub.RemoveServerAsync(s.Id))" disabled="@(_running || _removeTyped != s.Id)">Remove @s.Name</button>
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => _confirm = null">Cancel</button>
+                                </div>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-outline-danger" @onclick="@(() => { _confirm = "remove"; _removeTyped = ""; })" disabled="@_running">
+                                    <span class="bi bi-trash"></span> Remove...
+                                </button>
+                            }
+                        }
+                    </div>
+
+                    @if (_opMessage != null)
+                    {
+                        <div class="alert @(_opOk ? "alert-info" : "alert-danger") mt-3 mb-0">@_opMessage</div>
+                    }
+                </div>
+            }
         }
     </div>
 
@@ -118,6 +236,11 @@ else
     private bool _running;
     private string? _message;
     private bool _messageOk;
+    // Manage panel: which server is open, its backups, and which destructive action awaits a second click.
+    private string? _manage, _confirm, _opMessage;
+    private string _resetSeed = "", _removeTyped = "";
+    private bool _opOk;
+    private List<BackupDto> _backups = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -174,15 +297,72 @@ else
         if (!result.Success) _running = false;
     }
 
+    private async Task ToggleManageAsync(string id)
+    {
+        _confirm = null;
+        _opMessage = null;
+        _manage = _manage == id ? null : id;
+        await LoadBackupsAsync();
+    }
+
+    private async Task LoadBackupsAsync() =>
+        _backups = _manage == null ? [] : (await Hub.ListBackupsAsync(_manage)).OrderByDescending(b => b.CreatedUtc).ToList();
+
+    /// <summary>Starts a backup/restore/new world/remove; progress and the result arrive through OnProgress.</summary>
+    private async Task StartAsync(Task<ToggleResultDto> start)
+    {
+        _confirm = null;
+        _log.Clear();
+        var result = await start;
+        _opMessage = result.Message;
+        _opOk = result.Success;
+        _running = result.Success;
+    }
+
+    private async Task DeleteBackupAsync(string serverId, string fileName)
+    {
+        _confirm = null;
+        var result = await Hub.DeleteBackupAsync(serverId, fileName);
+        _opMessage = result.Message;
+        _opOk = result.Success;
+        await LoadBackupsAsync();
+    }
+
+    /// <summary>The label part of {id}-yyyyMMdd-HHmmss[-label].tar.gz, in words.</summary>
+    private static string BackupReason(string serverId, string fileName)
+    {
+        var stem = fileName.EndsWith(".tar.gz") ? fileName[..^7] : fileName;
+        var rest = stem.Length > serverId.Length + 16 ? stem[(serverId.Length + 16)..].TrimStart('-') : "";
+        return rest switch
+        {
+            "" => "Backed up",
+            "before-reset" => "Before a new world",
+            "removed" => "When it was removed",
+            "before-proxy" => "Before the proxy was set up",
+            _ => rest.Replace('-', ' '),
+        };
+    }
+
+    private static string Size(long bytes) => bytes >= 1L << 30 ? $"{bytes / (double)(1L << 30):0.0} GB" : $"{bytes / (double)(1L << 20):0} MB";
+
     private void OnProgress(OperationProgressDto p)
     {
-        if (p.Operation != "create-server") return;
         _log.Add($"{DateTime.Now:HH:mm:ss} {p.Message}");
         if (p.Done)
         {
             _running = false;
-            _message = p.Failed ? p.Message : $"{_name} is ready. In game: /server {_id}";
-            _messageOk = !p.Failed;
+            if (p.Operation == "create-server")
+            {
+                _message = p.Failed ? p.Message : $"{_name} is ready. In game: /server {_id}";
+                _messageOk = !p.Failed;
+            }
+            else
+            {
+                _opMessage = p.Failed ? p.Message : "Done.";
+                _opOk = !p.Failed;
+                if (!p.Failed && _manage != null && !Hub.Servers.Any(s => s.Id == _manage)) _manage = null;
+                _ = InvokeAsync(async () => { await LoadBackupsAsync(); StateHasChanged(); });
+            }
         }
         InvokeAsync(StateHasChanged);
     }
