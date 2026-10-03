@@ -201,8 +201,7 @@ public class PlayerStatsService
             var dbPath = Path.Combine(_serverPath, "plugins", "CoreProtect", "database.db");
             if (File.Exists(dbPath))
             {
-                using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
-                conn.Open();
+                using var conn = OpenCoreProtectReadOnly(dbPath);
 
                 // Get user ID
                 using var userCmd = conn.CreateCommand();
@@ -387,8 +386,7 @@ public class PlayerStatsService
             var dbPath = Path.Combine(_serverPath, "plugins", "CoreProtect", "database.db");
             if (File.Exists(dbPath))
             {
-                using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
-                conn.Open();
+                using var conn = OpenCoreProtectReadOnly(dbPath);
 
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = "SELECT action, COUNT(*) FROM co_block GROUP BY action";
@@ -425,6 +423,23 @@ public class PlayerStatsService
     }
 
     // -- Helpers --
+
+    /// <summary>
+    /// Opens CoreProtect's SQLite database WITHOUT touching it. CoreProtect runs it in WAL mode, and any
+    /// connection to a WAL database - even Mode=ReadOnly - creates database.db-shm (and -wal) owned by the
+    /// opening user. This panel runs as zed; a zed-owned 0700 -shm makes CoreProtect (user minecraft) fail
+    /// with SQLITE_CANTOPEN on every start, so nothing gets logged for rollback. immutable=1 tells SQLite the
+    /// file will not change under it: no locks, no -shm, no -wal. Reads see what CoreProtect has checkpointed
+    /// into the main file, which can trail its newest writes slightly - fine for stats.
+    /// </summary>
+    public static SqliteConnection OpenCoreProtectReadOnly(string dbPath)
+    {
+        var uri = new Uri(Path.GetFullPath(dbPath)).AbsoluteUri + "?immutable=1";
+        var conn = new SqliteConnection($"Data Source={uri};Mode=ReadOnly");
+        conn.Open();
+        return conn;
+    }
+
 
     private static long ExtractStatValue(string json, string statName)
     {

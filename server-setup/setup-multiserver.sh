@@ -84,10 +84,10 @@ cat > /etc/systemd/system/aubscraft_admin.service.d/umask.conf <<'UNIT'
 UMask=0002
 UNIT
 
-echo "[5/5] Narrow sudo rule for the panel (systemctl on Minecraft units only)"
+echo "[5/5] Narrow sudo rule for the panel + deploys (systemctl on the Minecraft, proxy and panel units only)"
 # sudo 1.9.10+ regex arguments: exactly one action and one Minecraft unit, nothing else.
 cat > /etc/sudoers.d/aubscraft-panel <<'SUDO'
-zed ALL=(root) NOPASSWD: /usr/bin/systemctl ^(start|stop|restart|status|enable|disable|is-active) (minecraft|velocity|minecraft@[a-z0-9-]+)(\.service)?$
+zed ALL=(root) NOPASSWD: /usr/bin/systemctl ^(start|stop|restart|status|enable|disable|is-active) (minecraft|velocity|aubscraft_admin|minecraft@[a-z0-9-]+)(\.service)?$
 SUDO
 chmod 0440 /etc/sudoers.d/aubscraft-panel
 visudo -cf /etc/sudoers.d/aubscraft-panel
