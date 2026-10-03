@@ -66,6 +66,9 @@ public class BackupService
                 var rel = System.IO.Path.GetRelativePath(server.Path, path).Replace('\\', '/');
                 var top = rel.Split('/')[0];
                 if (SkippedTopLevel.Contains(top, StringComparer.OrdinalIgnoreCase)) continue;
+                // A running server holds an OS lock on session.lock (Windows refuses to read it); it carries no
+                // data - the server rewrites it on start.
+                if (Path.GetFileName(path) == "session.lock") continue;
                 if (Directory.Exists(path))
                 {
                     var dirEntry = new PaxTarEntry(TarEntryType.Directory, rel + "/");

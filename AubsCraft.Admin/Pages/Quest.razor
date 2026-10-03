@@ -53,13 +53,17 @@
                 {
                     <p class="mb-2"><span class="bi bi-exclamation-triangle text-warning"></span> QuestCraft is not installed yet.</p>
                 }
+                else if (QuestCraftCurrent)
+                {
+                    <p class="mb-2"><span class="bi bi-check-circle text-success"></span> <b>Up to date</b> - v@(installedVersion) is the latest. Nothing to do here.</p>
+                }
                 else
                 {
-                    <p class="mb-2"><span class="bi bi-check-circle text-success"></span> Installed: <code>@installedPackage</code> @(installedVersion is null ? "" : $"(v{installedVersion})")</p>
+                    <p class="mb-2"><span class="bi bi-arrow-up-circle text-warning"></span> Installed: <code>@installedPackage</code> @(installedVersion is null ? "(version unknown)" : $"v{installedVersion}") - <b>v@(Bare(manifest.QuestCraft.Version))</b> is available.</p>
                 }
                 <p class="text-muted small">Latest QuestCraft: <b>@manifest.QuestCraft.Version</b> (@manifest.QuestCraft.Filename)</p>
-                <button class="btn btn-primary" @onclick="InstallQuestCraft" disabled="@busy">
-                    <span class="bi bi-box-arrow-down"></span> @(installedPackage == null ? "Install QuestCraft" : "Update QuestCraft")
+                <button class="btn @(QuestCraftCurrent ? "btn-outline-light btn-sm" : "btn-primary")" @onclick="InstallQuestCraft" disabled="@busy">
+                    <span class="bi bi-box-arrow-down"></span> @(installedPackage == null ? "Install QuestCraft" : QuestCraftCurrent ? "Reinstall QuestCraft" : "Update QuestCraft")
                 </button>
             </div>
         </div>
@@ -67,22 +71,71 @@
         <!-- Step 3: mods -->
         <div class="card bg-dark text-light mb-3">
             <div class="card-body">
-                <h5 class="card-title">3. Required mods</h5>
+                <h5 class="card-title d-flex align-items-center">
+                    <span>3. Mods on the headset</span>
+                    @if (installedPackage != null)
+                    {
+                        <button class="btn btn-outline-light btn-sm ms-auto" @onclick="RefreshMods" disabled="@busy" title="Read the headset's mods folder again">
+                            <span class="bi bi-arrow-clockwise"></span> Refresh
+                        </button>
+                    }
+                </h5>
                 @if (installedPackage == null)
                 {
                     <p class="text-muted">Install QuestCraft first, then add the mods.</p>
                 }
+                else if (rows == null)
+                {
+                    <p class="text-muted">Reading the headset's mods folder...</p>
+                }
                 else
                 {
-                    <ul class="list-unstyled mb-2">
-                        @foreach (var mod in manifest.Mods)
-                        {
-                            <li><span class="bi bi-puzzle"></span> @mod.Name <span class="text-muted small">@mod.Version</span></li>
-                        }
-                    </ul>
-                    <p class="text-muted small">Pushed to <code>@ModsDir()</code></p>
-                    <button class="btn btn-primary" @onclick="InstallMods" disabled="@busy">
-                        <span class="bi bi-cloud-arrow-up"></span> Install / update mods
+                    @if (ToInstall.Count == 0)
+                    {
+                        <div class="alert alert-success py-2 mb-2"><span class="bi bi-check-circle"></span> <b>All set.</b> Every mod the AubsCraft servers need is on the headset and up to date.</div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning py-2 mb-2"><span class="bi bi-exclamation-triangle"></span> @ToInstall.Count mod@(ToInstall.Count == 1 ? "" : "s") to install or update.</div>
+                    }
+                    <div class="table-responsive">
+                        <table class="table table-dark table-sm align-middle mb-2">
+                            <thead><tr><th>Mod</th><th>For</th><th>Status</th><th></th></tr></thead>
+                            <tbody>
+                                @foreach (var row in rows)
+                                {
+                                    <tr>
+                                        <td>
+                                            @row.Name @if (row.Version != null) { <span class="text-muted small">@row.Version</span> }
+                                            <div class="text-muted small"><code>@row.File</code></div>
+                                        </td>
+                                        <td class="small">@row.For</td>
+                                        <td><span class="badge @row.Badge">@row.StatusText</span></td>
+                                        <td class="text-end text-nowrap">
+                                            @if (row.CanRemove)
+                                            {
+                                                if (pendingRemove == row.File)
+                                                {
+                                                    <button class="btn btn-danger btn-sm" @onclick="() => RemoveMod(row.File)" disabled="@busy">Yes, remove</button>
+                                                    <button class="btn btn-outline-light btn-sm" @onclick="() => pendingRemove = null">Keep</button>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-outline-danger btn-sm" @onclick="() => pendingRemove = row.File" disabled="@busy" title="Delete this jar from the headset">
+                                                        <span class="bi bi-trash"></span> Remove
+                                                    </button>
+                                                }
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-muted small">Folder: <code>@ModsDir()</code></p>
+                    <button class="btn @(ToInstall.Count > 0 ? "btn-primary" : "btn-outline-light btn-sm")" @onclick="InstallMods" disabled="@busy">
+                        <span class="bi bi-cloud-arrow-up"></span>
+                        @(ToInstall.Count > 0 ? $"Install / update {ToInstall.Count} mod{(ToInstall.Count == 1 ? "" : "s")}" : "Reinstall all")
                     </button>
                 }
             </div>
@@ -127,6 +180,8 @@
     string? installedPackage;
     string? installedVersion;
     string? instance;
+    List<ModRow>? rows;
+    string? pendingRemove;
     bool busy;
     string busyLabel = "";
     readonly List<string> log = new();
@@ -145,6 +200,107 @@
         ? ""
         : manifest.ModsDirTemplate.Replace("{package}", installedPackage).Replace("{instance}", instance ?? "1.21.5");
 
+    /// <summary>"v6.0.0" and "6.0.0" are the same version.</summary>
+    static string Bare(string? v) => (v ?? "").Trim().TrimStart('v', 'V');
+    bool QuestCraftCurrent => installedPackage != null && manifest != null && installedVersion != null
+        && Bare(installedVersion) == Bare(manifest.QuestCraft.Version);
+
+    List<ModDto> ToInstall => rows == null ? [] : rows.Where(r => r.Mod != null && r.Status is ModStatus.Missing or ModStatus.Outdated).Select(r => r.Mod!).ToList();
+
+    enum ModStatus { Current, Outdated, Unverified, Missing, Unused, QuestCraft, Other }
+
+    record ModRow(string File, string Name, string? Version, string For, ModStatus Status, ModDto? Mod)
+    {
+        public string StatusText => Status switch
+        {
+            ModStatus.Current => "Up to date",
+            ModStatus.Outdated => "Update available",
+            ModStatus.Unverified => "Installed",
+            ModStatus.Missing => "Not installed",
+            ModStatus.Unused => "No longer needed",
+            ModStatus.QuestCraft => "QuestCraft's own",
+            _ => "Added by hand",
+        };
+        public string Badge => Status switch
+        {
+            ModStatus.Current or ModStatus.Unverified => "bg-success",
+            ModStatus.Outdated or ModStatus.Missing => "bg-warning text-dark",
+            ModStatus.Unused => "bg-secondary",
+            ModStatus.QuestCraft => "bg-info text-dark",
+            _ => "bg-secondary",
+        };
+        // QuestCraft's own mods are its to manage (it re-adds them); AubsCraft's are reinstalled with the button.
+        public bool CanRemove => Status is ModStatus.Unused or ModStatus.Other;
+    }
+
+    static string Norm(string s) => new string(s.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
+
+    /// <summary>A folder or file name safe inside single quotes in the headset's shell.</summary>
+    static string Quote(string s) => s.Contains('\'') ? throw new InvalidOperationException($"Unexpected file name: {s}") : $"'{s}'";
+
+    /// <summary>
+    /// Reads the headset's mods folder and compares every jar with what the servers need: sha512 on the headset
+    /// (toybox sha512sum) against Modrinth's published hash, so "Up to date" means byte-identical.
+    /// </summary>
+    async Task ReadHeadsetMods()
+    {
+        if (Tango.Adb == null || manifest == null || installedPackage == null) { rows = null; return; }
+        var dir = ModsDir();
+        var shell = Tango.Adb.Subprocess.NoneProtocol;
+        var listing = await shell.SpawnWaitText($"ls -1 {Quote(dir)} 2>/dev/null");
+        var files = listing.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(f => f.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)).ToList();
+        var hashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (files.Count > 0)
+        {
+            var sums = await shell.SpawnWaitText($"cd {Quote(dir)} && sha512sum *.jar 2>/dev/null");
+            foreach (var line in sums.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var parts = line.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (parts.Length == 2 && parts[0].Length == 128) hashes[parts[1].TrimStart('*')] = parts[0].ToLowerInvariant();
+            }
+        }
+
+        var list = new List<ModRow>();
+        foreach (var mod in manifest.Mods)
+        {
+            var target = string.IsNullOrEmpty(mod.TargetFilename) ? mod.Filename : mod.TargetFilename;
+            var onDevice = files.FirstOrDefault(f => string.Equals(f, target, StringComparison.OrdinalIgnoreCase));
+            var status = onDevice == null ? ModStatus.Missing
+                : string.IsNullOrEmpty(mod.Sha512) || !hashes.TryGetValue(onDevice, out var h) ? ModStatus.Unverified
+                : string.Equals(h, mod.Sha512, StringComparison.OrdinalIgnoreCase) ? ModStatus.Current : ModStatus.Outdated;
+            list.Add(new ModRow(target, mod.Name, mod.Version, mod.For, status, mod));
+        }
+        var managed = manifest.QuestCraftManaged.Select(Norm).ToList();
+        foreach (var f in files.Where(f => !list.Any(r => string.Equals(r.File, f, StringComparison.OrdinalIgnoreCase))))
+        {
+            var name = Path.GetFileNameWithoutExtension(f);
+            if (f.StartsWith("aubscraft-", StringComparison.OrdinalIgnoreCase))
+                list.Add(new ModRow(f, name, null, "A server that no longer uses it", ModStatus.Unused, null));
+            else if (managed.Any(m => Norm(name).Contains(m)))
+                list.Add(new ModRow(f, name, null, "QuestCraft (VR, performance)", ModStatus.QuestCraft, null));
+            else
+                list.Add(new ModRow(f, name, null, "-", ModStatus.Other, null));
+        }
+        rows = list.OrderBy(r => r.Status switch { ModStatus.Missing or ModStatus.Outdated => 0, ModStatus.Current or ModStatus.Unverified => 1, ModStatus.QuestCraft => 3, _ => 2 })
+            .ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        if (hashes.Count == 0 && files.Count > 0) Log("(this headset has no sha512sum - mods show as Installed without a version check)");
+    }
+
+    async Task RefreshMods() => await Run("Reading the headset's mods...", ReadHeadsetMods);
+
+    async Task RemoveMod(string file)
+    {
+        pendingRemove = null;
+        if (Tango.Adb == null) return;
+        await Run($"Removing {file}...", async () =>
+        {
+            await Tango.Adb.Subprocess.NoneProtocol.SpawnWaitText($"rm -f {Quote(ModsDir() + "/" + file)}");
+            Log($"Removed {file}.");
+            await ReadHeadsetMods();
+        });
+    }
+
     async Task ConnectQuest()
     {
         await Run("Connecting...", async () =>
@@ -160,7 +316,7 @@
 
     async Task DetectQuestCraft(Adb adb)
     {
-        installedPackage = null; installedVersion = null;
+        installedPackage = null; installedVersion = null; rows = null;
         var listText = await adb.Subprocess.NoneProtocol.SpawnWaitText("pm list packages");
         var packages = listText.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(l => l.StartsWith("package:") ? l["package:".Length..] : l).ToList();
@@ -183,6 +339,7 @@
                 if (instance != null) Log($"QuestCraft instance: {instance} (mods -> {ModsDir()})");
             }
             catch { }
+            await ReadHeadsetMods();
         }
         else Log("QuestCraft not installed yet.");
     }
@@ -209,10 +366,11 @@
         await Run("Installing mods...", async () =>
         {
             var dir = ModsDir();
+            var mods = ToInstall.Count > 0 ? ToInstall : manifest.Mods;
             var sync = await Tango.Adb.Sync();
             try
             {
-                foreach (var mod in manifest.Mods)
+                foreach (var mod in mods)
                 {
                     Log($"Pushing {mod.Filename}...");
                     using var response = await JS.Fetch($"api/quest/asset/{mod.Id}");
@@ -235,7 +393,8 @@
             }
             catch (Exception ex) { Log($"  (could not grant mic permission automatically: {ex.Message})"); }
 
-            Log("Done! One step left in the headset - see below.");
+            await ReadHeadsetMods();
+            Log(ToInstall.Count == 0 ? "Done! Every mod is up to date. One step left in the headset - see below." : $"{ToInstall.Count} mod(s) still not current - see the list.");
         });
     }
 
@@ -257,7 +416,8 @@
         public List<ModDto> Mods { get; set; } = new();
         public string ModsDirTemplate { get; set; } = "";
         public List<string> PackageHints { get; set; } = new();
+        public List<string> QuestCraftManaged { get; set; } = new();
     }
     class QuestCraftDto { public string Id { get; set; } = ""; public string Version { get; set; } = ""; public string Filename { get; set; } = ""; }
-    class ModDto { public string Id { get; set; } = ""; public string Name { get; set; } = ""; public string Version { get; set; } = ""; public string Filename { get; set; } = ""; public string TargetFilename { get; set; } = ""; public long Size { get; set; } }
+    class ModDto { public string Id { get; set; } = ""; public string Name { get; set; } = ""; public string Version { get; set; } = ""; public string Filename { get; set; } = ""; public string TargetFilename { get; set; } = ""; public long Size { get; set; } public string? Sha512 { get; set; } public string For { get; set; } = ""; }
 }

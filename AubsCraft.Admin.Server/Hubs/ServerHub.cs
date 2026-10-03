@@ -434,6 +434,26 @@ public class ServerHub : Hub<IServerHubClient>
     [Authorize(Roles = Roles.Owner)]
     public HubResult CreateServer(CreateServerDto request) => _serverOps.StartCreate(request, CurrentUsername);
 
+    // -- Backup / restore / reset / remove (owner) - progress as ReceiveOperationProgress ("server-op") --
+
+    [Authorize(Roles = Roles.Owner)]
+    public List<BackupDto> ListBackups(string serverId) { Server(serverId); return _serverOps.ListBackups(serverId); }
+
+    [Authorize(Roles = Roles.Owner)]
+    public HubResult BackupServer(string serverId) { Server(serverId); return _serverOps.StartBackup(serverId, CurrentUsername); }
+
+    [Authorize(Roles = Roles.Owner)]
+    public HubResult RestoreBackup(string serverId, string fileName) { Server(serverId); return _serverOps.StartRestore(serverId, fileName, CurrentUsername); }
+
+    [Authorize(Roles = Roles.Owner)]
+    public HubResult DeleteBackup(string serverId, string fileName) { Server(serverId); return _serverOps.DeleteBackup(serverId, fileName); }
+
+    [Authorize(Roles = Roles.Owner)]
+    public HubResult ResetWorld(string serverId, string? seed) { Server(serverId); return _serverOps.StartReset(serverId, seed, CurrentUsername); }
+
+    [Authorize(Roles = Roles.Owner)]
+    public HubResult RemoveServer(string serverId) { Server(serverId); return _serverOps.StartRemove(serverId, CurrentUsername); }
+
     /// <summary>The log of the last create (for a page opened while one runs).</summary>
     [Authorize(Roles = Roles.Owner)]
     public List<string> GetCreateLog() => _serverOps.Log;

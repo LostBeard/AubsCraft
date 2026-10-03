@@ -79,7 +79,7 @@ public class QuestAssetService
             var mods = new List<QuestModInfo>();
             foreach (var m in RequiredMods)
             {
-                var info = await ResolveModAsync(http, m.Id, m.Slug, m.Name, m.TargetFilename, ct);
+                var info = await ResolveModAsync(http, m.Id, m.Slug, m.Name, m.TargetFilename, "Voice chat on every server", ct);
                 if (info != null) mods.Add(info);
             }
             mods.AddRange(await ResolveServerClientModsAsync(http, ct));
@@ -93,7 +93,8 @@ public class QuestAssetService
                 ModsDirTemplate: "/sdcard/Android/data/{package}/files/instances/{instance}/mods",
                 // Hints the client uses to find the installed QuestCraft package via `pm list packages`
                 // (the QCXR rebrand uses com.qcxr.qcxr; older builds used com.neofetch.questcraft).
-                PackageHints: new[] { "qcxr", "questcraft", "pojav", "neofetch" });
+                PackageHints: new[] { "qcxr", "questcraft", "pojav", "neofetch" },
+                QuestCraftManaged: QcxrManagedSlugs);
             _manifestFetchedAt = DateTimeOffset.UtcNow;
             return _cachedManifest;
         }
@@ -107,9 +108,9 @@ public class QuestAssetService
     /// </summary>
     async Task<List<QuestModInfo>> ResolveServerClientModsAsync(HttpClient http, CancellationToken ct)
     {
-        var slugs = _registry.All
-            .Where(s => s.Loader is AubsCraft.Admin.Server.Models.ServerLoader.Fabric && s.GameVersion == ModGameVersion)
-            .SelectMany(s => s.ClientMods).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var questServers = _registry.All
+            .Where(s => s.Loader is AubsCraft.Admin.Server.Models.ServerLoader.Fabric && s.GameVersion == ModGameVersion).ToList();
+        var slugs = questServers.SelectMany(s => s.ClientMods).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var artifacts = new Dictionary<string, AddonArtifact>(StringComparer.OrdinalIgnoreCase);
         if (slugs.Count > 0)
         {
@@ -123,8 +124,14 @@ public class QuestAssetService
                 artifacts[a.ProjectId ?? a.Name] = a;
         }
         _serverClientArtifacts = artifacts;
+        // Who needs it: the servers that list it, or (a dependency) the mods that need it.
+        string For(AddonArtifact a)
+        {
+            var names = questServers.Where(s => s.ClientMods.Contains(a.Name, StringComparer.OrdinalIgnoreCase)).Select(s => s.Name).ToList();
+            return names.Count > 0 ? string.Join(", ", names) : "Needed by another mod";
+        }
         return artifacts.Select(kv => new QuestModInfo(kv.Key, kv.Value.Name, kv.Value.Version, kv.Value.FileName,
-            $"aubscraft-{kv.Key}.jar", kv.Value.Url, 0)).ToList();
+            $"aubscraft-{kv.Key}.jar", kv.Value.Url, 0, kv.Value.HashAlgorithm == "sha512" ? kv.Value.Hash : null, For(kv.Value))).ToList();
     }
 
     async Task<QuestCraftInfo> ResolveQuestCraftAsync(HttpClient http, CancellationToken ct)
@@ -150,7 +157,7 @@ public class QuestAssetService
         return new QuestCraftInfo("questcraft", version, filename, url);
     }
 
-    async Task<QuestModInfo?> ResolveModAsync(HttpClient http, string id, string slug, string name, string targetFilename, CancellationToken ct)
+    async Task<QuestModInfo?> ResolveModAsync(HttpClient http, string id, string slug, string name, string targetFilename, string forWhat, CancellationToken ct)
     {
         // Modrinth versions for this project, filtered to Fabric + the target MC version. Pick newest.
         var url = $"https://api.modrinth.com/v2/project/{slug}/version?loaders=%5B%22fabric%22%5D&game_versions=%5B%22{ModGameVersion}%22%5D";
@@ -177,7 +184,8 @@ public class QuestAssetService
         var filename = file.Value.GetProperty("filename").GetString()!;
         var downloadUrl = file.Value.GetProperty("url").GetString()!;
         long size = file.Value.TryGetProperty("size", out var s) ? s.GetInt64() : 0;
-        return new QuestModInfo(id, name, version, filename, targetFilename, downloadUrl, size);
+        var sha512 = file.Value.TryGetProperty("hashes", out var h) && h.TryGetProperty("sha512", out var h5) ? h5.GetString() : null;
+        return new QuestModInfo(id, name, version, filename, targetFilename, downloadUrl, size, sha512, forWhat);
     }
 
     /// <summary>
@@ -240,11 +248,14 @@ public record QuestManifest(
     QuestCraftInfo QuestCraft,
     IReadOnlyList<QuestModInfo> Mods,
     string ModsDirTemplate,
-    IReadOnlyList<string> PackageHints);
+    IReadOnlyList<string> PackageHints,
+    IReadOnlyList<string> QuestCraftManaged);
 
 /// <summary>The QuestCraft APK to install.</summary>
 public record QuestCraftInfo(string Id, string Version, string Filename, string DownloadUrl);
 
 /// <summary>A required client mod jar to push to the mods folder. TargetFilename is the on-device
-/// filename (QCXR slug name) the jar is written as, so it overwrites QCXR's bundled copy.</summary>
-public record QuestModInfo(string Id, string Name, string Version, string Filename, string TargetFilename, string DownloadUrl, long Size);
+/// filename (QCXR slug name) the jar is written as, so it overwrites QCXR's bundled copy. Sha512 (Modrinth's) lets the
+/// page tell whether the headset's copy is current; For says which server(s) need it.</summary>
+public record QuestModInfo(string Id, string Name, string Version, string Filename, string TargetFilename, string DownloadUrl, long Size,
+    string? Sha512 = null, string For = "");

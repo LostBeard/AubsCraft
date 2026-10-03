@@ -26,6 +26,7 @@ builder.Services.AddSingleton<ProxyOperationsService>();
 // Creating servers: loader installs (verified), provisioning behind the proxy, background runs with live progress.
 builder.Services.AddSingleton<ServerSoftwareService>();
 builder.Services.AddSingleton<ServerProvisioningService>();
+builder.Services.AddSingleton<ServerMaintenanceService>();
 builder.Services.AddSingleton<ServerOperationsService>();
 builder.Services.AddSingleton<ServerMonitorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ServerMonitorService>());
@@ -111,9 +112,10 @@ quest.MapGet("/manifest", async (QuestAssetService svc, CancellationToken ct) =>
     return Results.Ok(new
     {
         questCraft = new { id = m.QuestCraft.Id, version = m.QuestCraft.Version, filename = m.QuestCraft.Filename },
-        mods = m.Mods.Select(x => new { id = x.Id, name = x.Name, version = x.Version, filename = x.Filename, targetFilename = x.TargetFilename, size = x.Size }),
+        mods = m.Mods.Select(x => new { id = x.Id, name = x.Name, version = x.Version, filename = x.Filename, targetFilename = x.TargetFilename, size = x.Size, sha512 = x.Sha512, @for = x.For }),
         modsDirTemplate = m.ModsDirTemplate,
         packageHints = m.PackageHints,
+        questCraftManaged = m.QuestCraftManaged,
     });
 });
 
@@ -259,6 +261,14 @@ api.MapGet("/banlist", (string? server, ServerManager servers, ILogger<Program> 
         return Results.Ok(new List<string>());
     }
 });
+
+// -- Backup downloads (owner): streamed from disk with range support (backups are hundreds of MB) --
+api.MapGet("/servers/{id}/backups/{file}", (string id, string file, BackupService backups) =>
+{
+    var b = backups.List(id).FirstOrDefault(x => x.FileName == file);
+    if (b == null) return Results.NotFound();
+    return Results.File(b.Path, "application/gzip", b.FileName, enableRangeProcessing: true);
+}).RequireAuthorization(p => p.RequireRole(AubsCraft.Admin.Server.Models.Roles.Owner));
 
 // -- World Data API (for 3D viewer) --
 // Every world endpoint takes ?server=<id> (default: the primary server).
