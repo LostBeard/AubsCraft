@@ -54,4 +54,38 @@ public class VmRehearsalTests
             (await http.GetFromJsonAsync<AubsCraft.Admin.Server.Models.PublicStatusDto>("/api/public/status"))!.Connected,
             TimeSpan.FromSeconds(60), "the panel sees the server again behind the proxy");
     }
+
+    /// <summary>Creates Aubri's spooky server through the panel (the Servers page's call) on the VM-like machine.</summary>
+    [Test]
+    public async Task CreateSpooky_ThroughThePanel_OnTheRealOs()
+    {
+        using var http = new HttpClient(new HttpClientHandler { UseCookies = false }) { BaseAddress = new Uri(BaseUrl) };
+        await http.PostAsJsonAsync("/api/auth/setup", new { Username = "owner", Password = "rehearsal" });
+        var login = await http.PostAsJsonAsync("/api/auth/login", new { Username = "owner", Password = "rehearsal" });
+        var cookie = string.Join("; ", login.Headers.GetValues("Set-Cookie").Select(c => c.Split(';')[0]));
+        await using var hub = new HubConnectionBuilder()
+            .WithUrl(new Uri(new Uri(BaseUrl), "hubs/server"), o => o.Headers["Cookie"] = cookie).Build();
+        var progress = new List<string>();
+        var done = new TaskCompletionSource<OperationProgressDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        hub.On<OperationProgressDto>("ReceiveOperationProgress", p =>
+        {
+            lock (progress) progress.Add(p.Message);
+            TestContext.Progress.WriteLine(p.Message);
+            if (p.Done) done.TrySetResult(p);
+        });
+        await hub.StartAsync();
+
+        var start = await hub.InvokeAsync<HubResult>("CreateServer", new CreateServerDto("spooky", "Spooky", "Fabric", "1.21.5", 3072,
+            [.. ProvisioningTests.SpookyMods], ["macaws-holidays", "mutant-monsters", "spooky-doors", "from-the-fog", "tense-ambience"], null));
+        Assert.That(start.Success, Is.True, start.Message);
+        var result = await done.Task.WaitAsync(TimeSpan.FromMinutes(20));
+        Assert.That(result.Failed, Is.False, string.Join(" | ", progress));
+
+        await TestUtil.WaitUntilAsync(async () =>
+            (await hub.InvokeAsync<List<AubsCraft.Admin.Server.Models.ServerSummaryDto>>("GetServers")).Any(s => s.Id == "spooky" && s.Connected),
+            TimeSpan.FromSeconds(60), "the panel monitors the new server");
+        var manifest = await http.GetStringAsync("/api/quest/manifest");
+        TestContext.Progress.WriteLine(manifest);
+        Assert.That(manifest, Does.Contain("aubscraft-"), "the headset installer offers the spooky client mods");
+    }
 }

@@ -337,6 +337,20 @@ public class ServerHubClient : IAsyncDisposable
     public Task<List<PlayerPositionDto>> GetPlayerPositionsAsync()
         => SafeInvokeAsync<List<PlayerPositionDto>>("GetPlayerPositions", [], Sid);
 
+    // -- Creating servers (owner) --
+
+    public Task<List<string>> GetGameVersionsAsync(string loader)
+        => SafeInvokeAsync<List<string>>("GetGameVersions", [], loader);
+
+    public Task<ToggleResultDto> CreateServerAsync(CreateServerDto request)
+        => SafeInvokeAsync("CreateServer", new ToggleResultDto(false, "Connection lost"), request);
+
+    public Task<List<string>> GetCreateLogAsync()
+        => SafeInvokeAsync<List<string>>("GetCreateLog", []);
+
+    public Task<HostCapacityDto?> GetCreateCapacityAsync(int memoryMb)
+        => SafeInvokeAsync<HostCapacityDto?>("GetCreateCapacity", null, memoryMb);
+
     // -- Velocity proxy (owner) --
 
     public Task<ProxyStatusDto?> GetProxyStatusAsync()
@@ -638,6 +652,10 @@ public record PublicServerStatusDto(
     int Online,
     int Max,
     List<string> Players);
+
+/// <summary>The Add server form (mirrors Server/Services/ServerOperationsService.cs).</summary>
+public record CreateServerDto(string Id, string Name, string Loader, string GameVersion, int MemoryMb,
+    List<string> ServerMods, List<string> ClientMods, string? Seed);
 
 // -- Proxy DTOs (mirror Server/Services/ProxyOperationsService.cs) --
 public record PrerequisiteDto(string What, bool Ok, string Fix);

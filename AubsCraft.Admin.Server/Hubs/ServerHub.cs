@@ -25,6 +25,8 @@ public class ServerHub : Hub<IServerHubClient>
     private readonly NetworkModerationService _moderation;
     private readonly HostCapacityService _capacity;
     private readonly ProxyOperationsService _proxyOps;
+    private readonly ServerOperationsService _serverOps;
+    private readonly ServerSoftwareService _software;
     private readonly ActivityLogService _activityLog;
     private readonly ModrinthService _modrinth;
     private readonly AuthService _auth;
@@ -35,7 +37,7 @@ public class ServerHub : Hub<IServerHubClient>
     private readonly ILogger<ServerHub> _logger;
 
     public ServerHub(ServerManager servers, NetworkModerationService moderation, HostCapacityService capacity,
-        ProxyOperationsService proxyOps, ActivityLogService activityLog,
+        ProxyOperationsService proxyOps, ServerOperationsService serverOps, ServerSoftwareService software, ActivityLogService activityLog,
         ModrinthService modrinth, AuthService auth, InviteCodeService invites,
         WhitelistAuditService whitelistAudit, EmailNotificationService email,
         IConfiguration configuration, ILogger<ServerHub> logger)
@@ -44,6 +46,8 @@ public class ServerHub : Hub<IServerHubClient>
         _moderation = moderation;
         _capacity = capacity;
         _proxyOps = proxyOps;
+        _serverOps = serverOps;
+        _software = software;
         _activityLog = activityLog;
         _modrinth = modrinth;
         _auth = auth;
@@ -418,6 +422,28 @@ public class ServerHub : Hub<IServerHubClient>
         var message = _proxyOps.StartCutover(serverId, newGamePort, voicePort, CurrentUsername);
         return new HubResult(message == "Cutover started.", message);
     }
+
+    // -- Creating servers (owner) --
+
+    /// <summary>Minecraft versions a server type can be created with, newest first.</summary>
+    [Authorize(Roles = Roles.Owner)]
+    public async Task<List<string>> GetGameVersions(string loader) =>
+        Enum.TryParse<ServerLoader>(loader, true, out var l) ? await _software.GameVersionsAsync(l) : [];
+
+    /// <summary>Starts creating a server in the background; progress arrives as ReceiveOperationProgress ("create-server").</summary>
+    [Authorize(Roles = Roles.Owner)]
+    public HubResult CreateServer(CreateServerDto request) => _serverOps.StartCreate(request, CurrentUsername);
+
+    /// <summary>The log of the last create (for a page opened while one runs).</summary>
+    [Authorize(Roles = Roles.Owner)]
+    public List<string> GetCreateLog() => _serverOps.Log;
+
+    /// <summary>What starting one more server of this size would ask of the machine (before creating it).</summary>
+    [Authorize(Roles = Roles.Owner)]
+    public HostCapacityDto GetCreateCapacity(int memoryMb) =>
+        HostCapacityService.Evaluate(HostCapacityService.TotalMemoryMb(), Environment.ProcessorCount,
+            _servers.All.Where(s => s.LastStatus?.Connected == true).Select(s => s.Definition).ToList(),
+            new ServerDefinition { Id = "(new)", MemoryMb = memoryMb });
 
     // -- Config --
 

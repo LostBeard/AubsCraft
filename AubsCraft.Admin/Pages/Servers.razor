@@ -1,0 +1,197 @@
+@page "/servers"
+@inject ServerHubClient Hub
+@inject AuthStateProvider Auth
+@implements IDisposable
+
+<PageTitle>Servers - AubsCraft Admin</PageTitle>
+
+<h1>Servers</h1>
+
+@if (!Auth.IsOwner)
+{
+    <div class="alert alert-warning">Only the owner can add servers.</div>
+}
+else
+{
+    <div class="list-group mb-4">
+        @foreach (var s in Hub.Servers)
+        {
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="server-dot @(s.Connected ? "online" : "offline") me-2"></span>
+                    <strong>@s.Name</strong>
+                    <span class="text-muted ms-2">@s.Loader @s.GameVersion</span>
+                    @if (s.IsPrimary) { <span class="badge bg-secondary ms-2">players arrive here</span> }
+                </div>
+                <div class="text-muted small">
+                    <code>/server @s.Id</code> &middot; @(s.Connected ? $"{s.Online}/{s.Max} online" : "offline") &middot; @((s.MemoryMb / 1024.0).ToString("0.#")) GB
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Add a server</strong>
+            <button class="btn btn-sm btn-outline-primary" @onclick="UseSpookyPreset" disabled="@_running">Spooky preset</button>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Name</label>
+                    <input class="form-control" @bind="_name" @bind:after="SuggestId" placeholder="Spooky" disabled="@_running" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Id (players type <code>/server @(_id == "" ? "id" : _id)</code>)</label>
+                    <input class="form-control" @bind="_id" disabled="@_running" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Memory (MB)</label>
+                    <input class="form-control" type="number" min="512" step="512" @bind="_memoryMb" @bind:after="CheckCapacityAsync" disabled="@_running" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Type</label>
+                    <select class="form-select" @bind="_loader" @bind:after="LoadVersionsAsync" disabled="@_running">
+                        <option value="Paper">Paper (plugins - anyone can join, incl. Bedrock)</option>
+                        <option value="Fabric">Fabric (mods - QuestCraft runs Fabric)</option>
+                        <option value="Forge">Forge (mods)</option>
+                        <option value="NeoForge">NeoForge (mods)</option>
+                        <option value="Vanilla">Vanilla (made as Fabric with no mods)</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Minecraft version</label>
+                    <select class="form-select" @bind="_gameVersion" disabled="@_running">
+                        @foreach (var v in _versions) { <option value="@v">@v</option> }
+                    </select>
+                    <div class="form-text">QuestCraft headsets run 1.21.5.</div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">World seed (optional)</label>
+                    <input class="form-control" @bind="_seed" disabled="@_running" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Server mods / plugins (Modrinth names, one per line)</label>
+                    <textarea class="form-control font-monospace small" rows="7" @bind="_serverMods" disabled="@_running"></textarea>
+                    <div class="form-text">Required libraries are added automatically. Proxy, voice chat, Bedrock and VR support are always included.</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Mods players need on their own game (one per line)</label>
+                    <textarea class="form-control font-monospace small" rows="7" @bind="_clientMods" disabled="@_running"></textarea>
+                    <div class="form-text">The "Set up Quest" page installs these on headsets. A server with these cannot be joined from Bedrock.</div>
+                </div>
+            </div>
+
+            @if (_capacityWarnings.Count > 0)
+            {
+                <div class="alert alert-warning mt-3 mb-0">
+                    <strong>Running this alongside the servers that are up may overload the machine:</strong>
+                    <ul class="mb-0">@foreach (var w in _capacityWarnings) { <li>@w</li> }</ul>
+                </div>
+            }
+
+            <button class="btn btn-primary mt-3" @onclick="CreateAsync" disabled="@(_running || _id == "" || _gameVersion == "")">
+                @(_running ? "Creating..." : "Create server")
+            </button>
+            @if (_message != null)
+            {
+                <div class="alert @(_messageOk ? "alert-info" : "alert-danger") mt-3">@_message</div>
+            }
+        </div>
+    </div>
+
+    @if (_log.Count > 0)
+    {
+        <div class="card">
+            <div class="card-header"><strong>Progress</strong></div>
+            <div class="card-body"><pre class="mb-0 small">@string.Join("\n", _log)</pre></div>
+        </div>
+    }
+}
+
+@code {
+    private string _name = "", _id = "", _loader = "Paper", _gameVersion = "", _seed = "", _serverMods = "", _clientMods = "";
+    private int _memoryMb = 2048;
+    private List<string> _versions = [];
+    private List<string> _capacityWarnings = [];
+    private readonly List<string> _log = [];
+    private bool _running;
+    private string? _message;
+    private bool _messageOk;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Hub.OnOperationProgress += OnProgress;
+        Hub.OnServerListReceived += OnServers;
+        await Hub.ConnectAsync();
+        _log.AddRange(await Hub.GetCreateLogAsync());
+        await LoadVersionsAsync();
+        await CheckCapacityAsync();
+    }
+
+    private async Task LoadVersionsAsync()
+    {
+        _versions = await Hub.GetGameVersionsAsync(_loader);
+        // Default to the version the headsets run when it is offered.
+        _gameVersion = _versions.Contains("1.21.5") ? "1.21.5" : _versions.FirstOrDefault() ?? "";
+    }
+
+    private async Task CheckCapacityAsync()
+    {
+        var c = await Hub.GetCreateCapacityAsync(_memoryMb);
+        _capacityWarnings = c?.Warnings ?? [];
+    }
+
+    private void SuggestId()
+    {
+        if (_id != "") return;
+        _id = new string(_name.ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray()).Trim('-');
+    }
+
+    /// <summary>Aubri's spooky server: Fabric 1.21.5 (QuestCraft), Halloween + horror mods that work in VR.</summary>
+    private async Task UseSpookyPreset()
+    {
+        _name = "Spooky";
+        _id = "spooky";
+        _loader = "Fabric";
+        await LoadVersionsAsync();
+        _memoryMb = 3072;
+        _serverMods = string.Join("\n", "from-the-fog", "server-side-horror", "sleepless-datapack", "qraftys-halloween-villages",
+            "flower-mimics", "macaws-holidays", "mutant-monsters", "spooky-doors");
+        _clientMods = string.Join("\n", "macaws-holidays", "mutant-monsters", "spooky-doors", "from-the-fog", "tense-ambience");
+        await CheckCapacityAsync();
+    }
+
+    private async Task CreateAsync()
+    {
+        _running = true;
+        _message = null;
+        _log.Clear();
+        var result = await Hub.CreateServerAsync(new CreateServerDto(_id.Trim(), _name.Trim(), _loader, _gameVersion, _memoryMb,
+            [_serverMods], [_clientMods], _seed));
+        _message = result.Message;
+        _messageOk = result.Success;
+        if (!result.Success) _running = false;
+    }
+
+    private void OnProgress(OperationProgressDto p)
+    {
+        if (p.Operation != "create-server") return;
+        _log.Add($"{DateTime.Now:HH:mm:ss} {p.Message}");
+        if (p.Done)
+        {
+            _running = false;
+            _message = p.Failed ? p.Message : $"{_name} is ready. In game: /server {_id}";
+            _messageOk = !p.Failed;
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnServers(List<ServerSummaryDto> _) => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Hub.OnOperationProgress -= OnProgress;
+        Hub.OnServerListReceived -= OnServers;
+    }
+}

@@ -23,6 +23,10 @@ builder.Services.AddSingleton<BackupService>();
 builder.Services.AddSingleton<IServiceRunner, SystemdServiceRunner>();
 builder.Services.AddSingleton<ProxyCutoverService>();
 builder.Services.AddSingleton<ProxyOperationsService>();
+// Creating servers: loader installs (verified), provisioning behind the proxy, background runs with live progress.
+builder.Services.AddSingleton<ServerSoftwareService>();
+builder.Services.AddSingleton<ServerProvisioningService>();
+builder.Services.AddSingleton<ServerOperationsService>();
 builder.Services.AddSingleton<ServerMonitorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ServerMonitorService>());
 builder.Services.AddHostedService<LogTailService>();

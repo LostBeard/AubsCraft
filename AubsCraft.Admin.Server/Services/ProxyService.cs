@@ -164,6 +164,8 @@ public class ProxyService
         ConfigFiles.SetProperty(props, "server-port", server.GamePort.ToString());
         // RCON binds to server-ip too: after this it is reachable from this machine only.
 
+        // Modern forwarding: the server trusts player info signed with the proxy's secret. Each loader has its own
+        // switch (the files exist after the server's first start - see ServerProvisioningService).
         switch (server.Loader)
         {
             case ServerLoader.Paper:
@@ -172,19 +174,31 @@ public class ProxyService
                 ConfigFiles.SetYamlScalar(paperGlobal, ["proxies", "velocity", "online-mode"], proxy.OnlineMode ? "true" : "false");
                 ConfigFiles.SetYamlScalar(paperGlobal, ["proxies", "velocity", "secret"], ConfigFiles.YamlString(secret));
                 break;
-            default:
-                // Fabric (FabricProxy-Lite) and Forge/NeoForge (Proxy-Compatible-Forge) take the secret through
-                // their proxy mods' config; set up when those servers are created (step 3).
-                throw new NotSupportedException($"Proxy forwarding for {server.Loader} servers is configured when the server is created.");
+            case ServerLoader.Fabric:
+            case ServerLoader.Vanilla: // created as Fabric
+                // FabricProxy-Lite (config/FabricProxy-Lite.toml, top-level keys).
+                ConfigFiles.SetTomlKey(Path.Combine(server.Path, "config", "FabricProxy-Lite.toml"), null, "secret", ConfigFiles.TomlString(secret));
+                break;
+            case ServerLoader.Forge:
+            case ServerLoader.NeoForge:
+                // Proxy-Compatible-Forge (config/proxy-compatible-forge.toml, [forwarding]).
+                var pcf = Path.Combine(server.Path, "config", "proxy-compatible-forge.toml");
+                ConfigFiles.SetTomlKey(pcf, "forwarding", "enabled", "true");
+                ConfigFiles.SetTomlKey(pcf, "forwarding", "mode", ConfigFiles.TomlString("MODERN"));
+                ConfigFiles.SetTomlKey(pcf, "forwarding", "secret", ConfigFiles.TomlString(secret));
+                break;
         }
 
+        // Plugins keep their files in plugins/<name>/, mods in config/<name>/.
+        var addonConfig = server.Loader == ServerLoader.Paper ? Path.Combine(server.Path, "plugins") : Path.Combine(server.Path, "config");
+
         // Bedrock players reach this server through the proxy's Floodgate: the server's Floodgate must trust its key.
-        var backendFloodgate = Path.Combine(server.Path, "plugins", "floodgate");
+        var backendFloodgate = Path.Combine(addonConfig, "floodgate");
         if (Directory.Exists(backendFloodgate))
             File.Copy(Path.Combine(proxy.Path, "plugins", "floodgate", "key.pem"), Path.Combine(backendFloodgate, "key.pem"), overwrite: true);
 
         // Voice: an internal port per server (the proxy relays the public one), bound to this machine only.
-        var voice = Path.Combine(server.Path, "plugins", "voicechat", "voicechat-server.properties");
+        var voice = Path.Combine(addonConfig, "voicechat", "voicechat-server.properties");
         if (File.Exists(voice))
         {
             if (server.VoicePort == 0)

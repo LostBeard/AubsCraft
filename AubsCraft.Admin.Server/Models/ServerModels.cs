@@ -42,6 +42,11 @@ public class ServerDefinition
     /// <summary>JVM max heap (-Xmx) in MB. Used to warn before starting more servers than the machine has RAM for.</summary>
     public int MemoryMb { get; set; } = 3072;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    /// <summary>
+    /// Modrinth projects the PLAYERS' clients need for this server (mods that add blocks, creatures, sounds).
+    /// The /quest installer pushes them (with their dependencies) to headsets.
+    /// </summary>
+    public List<string> ClientMods { get; set; } = [];
 
     [JsonIgnore] public string LogPath => System.IO.Path.Combine(Path, "logs", "latest.log");
 

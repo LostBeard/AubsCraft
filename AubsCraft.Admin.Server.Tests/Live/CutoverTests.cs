@@ -43,6 +43,9 @@ public class CutoverTests
             if (serviceName == ServerService) { if (Server != null) await Server.DisposeAsync(); Server = null; }
             else { if (Proxy != null) await Proxy.DisposeAsync(); Proxy = null; }
         }
+
+        public Task EnableAsync(string serviceName, CancellationToken ct = default) => Task.CompletedTask;
+        public Task DisableAsync(string serviceName, CancellationToken ct = default) => Task.CompletedTask;
     }
 
     private readonly AddonDownloader _downloader = new();

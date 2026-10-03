@@ -9,6 +9,10 @@ public interface IServiceRunner
 {
     Task StartAsync(string serviceName, CancellationToken ct = default);
     Task StopAsync(string serviceName, CancellationToken ct = default);
+    /// <summary>Start at boot (systemctl enable).</summary>
+    Task EnableAsync(string serviceName, CancellationToken ct = default);
+    /// <summary>No longer start at boot (systemctl disable).</summary>
+    Task DisableAsync(string serviceName, CancellationToken ct = default);
 }
 
 /// <summary>systemctl start/stop through sudo (the panel's sudo rule allows exactly these units and verbs).</summary>
@@ -20,11 +24,13 @@ public class SystemdServiceRunner : IServiceRunner
 
     public Task StartAsync(string serviceName, CancellationToken ct = default) => RunAsync(serviceName, "start");
     public Task StopAsync(string serviceName, CancellationToken ct = default) => RunAsync(serviceName, "stop");
+    public Task EnableAsync(string serviceName, CancellationToken ct = default) => RunAsync(serviceName, "enable");
+    public Task DisableAsync(string serviceName, CancellationToken ct = default) => RunAsync(serviceName, "disable");
 
     private async Task RunAsync(string serviceName, string verb)
     {
         var control = new ServerControlService(serviceName, _loggers.CreateLogger<ServerControlService>());
-        var (ok, output) = verb == "start" ? await control.StartAsync() : await control.StopAsync();
+        var (ok, output) = await control.RunAsync(verb);
         if (!ok) throw new InvalidOperationException($"systemctl {verb} {serviceName} failed: {output}");
     }
 }

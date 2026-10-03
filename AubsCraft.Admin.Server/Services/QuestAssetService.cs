@@ -13,6 +13,16 @@ public class QuestAssetService
     readonly IHttpClientFactory _httpFactory;
     readonly ILogger<QuestAssetService> _log;
     readonly string _cacheDir;
+    readonly ServerRegistry _registry;
+    readonly AddonDownloader _downloader;
+
+    // Mods QCXR installs and updates itself (instances.json / mods.json, slug filenames). A second copy of any of
+    // them under another name crashes Fabric, so server client mods never push these - matched by Modrinth
+    // project id, because dependencies are listed by id.
+    static readonly string[] QcxrManagedSlugs = ["fabric-api", "vivecraft", "sodium", "cloth-config", "simple-voice-chat"];
+
+    // Server client mods in the current manifest (id -> verified artifact): downloaded through AddonDownloader.
+    Dictionary<string, AddonArtifact> _serverClientArtifacts = new(StringComparer.OrdinalIgnoreCase);
 
     // The Minecraft/Fabric version QuestCraft (QCXR) runs - mods must match this exactly.
     // Verified on-device: QCXR 6.0.0 runs MC 1.21.5 + Fabric, matching the Paper 1.21.5 server directly.
@@ -32,9 +42,12 @@ public class QuestAssetService
     readonly TimeSpan _manifestTtl = TimeSpan.FromMinutes(30);
     readonly SemaphoreSlim _gate = new(1, 1);
 
-    public QuestAssetService(IHttpClientFactory httpFactory, IWebHostEnvironment env, ILogger<QuestAssetService> log)
+    public QuestAssetService(IHttpClientFactory httpFactory, IWebHostEnvironment env, ServerRegistry registry, AddonDownloader downloader,
+        ILogger<QuestAssetService> log)
     {
         _httpFactory = httpFactory;
+        _registry = registry;
+        _downloader = downloader;
         _log = log;
         _cacheDir = Path.Combine(env.ContentRootPath, "quest-cache");
         Directory.CreateDirectory(_cacheDir);
@@ -69,6 +82,7 @@ public class QuestAssetService
                 var info = await ResolveModAsync(http, m.Id, m.Slug, m.Name, m.TargetFilename, ct);
                 if (info != null) mods.Add(info);
             }
+            mods.AddRange(await ResolveServerClientModsAsync(http, ct));
 
             _cachedManifest = new QuestManifest(
                 QuestCraft: questCraft,
@@ -84,6 +98,33 @@ public class QuestAssetService
             return _cachedManifest;
         }
         finally { _gate.Release(); }
+    }
+
+    /// <summary>
+    /// The client mods every Fabric server on QuestCraft's Minecraft version needs (ServerDefinition.ClientMods),
+    /// with their required dependencies, minus what QCXR manages itself. Each is written as
+    /// aubscraft-{projectId}.jar: a stable name, so an update overwrites the old jar instead of leaving a duplicate.
+    /// </summary>
+    async Task<List<QuestModInfo>> ResolveServerClientModsAsync(HttpClient http, CancellationToken ct)
+    {
+        var slugs = _registry.All
+            .Where(s => s.Loader is AubsCraft.Admin.Server.Models.ServerLoader.Fabric && s.GameVersion == ModGameVersion)
+            .SelectMany(s => s.ClientMods).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var artifacts = new Dictionary<string, AddonArtifact>(StringComparer.OrdinalIgnoreCase);
+        if (slugs.Count > 0)
+        {
+            var managed = new HashSet<string>(QcxrManagedSlugs, StringComparer.OrdinalIgnoreCase);
+            foreach (var slug in QcxrManagedSlugs)
+            {
+                using var doc = JsonDocument.Parse(await http.GetStringAsync($"https://api.modrinth.com/v2/project/{slug}", ct));
+                managed.Add(doc.RootElement.GetProperty("id").GetString()!);
+            }
+            foreach (var a in await _downloader.ModrinthWithDependenciesAsync(slugs, "fabric", ModGameVersion, managed, ct))
+                artifacts[a.ProjectId ?? a.Name] = a;
+        }
+        _serverClientArtifacts = artifacts;
+        return artifacts.Select(kv => new QuestModInfo(kv.Key, kv.Value.Name, kv.Value.Version, kv.Value.FileName,
+            $"aubscraft-{kv.Key}.jar", kv.Value.Url, 0)).ToList();
     }
 
     async Task<QuestCraftInfo> ResolveQuestCraftAsync(HttpClient http, CancellationToken ct)
@@ -163,7 +204,13 @@ public class QuestAssetService
         }
 
         var cachePath = Path.Combine(_cacheDir, filename);
-        if (!File.Exists(cachePath))
+        if (_serverClientArtifacts.TryGetValue(id, out var verified))
+        {
+            // Server client mods: checksum-verified download (kept in the cache once verified).
+            if (!AddonDownloader.IsCurrent(verified, cachePath))
+                await _downloader.DownloadAsync(verified, cachePath, ct);
+        }
+        else if (!File.Exists(cachePath))
         {
             await DownloadToCacheAsync(upstreamUrl, cachePath, ct);
         }

@@ -32,7 +32,11 @@ chmod 0440 /etc/sudoers.d/vm-zed
 echo "[3] The Minecraft server, laid out and owned like /opt/minecraft/server on the VM"
 install -d -o minecraft -g minecraft -m 2777 /opt/minecraft/server /opt/minecraft/server/plugins
 cp "$CACHE/paper-1.21.5-114.jar" /opt/minecraft/server/server.jar
-for j in "$CACHE"/servers/cutover/plugins/*.jar; do cp "$j" /opt/minecraft/server/plugins/; done
+# The cache may hold them as .jar.disabled (the cutover test disables Geyser/Via): restore the VM's .jar names.
+for j in "$CACHE"/servers/cutover/plugins/*.jar "$CACHE"/servers/cutover/plugins/*.jar.disabled; do
+    [ -e "$j" ] || continue
+    b=$(basename "$j"); cp "$j" "/opt/minecraft/server/plugins/${b%.disabled}"
+done
 echo "eula=true" > /opt/minecraft/server/eula.txt
 cat > /opt/minecraft/server/server.properties <<'PROPS'
 enable-rcon=true
@@ -100,7 +104,7 @@ for i in $(seq 1 180); do grep -q 'For help, type' /opt/minecraft/server/logs/la
 grep -m1 'For help, type' /opt/minecraft/server/logs/latest.log
 
 echo "[6] The leftovers from copies over the M: drive: zed-owned, owner-only files in the server folder"
-sudo -u zed mkdir -m 700 /opt/minecraft/server/plugins-backup
+sudo -u zed mkdir -p -m 700 /opt/minecraft/server/plugins-backup
 sudo -u zed cp /opt/minecraft/server/plugins/ViaVersion*.jar /opt/minecraft/server/plugins-backup/ViaVersion.jar.bak
 sudo -u zed chmod 600 /opt/minecraft/server/plugins-backup/ViaVersion.jar.bak
 

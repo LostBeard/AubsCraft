@@ -42,6 +42,9 @@ public class ServerControlService
         return await RunSystemctlAsync("status");
     }
 
+    /// <summary>Any systemctl verb the panel's sudo rule allows (start, stop, restart, status, enable, disable, is-active).</summary>
+    public Task<(bool success, string output)> RunAsync(string action) => RunSystemctlAsync(action);
+
     private async Task<(bool success, string output)> RunSystemctlAsync(string action)
     {
         try

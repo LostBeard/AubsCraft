@@ -5,7 +5,8 @@ using System.Text.Json;
 namespace AubsCraft.Admin.Server.Services;
 
 /// <summary>A downloadable jar with the checksum its source publishes (or a pinned one).</summary>
-public record AddonArtifact(string Name, string FileName, string Url, string HashAlgorithm, string Hash, string Version);
+public record AddonArtifact(string Name, string FileName, string Url, string HashAlgorithm, string Hash, string Version,
+    string? ProjectId = null, IReadOnlyList<string>? RequiredProjectIds = null);
 
 /// <summary>
 /// Resolves server software and add-ons to exact downloads WITH checksums, and downloads them verified:
@@ -70,8 +71,45 @@ public class AddonDownloader
             throw new InvalidOperationException($"Modrinth has no {loader} build of '{slug}'{(gameVersion != null ? " for " + gameVersion : "")}.");
         var file = pick.GetProperty("files").EnumerateArray().FirstOrDefault(f => f.GetProperty("primary").GetBoolean());
         if (file.ValueKind == JsonValueKind.Undefined) file = pick.GetProperty("files")[0];
+        var required = pick.GetProperty("dependencies").EnumerateArray()
+            .Where(d => d.GetProperty("dependency_type").GetString() == "required"
+                        && d.TryGetProperty("project_id", out var pid) && pid.ValueKind == JsonValueKind.String)
+            .Select(d => d.GetProperty("project_id").GetString()!)
+            .ToList();
         return new AddonArtifact(slug, file.GetProperty("filename").GetString()!, file.GetProperty("url").GetString()!,
-            "sha512", file.GetProperty("hashes").GetProperty("sha512").GetString()!, pick.GetProperty("version_number").GetString()!);
+            "sha512", file.GetProperty("hashes").GetProperty("sha512").GetString()!, pick.GetProperty("version_number").GetString()!,
+            pick.GetProperty("project_id").GetString(), required);
+    }
+
+    /// <summary>
+    /// A Modrinth project plus everything it REQUIRES (recursively), for one loader and Minecraft version,
+    /// each once (by project id). <paramref name="alreadyHave"/> are project ids or slugs to skip (e.g. installed).
+    /// A required dependency with no build for this loader/version fails the whole resolution: installing the
+    /// mod without it would crash the server on start.
+    /// </summary>
+    public async Task<List<AddonArtifact>> ModrinthWithDependenciesAsync(IEnumerable<string> slugs, string loader, string gameVersion,
+        ISet<string>? alreadyHave = null, CancellationToken ct = default)
+    {
+        var result = new List<AddonArtifact>();
+        var seen = new HashSet<string>(alreadyHave ?? new HashSet<string>(), StringComparer.OrdinalIgnoreCase);
+        var queue = new Queue<string>(slugs);
+        while (queue.Count > 0)
+        {
+            var next = queue.Dequeue();
+            if (seen.Contains(next)) continue;
+            var a = await ModrinthAsync(next, loader, gameVersion, ct);
+            if (a.ProjectId == next)
+            {
+                // Reached as a dependency (by id): name it by its slug, which people recognise.
+                using var project = JsonDocument.Parse(await GetStringAsync($"https://api.modrinth.com/v2/project/{next}", ct));
+                a = a with { Name = project.RootElement.GetProperty("slug").GetString() ?? next };
+            }
+            seen.Add(next);
+            if (a.ProjectId != null && !seen.Add(a.ProjectId) && next != a.ProjectId) continue; // reached by another name
+            result.Add(a);
+            foreach (var dep in a.RequiredProjectIds ?? []) queue.Enqueue(dep);
+        }
+        return result;
     }
 
     /// <summary>
