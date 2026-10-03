@@ -1,0 +1,151 @@
+@page "/proxy"
+@inject ServerHubClient Hub
+@inject AuthStateProvider Auth
+@implements IDisposable
+
+<PageTitle>Proxy - AubsCraft Admin</PageTitle>
+
+<h1>Velocity Proxy</h1>
+
+@if (!Auth.IsOwner)
+{
+    <div class="alert alert-warning">Only the owner can manage the proxy.</div>
+}
+else if (_loading)
+{
+    <p><em>Loading...</em></p>
+}
+else if (_status != null)
+{
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">
+                <span class="server-dot @(_status.Online ? "online" : "offline")"></span>
+                Velocity @_status.Version is @(_status.Online ? "running" : "not answering")
+            </h5>
+            <p class="mb-1">Players connect to port <strong>@_status.Port</strong> (Java), <strong>@_status.BedrockPort</strong> UDP (Bedrock), voice chat on <strong>@_status.VoicePort</strong> UDP.</p>
+            <p class="text-muted mb-2">Players switch servers with <code>/server &lt;name&gt;</code>.</p>
+            @if (!string.IsNullOrWhiteSpace(_status.Players))
+            {
+                <pre class="mb-0 small">@_status.Players</pre>
+            }
+        </div>
+    </div>
+}
+else if (_preview != null)
+{
+    <p>
+        Right now players connect straight to <strong>@_preview.ServerName</strong>. With the proxy in front, everyone still uses the
+        <strong>same address</strong> and can move between servers in game with <code>/server &lt;name&gt;</code>.
+    </p>
+
+    <div class="card mb-3">
+        <div class="card-header"><strong>What the switch changes</strong></div>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item">The proxy takes over the public ports: <strong>@_preview.PublicPort</strong> (Java), <strong>@_preview.BedrockPort</strong> UDP (Bedrock / Geyser), <strong>@_preview.VoicePort</strong> UDP (voice chat). No router changes.</li>
+            <li class="list-group-item"><strong>@_preview.ServerName</strong> moves to <code>127.0.0.1:@_preview.NewGamePort</code> (this machine only), voice on <code>127.0.0.1:@_preview.NewVoicePort</code>.</li>
+            <li class="list-group-item">Geyser and ViaVersion move from the server to the proxy. Floodgate, voice chat and Vivecraft keep working through it.</li>
+            <li class="list-group-item">A full backup of @_preview.ServerName is taken first. If anything fails, it is restored and the server comes back exactly as it was.</li>
+            <li class="list-group-item">Downtime: a minute or two (mostly the backup). Anyone online is disconnected.</li>
+        </ul>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header"><strong>Ready?</strong></div>
+        <ul class="list-group list-group-flush">
+            @foreach (var p in _preview.Prerequisites)
+            {
+                <li class="list-group-item">
+                    <span class="me-2">@(p.Ok ? "✔" : "✘")</span>@p.What
+                    @if (!p.Ok)
+                    {
+                        <div class="small text-muted ms-4">@p.Fix</div>
+                    }
+                </li>
+            }
+        </ul>
+    </div>
+
+    <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="confirm-cutover" @bind="_confirmed" disabled="@_running" />
+        <label class="form-check-label" for="confirm-cutover">I understand everyone online is disconnected for a minute or two.</label>
+    </div>
+    <button class="btn btn-primary" disabled="@(!_confirmed || _running || !Ready)" @onclick="StartAsync">
+        @(_running ? "Switching..." : "Switch to the proxy now")
+    </button>
+    @if (_message != null)
+    {
+        <div class="alert @(_messageOk ? "alert-info" : "alert-danger") mt-3">@_message</div>
+    }
+}
+
+@if (_log.Count > 0)
+{
+    <div class="card mt-4">
+        <div class="card-header"><strong>Progress</strong></div>
+        <div class="card-body">
+            <pre class="mb-0 small">@string.Join("\n", _log)</pre>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private ProxyStatusDto? _status;
+    private CutoverPreviewDto? _preview;
+    private bool _confirmed;
+    private bool _running;
+    private string? _message;
+    private bool _messageOk;
+    private readonly List<string> _log = [];
+
+    private bool Ready => _preview?.Prerequisites.All(p => p.Ok) == true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Hub.OnOperationProgress += OnProgress;
+        await Hub.ConnectAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _status = await Hub.GetProxyStatusAsync();
+        if (_status == null && Hub.Servers.Count > 0)
+        {
+            // The cutover moves the primary server (the one players connect to today).
+            _preview = await Hub.GetCutoverPreviewAsync(Hub.Servers[0].Id);
+            if (_preview != null && _log.Count == 0) _log.AddRange(_preview.Log);
+        }
+        _loading = false;
+    }
+
+    private async Task StartAsync()
+    {
+        if (_preview == null) return;
+        _running = true;
+        _message = null;
+        _log.Clear();
+        var result = await Hub.StartProxyCutoverAsync(_preview.ServerId, _preview.NewGamePort, _preview.NewVoicePort);
+        _message = result.Message;
+        _messageOk = result.Success;
+        if (!result.Success) _running = false;
+    }
+
+    private void OnProgress(OperationProgressDto p)
+    {
+        if (p.Operation != "proxy-cutover") return;
+        _log.Add($"{DateTime.Now:HH:mm:ss} {p.Message}");
+        if (p.Done)
+        {
+            _running = false;
+            _message = p.Failed ? p.Message : "The proxy is running. Players connect exactly as before.";
+            _messageOk = !p.Failed;
+            _ = InvokeAsync(async () => { await LoadAsync(); StateHasChanged(); });
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => Hub.OnOperationProgress -= OnProgress;
+}

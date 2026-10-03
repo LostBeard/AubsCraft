@@ -113,6 +113,8 @@ public class ServerHubClient : IAsyncDisposable
     public event Action<ChatMessageDto>? OnChatMessageReceived;
     /// <summary>TPS readings of the SELECTED server.</summary>
     public event Action<TpsReadingDto>? OnTpsReadingReceived;
+    /// <summary>Progress lines from a long operation (the proxy cutover).</summary>
+    public event Action<OperationProgressDto>? OnOperationProgress;
     public event Action<HubConnectionState>? OnStateChanged;
     public event Action<string>? OnError;
 
@@ -197,6 +199,8 @@ public class ServerHubClient : IAsyncDisposable
         });
 
         _hub.On<List<ServerSummaryDto>>("ReceiveServerList", ApplyServerList);
+
+        _hub.On<OperationProgressDto>("ReceiveOperationProgress", p => OnOperationProgress?.Invoke(p));
 
         _hub.Reconnecting += _ => { OnStateChanged?.Invoke(HubConnectionState.Reconnecting); return Task.CompletedTask; };
         _hub.Reconnected += _ => { OnStateChanged?.Invoke(HubConnectionState.Connected); return Task.CompletedTask; };
@@ -332,6 +336,17 @@ public class ServerHubClient : IAsyncDisposable
 
     public Task<List<PlayerPositionDto>> GetPlayerPositionsAsync()
         => SafeInvokeAsync<List<PlayerPositionDto>>("GetPlayerPositions", [], Sid);
+
+    // -- Velocity proxy (owner) --
+
+    public Task<ProxyStatusDto?> GetProxyStatusAsync()
+        => SafeInvokeAsync<ProxyStatusDto?>("GetProxyStatus", null);
+
+    public Task<CutoverPreviewDto?> GetCutoverPreviewAsync(string serverId)
+        => SafeInvokeAsync<CutoverPreviewDto?>("GetCutoverPreview", null, serverId);
+
+    public Task<ToggleResultDto> StartProxyCutoverAsync(string serverId, int newGamePort, int voicePort)
+        => SafeInvokeAsync("StartProxyCutover", new ToggleResultDto(false, "Connection lost"), serverId, newGamePort, voicePort);
 
     // -- Config --
 
@@ -623,6 +638,13 @@ public record PublicServerStatusDto(
     int Online,
     int Max,
     List<string> Players);
+
+// -- Proxy DTOs (mirror Server/Services/ProxyOperationsService.cs) --
+public record PrerequisiteDto(string What, bool Ok, string Fix);
+public record CutoverPreviewDto(string ServerId, string ServerName, int PublicPort, int BedrockPort, int VoicePort,
+    int NewGamePort, int NewVoicePort, List<PrerequisiteDto> Prerequisites, List<string> Log);
+public record ProxyStatusDto(bool Online, int Port, int BedrockPort, int VoicePort, string Version, string? Players);
+public record OperationProgressDto(string Operation, string Message, bool Done, bool Failed);
 
 /// <summary>Mirrors the server's HostCapacityDto.</summary>
 public record HostCapacityDto(long TotalMemoryMb, int Cores, int RunningServers, long NeededMemoryMb, List<string> Warnings);

@@ -1,4 +1,5 @@
 using AubsCraft.Admin.Server.Models;
+using AubsCraft.Admin.Server.Services;
 
 namespace AubsCraft.Admin.Server.Hubs;
 
@@ -13,4 +14,6 @@ public interface IServerHubClient
     Task ReceiveChatMessage(ChatMessageDto msg);
     Task ReceiveTpsReading(TpsReadingDto reading);
     Task ReceiveServerList(List<ServerSummaryDto> servers);
+    /// <summary>A line of progress from a long operation (the proxy cutover).</summary>
+    Task ReceiveOperationProgress(OperationProgressDto progress);
 }

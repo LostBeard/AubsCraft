@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Net.WebSockets;
 using System.Text;
+using AubsCraft.Admin.Server.Hubs;
 using AubsCraft.Admin.Server.Models;
 using AubsCraft.Admin.Server.Services;
 using Microsoft.AspNetCore.Hosting;
@@ -172,6 +173,21 @@ public class AppEndToEndTests
         await _hub.InvokeAsync<string>("WhitelistAdd", "HubPlayer");
         Assert.That(await _hub.InvokeAsync<List<string>>("GetWhitelist", "alpha"), Does.Contain("HubPlayer"));
         Assert.That(await _hub.InvokeAsync<List<string>>("GetWhitelist", "bravo"), Does.Contain("HubPlayer"));
+    }
+
+    [Test, Order(5)]
+    public async Task Hub_ProxyApi_PreviewsAndRefusesWhenTheMachineIsNotReady()
+    {
+        Assert.That(await _hub.InvokeAsync<ProxyStatusDto?>("GetProxyStatus"), Is.Null, "no proxy yet");
+
+        var preview = await _hub.InvokeAsync<CutoverPreviewDto>("GetCutoverPreview", "alpha");
+        Assert.That((preview.PublicPort, preview.BedrockPort, preview.VoicePort), Is.EqualTo((25565, 19132, 24454)), "the public ports stay");
+        Assert.That(preview.NewGamePort, Is.EqualTo(25566));
+        // This test machine has no velocity.service / /opt/minecraft/velocity: the cutover must refuse, not start.
+        Assert.That(preview.Prerequisites, Has.Some.Matches<PrerequisiteDto>(p => !p.Ok));
+        var result = await _hub.InvokeAsync<HubResult>("StartProxyCutover", "alpha", preview.NewGamePort, preview.NewVoicePort);
+        Assert.That(result.Success, Is.False);
+        Assert.That(result.Message, Does.StartWith("Not ready"));
     }
 
     [Test, Order(6)]

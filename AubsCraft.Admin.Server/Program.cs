@@ -16,6 +16,13 @@ builder.Services.AddSingleton<ServerRegistry>();
 builder.Services.AddSingleton<ServerManager>();
 builder.Services.AddSingleton<NetworkModerationService>();
 builder.Services.AddSingleton<HostCapacityService>();
+// The Velocity proxy: verified downloads, its config, backups, and the one-time cutover (systemd on the VM).
+builder.Services.AddSingleton(_ => new AddonDownloader());
+builder.Services.AddSingleton<ProxyService>();
+builder.Services.AddSingleton<BackupService>();
+builder.Services.AddSingleton<IServiceRunner, SystemdServiceRunner>();
+builder.Services.AddSingleton<ProxyCutoverService>();
+builder.Services.AddSingleton<ProxyOperationsService>();
 builder.Services.AddSingleton<ServerMonitorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ServerMonitorService>());
 builder.Services.AddHostedService<LogTailService>();

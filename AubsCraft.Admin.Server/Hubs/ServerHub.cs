@@ -24,6 +24,7 @@ public class ServerHub : Hub<IServerHubClient>
     private readonly ServerManager _servers;
     private readonly NetworkModerationService _moderation;
     private readonly HostCapacityService _capacity;
+    private readonly ProxyOperationsService _proxyOps;
     private readonly ActivityLogService _activityLog;
     private readonly ModrinthService _modrinth;
     private readonly AuthService _auth;
@@ -33,7 +34,8 @@ public class ServerHub : Hub<IServerHubClient>
     private readonly IConfiguration _configuration;
     private readonly ILogger<ServerHub> _logger;
 
-    public ServerHub(ServerManager servers, NetworkModerationService moderation, HostCapacityService capacity, ActivityLogService activityLog,
+    public ServerHub(ServerManager servers, NetworkModerationService moderation, HostCapacityService capacity,
+        ProxyOperationsService proxyOps, ActivityLogService activityLog,
         ModrinthService modrinth, AuthService auth, InviteCodeService invites,
         WhitelistAuditService whitelistAudit, EmailNotificationService email,
         IConfiguration configuration, ILogger<ServerHub> logger)
@@ -41,6 +43,7 @@ public class ServerHub : Hub<IServerHubClient>
         _servers = servers;
         _moderation = moderation;
         _capacity = capacity;
+        _proxyOps = proxyOps;
         _activityLog = activityLog;
         _modrinth = modrinth;
         _auth = auth;
@@ -396,6 +399,24 @@ public class ServerHub : Hub<IServerHubClient>
                 positions.Add(new PlayerPositionDto(pos.Name, pos.X, pos.Y, pos.Z));
         }
         return positions;
+    }
+
+    // -- Velocity proxy (owner only: it changes how every player connects) --
+
+    [Authorize(Roles = Roles.Owner)]
+    public Task<ProxyStatusDto?> GetProxyStatus() => _proxyOps.StatusAsync();
+
+    /// <summary>What the cutover would do for this server, the machine's readiness, and the last run's log.</summary>
+    [Authorize(Roles = Roles.Owner)]
+    public CutoverPreviewDto GetCutoverPreview(string serverId) => _proxyOps.Preview(serverId);
+
+    /// <summary>Starts the cutover in the background; progress arrives as ReceiveOperationProgress.</summary>
+    [Authorize(Roles = Roles.Owner)]
+    public HubResult StartProxyCutover(string serverId, int newGamePort, int voicePort)
+    {
+        Server(serverId);
+        var message = _proxyOps.StartCutover(serverId, newGamePort, voicePort, CurrentUsername);
+        return new HubResult(message == "Cutover started.", message);
     }
 
     // -- Config --
