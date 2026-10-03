@@ -1,2 +1,4 @@
 # Shell scripts run on the Linux VM: always LF, even in a Windows checkout.
 *.sh text eol=lf
+# Batch files run in cmd.exe, which misparses LF-only files: always CRLF.
+*.bat text eol=crlf
