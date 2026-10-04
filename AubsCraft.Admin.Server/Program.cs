@@ -91,6 +91,8 @@ try
         if (proxyService.InstallGate(proxyDef))
             app.Logger.LogWarning("The AubsCraft Gate proxy plugin was installed: restart the proxy (velocity) to load it");
         ProxyService.WriteJavaOnly(proxyDef, registry.All, proxyService.PublicUrl);
+        // Each server's version for ViaVersion (read on the proxy's next start or "viaversion reload").
+        ProxyService.WriteViaVersionServers(proxyDef, registry.All);
     }
 }
 catch (Exception ex) { app.Logger.LogError(ex, "Could not set up the AubsCraft Gate proxy plugin"); }

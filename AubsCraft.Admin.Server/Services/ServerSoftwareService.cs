@@ -23,17 +23,26 @@ public class ServerSoftwareService
     /// <summary>The java that runs installers (the VM's /usr/bin/java; tests set their JDK 25).</summary>
     public string JavaPath { get; set; }
 
+    /// <summary>
+    /// Java 21, for Forge: Forge for 1.21.x bundles a Mixin whose ASM cannot read Java 25 class files, so the first mod
+    /// with mixins (Proxy-Compatible-Forge) crashes it on Java 25 ("Unsupported class file major version 69"). NeoForge
+    /// ships a newer Mixin and runs on Java 25. The VM has OpenJDK 21 installed next to 25.
+    /// </summary>
+    public string Java21Path { get; set; }
+
     public ServerSoftwareService(AddonDownloader downloader, IConfiguration configuration, ILogger<ServerSoftwareService> logger)
     {
         _downloader = downloader;
         _logger = logger;
         JavaPath = configuration.GetValue<string>("Java:Path") ?? "java";
+        Java21Path = configuration.GetValue<string>("Java:Java21") ?? "/usr/lib/jvm/java-21-openjdk-amd64/bin/java";
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("AubsCraft-Admin/1.0 (https://github.com/LostBeard)");
     }
 
     /// <summary>How the installed software starts: the java arguments after the heap flags (systemd LAUNCH).</summary>
-    public record Installed(string LaunchArgs, string Description);
+    /// <param name="Java">The java this server must run with, when not the default one (minecraft@.service's JAVA).</param>
+    public record Installed(string LaunchArgs, string Description, string? Java = null);
 
     /// <summary>The loader that is actually installed for a requested one (Vanilla -> Fabric, see above).</summary>
     public static ServerLoader Effective(ServerLoader requested) => requested == ServerLoader.Vanilla ? ServerLoader.Fabric : requested;
@@ -103,11 +112,11 @@ public class ServerSoftwareService
                 var installer = await MavenAsync("https://maven.minecraftforge.net/net/minecraftforge/forge", full, "forge", "-installer", ct);
                 var path = Path.Combine(dir, ".installer.jar");
                 await _downloader.DownloadAsync(installer, path, ct);
-                await RunInstallerAsync(dir, ["-jar", path, "--installServer", dir], ct);
+                await RunInstallerAsync(dir, ["-jar", path, "--installServer", dir], ct, Java21Path);
                 File.Delete(path);
                 var args = $"libraries/net/minecraftforge/forge/{full}/{ArgsFile}";
                 Require(dir, args, "user_jvm_args.txt");
-                return new Installed($"@user_jvm_args.txt @{args}", $"Forge {full}");
+                return new Installed($"@user_jvm_args.txt @{args}", $"Forge {full} (runs on Java 21)", Java21Path);
             }
             case ServerLoader.NeoForge:
             {
@@ -139,9 +148,9 @@ public class ServerSoftwareService
                 throw new InvalidOperationException($"The installer did not produce {f}.");
     }
 
-    private async Task RunInstallerAsync(string dir, string[] args, CancellationToken ct)
+    private async Task RunInstallerAsync(string dir, string[] args, CancellationToken ct, string? java = null)
     {
-        var psi = new ProcessStartInfo(JavaPath, args)
+        var psi = new ProcessStartInfo(java ?? JavaPath, args)
         {
             WorkingDirectory = dir,
             RedirectStandardOutput = true,

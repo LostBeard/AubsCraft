@@ -83,7 +83,7 @@ public class SpawnPortalTests
         await _runner.StartAsync(MainService);
         await _runner.StartAsync(ProxyServiceName);
 
-        var software = new ServerSoftwareService(_downloader, config, TestUtil.Log<ServerSoftwareService>()) { JavaPath = await Jdk.JavaAsync() };
+        var software = new ServerSoftwareService(_downloader, config, TestUtil.Log<ServerSoftwareService>()) { JavaPath = await Jdk.JavaAsync(), Java21Path = await Jdk.Java21Async() };
         var provisioning = new ServerProvisioningService(_registry, software, _downloader, proxyService, _runner, config, TestUtil.Log<ServerProvisioningService>());
         _fabric = await provisioning.CreateAsync(new ServerProvisioningService.CreateServerRequest(
             "spfabric", "SP Fabric", ServerLoader.Fabric, "1.21.5", 2048, ["proxyportal"], PaperServer.Seed));

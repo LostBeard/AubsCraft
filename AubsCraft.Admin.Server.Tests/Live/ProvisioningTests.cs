@@ -62,14 +62,17 @@ public class ProvisioningTests
         _serversRoot = Path.Combine(PaperServer.CacheRoot, "prov-servers");
         if (Directory.Exists(_serversRoot)) Directory.Delete(_serversRoot, true);
         var proxyDir = Path.Combine(PaperServer.CacheRoot, "velocity-prov");
-        foreach (var f in new[] { "velocity.toml", "forwarding.secret" }) { var p = Path.Combine(proxyDir, f); if (File.Exists(p)) File.Delete(p); }
+        // A new proxy each run - including ViaVersion's config, whose saved server versions would otherwise hide a
+        // missing "velocity-servers" entry (a fresh one assumes default: 4 = Minecraft 1.7.2).
+        foreach (var f in new[] { "velocity.toml", "forwarding.secret", Path.Combine("plugins", "viaversion", "config.yml") })
+        { var p = Path.Combine(proxyDir, f); if (File.Exists(p)) File.Delete(p); }
 
         var config = TestUtil.Config(("Servers:RegistryPath", Path.Combine(dir, "servers.json")), ("Servers:Root", _serversRoot));
         _registry = new ServerRegistry(config, TestUtil.Log<ServerRegistry>());
         _registry.Remove(ServerRegistry.LegacyServerId);
         _proxyService = new ProxyService(_downloader, TestUtil.Log<ProxyService>());
         _runner = new Runner(_serversRoot, proxyDir);
-        var software = new ServerSoftwareService(_downloader, config, TestUtil.Log<ServerSoftwareService>()) { JavaPath = await Jdk.JavaAsync() };
+        var software = new ServerSoftwareService(_downloader, config, TestUtil.Log<ServerSoftwareService>()) { JavaPath = await Jdk.JavaAsync(), Java21Path = await Jdk.Java21Async() };
         _provisioning = new ServerProvisioningService(_registry, software, _downloader, _proxyService, _runner, config, TestUtil.Log<ServerProvisioningService>());
 
         // The VM after the cutover: Paper main server behind Velocity.
@@ -150,6 +153,40 @@ public class ProvisioningTests
         using var gz = new System.IO.Compression.GZipStream(File.OpenRead(firstStart), System.IO.Compression.CompressionMode.Decompress);
         using var reader = new StreamReader(gz);
         Assert.That(reader.ReadToEnd(), Does.Contain($"Voice chat server started at 127.0.0.1:{def.VoicePort}"), "first start: " + firstStart);
+    }
+
+    /// <summary>
+    /// Forge (on Java 21 - its Mixin cannot read Java 25 classes) and NeoForge (on the VM's Java 25): created with their
+    /// add-ons (Proxy-Compatible-Forge's mixins, Simple Voice Chat), started, and joined through the proxy by a real
+    /// client within a minute of being created - with no class-version or mixin errors.
+    /// </summary>
+    [Order(5)]
+    [TestCase(ServerLoader.Forge, "forge-one")]
+    [TestCase(ServerLoader.NeoForge, "neoforge-one")]
+    public async Task ForgeFamilyServer_Runs_AndIsReachableThroughTheProxy(ServerLoader loader, string id)
+    {
+        var steps = new List<string>();
+        var def = await _provisioning.CreateAsync(new ServerProvisioningService.CreateServerRequest(
+            id, id, loader, "1.21.5", 2048, []), new Progress<string>(steps.Add));
+        TestContext.Progress.WriteLine(string.Join("\n", steps));
+        var env = File.ReadAllText(Path.Combine(def.Path, "aubscraft.env"));
+        Assert.That(env.Contains("JAVA="), Is.EqualTo(loader == ServerLoader.Forge), "only Forge names its own Java (21): " + env);
+        try
+        {
+            await Task.Delay(3500); // Velocity login-ratelimit
+            await using (var bot = TestBot.Start("127.0.0.1", ProxyPort, "Forge" + (loader == ServerLoader.Forge ? "F" : "N")))
+            {
+                await bot.WaitForSpawnAsync(TimeSpan.FromSeconds(60));
+                await bot.ChatAsync("/server " + id);
+                await TestUtil.WaitUntilAsync(async () => (await PlayersOn(def)).Count > 0, TimeSpan.FromSeconds(60),
+                    $"the bot reached the {loader} server: " + bot.Transcript);
+            }
+            var output = _runner.Servers[def.ServiceName].Output;
+            var bad = output.Where(l => l.Contains("UnsupportedClassVersionError") || l.Contains("Unsupported class file major version")
+                                        || l.Contains("MixinApplyError") || l.Contains("Mixin apply failed")).ToList();
+            Assert.That(bad, Is.Empty, string.Join("\n", bad.Take(10)));
+        }
+        finally { await _runner.StopAsync(def.ServiceName); }
     }
 
     [Test, Order(2)]

@@ -25,7 +25,9 @@ public sealed class EnvFileProcess : IAsyncDisposable
         var args = env["JAVA_OPTS"].Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Concat(env["LAUNCH"].Split(' ', StringSplitOptions.RemoveEmptyEntries))
             .Append("nogui").ToList();
-        var psi = new ProcessStartInfo(await Jdk.JavaAsync(), args)
+        // As minecraft@.service: the server's own JAVA when it names one (Forge: Java 21), else the default.
+        var java = env.TryGetValue("JAVA", out var own) ? own : await Jdk.JavaAsync();
+        var psi = new ProcessStartInfo(java, args)
         {
             WorkingDirectory = dir,
             RedirectStandardInput = true,

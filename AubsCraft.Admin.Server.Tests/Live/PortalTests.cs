@@ -79,7 +79,7 @@ public class PortalTests
         await _runner.StartAsync(ProxyServiceName);
 
         // A Fabric server with ProxyPortal, created exactly as the Servers page creates one.
-        var software = new ServerSoftwareService(_downloader, config, TestUtil.Log<ServerSoftwareService>()) { JavaPath = await Jdk.JavaAsync() };
+        var software = new ServerSoftwareService(_downloader, config, TestUtil.Log<ServerSoftwareService>()) { JavaPath = await Jdk.JavaAsync(), Java21Path = await Jdk.Java21Async() };
         var provisioning = new ServerProvisioningService(_registry, software, _downloader, proxyService, _runner, config, TestUtil.Log<ServerProvisioningService>());
         _fabric = await provisioning.CreateAsync(new ServerProvisioningService.CreateServerRequest(
             "fabricp", "Fabric P", ServerLoader.Fabric, "1.21.5", 2048, ["proxyportal"]));

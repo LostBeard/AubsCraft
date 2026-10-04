@@ -46,7 +46,9 @@ WorkingDirectory=/opt/minecraft/servers/%i
 #               "-jar fabric-server-launch.jar" (Fabric), "@libraries/.../unix_args.txt" (Forge / NeoForge)
 EnvironmentFile=/opt/minecraft/servers/%i/aubscraft.env
 # systemd splits the unbraced $VARS on whitespace into separate arguments.
-ExecStart=/usr/bin/java $JAVA_OPTS $LAUNCH nogui
+# JAVA (optional, per server): the java to run - Forge needs Java 21; everything else uses /usr/bin/java.
+# $$ passes a literal $ to sh, which expands the variables from the EnvironmentFile.
+ExecStart=/bin/sh -c 'exec "$${JAVA:-/usr/bin/java}" $$JAVA_OPTS $$LAUNCH nogui'
 # Minecraft saves and exits on SIGTERM; 143 is that clean exit.
 SuccessExitStatus=143
 TimeoutStopSec=120

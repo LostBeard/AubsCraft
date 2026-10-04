@@ -169,6 +169,34 @@ public class ProxyService
         ConfigFiles.SetYamlScalar(Path.Combine(proxy.Path, "plugins", "floodgate", "config.yml"), ["send-floodgate-data"], "true");
         ConfigFiles.SetYamlScalar(Path.Combine(proxy.Path, "plugins", "Geyser-Velocity", "config.yml"), ["bedrock", "port"], proxy.BedrockPort.ToString());
         WriteJavaOnly(proxy, servers, PublicUrl);
+        WriteViaVersionServers(proxy, servers);
+    }
+
+    /// <summary>
+    /// Minecraft protocol numbers of the versions our servers run. ViaVersion on the proxy translates between the
+    /// player's version and each server's; it learns a server's version by pinging it every 60 s and until then
+    /// assumes "default: 4" (Minecraft 1.7.2) - so a player joining a server created less than a minute ago had their
+    /// login translated for 1.7 and dropped (seen with a new NeoForge server). Known versions are written up front.
+    /// </summary>
+    public static readonly Dictionary<string, int> ProtocolVersions = new()
+    {
+        ["1.20"] = 763, ["1.20.1"] = 763, ["1.20.2"] = 764, ["1.20.3"] = 765, ["1.20.4"] = 765, ["1.20.5"] = 766, ["1.20.6"] = 766,
+        ["1.21"] = 767, ["1.21.1"] = 767, ["1.21.2"] = 768, ["1.21.3"] = 768, ["1.21.4"] = 769, ["1.21.5"] = 770,
+    };
+
+    /// <summary>
+    /// ViaVersion's velocity-servers: every server whose version is known, and "default" = the main server's. Others
+    /// are left to ViaVersion's ping. Skipped before ViaVersion's first start (no config yet).
+    /// </summary>
+    public static void WriteViaVersionServers(ProxyDefinition proxy, IReadOnlyList<ServerDefinition> servers)
+    {
+        var config = Path.Combine(proxy.Path, "plugins", "viaversion", "config.yml");
+        if (!File.Exists(config)) return;
+        var entries = new List<(string, string)>();
+        if (servers.Count > 0 && ProtocolVersions.TryGetValue(servers[0].GameVersion, out var main)) entries.Add(("default", main.ToString()));
+        foreach (var s in servers)
+            if (ProtocolVersions.TryGetValue(s.GameVersion, out var protocol)) entries.Add((s.Id, protocol.ToString()));
+        ConfigFiles.ReplaceYamlMap(config, "velocity-servers", entries);
     }
 
     /// <summary>[servers]: one entry per server at 127.0.0.1:GamePort, and try = the primary (first) server.</summary>
@@ -273,7 +301,14 @@ public class ProxyService
         return MinecraftText.StripColorCodes(await rcon.SendCommandAsync(command, ct));
     }
 
-    /// <summary>Re-reads velocity.toml (server list, forced hosts) without restarting the proxy.</summary>
-    public Task<string> ReloadAsync(ProxyDefinition proxy, CancellationToken ct = default) =>
-        CommandAsync(proxy, "velocity reload", ct);
+    /// <summary>
+    /// Re-reads velocity.toml (server list, forced hosts) and ViaVersion's config (each server's version) without
+    /// restarting the proxy.
+    /// </summary>
+    public async Task<string> ReloadAsync(ProxyDefinition proxy, CancellationToken ct = default)
+    {
+        var velocity = await CommandAsync(proxy, "velocity reload", ct);
+        var via = await CommandAsync(proxy, "viaversion reload", ct);
+        return velocity + " " + via;
+    }
 }

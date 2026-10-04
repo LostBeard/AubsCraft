@@ -101,7 +101,9 @@ public class ServerProvisioningService
             WriteServerFiles(def, primary, req.Seed);
             File.WriteAllText(Path.Combine(dir, "aubscraft.env"),
                 $"JAVA_OPTS=-Xms{Math.Min(1024, def.MemoryMb)}M -Xmx{def.MemoryMb}M -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200\n" +
-                $"LAUNCH={installed.LaunchArgs}\n");
+                $"LAUNCH={installed.LaunchArgs}\n" +
+                // minecraft@.service runs "${JAVA:-/usr/bin/java}": only servers that need another Java name one (Forge: 21).
+                (installed.Java != null ? $"JAVA={installed.Java}\n" : ""));
 
             Step("3/7 Installing add-ons");
             await InstallAddonsAsync(def, req.ExtraModrinthProjects, Step, ct);
