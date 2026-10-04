@@ -19,9 +19,10 @@ public sealed class VelocityProcess : IAsyncDisposable
         _process = process;
     }
 
-    public static async Task<VelocityProcess> StartAsync(string dir, TimeSpan timeout)
+    /// <param name="jvmOptions">Extra JVM options before -jar (e.g. -Dname=value test switches).</param>
+    public static async Task<VelocityProcess> StartAsync(string dir, TimeSpan timeout, params string[] jvmOptions)
     {
-        var psi = new ProcessStartInfo(await Jdk.JavaAsync(), ["-Xms256M", "-Xmx512M", "-jar", "velocity.jar"])
+        var psi = new ProcessStartInfo(await Jdk.JavaAsync(), ["-Xms256M", "-Xmx512M", .. jvmOptions, "-jar", "velocity.jar"])
         {
             WorkingDirectory = dir,
             RedirectStandardInput = true,

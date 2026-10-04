@@ -30,4 +30,9 @@
 		<Content Update="bans.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<!-- Our own proxy plugin (source + build script: ../ProxyGate). ProxyService installs it into the proxy. -->
+		<None Include="ProxyPlugins\aubscraft-gate.jar" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+	</ItemGroup>
+
 </Project>

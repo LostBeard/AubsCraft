@@ -1,0 +1,1 @@
+{"id":"aubscraft-gate","name":"AubsCraft Gate","version":"1.0.0","description":"Keeps Bedrock players off servers that need Java Edition mods.","authors":["LostBeard"],"dependencies":[{"id":"floodgate","optional":true}],"main":"com.spawndev.aubscraftgate.GatePlugin"}

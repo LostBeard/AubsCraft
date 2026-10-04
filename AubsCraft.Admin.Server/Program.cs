@@ -74,6 +74,21 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+// A proxy set up before the gate plugin existed gets it (and its Java-only list) here; the list is also rewritten
+// whenever the proxy is configured. A newly installed jar loads on the proxy's next restart.
+try
+{
+    var registry = app.Services.GetRequiredService<ServerRegistry>();
+    if (registry.Proxy is { } proxyDef && Directory.Exists(proxyDef.Path))
+    {
+        var proxyService = app.Services.GetRequiredService<ProxyService>();
+        if (proxyService.InstallGate(proxyDef))
+            app.Logger.LogWarning("The AubsCraft Gate proxy plugin was installed: restart the proxy (velocity) to load it");
+        ProxyService.WriteJavaOnly(proxyDef, registry.All);
+    }
+}
+catch (Exception ex) { app.Logger.LogError(ex, "Could not set up the AubsCraft Gate proxy plugin"); }
+
 // Eagerly resolve EmailNotificationService so it subscribes to ActivityLog events at startup.
 app.Services.GetRequiredService<EmailNotificationService>();
 

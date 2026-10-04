@@ -20,3 +20,6 @@ admin.json.migrated
 
 # Test bot dependencies (package-lock.json is committed)
 node_modules/
+
+# ProxyGate build intermediates (the shipped jar is AubsCraft.Admin.Server/ProxyPlugins/aubscraft-gate.jar)
+ProxyGate/build/

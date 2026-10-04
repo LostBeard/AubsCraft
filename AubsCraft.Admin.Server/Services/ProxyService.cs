@@ -60,6 +60,7 @@ public class ProxyService
             artifacts.Add((a, Path.Combine(plugins, a.FileName)));
         }
         artifacts.Add((AddonDownloader.VivecraftVelocityExtensions, Path.Combine(plugins, AddonDownloader.VivecraftVelocityExtensions.FileName)));
+        InstallGate(proxy);
 
         foreach (var (a, path) in artifacts)
         {
@@ -70,6 +71,38 @@ public class ProxyService
             _logger.LogInformation("Proxy: installed {File} ({Version})", a.FileName, a.Version);
         }
         return artifacts.Select(x => x.a).ToList();
+    }
+
+    /// <summary>Our own proxy plugin, shipped with the panel (source: ProxyGate/).</summary>
+    public static string GateJar => Path.Combine(AppContext.BaseDirectory, "ProxyPlugins", "aubscraft-gate.jar");
+
+    /// <summary>
+    /// Copies the AubsCraft Gate plugin into the proxy (it keeps Bedrock players off servers that need Java mods).
+    /// Returns true when the proxy's copy changed: Velocity loads plugins at start, so it needs a restart to use it.
+    /// </summary>
+    public bool InstallGate(ProxyDefinition proxy)
+    {
+        var target = Path.Combine(proxy.Path, "plugins", "aubscraft-gate.jar");
+        var bytes = File.ReadAllBytes(GateJar);
+        if (File.Exists(target) && File.ReadAllBytes(target).AsSpan().SequenceEqual(bytes)) return false;
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        File.WriteAllBytes(target, bytes);
+        _logger.LogInformation("Proxy: installed aubscraft-gate.jar (takes effect when the proxy restarts)");
+        return true;
+    }
+
+    /// <summary>
+    /// The servers Bedrock players cannot play - those that need client mods - for the gate plugin, which reads the
+    /// file on every server switch (no reload needed). One "id&lt;TAB&gt;Name" per line.
+    /// </summary>
+    public static void WriteJavaOnly(ProxyDefinition proxy, IEnumerable<ServerDefinition> servers)
+    {
+        var dir = Path.Combine(proxy.Path, "plugins", "aubscraft-gate");
+        Directory.CreateDirectory(dir);
+        var lines = servers.Where(s => s.ClientMods.Count > 0).Select(s => $"{s.Id}\t{s.Name}");
+        var text = "# Written by the AubsCraft panel: servers that need Java Edition client mods.\n" + string.Concat(lines.Select(l => l + "\n"));
+        var file = Path.Combine(dir, "java-only.txt");
+        if (!File.Exists(file) || File.ReadAllText(file) != text) File.WriteAllText(file, text);
     }
 
     private static void RemoveOtherVersions(string pluginsDir, AddonArtifact a)
@@ -131,6 +164,7 @@ public class ProxyService
         ConfigFiles.SetProperty(Path.Combine(proxy.Path, "plugins", "voicechat", "voicechat-proxy.properties"), "port", proxy.VoicePort.ToString());
         ConfigFiles.SetYamlScalar(Path.Combine(proxy.Path, "plugins", "floodgate", "config.yml"), ["send-floodgate-data"], "true");
         ConfigFiles.SetYamlScalar(Path.Combine(proxy.Path, "plugins", "Geyser-Velocity", "config.yml"), ["bedrock", "port"], proxy.BedrockPort.ToString());
+        WriteJavaOnly(proxy, servers);
     }
 
     /// <summary>[servers]: one entry per server at 127.0.0.1:GamePort, and try = the primary (first) server.</summary>
