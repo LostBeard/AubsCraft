@@ -350,6 +350,21 @@ public class ServerHub : Hub<IServerHubClient>
         AddonOpAsync(serverId, "install " + projectId, () => _addons.InstallAsync(serverId, projectId));
 
     [Authorize(Roles = Roles.OwnerOrAdmin)]
+    public Task<HubResult> InstallAddons(string serverId, List<string> projects) =>
+        AddonOpAsync(serverId, "install " + string.Join(",", projects), () => _addons.InstallManyAsync(serverId, projects));
+
+    [Authorize(Roles = Roles.OwnerOrAdmin)]
+    public async Task<List<ClientOnlyMod>> GetClientOnlyMods(string serverId) { Server(serverId); return await _addons.ListClientOnlyAsync(serverId); }
+
+    [Authorize(Roles = Roles.OwnerOrAdmin)]
+    public Task<HubResult> AddClientOnlyMod(string serverId, string project) =>
+        AddonOpAsync(serverId, "add client-only " + project, () => _addons.AddClientOnlyAsync(serverId, project));
+
+    [Authorize(Roles = Roles.OwnerOrAdmin)]
+    public Task<HubResult> RemoveClientOnlyMod(string serverId, string slug) =>
+        AddonOpAsync(serverId, "remove client-only " + slug, () => _addons.RemoveClientOnlyAsync(serverId, slug));
+
+    [Authorize(Roles = Roles.OwnerOrAdmin)]
     public Task<HubResult> UpdateAddon(string serverId, string fileName) =>
         AddonOpAsync(serverId, "update " + fileName, () => _addons.UpdateAsync(serverId, fileName));
 

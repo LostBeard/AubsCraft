@@ -318,6 +318,18 @@ public class ServerHubClient : IAsyncDisposable
     public Task<ToggleResultDto> InstallAddonAsync(string projectId)
         => SafeInvokeAsync("InstallAddon", new ToggleResultDto(false, "Connection lost"), Sid, projectId);
 
+    public Task<ToggleResultDto> InstallAddonsAsync(List<string> projects)
+        => SafeInvokeAsync("InstallAddons", new ToggleResultDto(false, "Connection lost"), Sid, projects);
+
+    public Task<List<ClientOnlyModDto>> GetClientOnlyModsAsync()
+        => SafeInvokeAsync<List<ClientOnlyModDto>>("GetClientOnlyMods", [], Sid);
+
+    public Task<ToggleResultDto> AddClientOnlyModAsync(string project)
+        => SafeInvokeAsync("AddClientOnlyMod", new ToggleResultDto(false, "Connection lost"), Sid, project);
+
+    public Task<ToggleResultDto> RemoveClientOnlyModAsync(string slug)
+        => SafeInvokeAsync("RemoveClientOnlyMod", new ToggleResultDto(false, "Connection lost"), Sid, slug);
+
     public Task<ToggleResultDto> UpdateAddonAsync(string fileName)
         => SafeInvokeAsync("UpdateAddon", new ToggleResultDto(false, "Connection lost"), Sid, fileName);
 
@@ -720,6 +732,8 @@ public record BackupDto(string FileName, long SizeBytes, DateTime CreatedUtc);
 public record PortalDto(string Name, string Target, int X, int Y, int Z);
 
 public record AutoBackupDto(bool On, string Schedule);
+
+public record ClientOnlyModDto(string Slug);
 
 public record InstalledAddonDto(string FileName, bool Enabled, string Name, string Version, string? ProjectId, string? Slug,
     bool ClientNeeded, bool Protected, string? UpdateVersion, List<string> RequiredBy);

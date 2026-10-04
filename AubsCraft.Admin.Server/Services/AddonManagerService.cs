@@ -148,6 +148,62 @@ public class AddonManagerService
         return $"Installed {main.Name} {main.Version}{libs}. Restart {def.Name} to load it.{note}";
     }
 
+    /// <summary>Installs several projects one after another (each with its libraries); one failure does not stop the rest.</summary>
+    public async Task<string> InstallManyAsync(string serverId, IEnumerable<string> projects, CancellationToken ct = default)
+    {
+        var lines = new List<string>();
+        foreach (var p in projects.Select(p => p.Trim()).Where(p => p.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            try { lines.Add(await InstallAsync(serverId, p, ct)); }
+            catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or IOException)
+            {
+                lines.Add($"{p}: not installed - {ex.Message}");
+            }
+        }
+        return string.Join("\n", lines);
+    }
+
+    /// <summary>
+    /// Mods that belong only on players' games (sounds, visuals - Modrinth server_side "unsupported"): kept in ClientMods
+    /// for the Quest setup and the PC pack, never installed on the server (a client-only mod can crash a server).
+    /// </summary>
+    public async Task<List<ClientOnlyMod>> ListClientOnlyAsync(string serverId, CancellationToken ct = default)
+    {
+        var def = Get(serverId);
+        var onServer = (await ListAsync(serverId, false, ct)).Select(a => a.Slug).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return def.ClientMods.Where(m => !onServer.Contains(m)).Select(m => new ClientOnlyMod(m)).ToList();
+    }
+
+    public async Task<string> AddClientOnlyAsync(string serverId, string project, CancellationToken ct = default)
+    {
+        var def = Get(serverId);
+        if (def.Loader is not (ServerLoader.Fabric or ServerLoader.Vanilla))
+            throw new InvalidOperationException("Player-game mods are for Fabric servers (QuestCraft and the PC pack run Fabric).");
+        using var doc = JsonDocument.Parse(await _downloader.ModrinthGetAsync($"{Api}/project/{Uri.EscapeDataString(project.Trim())}", ct));
+        var slug = doc.RootElement.GetProperty("slug").GetString()!;
+        var title = doc.RootElement.GetProperty("title").GetString()!;
+        if (doc.RootElement.GetProperty("server_side").GetString() == "required")
+            throw new InvalidOperationException($"{title} has to be on the server too: install it on the Mods tab instead.");
+        // Must have a build for the players' version (QuestCraft runs this exact one).
+        await _downloader.ModrinthAsync(slug, "fabric", def.GameVersion, ct);
+        if (def.ClientMods.Contains(slug, StringComparer.OrdinalIgnoreCase)) return $"{title} is already on the list.";
+        def.ClientMods.Add(slug);
+        _registry.Update(def);
+        ClientModsChanged();
+        return $"Added {title} to players' games: it's now on the Quest setup and in the PC mod pack (re-download it).";
+    }
+
+    public async Task<string> RemoveClientOnlyAsync(string serverId, string slug, CancellationToken ct = default)
+    {
+        var def = Get(serverId);
+        if (!(await ListClientOnlyAsync(serverId, ct)).Any(m => string.Equals(m.Slug, slug, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException($"{slug} is not a players'-games-only mod here (remove a server mod on the Installed tab).");
+        def.ClientMods.RemoveAll(m => string.Equals(m, slug, StringComparison.OrdinalIgnoreCase));
+        _registry.Update(def);
+        ClientModsChanged();
+        return $"Removed {slug} from players' games (the Quest setup will offer to remove it).";
+    }
+
     /// <summary>Swaps an installed add-on for its newest build for this server.</summary>
     public async Task<string> UpdateAsync(string serverId, string fileName, CancellationToken ct = default)
     {
@@ -202,6 +258,9 @@ public class AddonManagerService
         return Convert.ToHexStringLower(SHA1.HashData(s));
     }
 }
+
+/// <summary>A mod only players install (Quest setup, PC pack), by its Modrinth slug.</summary>
+public record ClientOnlyMod(string Slug);
 
 /// <summary>An installed plugin/mod. ProjectId/Slug are null for a jar Modrinth does not know.</summary>
 public record InstalledAddon(string FileName, bool Enabled, string Name, string Version, string? ProjectId, string? Slug,

@@ -189,6 +189,46 @@ public class ProvisioningTests
         finally { await _runner.StopAsync(def.ServiceName); }
     }
 
+    /// <summary>The mods TJ and Aubri picked on 2026-10-04 to add to Spooky (server side; headsets get their client parts).</summary>
+    public static readonly string[] SpookyAdditions =
+        ["essential-commands", "player-locator-plus", "dont-open-that.", "stalker-creepers-fabric", "lumenfuchs-dummy", "dynamic-torches"];
+
+    [Test, Order(4)]
+    public async Task TheSpookySetPlusTheNewPicks_LoadsTogether()
+    {
+        var steps = new List<string>();
+        ServerDefinition def;
+        try
+        {
+            def = await _provisioning.CreateAsync(new ServerProvisioningService.CreateServerRequest(
+                "spookyplus", "Spooky Plus", ServerLoader.Fabric, "1.21.5", 3072, [.. SpookyMods, .. SpookyAdditions]), new Progress<string>(steps.Add));
+        }
+        catch
+        {
+            TestContext.Progress.WriteLine(string.Join("\n", steps));
+            throw;
+        }
+        TestContext.Progress.WriteLine(string.Join("\n", steps));
+        try
+        {
+            var output = _runner.Servers[def.ServiceName].Output;
+            var loaded = output.TakeWhile(l => !l.Contains("Done (")).Where(l => l.TrimStart().StartsWith("- "))
+                .Select(l => l.Trim()[2..].Split(' ')[0]).ToHashSet();
+            TestContext.Progress.WriteLine("LOADED: " + string.Join(", ", loaded.Order()));
+            var known = new[] { "THIS IS NOT A BUG IT IS INTENTIONAL", "sleepless:util/compat/tc_freeze", "sleepless:util/compat/tc_unfreeze" };
+            var errors = output.Where(l => (l.Contains("/ERROR]") || l.Contains("/FATAL]")) && !known.Any(l.Contains)).ToList();
+            TestContext.Progress.WriteLine("ERRORS:\n" + string.Join("\n", errors.Take(30)));
+            Assert.That(output.Any(l => l.Contains("Done (")), Is.True, "the server started");
+            // The picks, by mod id: Don't Open That = mimicmod; Corner Entity is OUT (its "1.21.5" build is the 1.21.1
+            // one and crashes on start: NoSuchMethodError FabricEntityTypeBuilder.build()); Dynamic Lights needs Quilt's
+            // QSL, which has no Fabric build, so Dynamic Torches replaces it.
+            foreach (var id in new[] { "essential_commands", "player-locator-plus", "mimicmod", "stalkercreepers", "mr_lumenfuchs_dummy", "mr_dynamic_torches" })
+                Assert.That(loaded, Does.Contain(id), "not loaded: " + id);
+            Assert.That(errors, Is.Empty, string.Join("\n", errors.Take(10)));
+        }
+        finally { await _runner.StopAsync(def.ServiceName); }
+    }
+
     [Test, Order(2)]
     public async Task TheSpookySet_LoadsTogether()
     {

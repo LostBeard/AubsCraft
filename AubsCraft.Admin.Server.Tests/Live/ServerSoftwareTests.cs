@@ -19,6 +19,7 @@ public class ServerSoftwareTests
         _software = new ServerSoftwareService(new AddonDownloader(), TestUtil.Config(), TestUtil.Log<ServerSoftwareService>())
         {
             JavaPath = await Jdk.JavaAsync(),
+            Java21Path = await Jdk.Java21Async(),
         };
     }
 
@@ -36,7 +37,7 @@ public class ServerSoftwareTests
 
         File.WriteAllText(Path.Combine(dir, "eula.txt"), "eula=true\n");
         File.WriteAllText(Path.Combine(dir, "server.properties"), "server-ip=127.0.0.1\nserver-port=25700\nonline-mode=false\nview-distance=4\n");
-        var done = await StartUntilDoneAsync(dir, installed.LaunchArgs, TimeSpan.FromMinutes(8));
+        var done = await StartUntilDoneAsync(dir, installed.LaunchArgs, TimeSpan.FromMinutes(8), installed.Java);
         Assert.That(done, Is.True, $"{loader} did not reach 'Done'");
     }
 
@@ -62,12 +63,13 @@ public class ServerSoftwareTests
     /// Runs "java -Xms512M -Xmx2G {launch} nogui" in dir (the systemd unit's ExecStart with its EnvironmentFile
     /// values), waits for "Done (" then sends "stop". Args files (@file) are expanded by java itself.
     /// </summary>
-    internal static async Task<bool> StartUntilDoneAsync(string dir, string launchArgs, TimeSpan timeout)
+    /// <param name="java">The server's own java (Forge: 21), else the default one.</param>
+    internal static async Task<bool> StartUntilDoneAsync(string dir, string launchArgs, TimeSpan timeout, string? java = null)
     {
         var args = new List<string> { "-Xms512M", "-Xmx2G" };
         args.AddRange(launchArgs.Split(' ', StringSplitOptions.RemoveEmptyEntries));
         args.Add("nogui");
-        var psi = new ProcessStartInfo(await Jdk.JavaAsync(), args)
+        var psi = new ProcessStartInfo(java ?? await Jdk.JavaAsync(), args)
         {
             WorkingDirectory = dir,
             RedirectStandardInput = true,

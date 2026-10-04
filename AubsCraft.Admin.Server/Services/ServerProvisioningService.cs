@@ -112,7 +112,8 @@ public class ServerProvisioningService
 
             Step("4/7 First start (the server and its add-ons write their config)");
             await _runner.StartAsync(def.ServiceName, ct);
-            await WaitUntilAsync(() => RconUpAsync(def, ct), "the first start", ct);
+            await WaitUntilAsync(async () => Crashed(def) is { } crash ? throw new InvalidOperationException(crash) : await RconUpAsync(def, ct),
+                "the first start", ct);
             await _runner.StopAsync(def.ServiceName, ct);
             await WaitUntilAsync(async () => !await RconUpAsync(def, ct), "the server to stop", ct);
 
@@ -133,10 +134,74 @@ public class ServerProvisioningService
         }
         catch (Exception ex)
         {
+            // Read why BEFORE cleaning up (that deletes the folder and its logs).
+            var why = WhyItFailed(def);
             Step($"FAILED ({ex.Message}) - removing what was created");
+            foreach (var line in why) Step("    " + line);
             await CleanUpAsync(def, proxy, registered);
+            if (why.Count > 0 && ex is not InvalidOperationException { Data.Count: > 0 })
+                throw new InvalidOperationException($"{ex.Message} {string.Join(" | ", why.Take(4))}", ex);
             throw;
         }
+    }
+
+    /// <summary>Signs in the server's log that it will never finish starting (so the create fails now, not after the timeout).</summary>
+    private static readonly string[] CrashMarkers =
+        ["Incompatible mods found", "Failed to start the minecraft server", "This crash report has been saved to", "Mixin apply failed",
+         "Could not execute entrypoint", "Encountered an unexpected exception"];
+
+    /// <summary>Why the server crashed while starting, or null while it has not.</summary>
+    private static string? Crashed(ServerDefinition def)
+    {
+        if (Directory.Exists(Path.Combine(def.Path, "crash-reports")) && Directory.GetFiles(Path.Combine(def.Path, "crash-reports")).Length > 0)
+            return "The server crashed while starting.";
+        var log = Path.Combine(def.Path, "logs", "latest.log");
+        if (!File.Exists(log)) return null;
+        string text;
+        try
+        {
+            using var fs = new FileStream(log, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            text = new StreamReader(fs).ReadToEnd();
+        }
+        catch (IOException) { return null; }
+        return CrashMarkers.FirstOrDefault(text.Contains) is { } m ? $"The server stopped while starting ({m})." : null;
+    }
+
+    /// <summary>
+    /// The lines that say why a start failed: a crash report's description and its first "Caused by", else the log's
+    /// ERROR/FATAL lines and Fabric's "Incompatible mods" explanation (the last ones, deduplicated).
+    /// </summary>
+    internal static List<string> WhyItFailed(ServerDefinition def)
+    {
+        var lines = new List<string>();
+        try
+        {
+            var crashDir = Path.Combine(def.Path, "crash-reports");
+            var crash = Directory.Exists(crashDir) ? Directory.GetFiles(crashDir).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault() : null;
+            if (crash != null)
+            {
+                var text = File.ReadAllLines(crash);
+                lines.AddRange(text.Where(l => l.StartsWith("Description:") || l.StartsWith("Caused by:")).Take(3));
+                lines.AddRange(text.SkipWhile(l => !l.StartsWith("Description:")).Skip(1).Where(l => l.Trim().Length > 0).Take(2).Select(l => l.Trim()));
+            }
+            var log = Path.Combine(def.Path, "logs", "latest.log");
+            if (File.Exists(log))
+            {
+                using var fs = new FileStream(log, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                var all = new StreamReader(fs).ReadToEnd().Split('\n');
+                // Fabric explains a missing/incompatible mod in plain sentences right after "Incompatible mods found".
+                var inc = Array.FindIndex(all, l => l.Contains("Incompatible mods found"));
+                if (inc >= 0) lines.AddRange(all.Skip(inc + 1).Where(l => l.TrimStart().StartsWith("- ")).Take(6).Select(l => l.Trim()));
+                lines.AddRange(all.Where(l => l.Contains("/ERROR]") || l.Contains("/FATAL]")).TakeLast(6).Select(l => l.Trim()));
+                // The exception after "Failed to start the minecraft server": its message and every "Caused by" (not the stack).
+                var fail = Array.FindIndex(all, l => l.Contains("Failed to start the minecraft server"));
+                if (fail >= 0)
+                    lines.AddRange(all.Skip(fail + 1).Take(200).Where(l => !l.TrimStart().StartsWith("at ") && !l.TrimStart().StartsWith("...")
+                        && l.Trim().Length > 0 && !l.StartsWith("[")).Take(6).Select(l => l.Trim()));
+            }
+        }
+        catch (IOException) { }
+        return lines.Select(l => l.Length > 300 ? l[..300] : l).Distinct().ToList();
     }
 
     private async Task CleanUpAsync(ServerDefinition def, ProxyDefinition proxy, bool registered)

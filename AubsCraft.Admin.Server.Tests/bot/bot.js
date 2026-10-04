@@ -13,6 +13,7 @@ const out = o => process.stdout.write(JSON.stringify(o) + '\n');
 const bot = mineflayer.createBot({ host, port: Number(port), username, version: version || '1.21.5', auth: 'offline', brand: brand || 'vanilla' });
 bot.on('spawn', () => out({ event: 'spawn' }));
 bot.on('messagestr', text => out({ event: 'message', text }));
+bot.on('actionBar', msg => out({ event: 'actionbar', text: msg.toString() }));
 bot.on('kicked', reason => out({ event: 'kicked', reason: typeof reason === 'string' ? reason : JSON.stringify(reason) }));
 bot.on('end', reason => { out({ event: 'end', reason: String(reason) }); process.exit(0); });
 bot.on('error', err => out({ event: 'error', message: String(err && err.message || err) }));

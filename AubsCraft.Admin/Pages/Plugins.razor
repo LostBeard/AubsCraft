@@ -129,10 +129,38 @@
             </div>
         }
     </div>
+
+    @if (IsFabric)
+    {
+        <div class="card mt-2">
+            <div class="card-body">
+                <h6 class="card-title mb-1">On players' games only</h6>
+                <p class="text-muted small mb-2">Mods that only belong on headsets and PCs (sounds, visuals). They're on the Quest setup and in the PC mod pack, never on the server.</p>
+                @foreach (var m in _clientOnly)
+                {
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="bi bi-headset"></span> <code>@m.Slug</code>
+                        <button class="btn btn-sm btn-link text-danger p-0 ms-auto" @onclick="() => RemoveClientOnlyAsync(m.Slug)" disabled="@_busy">Remove</button>
+                    </div>
+                }
+                <div class="input-group input-group-sm mt-2" style="max-width: 28rem;">
+                    <input class="form-control" placeholder="Modrinth name, e.g. presence-footsteps" @bind="_clientOnlyInput" />
+                    <button class="btn btn-outline-primary" @onclick="AddClientOnlyAsync" disabled="@(_busy || string.IsNullOrWhiteSpace(_clientOnlyInput))">Add</button>
+                </div>
+            </div>
+        </div>
+    }
 }
 else
 {
     <!-- Modrinth Browser -->
+    <details class="mb-3">
+        <summary class="small">Install several at once</summary>
+        <textarea class="form-control font-monospace small mt-2" rows="5" placeholder="Modrinth names, one per line" @bind="_manyInput"></textarea>
+        <button class="btn btn-sm btn-success mt-2" @onclick="InstallManyAsync" disabled="@(_installing || string.IsNullOrWhiteSpace(_manyInput))">
+            @(_installing ? "Installing..." : "Install all")
+        </button>
+    </details>
     <div class="input-group mb-3">
         <input type="text" class="form-control" placeholder="Search for plugins..."
                @bind="_searchQuery" @bind:event="oninput" @onkeydown="HandleSearchKeyDown" />
@@ -180,7 +208,7 @@ else
 
 @if (!string.IsNullOrEmpty(_lastResult))
 {
-    <div class="alert @(_lastResultSuccess ? "alert-success" : "alert-info") alert-dismissible fade show mt-3">
+    <div class="alert @(_lastResultSuccess ? "alert-success" : "alert-info") alert-dismissible fade show mt-3" style="white-space: pre-line;">
         @_lastResult
         <button type="button" class="btn-close" @onclick="() => _lastResult = null"></button>
     </div>
@@ -196,10 +224,47 @@ else
 
     private InstalledAddonDto? Addon(PluginInfoDto p) => _addons.GetValueOrDefault(p.FileName);
 
+    private bool IsFabric => Hub.SelectedServer?.Loader is "Fabric" or "Vanilla";
+    private List<ClientOnlyModDto> _clientOnly = [];
+    private string _clientOnlyInput = "", _manyInput = "";
+
+    private async Task AddClientOnlyAsync()
+    {
+        _busy = true;
+        var result = await Hub.AddClientOnlyModAsync(_clientOnlyInput.Trim());
+        _lastResult = result.Message;
+        _lastResultSuccess = result.Success;
+        if (result.Success) _clientOnlyInput = "";
+        await ReloadAsync();
+        _busy = false;
+    }
+
+    private async Task RemoveClientOnlyAsync(string slug)
+    {
+        _busy = true;
+        var result = await Hub.RemoveClientOnlyModAsync(slug);
+        _lastResult = result.Message;
+        _lastResultSuccess = result.Success;
+        await ReloadAsync();
+        _busy = false;
+    }
+
+    private async Task InstallManyAsync()
+    {
+        _installing = true;
+        var names = _manyInput.Split(['\n', ',', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        var result = await Hub.InstallAddonsAsync(names);
+        _lastResult = result.Message;
+        _lastResultSuccess = result.Success && !result.Message.Contains("not installed");
+        _installing = false;
+        if (result.Success) { _manyInput = ""; await ReloadAsync(); }
+    }
+
     private async Task ReloadAsync(bool checkUpdates = false)
     {
         _plugins = await Hub.GetPluginsAsync();
         _addons = (await Hub.GetAddonsAsync(checkUpdates)).ToDictionary(a => a.FileName);
+        _clientOnly = IsFabric ? await Hub.GetClientOnlyModsAsync() : [];
     }
 
     private async Task CheckUpdatesAsync()
