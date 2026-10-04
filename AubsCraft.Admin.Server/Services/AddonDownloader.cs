@@ -70,19 +70,41 @@ public class AddonDownloader
         if (pick.ValueKind == JsonValueKind.Undefined) pick = versions.FirstOrDefault();
         if (pick.ValueKind == JsonValueKind.Undefined)
             throw new InvalidOperationException($"Modrinth has no {loader} build of '{slug}'{(gameVersion != null ? " for " + gameVersion : "")}.");
-        var file = pick.GetProperty("files").EnumerateArray().FirstOrDefault(f => f.GetProperty("primary").GetBoolean());
-        if (file.ValueKind == JsonValueKind.Undefined) file = pick.GetProperty("files")[0];
-        var required = pick.GetProperty("dependencies").EnumerateArray()
+        return FromModrinthVersion(pick, slug);
+    }
+
+    /// <summary>A Modrinth version object (from /project/x/version, /version_files, ...) as a verified artifact: its primary file.</summary>
+    public static AddonArtifact FromModrinthVersion(JsonElement version, string name)
+    {
+        var file = version.GetProperty("files").EnumerateArray().FirstOrDefault(f => f.GetProperty("primary").GetBoolean());
+        if (file.ValueKind == JsonValueKind.Undefined) file = version.GetProperty("files")[0];
+        return new AddonArtifact(name, file.GetProperty("filename").GetString()!, file.GetProperty("url").GetString()!,
+            "sha512", file.GetProperty("hashes").GetProperty("sha512").GetString()!, version.GetProperty("version_number").GetString()!,
+            version.GetProperty("project_id").GetString(), RequiredProjectIds(version),
+            file.GetProperty("hashes").TryGetProperty("sha1", out var sha1) ? sha1.GetString() : null,
+            file.TryGetProperty("size", out var size) ? size.GetInt64() : 0);
+    }
+
+    /// <summary>The project ids a Modrinth version REQUIRES.</summary>
+    public static List<string> RequiredProjectIds(JsonElement version) =>
+        version.GetProperty("dependencies").EnumerateArray()
             .Where(d => d.GetProperty("dependency_type").GetString() == "required"
                         && d.TryGetProperty("project_id", out var pid) && pid.ValueKind == JsonValueKind.String)
             .Select(d => d.GetProperty("project_id").GetString()!)
             .ToList();
-        return new AddonArtifact(slug, file.GetProperty("filename").GetString()!, file.GetProperty("url").GetString()!,
-            "sha512", file.GetProperty("hashes").GetProperty("sha512").GetString()!, pick.GetProperty("version_number").GetString()!,
-            pick.GetProperty("project_id").GetString(), required,
-            file.GetProperty("hashes").TryGetProperty("sha1", out var sha1) ? sha1.GetString() : null,
-            file.TryGetProperty("size", out var size) ? size.GetInt64() : 0);
-    }
+
+    /// <summary>GET a Modrinth API URL (with the retries).</summary>
+    public Task<string> ModrinthGetAsync(string url, CancellationToken ct = default) => GetStringAsync(url, ct);
+
+    /// <summary>POST JSON to a Modrinth API URL (with the retries), e.g. /v2/version_files to identify jars by hash.</summary>
+    public Task<string> ModrinthPostAsync(string url, object body, CancellationToken ct = default) =>
+        WithRetryAsync(ApiTimeout, async attemptCt =>
+        {
+            using var content = new StringContent(JsonSerializer.Serialize(body), System.Text.Encoding.UTF8, "application/json");
+            using var response = await _http.PostAsync(url, content, attemptCt);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsStringAsync(attemptCt);
+        }, ct);
 
     /// <summary>
     /// A Modrinth project plus everything it REQUIRES (recursively), for one loader and Minecraft version,
@@ -90,7 +112,7 @@ public class AddonDownloader
     /// A required dependency with no build for this loader/version fails the whole resolution: installing the
     /// mod without it would crash the server on start.
     /// </summary>
-    public async Task<List<AddonArtifact>> ModrinthWithDependenciesAsync(IEnumerable<string> slugs, string loader, string gameVersion,
+    public async Task<List<AddonArtifact>> ModrinthWithDependenciesAsync(IEnumerable<string> slugs, string loader, string? gameVersion,
         ISet<string>? alreadyHave = null, CancellationToken ct = default)
     {
         var result = new List<AddonArtifact>();

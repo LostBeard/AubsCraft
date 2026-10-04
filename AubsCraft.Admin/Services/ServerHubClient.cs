@@ -312,8 +312,17 @@ public class ServerHubClient : IAsyncDisposable
     public Task<List<ModrinthVersionDto>> GetPluginVersionsAsync(string projectId)
         => SafeInvokeAsync<List<ModrinthVersionDto>>("GetPluginVersions", [], Sid, projectId);
 
-    public Task<ToggleResultDto> InstallPluginAsync(string downloadUrl, string filename)
-        => SafeInvokeAsync("InstallPlugin", new ToggleResultDto(false, "Connection lost"), Sid, downloadUrl, filename);
+    public Task<List<InstalledAddonDto>> GetAddonsAsync(bool checkUpdates)
+        => SafeInvokeAsync<List<InstalledAddonDto>>("GetAddons", [], Sid, checkUpdates);
+
+    public Task<ToggleResultDto> InstallAddonAsync(string projectId)
+        => SafeInvokeAsync("InstallAddon", new ToggleResultDto(false, "Connection lost"), Sid, projectId);
+
+    public Task<ToggleResultDto> UpdateAddonAsync(string fileName)
+        => SafeInvokeAsync("UpdateAddon", new ToggleResultDto(false, "Connection lost"), Sid, fileName);
+
+    public Task<ToggleResultDto> RemoveAddonAsync(string fileName)
+        => SafeInvokeAsync("RemoveAddon", new ToggleResultDto(false, "Connection lost"), Sid, fileName);
 
     // -- Server Control --
 
@@ -711,6 +720,9 @@ public record BackupDto(string FileName, long SizeBytes, DateTime CreatedUtc);
 public record PortalDto(string Name, string Target, int X, int Y, int Z);
 
 public record AutoBackupDto(bool On, string Schedule);
+
+public record InstalledAddonDto(string FileName, bool Enabled, string Name, string Version, string? ProjectId, string? Slug,
+    bool ClientNeeded, bool Protected, string? UpdateVersion, List<string> RequiredBy);
 
 public record ServerSettingsDto(string Name, int MemoryMb, bool MemoryEditable, string Difficulty, string GameMode, bool Pvp, bool AllowFlight,
     int MaxPlayers, int ViewDistance, int SimulationDistance, int SpawnProtection);

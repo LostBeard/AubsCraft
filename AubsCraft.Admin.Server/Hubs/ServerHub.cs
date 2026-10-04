@@ -28,6 +28,7 @@ public class ServerHub : Hub<IServerHubClient>
     private readonly ServerOperationsService _serverOps;
     private readonly AutoBackupService _autoBackup;
     private readonly ServerSettingsService _settings;
+    private readonly AddonManagerService _addons;
     private readonly ServerSoftwareService _software;
     private readonly ActivityLogService _activityLog;
     private readonly ModrinthService _modrinth;
@@ -39,7 +40,7 @@ public class ServerHub : Hub<IServerHubClient>
     private readonly ILogger<ServerHub> _logger;
 
     public ServerHub(ServerManager servers, NetworkModerationService moderation, HostCapacityService capacity,
-        ProxyOperationsService proxyOps, ServerOperationsService serverOps, AutoBackupService autoBackup, ServerSettingsService settings, ServerSoftwareService software, ActivityLogService activityLog,
+        ProxyOperationsService proxyOps, ServerOperationsService serverOps, AutoBackupService autoBackup, ServerSettingsService settings, AddonManagerService addons, ServerSoftwareService software, ActivityLogService activityLog,
         ModrinthService modrinth, AuthService auth, InviteCodeService invites,
         WhitelistAuditService whitelistAudit, EmailNotificationService email,
         IConfiguration configuration, ILogger<ServerHub> logger)
@@ -51,6 +52,7 @@ public class ServerHub : Hub<IServerHubClient>
         _serverOps = serverOps;
         _autoBackup = autoBackup;
         _settings = settings;
+        _addons = addons;
         _software = software;
         _activityLog = activityLog;
         _modrinth = modrinth;
@@ -335,20 +337,35 @@ public class ServerHub : Hub<IServerHubClient>
         return await _modrinth.GetVersionsAsync(Server(serverId).Definition, projectId);
     }
 
+    /// <summary>Installed add-ons, identified on Modrinth (optionally with available updates).</summary>
     [Authorize(Roles = Roles.OwnerOrAdmin)]
-    public async Task<HubResult> InstallPlugin(string serverId, string downloadUrl, string filename)
+    public async Task<List<InstalledAddon>> GetAddons(string serverId, bool checkUpdates)
     {
-        var addons = Addons(serverId);
-        _logger.LogInformation("Installing add-on on '{Server}': {Filename} from {Url} by {User}", serverId, filename, downloadUrl, CurrentUsername);
-        var result = await _modrinth.DownloadAsync(downloadUrl);
-        if (result == null)
-            return new HubResult(false, "Download failed");
+        Server(serverId);
+        return await _addons.ListAsync(serverId, checkUpdates);
+    }
 
-        var (data, _) = result.Value;
-        // Replaces any existing copy of the same plugin (matched by plugin.yml name) so an update
-        // doesn't leave a duplicate older jar.
-        var (success, message) = addons.InstallPlugin(data, filename);
-        return new HubResult(success, message);
+    [Authorize(Roles = Roles.OwnerOrAdmin)]
+    public Task<HubResult> InstallAddon(string serverId, string projectId) =>
+        AddonOpAsync(serverId, "install " + projectId, () => _addons.InstallAsync(serverId, projectId));
+
+    [Authorize(Roles = Roles.OwnerOrAdmin)]
+    public Task<HubResult> UpdateAddon(string serverId, string fileName) =>
+        AddonOpAsync(serverId, "update " + fileName, () => _addons.UpdateAsync(serverId, fileName));
+
+    [Authorize(Roles = Roles.OwnerOrAdmin)]
+    public Task<HubResult> RemoveAddon(string serverId, string fileName) =>
+        AddonOpAsync(serverId, "remove " + fileName, () => _addons.RemoveAsync(serverId, fileName));
+
+    private async Task<HubResult> AddonOpAsync(string serverId, string what, Func<Task<string>> op)
+    {
+        Server(serverId);
+        _logger.LogInformation("Add-on {What} on '{Server}' by {User}", what, serverId, CurrentUsername);
+        try { return new HubResult(true, await op()); }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or IOException)
+        {
+            return new HubResult(false, ex.Message);
+        }
     }
 
     // -- Server Control (admin/owner) --

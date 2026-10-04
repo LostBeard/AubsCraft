@@ -30,6 +30,7 @@ builder.Services.AddSingleton<ServerMaintenanceService>();
 builder.Services.AddSingleton<SpawnPortalService>();
 builder.Services.AddSingleton<ModpackService>();
 builder.Services.AddSingleton<ServerSettingsService>();
+builder.Services.AddSingleton<AddonManagerService>();
 builder.Services.AddSingleton<ServerOperationsService>();
 builder.Services.AddSingleton<ServerMonitorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ServerMonitorService>());

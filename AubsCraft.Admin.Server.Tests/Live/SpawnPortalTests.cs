@@ -86,7 +86,7 @@ public class SpawnPortalTests
         var software = new ServerSoftwareService(_downloader, config, TestUtil.Log<ServerSoftwareService>()) { JavaPath = await Jdk.JavaAsync() };
         var provisioning = new ServerProvisioningService(_registry, software, _downloader, proxyService, _runner, config, TestUtil.Log<ServerProvisioningService>());
         _fabric = await provisioning.CreateAsync(new ServerProvisioningService.CreateServerRequest(
-            "spfabric", "SP Fabric", ServerLoader.Fabric, "1.21.5", 2048, ["proxyportal"]));
+            "spfabric", "SP Fabric", ServerLoader.Fabric, "1.21.5", 2048, ["proxyportal"], PaperServer.Seed));
     }
 
     [OneTimeTearDown]

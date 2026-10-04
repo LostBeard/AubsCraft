@@ -17,6 +17,9 @@ public sealed class PaperServer : IAsyncDisposable
     private const int Build = 114;
     private const string JarSha256 = "2ae6ae22adf417699746e0f89fc2ef6cb6ee050a5f6608cee58f0535d60b509e";
 
+    /// <summary>The world seed of every test server (and of the Fabric servers the tests create).</summary>
+    public const string Seed = "aubscraft-tests";
+
     public static string CacheRoot { get; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AubsCraft.Tests");
 
@@ -94,6 +97,9 @@ public sealed class PaperServer : IAsyncDisposable
             "online-mode=false",
             $"max-players={maxPlayers}",
             $"level-type={levelType}",
+            // One fixed world for every run: a random seed made world-dependent tests (portal spots near spawn, chunk
+            // contents) pass or fail by the luck of the world.
+            $"level-seed={Seed}",
             $"level-name={levelName}",
             "spawn-protection=0",
             "view-distance=4",

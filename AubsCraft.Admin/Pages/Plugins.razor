@@ -49,7 +49,12 @@
 
 @if (_tab == "installed")
 {
-    <p class="text-muted mb-3">@_plugins.Count(p => p.Enabled) enabled, @_plugins.Count(p => !p.Enabled) disabled.</p>
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="text-muted">@_plugins.Count(p => p.Enabled) enabled, @_plugins.Count(p => !p.Enabled) disabled.</span>
+        <button class="btn btn-sm btn-outline-primary ms-auto" @onclick="CheckUpdatesAsync" disabled="@_busy">
+            <span class="bi bi-arrow-repeat"></span> @(_checking ? "Checking..." : "Check for updates")
+        </button>
+    </div>
 
     <div class="row">
         @foreach (var plugin in _plugins.OrderBy(p => p.Name))
@@ -86,7 +91,39 @@
                             {
                                 <span class="badge bg-secondary ms-1">Disabled</span>
                             }
+                            @if (Addon(plugin) is { } a)
+                            {
+                                @if (a.ClientNeeded) { <span class="badge bg-info text-dark ms-1" title="Installed on headsets by the Quest setup and in the PC mod pack">Players need it too</span> }
+                                @if (a.Protected) { <span class="badge bg-dark ms-1" title="Lets players in through the proxy">AubsCraft needs this</span> }
+                                @if (a.RequiredBy.Count > 0) { <span class="badge bg-light text-dark ms-1">Needed by @string.Join(", ", a.RequiredBy)</span> }
+                                @if (a.ProjectId == null) { <span class="badge bg-light text-muted ms-1" title="Modrinth doesn't know this file (added by hand)">Not from Modrinth</span> }
+                            }
                         </div>
+                        @if (Addon(plugin) is { } act)
+                        {
+                            <div class="mt-2 d-flex flex-wrap gap-1">
+                                @if (act.UpdateVersion != null)
+                                {
+                                    <button class="btn btn-sm btn-primary" @onclick="() => UpdateAsync(act)" disabled="@_busy">
+                                        <span class="bi bi-arrow-up-circle"></span> Update to @act.UpdateVersion
+                                    </button>
+                                }
+                                @if (!act.Protected && act.RequiredBy.Count == 0)
+                                {
+                                    if (_confirmRemove == act.FileName)
+                                    {
+                                        <button class="btn btn-sm btn-danger" @onclick="() => RemoveAsync(act)" disabled="@_busy">Yes, remove</button>
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => _confirmRemove = null">Keep</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => _confirmRemove = act.FileName" disabled="@_busy">
+                                            <span class="bi bi-trash"></span> Remove
+                                        </button>
+                                    }
+                                }
+                            </div>
+                        }
                     </div>
                 </div>
             </div>
@@ -152,6 +189,49 @@ else
 @code {
     private string _tab = "installed";
     private List<PluginInfoDto> _plugins = [];
+    // What Modrinth knows about each installed jar (badges, update, remove), by file name.
+    private Dictionary<string, InstalledAddonDto> _addons = [];
+    private bool _checking, _busy;
+    private string? _confirmRemove;
+
+    private InstalledAddonDto? Addon(PluginInfoDto p) => _addons.GetValueOrDefault(p.FileName);
+
+    private async Task ReloadAsync(bool checkUpdates = false)
+    {
+        _plugins = await Hub.GetPluginsAsync();
+        _addons = (await Hub.GetAddonsAsync(checkUpdates)).ToDictionary(a => a.FileName);
+    }
+
+    private async Task CheckUpdatesAsync()
+    {
+        _checking = _busy = true;
+        await ReloadAsync(checkUpdates: true);
+        var n = _addons.Values.Count(a => a.UpdateVersion != null);
+        _lastResult = n == 0 ? "Everything is up to date." : $"{n} update{(n == 1 ? "" : "s")} available.";
+        _lastResultSuccess = true;
+        _checking = _busy = false;
+    }
+
+    private async Task UpdateAsync(InstalledAddonDto a)
+    {
+        _busy = true;
+        var result = await Hub.UpdateAddonAsync(a.FileName);
+        _lastResult = result.Message;
+        _lastResultSuccess = result.Success;
+        await ReloadAsync(checkUpdates: true);
+        _busy = false;
+    }
+
+    private async Task RemoveAsync(InstalledAddonDto a)
+    {
+        _busy = true;
+        _confirmRemove = null;
+        var result = await Hub.RemoveAddonAsync(a.FileName);
+        _lastResult = result.Message;
+        _lastResultSuccess = result.Success;
+        await ReloadAsync();
+        _busy = false;
+    }
     private string? _lastResult;
     private bool _lastResultSuccess;
 
@@ -170,7 +250,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         await Hub.ConnectAsync();
-        _plugins = await Hub.GetPluginsAsync();
+        await ReloadAsync();
     }
 
     private async Task ToggleAsync(PluginInfoDto plugin)
@@ -178,7 +258,7 @@ else
         var result = await Hub.TogglePluginAsync(plugin.FileName);
         _lastResult = result.Message;
         _lastResultSuccess = result.Success;
-        _plugins = await Hub.GetPluginsAsync();
+        await ReloadAsync();
     }
 
     private async Task HandleSearchKeyDown(KeyboardEventArgs e)
@@ -200,28 +280,14 @@ else
     {
         _installing = true;
         _installingId = plugin.ProjectId;
-
-        var versions = await Hub.GetPluginVersionsAsync(plugin.ProjectId);
-        var latest = versions.FirstOrDefault();
-        var file = latest?.Files.FirstOrDefault(f => f.Primary) ?? latest?.Files.FirstOrDefault();
-
-        if (file == null)
-        {
-            _lastResult = $"No compatible version found for {plugin.Title}";
-            _lastResultSuccess = false;
-            _installing = false;
-            _installingId = null;
-            return;
-        }
-
-        var result = await Hub.InstallPluginAsync(file.Url, file.Filename);
+        // The server picks the newest build for this server, adds the libraries it requires, and checks every download.
+        var result = await Hub.InstallAddonAsync(plugin.ProjectId);
         _lastResult = result.Message;
         _lastResultSuccess = result.Success;
         _installing = false;
         _installingId = null;
-
         if (result.Success)
-            _plugins = await Hub.GetPluginsAsync();
+            await ReloadAsync();
     }
 
     private async Task RestartServerAsync()
