@@ -181,6 +181,8 @@ public class ServerProvisioningService
         ConfigFiles.SetProperty(props, "rcon.port", def.RconPort.ToString());
         ConfigFiles.SetProperty(props, "rcon.password", def.RconPassword);
         ConfigFiles.SetProperty(props, "motd", def.Name);
+        // VR players (Vivecraft teleport, Climb Claws, Jump Boots) would otherwise be kicked for "flying".
+        ConfigFiles.SetProperty(props, "allow-flight", "true");
         if (!string.IsNullOrWhiteSpace(seed)) ConfigFiles.SetProperty(props, "level-seed", seed.Trim());
         if (primary == null) return;
         // The same people may play: same whitelist (and its on/off), same operators.

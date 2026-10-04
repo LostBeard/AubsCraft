@@ -365,6 +365,16 @@ public class ServerHubClient : IAsyncDisposable
     public Task<ToggleResultDto> ResetWorldAsync(string serverId, string? seed)
         => SafeInvokeAsync("ResetWorld", new ToggleResultDto(false, "Connection lost"), serverId, seed);
 
+    public Task<ServerSettingsDto?> GetServerSettingsAsync(string serverId)
+        => SafeInvokeAsync<ServerSettingsDto?>("GetServerSettings", null, serverId);
+
+    public Task<ToggleResultDto> SaveServerSettingsAsync(string serverId, ServerSettingsDto settings)
+        => SafeInvokeAsync("SaveServerSettings", new ToggleResultDto(false, "Connection lost"), serverId, settings);
+
+    /// <summary>Restarts a given server (the Manage panel), not the selected one.</summary>
+    public Task<ToggleResultDto> RestartServerAsync(string serverId)
+        => SafeInvokeAsync("RestartServer", new ToggleResultDto(false, "Connection lost"), serverId);
+
     public Task<AutoBackupDto?> GetAutoBackupAsync(string serverId)
         => SafeInvokeAsync<AutoBackupDto?>("GetAutoBackup", null, serverId);
 
@@ -701,6 +711,9 @@ public record BackupDto(string FileName, long SizeBytes, DateTime CreatedUtc);
 public record PortalDto(string Name, string Target, int X, int Y, int Z);
 
 public record AutoBackupDto(bool On, string Schedule);
+
+public record ServerSettingsDto(string Name, int MemoryMb, bool MemoryEditable, string Difficulty, string GameMode, bool Pvp, bool AllowFlight,
+    int MaxPlayers, int ViewDistance, int SimulationDistance, int SpawnProtection);
 
 /// <summary>Mirrors the server's HostCapacityDto.</summary>
 public record HostCapacityDto(long TotalMemoryMb, int Cores, int RunningServers, long NeededMemoryMb, List<string> Warnings);

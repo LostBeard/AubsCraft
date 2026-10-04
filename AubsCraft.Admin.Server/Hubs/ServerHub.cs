@@ -27,6 +27,7 @@ public class ServerHub : Hub<IServerHubClient>
     private readonly ProxyOperationsService _proxyOps;
     private readonly ServerOperationsService _serverOps;
     private readonly AutoBackupService _autoBackup;
+    private readonly ServerSettingsService _settings;
     private readonly ServerSoftwareService _software;
     private readonly ActivityLogService _activityLog;
     private readonly ModrinthService _modrinth;
@@ -38,7 +39,7 @@ public class ServerHub : Hub<IServerHubClient>
     private readonly ILogger<ServerHub> _logger;
 
     public ServerHub(ServerManager servers, NetworkModerationService moderation, HostCapacityService capacity,
-        ProxyOperationsService proxyOps, ServerOperationsService serverOps, AutoBackupService autoBackup, ServerSoftwareService software, ActivityLogService activityLog,
+        ProxyOperationsService proxyOps, ServerOperationsService serverOps, AutoBackupService autoBackup, ServerSettingsService settings, ServerSoftwareService software, ActivityLogService activityLog,
         ModrinthService modrinth, AuthService auth, InviteCodeService invites,
         WhitelistAuditService whitelistAudit, EmailNotificationService email,
         IConfiguration configuration, ILogger<ServerHub> logger)
@@ -49,6 +50,7 @@ public class ServerHub : Hub<IServerHubClient>
         _proxyOps = proxyOps;
         _serverOps = serverOps;
         _autoBackup = autoBackup;
+        _settings = settings;
         _software = software;
         _activityLog = activityLog;
         _modrinth = modrinth;
@@ -452,6 +454,17 @@ public class ServerHub : Hub<IServerHubClient>
 
     [Authorize(Roles = Roles.Owner)]
     public HubResult ResetWorld(string serverId, string? seed) { Server(serverId); return _serverOps.StartReset(serverId, seed, CurrentUsername); }
+
+    [Authorize(Roles = Roles.Owner)]
+    public ServerSettingsDto GetServerSettings(string serverId) { Server(serverId); return _settings.Read(serverId); }
+
+    [Authorize(Roles = Roles.Owner)]
+    public async Task<HubResult> SaveServerSettings(string serverId, ServerSettingsDto settings)
+    {
+        Server(serverId);
+        try { return new HubResult(true, await _settings.SaveAsync(serverId, settings)); }
+        catch (ArgumentException ex) { return new HubResult(false, ex.Message); }
+    }
 
     [Authorize(Roles = Roles.Owner)]
     public AutoBackupDto GetAutoBackup(string serverId) =>

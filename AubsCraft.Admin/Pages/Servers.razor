@@ -99,6 +99,70 @@ else
                         }
                     }
 
+                    @* Settings *@
+                    @if (_settings != null)
+                    {
+                        <div class="border-top pt-3 mb-3">
+                            <strong>Settings</strong>
+                            <div class="row g-2 mt-1">
+                                <div class="col-md-4">
+                                    <label class="form-label small mb-0">Name</label>
+                                    <input class="form-control form-control-sm" @bind="_settings.Name" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small mb-0">Memory (MB)</label>
+                                    <input class="form-control form-control-sm" type="number" min="512" step="512" @bind="_settings.MemoryMb" disabled="@(!_settings.MemoryEditable)"
+                                           title="@(_settings.MemoryEditable ? "" : "Set in this server's system service")" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small mb-0">Max players</label>
+                                    <input class="form-control form-control-sm" type="number" min="1" max="100" @bind="_settings.MaxPlayers" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small mb-0">Difficulty</label>
+                                    <select class="form-select form-select-sm" @bind="_settings.Difficulty">
+                                        @foreach (var d in new[] { "peaceful", "easy", "normal", "hard" }) { <option value="@d">@d</option> }
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small mb-0">Game mode for new players</label>
+                                    <select class="form-select form-select-sm" @bind="_settings.GameMode">
+                                        @foreach (var g in new[] { "survival", "creative", "adventure", "spectator" }) { <option value="@g">@g</option> }
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small mb-0">Spawn protection (blocks)</label>
+                                    <input class="form-control form-control-sm" type="number" min="0" max="64" @bind="_settings.SpawnProtection" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small mb-0">View distance (chunks)</label>
+                                    <input class="form-control form-control-sm" type="number" min="3" max="32" @bind="_settings.ViewDistance" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small mb-0">Simulation distance (chunks)</label>
+                                    <input class="form-control form-control-sm" type="number" min="3" max="32" @bind="_settings.SimulationDistance" />
+                                </div>
+                                <div class="col-md-4 d-flex flex-column justify-content-end">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="pvp-@s.Id" @bind="_settings.Pvp" />
+                                        <label class="form-check-label small" for="pvp-@s.Id">Players can hurt each other (PvP)</label>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="fly-@s.Id" @bind="_settings.AllowFlight" />
+                                        <label class="form-check-label small" for="fly-@s.Id" title="Keep on for VR: Vivecraft teleporting and climbing look like flying">Allow flight (keep on for VR)</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2 mt-2">
+                                <button class="btn btn-sm btn-primary" @onclick="() => SaveSettingsAsync(s.Id)" disabled="@_running"><span class="bi bi-check2"></span> Save settings</button>
+                                @if (_restartSuggested)
+                                {
+                                    <button class="btn btn-sm btn-warning" @onclick="() => RestartAsync(s.Id)" disabled="@_running"><span class="bi bi-arrow-repeat"></span> Restart @s.Name now</button>
+                                }
+                            </div>
+                        </div>
+                    }
+
                     @* Portals *@
                     <div class="border-top pt-3 mb-3">
                         <strong>Portals</strong>
@@ -273,6 +337,50 @@ else
     private List<BackupDto> _backups = [];
     private List<PortalDto> _portals = [];
     private AutoBackupDto? _auto;
+    private SettingsForm? _settings;
+    private bool _restartSuggested;
+
+    /// <summary>The editable copy of a server's settings (the DTO is a record).</summary>
+    private class SettingsForm
+    {
+        public string Name { get; set; } = "";
+        public int MemoryMb { get; set; }
+        public bool MemoryEditable { get; set; }
+        public string Difficulty { get; set; } = "";
+        public string GameMode { get; set; } = "";
+        public bool Pvp { get; set; }
+        public bool AllowFlight { get; set; }
+        public int MaxPlayers { get; set; }
+        public int ViewDistance { get; set; }
+        public int SimulationDistance { get; set; }
+        public int SpawnProtection { get; set; }
+        public static SettingsForm From(ServerSettingsDto d) => new()
+        {
+            Name = d.Name, MemoryMb = d.MemoryMb, MemoryEditable = d.MemoryEditable, Difficulty = d.Difficulty, GameMode = d.GameMode,
+            Pvp = d.Pvp, AllowFlight = d.AllowFlight, MaxPlayers = d.MaxPlayers, ViewDistance = d.ViewDistance,
+            SimulationDistance = d.SimulationDistance, SpawnProtection = d.SpawnProtection,
+        };
+        public ServerSettingsDto ToDto() => new(Name, MemoryMb, MemoryEditable, Difficulty, GameMode, Pvp, AllowFlight, MaxPlayers,
+            ViewDistance, SimulationDistance, SpawnProtection);
+    }
+
+    private async Task SaveSettingsAsync(string serverId)
+    {
+        if (_settings == null) return;
+        var result = await Hub.SaveServerSettingsAsync(serverId, _settings.ToDto());
+        _opMessage = result.Message;
+        _opOk = result.Success;
+        _restartSuggested = result.Success && result.Message.Contains("Restart");
+        if (result.Success && await Hub.GetServerSettingsAsync(serverId) is { } fresh) _settings = SettingsForm.From(fresh);
+    }
+
+    private async Task RestartAsync(string serverId)
+    {
+        var result = await Hub.RestartServerAsync(serverId);
+        _opMessage = result.Message;
+        _opOk = result.Success;
+        _restartSuggested = !result.Success;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -342,6 +450,8 @@ else
         _backups = _manage == null ? [] : (await Hub.ListBackupsAsync(_manage)).OrderByDescending(b => b.CreatedUtc).ToList();
         _portals = _manage == null ? [] : await Hub.ListPortalsAsync(_manage);
         _auto = _manage == null ? null : await Hub.GetAutoBackupAsync(_manage);
+        _settings = _manage == null ? null : await Hub.GetServerSettingsAsync(_manage) is { } st ? SettingsForm.From(st) : null;
+        _restartSuggested = false;
     }
 
     private async Task SetAutoAsync(string serverId, bool on)
