@@ -38,6 +38,13 @@ public class QuestAssetService
     };
 
     QuestManifest? _cachedManifest;
+    // The client-mod lists the cached manifest was built from: a mod added or removed on a server rebuilds it at once
+    // (the 30-minute expiry is only for upstream releases - QuestCraft, voice chat).
+    string? _cachedKey;
+
+    string ClientModsKey() => string.Join("|", _registry.All
+        .Where(s => s.Loader is AubsCraft.Admin.Server.Models.ServerLoader.Fabric && s.GameVersion == ModGameVersion)
+        .SelectMany(s => s.ClientMods).Select(m => m.ToLowerInvariant()).Distinct().Order());
     DateTimeOffset _manifestFetchedAt;
     readonly TimeSpan _manifestTtl = TimeSpan.FromMinutes(30);
     readonly SemaphoreSlim _gate = new(1, 1);
@@ -65,13 +72,13 @@ public class QuestAssetService
     /// <summary>Resolves (and caches for a while) the manifest of what the installer should offer.</summary>
     public async Task<QuestManifest> GetManifestAsync(CancellationToken ct)
     {
-        if (_cachedManifest != null && DateTimeOffset.UtcNow - _manifestFetchedAt < _manifestTtl)
+        if (_cachedManifest != null && _cachedKey == ClientModsKey() && DateTimeOffset.UtcNow - _manifestFetchedAt < _manifestTtl)
             return _cachedManifest;
 
         await _gate.WaitAsync(ct);
         try
         {
-            if (_cachedManifest != null && DateTimeOffset.UtcNow - _manifestFetchedAt < _manifestTtl)
+            if (_cachedManifest != null && _cachedKey == ClientModsKey() && DateTimeOffset.UtcNow - _manifestFetchedAt < _manifestTtl)
                 return _cachedManifest;
 
             using var http = NewClient();
@@ -96,6 +103,7 @@ public class QuestAssetService
                 PackageHints: new[] { "qcxr", "questcraft", "pojav", "neofetch" },
                 QuestCraftManaged: QcxrManagedSlugs);
             _manifestFetchedAt = DateTimeOffset.UtcNow;
+            _cachedKey = ClientModsKey();
             return _cachedManifest;
         }
         finally { _gate.Release(); }
