@@ -92,6 +92,29 @@ else
                         }
                     }
 
+                    @* Portals *@
+                    <div class="border-top pt-3 mb-3">
+                        <strong>Portals</strong>
+                        <div class="text-muted small mb-2">Builds a lit portal near spawn, on clear natural ground (it never replaces a built block), leading to another server.</div>
+                        @foreach (var p in _portals)
+                        {
+                            <div class="small mb-1"><span class="bi bi-door-open"></span> To <b>@(Hub.Servers.FirstOrDefault(x => x.Id == p.Target)?.Name ?? p.Target)</b> at <code>@p.X @p.Y @p.Z</code></div>
+                        }
+                        @{ var targets = Hub.Servers.Where(x => x.Id != s.Id && !_portals.Any(p => p.Target == x.Id)).ToList(); }
+                        @if (targets.Count > 0)
+                        {
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                @foreach (var t in targets)
+                                {
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => StartAsync(Hub.BuildSpawnPortalAsync(s.Id, t.Id))" disabled="@(_running || !s.Connected)"
+                                            title="@(s.Connected ? "" : s.Name + " has to be running")">
+                                        <span class="bi bi-magic"></span> Build a portal to @t.Name
+                                    </button>
+                                }
+                            </div>
+                        }
+                    </div>
+
                     @* New world *@
                     <div class="border-top pt-3 mb-3">
                         <strong>New world</strong>
@@ -241,6 +264,7 @@ else
     private string _resetSeed = "", _removeTyped = "";
     private bool _opOk;
     private List<BackupDto> _backups = [];
+    private List<PortalDto> _portals = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -305,8 +329,11 @@ else
         await LoadBackupsAsync();
     }
 
-    private async Task LoadBackupsAsync() =>
+    private async Task LoadBackupsAsync()
+    {
         _backups = _manage == null ? [] : (await Hub.ListBackupsAsync(_manage)).OrderByDescending(b => b.CreatedUtc).ToList();
+        _portals = _manage == null ? [] : await Hub.ListPortalsAsync(_manage);
+    }
 
     /// <summary>Starts a backup/restore/new world/remove; progress and the result arrive through OnProgress.</summary>
     private async Task StartAsync(Task<ToggleResultDto> start)

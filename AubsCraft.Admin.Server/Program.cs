@@ -27,6 +27,7 @@ builder.Services.AddSingleton<ProxyOperationsService>();
 builder.Services.AddSingleton<ServerSoftwareService>();
 builder.Services.AddSingleton<ServerProvisioningService>();
 builder.Services.AddSingleton<ServerMaintenanceService>();
+builder.Services.AddSingleton<SpawnPortalService>();
 builder.Services.AddSingleton<ServerOperationsService>();
 builder.Services.AddSingleton<ServerMonitorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ServerMonitorService>());

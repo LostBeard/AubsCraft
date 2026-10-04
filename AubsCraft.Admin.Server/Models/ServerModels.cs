@@ -18,6 +18,12 @@ public enum ServerLoader
 /// The first server in the registry is the primary one: legacy endpoints without a server id use it,
 /// and it is the proxy's default server.
 /// </summary>
+/// <summary>
+/// A portal the panel built: frame origin (lowest, smallest corner), Axis "x" or "z" (the frame's direction), the
+/// server it leads to, and where returning players are put (in front of it, facing away).
+/// </summary>
+public record PortalDefinition(string Name, string Target, int X, int Y, int Z, string Axis, double FrontX, int FrontY, double FrontZ, float Yaw);
+
 public class ServerDefinition
 {
     /// <summary>Lowercase slug ([a-z0-9-]). Used in URLs, the systemd instance name and the proxy's server name.</summary>
@@ -47,6 +53,9 @@ public class ServerDefinition
     /// The /quest installer pushes them (with their dependencies) to headsets.
     /// </summary>
     public List<string> ClientMods { get; set; } = [];
+
+    /// <summary>Portals the panel built in this server's world (SpawnPortalService).</summary>
+    public List<PortalDefinition> Portals { get; set; } = [];
 
     [JsonIgnore] public string LogPath => System.IO.Path.Combine(Path, "logs", "latest.log");
 

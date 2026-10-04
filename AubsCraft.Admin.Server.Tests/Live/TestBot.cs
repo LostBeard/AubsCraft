@@ -99,6 +99,14 @@ public sealed class TestBot : IAsyncDisposable
         await _process.StandardInput.FlushAsync();
     }
 
+    /// <summary>Walks forward (the way the bot faces) for a moment - real movement, as a player stepping away.</summary>
+    public async Task WalkAsync(TimeSpan duration)
+    {
+        await _process.StandardInput.WriteLineAsync("walk " + (int)duration.TotalMilliseconds);
+        await _process.StandardInput.FlushAsync();
+        await Task.Delay(duration + TimeSpan.FromMilliseconds(500));
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (!_process.HasExited)

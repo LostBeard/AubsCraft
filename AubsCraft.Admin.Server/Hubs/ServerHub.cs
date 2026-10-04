@@ -452,6 +452,12 @@ public class ServerHub : Hub<IServerHubClient>
     public HubResult ResetWorld(string serverId, string? seed) { Server(serverId); return _serverOps.StartReset(serverId, seed, CurrentUsername); }
 
     [Authorize(Roles = Roles.Owner)]
+    public List<PortalDto> ListPortals(string serverId) { Server(serverId); return _serverOps.ListPortals(serverId); }
+
+    [Authorize(Roles = Roles.Owner)]
+    public HubResult BuildSpawnPortal(string serverId, string targetId) { Server(serverId); Server(targetId); return _serverOps.StartSpawnPortal(serverId, targetId, CurrentUsername); }
+
+    [Authorize(Roles = Roles.Owner)]
     public HubResult RemoveServer(string serverId) { Server(serverId); return _serverOps.StartRemove(serverId, CurrentUsername); }
 
     /// <summary>The log of the last create (for a page opened while one runs).</summary>

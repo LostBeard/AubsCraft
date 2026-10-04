@@ -365,6 +365,12 @@ public class ServerHubClient : IAsyncDisposable
     public Task<ToggleResultDto> ResetWorldAsync(string serverId, string? seed)
         => SafeInvokeAsync("ResetWorld", new ToggleResultDto(false, "Connection lost"), serverId, seed);
 
+    public Task<List<PortalDto>> ListPortalsAsync(string serverId)
+        => SafeInvokeAsync<List<PortalDto>>("ListPortals", [], serverId);
+
+    public Task<ToggleResultDto> BuildSpawnPortalAsync(string serverId, string targetId)
+        => SafeInvokeAsync("BuildSpawnPortal", new ToggleResultDto(false, "Connection lost"), serverId, targetId);
+
     public Task<ToggleResultDto> RemoveServerAsync(string serverId)
         => SafeInvokeAsync("RemoveServer", new ToggleResultDto(false, "Connection lost"), serverId);
 
@@ -685,6 +691,8 @@ public record ProxyStatusDto(bool Online, int Port, int BedrockPort, int VoicePo
 public record OperationProgressDto(string Operation, string Message, bool Done, bool Failed);
 
 public record BackupDto(string FileName, long SizeBytes, DateTime CreatedUtc);
+
+public record PortalDto(string Name, string Target, int X, int Y, int Z);
 
 /// <summary>Mirrors the server's HostCapacityDto.</summary>
 public record HostCapacityDto(long TotalMemoryMb, int Cores, int RunningServers, long NeededMemoryMb, List<string> Warnings);

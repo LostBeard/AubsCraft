@@ -13,6 +13,8 @@ public class ServerOperationsService
     private readonly ServerProvisioningService _provisioning;
     private readonly ServerMaintenanceService _maintenance;
     private readonly BackupService _backups;
+    private readonly SpawnPortalService _portals;
+    private readonly ServerRegistry _registry;
     private readonly HostCapacityService _capacity;
     private readonly IHubContext<ServerHub, IServerHubClient> _hub;
     private readonly ILogger<ServerOperationsService> _logger;
@@ -20,11 +22,13 @@ public class ServerOperationsService
     private int _running;
 
     public ServerOperationsService(ServerProvisioningService provisioning, ServerMaintenanceService maintenance, BackupService backups,
-        HostCapacityService capacity, IHubContext<ServerHub, IServerHubClient> hub, ILogger<ServerOperationsService> logger)
+        SpawnPortalService portals, ServerRegistry registry, HostCapacityService capacity, IHubContext<ServerHub, IServerHubClient> hub, ILogger<ServerOperationsService> logger)
     {
         _provisioning = provisioning;
         _maintenance = maintenance;
         _backups = backups;
+        _portals = portals;
+        _registry = registry;
         _capacity = capacity;
         _hub = hub;
         _logger = logger;
@@ -85,6 +89,12 @@ public class ServerOperationsService
     public HubResult StartReset(string serverId, string? seed, string user) =>
         Run(serverId, $"New world for {serverId}", user, p => _maintenance.ResetWorldAsync(serverId, seed, p));
 
+    public HubResult StartSpawnPortal(string serverId, string targetId, string user) =>
+        Run(serverId, $"Building a portal on {serverId} to {targetId}", user, p => _portals.BuildAtSpawnAsync(serverId, targetId, p));
+
+    public List<PortalDto> ListPortals(string serverId) =>
+        (_registry.Get(serverId)?.Portals ?? []).Select(p => new PortalDto(p.Name, p.Target, p.X, p.Y, p.Z)).ToList();
+
     public HubResult StartRemove(string serverId, string user) =>
         Run(serverId, $"Removing {serverId}", user, p => _maintenance.RemoveAsync(serverId, p));
 
@@ -127,6 +137,8 @@ public class ServerOperationsService
 }
 
 public record BackupDto(string FileName, long SizeBytes, DateTime CreatedUtc);
+
+public record PortalDto(string Name, string Target, int X, int Y, int Z);
 
 /// <summary>The Add server form.</summary>
 public record CreateServerDto(string Id, string Name, string Loader, string GameVersion, int MemoryMb,

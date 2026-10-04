@@ -2,7 +2,8 @@
 // Usage: node bot.js <host> <port> <username> [version]
 // Prints one JSON object per line on stdout: {"event":"spawn"}, {"event":"message","text":...},
 // {"event":"kicked","reason":...}, {"event":"end","reason":...}, {"event":"error","message":...}.
-// Reads commands from stdin, one per line: "chat <text>" (a "/..." text runs a command) or "quit".
+// Reads commands from stdin, one per line: "chat <text>" (a "/..." text runs a command), "walk <ms>" (walks
+// forward the way it faces for that long, like a player stepping away) or "quit".
 const mineflayer = require('mineflayer');
 const readline = require('readline');
 
@@ -19,4 +20,8 @@ bot.on('error', err => out({ event: 'error', message: String(err && err.message 
 readline.createInterface({ input: process.stdin }).on('line', line => {
   if (line === 'quit') { bot.quit(); return; }
   if (line.startsWith('chat ')) bot.chat(line.slice(5));
+  if (line.startsWith('walk ')) {
+    bot.setControlState('forward', true);
+    setTimeout(() => bot.setControlState('forward', false), Number(line.slice(5)));
+  }
 });
