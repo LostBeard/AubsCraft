@@ -26,6 +26,7 @@ public class ServerHub : Hub<IServerHubClient>
     private readonly HostCapacityService _capacity;
     private readonly ProxyOperationsService _proxyOps;
     private readonly ServerOperationsService _serverOps;
+    private readonly AutoBackupService _autoBackup;
     private readonly ServerSoftwareService _software;
     private readonly ActivityLogService _activityLog;
     private readonly ModrinthService _modrinth;
@@ -37,7 +38,7 @@ public class ServerHub : Hub<IServerHubClient>
     private readonly ILogger<ServerHub> _logger;
 
     public ServerHub(ServerManager servers, NetworkModerationService moderation, HostCapacityService capacity,
-        ProxyOperationsService proxyOps, ServerOperationsService serverOps, ServerSoftwareService software, ActivityLogService activityLog,
+        ProxyOperationsService proxyOps, ServerOperationsService serverOps, AutoBackupService autoBackup, ServerSoftwareService software, ActivityLogService activityLog,
         ModrinthService modrinth, AuthService auth, InviteCodeService invites,
         WhitelistAuditService whitelistAudit, EmailNotificationService email,
         IConfiguration configuration, ILogger<ServerHub> logger)
@@ -47,6 +48,7 @@ public class ServerHub : Hub<IServerHubClient>
         _capacity = capacity;
         _proxyOps = proxyOps;
         _serverOps = serverOps;
+        _autoBackup = autoBackup;
         _software = software;
         _activityLog = activityLog;
         _modrinth = modrinth;
@@ -452,6 +454,13 @@ public class ServerHub : Hub<IServerHubClient>
     public HubResult ResetWorld(string serverId, string? seed) { Server(serverId); return _serverOps.StartReset(serverId, seed, CurrentUsername); }
 
     [Authorize(Roles = Roles.Owner)]
+    public AutoBackupDto GetAutoBackup(string serverId) =>
+        new(Server(serverId).Definition.AutoBackup, _autoBackup.ScheduleText);
+
+    [Authorize(Roles = Roles.Owner)]
+    public HubResult SetAutoBackup(string serverId, bool on) { Server(serverId); return _serverOps.SetAutoBackup(serverId, on); }
+
+    [Authorize(Roles = Roles.Owner)]
     public List<PortalDto> ListPortals(string serverId) { Server(serverId); return _serverOps.ListPortals(serverId); }
 
     [Authorize(Roles = Roles.Owner)]
@@ -506,3 +515,5 @@ public class ServerHub : Hub<IServerHubClient>
 /// fields, dropped by default), which silently blanked every result. Serializes as {Success,Message}.
 /// </summary>
 public record HubResult(bool Success, string Message);
+
+public record AutoBackupDto(bool On, string Schedule);

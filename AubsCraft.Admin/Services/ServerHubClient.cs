@@ -365,6 +365,12 @@ public class ServerHubClient : IAsyncDisposable
     public Task<ToggleResultDto> ResetWorldAsync(string serverId, string? seed)
         => SafeInvokeAsync("ResetWorld", new ToggleResultDto(false, "Connection lost"), serverId, seed);
 
+    public Task<AutoBackupDto?> GetAutoBackupAsync(string serverId)
+        => SafeInvokeAsync<AutoBackupDto?>("GetAutoBackup", null, serverId);
+
+    public Task<ToggleResultDto> SetAutoBackupAsync(string serverId, bool on)
+        => SafeInvokeAsync("SetAutoBackup", new ToggleResultDto(false, "Connection lost"), serverId, on);
+
     public Task<List<PortalDto>> ListPortalsAsync(string serverId)
         => SafeInvokeAsync<List<PortalDto>>("ListPortals", [], serverId);
 
@@ -693,6 +699,8 @@ public record OperationProgressDto(string Operation, string Message, bool Done, 
 public record BackupDto(string FileName, long SizeBytes, DateTime CreatedUtc);
 
 public record PortalDto(string Name, string Target, int X, int Y, int Z);
+
+public record AutoBackupDto(bool On, string Schedule);
 
 /// <summary>Mirrors the server's HostCapacityDto.</summary>
 public record HostCapacityDto(long TotalMemoryMb, int Cores, int RunningServers, long NeededMemoryMb, List<string> Warnings);

@@ -102,24 +102,48 @@ public class ServerOperationsService
     private HubResult Run(string serverId, string title, string user, Func<IProgress<string>, Task> op)
     {
         if (Interlocked.CompareExchange(ref _running, 1, 0) != 0) return new HubResult(false, "Another server operation is running.");
+        _ = Task.Run(() => ExecuteAsync(title, user, op));
+        return new HubResult(true, title + "...");
+    }
+
+    /// <summary>
+    /// For the nightly backups: runs the operation now and waits for it. Null when another operation is running
+    /// (try again later), else whether it succeeded. Progress shows on the Servers page like any other operation.
+    /// </summary>
+    public async Task<bool?> RunScheduledAsync(string title, Func<IProgress<string>, Task> op)
+    {
+        if (Interlocked.CompareExchange(ref _running, 1, 0) != 0) return null;
+        return await ExecuteAsync(title, "schedule", op);
+    }
+
+    /// <summary>Runs an operation that holds the one-at-a-time slot, pushing its progress; releases the slot.</summary>
+    private async Task<bool> ExecuteAsync(string title, string user, Func<IProgress<string>, Task> op)
+    {
         lock (_log) _log.Clear();
         _logger.LogWarning("{Title} (by {User})", title, user);
-        _ = Task.Run(async () =>
+        try
         {
-            try
-            {
-                await PushAsync(title, "server-op", false, false);
-                await op(new Progress<string>(line => _ = PushAsync(line, "server-op", false, false)));
-                await PushAsync("Finished.", "server-op", true, false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "{Title} failed", title);
-                await PushAsync("Failed: " + ex.Message, "server-op", true, true);
-            }
-            finally { Volatile.Write(ref _running, 0); }
-        });
-        return new HubResult(true, title + "...");
+            await PushAsync(title, "server-op", false, false);
+            await op(new Progress<string>(line => _ = PushAsync(line, "server-op", false, false)));
+            await PushAsync("Finished.", "server-op", true, false);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "{Title} failed", title);
+            await PushAsync("Failed: " + ex.Message, "server-op", true, true);
+            return false;
+        }
+        finally { Volatile.Write(ref _running, 0); }
+    }
+
+    public HubResult SetAutoBackup(string serverId, bool on)
+    {
+        var def = _registry.Get(serverId);
+        if (def == null) return new HubResult(false, "No such server.");
+        def.AutoBackup = on;
+        _registry.Update(def);
+        return new HubResult(true, on ? $"Nightly backups on for {def.Name}." : $"Nightly backups off for {def.Name}.");
     }
 
     /// <summary>Modrinth project names typed one per line (or comma separated), without blanks or duplicates.</summary>

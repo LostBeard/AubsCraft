@@ -54,6 +54,9 @@ public class ServerDefinition
     /// </summary>
     public List<string> ClientMods { get; set; } = [];
 
+    /// <summary>Back this server up every night (AutoBackupService).</summary>
+    public bool AutoBackup { get; set; } = true;
+
     /// <summary>Portals the panel built in this server's world (SpawnPortalService).</summary>
     public List<PortalDefinition> Portals { get; set; } = [];
 

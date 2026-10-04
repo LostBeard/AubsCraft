@@ -146,8 +146,12 @@ public class SpawnPortalTests
         _toFabric = await _portals.BuildAtSpawnAsync(_main.Id, _fabric.Id, progress);
         _toMain = await _portals.BuildAtSpawnAsync(_fabric.Id, _main.Id, progress);
 
-        var dist = Math.Sqrt(Math.Pow(_toFabric.X + 1.5 - spawn.X, 2) + Math.Pow(_toFabric.Z - spawn.Z, 2));
-        Assert.That(dist, Is.GreaterThan(9), "outside the glass ring");
+        // Every column the frame and its walk-in rows stand on is outside the ring (frames run along X or along Z).
+        var columns = from along in Enumerable.Range(0, 4)
+                      from across in Enumerable.Range(-1, 3)
+                      select _toFabric.Axis == "x" ? (x: _toFabric.X + along, z: _toFabric.Z + across) : (x: _toFabric.X + across, z: _toFabric.Z + along);
+        var nearest = columns.Min(c => Math.Sqrt(Math.Pow(c.x - spawn.X, 2) + Math.Pow(c.z - spawn.Z, 2)));
+        Assert.That(nearest, Is.GreaterThan(9), $"outside the glass ring (portal at {_toFabric.X} {_toFabric.Z} axis {_toFabric.Axis}, spawn {spawn.X} {spawn.Z})");
         await RconAsync(_main, $"forceload add {spawn.X - 12} {spawn.Z - 12} {spawn.X + 12} {spawn.Z + 12}");
         foreach (var (x, z) in _glass)
             Assert.That(await RconAsync(_main, $"execute positioned {x} 0 {z} positioned over motion_blocking_no_leaves if block ~ ~-1 ~ minecraft:glass"),

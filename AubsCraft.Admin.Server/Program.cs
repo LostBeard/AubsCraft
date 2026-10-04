@@ -33,6 +33,8 @@ builder.Services.AddSingleton<ServerOperationsService>();
 builder.Services.AddSingleton<ServerMonitorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ServerMonitorService>());
 builder.Services.AddHostedService<LogTailService>();
+builder.Services.AddSingleton<AutoBackupService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<AutoBackupService>());
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<InviteCodeService>();
 builder.Services.AddSingleton<WhitelistAuditService>();
