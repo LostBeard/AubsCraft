@@ -404,7 +404,15 @@
     {
         busy = true; busyLabel = label; StateHasChanged();
         try { await action(); }
-        catch (Exception ex) { Log($"[error] {ex.Message}"); }
+        catch (Exception ex)
+        {
+            Log($"[error] {ex.Message}");
+            // WebUSB can't share the headset: another program on this computer has claimed it.
+            if (ex.Message.Contains("in use", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("claim", StringComparison.OrdinalIgnoreCase))
+                Log("The headset is connected to another program on this computer (only one can use it at a time). Close SideQuest, " +
+                    "Meta Quest Developer Hub, or any open chrome://inspect tab. If the Android tools are installed, run \"adb kill-server\" " +
+                    "in a command prompt. Then unplug the headset, plug it back in, and press Connect again.");
+        }
         finally { busy = false; busyLabel = ""; StateHasChanged(); }
     }
 
