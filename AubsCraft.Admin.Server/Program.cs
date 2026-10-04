@@ -28,6 +28,7 @@ builder.Services.AddSingleton<ServerSoftwareService>();
 builder.Services.AddSingleton<ServerProvisioningService>();
 builder.Services.AddSingleton<ServerMaintenanceService>();
 builder.Services.AddSingleton<SpawnPortalService>();
+builder.Services.AddSingleton<ModpackService>();
 builder.Services.AddSingleton<ServerOperationsService>();
 builder.Services.AddSingleton<ServerMonitorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ServerMonitorService>());
@@ -85,7 +86,7 @@ try
         var proxyService = app.Services.GetRequiredService<ProxyService>();
         if (proxyService.InstallGate(proxyDef))
             app.Logger.LogWarning("The AubsCraft Gate proxy plugin was installed: restart the proxy (velocity) to load it");
-        ProxyService.WriteJavaOnly(proxyDef, registry.All);
+        ProxyService.WriteJavaOnly(proxyDef, registry.All, proxyService.PublicUrl);
     }
 }
 catch (Exception ex) { app.Logger.LogError(ex, "Could not set up the AubsCraft Gate proxy plugin"); }
@@ -141,6 +142,15 @@ quest.MapGet("/asset/{id}", async (string id, QuestAssetService svc, Cancellatio
     if (asset == null) return Results.NotFound();
     // Seekable FileStream -> Content-Length is set automatically (drives browser download progress).
     return Results.File(asset.Value.Stream, asset.Value.ContentType, enableRangeProcessing: true);
+});
+
+// -- PC mod pack (anonymous - the /pc page is a public family setup page) --
+var pc = app.MapGroup("/api/pc");
+pc.MapGet("/modpacks", (ModpackService packs) => Results.Ok(packs.Available()));
+pc.MapGet("/modpack/{gameVersion}", async (string gameVersion, ModpackService packs, CancellationToken ct) =>
+{
+    var pack = await packs.GetPackAsync(gameVersion, ct);
+    return pack == null ? Results.NotFound() : Results.File(pack, "application/x-modrinth-modpack+zip", ModpackService.FileName(gameVersion));
 });
 
 // -- Auth endpoints (anonymous) --

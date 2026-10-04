@@ -5,8 +5,9 @@ using System.Text.Json;
 namespace AubsCraft.Admin.Server.Services;
 
 /// <summary>A downloadable jar with the checksum its source publishes (or a pinned one).</summary>
+/// <remarks>Sha1 and Size are filled for Modrinth files (a Modrinth modpack lists both).</remarks>
 public record AddonArtifact(string Name, string FileName, string Url, string HashAlgorithm, string Hash, string Version,
-    string? ProjectId = null, IReadOnlyList<string>? RequiredProjectIds = null);
+    string? ProjectId = null, IReadOnlyList<string>? RequiredProjectIds = null, string? Sha1 = null, long Size = 0);
 
 /// <summary>
 /// Resolves server software and add-ons to exact downloads WITH checksums, and downloads them verified:
@@ -78,7 +79,9 @@ public class AddonDownloader
             .ToList();
         return new AddonArtifact(slug, file.GetProperty("filename").GetString()!, file.GetProperty("url").GetString()!,
             "sha512", file.GetProperty("hashes").GetProperty("sha512").GetString()!, pick.GetProperty("version_number").GetString()!,
-            pick.GetProperty("project_id").GetString(), required);
+            pick.GetProperty("project_id").GetString(), required,
+            file.GetProperty("hashes").TryGetProperty("sha1", out var sha1) ? sha1.GetString() : null,
+            file.TryGetProperty("size", out var size) ? size.GetInt64() : 0);
     }
 
     /// <summary>

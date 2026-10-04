@@ -91,15 +91,19 @@ public class ProxyService
         return true;
     }
 
+    /// <summary>The panel's public address: the gate tells PC players without the mods to get the pack at {this}/play.</summary>
+    public const string DefaultPublicUrl = "https://map.spawndev.com:44365";
+    public string PublicUrl { get; set; } = DefaultPublicUrl;
+
     /// <summary>
-    /// The servers Bedrock players cannot play - those that need client mods - for the gate plugin, which reads the
-    /// file on every server switch (no reload needed). One "id&lt;TAB&gt;Name" per line.
+    /// The servers that need client mods - Bedrock and unmodded PC players cannot play them - for the gate plugin,
+    /// which reads the file on every server switch (no reload needed). One "id&lt;TAB&gt;Name&lt;TAB&gt;help page" per line.
     /// </summary>
-    public static void WriteJavaOnly(ProxyDefinition proxy, IEnumerable<ServerDefinition> servers)
+    public static void WriteJavaOnly(ProxyDefinition proxy, IEnumerable<ServerDefinition> servers, string publicUrl = DefaultPublicUrl)
     {
         var dir = Path.Combine(proxy.Path, "plugins", "aubscraft-gate");
         Directory.CreateDirectory(dir);
-        var lines = servers.Where(s => s.ClientMods.Count > 0).Select(s => $"{s.Id}\t{s.Name}");
+        var lines = servers.Where(s => s.ClientMods.Count > 0).Select(s => $"{s.Id}\t{s.Name}\t{publicUrl.TrimEnd('/')}/pc");
         var text = "# Written by the AubsCraft panel: servers that need Java Edition client mods.\n" + string.Concat(lines.Select(l => l + "\n"));
         var file = Path.Combine(dir, "java-only.txt");
         if (!File.Exists(file) || File.ReadAllText(file) != text) File.WriteAllText(file, text);
@@ -164,7 +168,7 @@ public class ProxyService
         ConfigFiles.SetProperty(Path.Combine(proxy.Path, "plugins", "voicechat", "voicechat-proxy.properties"), "port", proxy.VoicePort.ToString());
         ConfigFiles.SetYamlScalar(Path.Combine(proxy.Path, "plugins", "floodgate", "config.yml"), ["send-floodgate-data"], "true");
         ConfigFiles.SetYamlScalar(Path.Combine(proxy.Path, "plugins", "Geyser-Velocity", "config.yml"), ["bedrock", "port"], proxy.BedrockPort.ToString());
-        WriteJavaOnly(proxy, servers);
+        WriteJavaOnly(proxy, servers, PublicUrl);
     }
 
     /// <summary>[servers]: one entry per server at 127.0.0.1:GamePort, and try = the primary (first) server.</summary>

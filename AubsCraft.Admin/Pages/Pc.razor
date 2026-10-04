@@ -1,0 +1,95 @@
+@page "/pc"
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<PageTitle>Set up PC - AubsCraft</PageTitle>
+
+<div class="container py-4" style="max-width: 820px;">
+    <h2 class="mb-1"><span class="bi bi-pc-display"></span> Set up your PC</h2>
+    <p class="text-muted">
+        Plain Minecraft Java Edition can play AubsCraft as it is. Servers with mods (like Spooky) need those mods on your
+        game too. One mod pack, made from the servers' own mod lists, sets everything up in the free <b>Modrinth App</b>.
+    </p>
+
+    @if (_packs == null)
+    {
+        <p class="text-muted">Loading the mod packs...</p>
+    }
+    else if (_packs.Count == 0)
+    {
+        <div class="alert alert-info">No server needs mods on your game right now: plain Minecraft Java Edition joins every server.</div>
+    }
+    else
+    {
+        <!-- Step 1 -->
+        <div class="card bg-dark text-light mb-3">
+            <div class="card-body">
+                <h5 class="card-title">1. Get the Modrinth App</h5>
+                <p class="mb-2">Free, from Modrinth (where the mods come from). Already have it? Skip to step 2.</p>
+                <a class="btn btn-outline-light btn-sm" href="https://modrinth.com/app" target="_blank" rel="noopener">
+                    <span class="bi bi-box-arrow-up-right"></span> modrinth.com/app
+                </a>
+            </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="card bg-dark text-light mb-3">
+            <div class="card-body">
+                <h5 class="card-title">2. Download the AubsCraft mod pack</h5>
+                @foreach (var p in _packs)
+                {
+                    <div class="mb-3">
+                        <a class="btn btn-primary" href="@($"api/pc/modpack/{p.GameVersion}")" download="@p.FileName">
+                            <span class="bi bi-download"></span> AubsCraft @p.GameVersion mod pack
+                        </a>
+                        <div class="small text-muted mt-1">
+                            For <b>@string.Join(", ", p.Servers)</b> (and every other AubsCraft server).
+                            Mods: @string.Join(", ", p.Mods), plus Fabric API and Simple Voice Chat.
+                        </div>
+                    </div>
+                }
+                <p class="small text-muted mb-0">It's a small file (a list of mods): the Modrinth App downloads the mods themselves from Modrinth and checks each one.</p>
+            </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="card bg-dark text-light mb-3">
+            <div class="card-body">
+                <h5 class="card-title">3. Add it to the Modrinth App</h5>
+                <p class="mb-0">Double-click the downloaded <code>.mrpack</code> file - or in the Modrinth App click <b>+</b> (Create an instance),
+                    choose <b>Import from file</b>, and pick it. It makes an instance called <b>AubsCraft</b> and installs everything.</p>
+            </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="card bg-dark text-light mb-3">
+            <div class="card-body">
+                <h5 class="card-title">4. Play</h5>
+                <ol class="mb-1">
+                    <li>Press <b>Play</b> on the AubsCraft instance.</li>
+                    <li><b>Multiplayer</b> &rarr; <b>Add Server</b> &rarr; address <code>mc.spawndev.com</code>.</li>
+                    <li>Join. Walk through the portal near spawn, or type <code>/server spooky</code>.</li>
+                </ol>
+                <p class="small text-muted mb-0">Voice chat: press <b>V</b> for its settings. When a server's mods change, download the pack again and import it.</p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<ModpackDto>? _packs;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _packs = await Http.GetFromJsonAsync<List<ModpackDto>>("api/pc/modpacks") ?? []; }
+        catch { _packs = []; }
+    }
+
+    private class ModpackDto
+    {
+        public string GameVersion { get; set; } = "";
+        public string FileName { get; set; } = "";
+        public List<string> Servers { get; set; } = [];
+        public List<string> Mods { get; set; } = [];
+    }
+}

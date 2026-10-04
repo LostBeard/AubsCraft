@@ -29,12 +29,13 @@ public sealed class TestBot : IAsyncDisposable
             : Path.Combine(dir.FullName, "bot");
     }
 
-    public static TestBot Start(string host, int port, string username)
+    /// <param name="brand">The client brand it reports: "vanilla" (plain Minecraft, the default) or e.g. "fabric" (modded).</param>
+    public static TestBot Start(string host, int port, string username, string brand = "vanilla")
     {
         var dir = BotDir();
         if (!Directory.Exists(Path.Combine(dir, "node_modules", "mineflayer")))
             throw new InvalidOperationException($"Run 'npm ci' in {dir} first (installs mineflayer).");
-        var psi = new ProcessStartInfo("node", ["bot.js", host, port.ToString(), username])
+        var psi = new ProcessStartInfo("node", ["bot.js", host, port.ToString(), username, "1.21.5", brand])
         {
             WorkingDirectory = dir,
             RedirectStandardInput = true,

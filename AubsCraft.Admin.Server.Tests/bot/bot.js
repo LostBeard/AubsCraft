@@ -1,5 +1,5 @@
 // A real Minecraft Java Edition client (mineflayer) for the live tests.
-// Usage: node bot.js <host> <port> <username> [version]
+// Usage: node bot.js <host> <port> <username> [version] [brand]   (brand: what the client reports, default "vanilla")
 // Prints one JSON object per line on stdout: {"event":"spawn"}, {"event":"message","text":...},
 // {"event":"kicked","reason":...}, {"event":"end","reason":...}, {"event":"error","message":...}.
 // Reads commands from stdin, one per line: "chat <text>" (a "/..." text runs a command), "walk <ms>" (walks
@@ -7,10 +7,10 @@
 const mineflayer = require('mineflayer');
 const readline = require('readline');
 
-const [host, port, username, version] = process.argv.slice(2);
+const [host, port, username, version, brand] = process.argv.slice(2);
 const out = o => process.stdout.write(JSON.stringify(o) + '\n');
 
-const bot = mineflayer.createBot({ host, port: Number(port), username, version: version || '1.21.5', auth: 'offline' });
+const bot = mineflayer.createBot({ host, port: Number(port), username, version: version || '1.21.5', auth: 'offline', brand: brand || 'vanilla' });
 bot.on('spawn', () => out({ event: 'spawn' }));
 bot.on('messagestr', text => out({ event: 'message', text }));
 bot.on('kicked', reason => out({ event: 'kicked', reason: typeof reason === 'string' ? reason : JSON.stringify(reason) }));

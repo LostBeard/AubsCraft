@@ -6,8 +6,9 @@ namespace AubsCraft.Admin.Server.Tests.Live;
 
 /// <summary>
 /// The AubsCraft Gate proxy plugin (ProxyGate/, installed by ProxyService) on a REAL Velocity with two REAL Paper
-/// servers, one of them Java-only (it has client mods). Java players switch to it; a Bedrock player is refused with
-/// a message and stays where they are. A test client cannot connect through Geyser, so the Bedrock player is a
+/// servers, one of them Java-only (it has client mods). Modded Java players (client brand "fabric", as QuestCraft and
+/// the PC pack report) switch to it; an unmodded PC player (brand "vanilla") and a Bedrock player are refused with a
+/// message saying what to do, and stay where they are. A test client cannot connect through Geyser, so the Bedrock player is a
 /// normal client named in the plugin's test switch (-Daubscraft.gate.testBedrockNames) - production uses
 /// Floodgate's own isFloodgatePlayer.
 /// </summary>
@@ -80,9 +81,9 @@ public class GateTests
     }
 
     [Test, Order(1)]
-    public async Task JavaPlayer_SwitchesToTheJavaOnlyServer()
+    public async Task ModdedJavaPlayer_SwitchesToTheJavaOnlyServer()
     {
-        await using var bot = TestBot.Start("127.0.0.1", ProxyPort, "GateJava");
+        await using var bot = TestBot.Start("127.0.0.1", ProxyPort, "GateJava", brand: "fabric");
         await bot.WaitForSpawnAsync(TimeSpan.FromSeconds(60));
         await TestUtil.WaitUntilAsync(() => IsOn(_main, "GateJava"), TimeSpan.FromSeconds(15), "bot on the main server");
         await bot.ChatAsync("/server " + _modded.Id);
@@ -90,6 +91,24 @@ public class GateTests
     }
 
     [Test, Order(2)]
+    public async Task UnmoddedPcPlayer_IsKeptOff_AndToldWhereToGetThePack()
+    {
+        await Task.Delay(3500); // Velocity login-ratelimit since the previous bot
+        await using var bot = TestBot.Start("127.0.0.1", ProxyPort, "GateVanilla");
+        await bot.WaitForSpawnAsync(TimeSpan.FromSeconds(60));
+        await TestUtil.WaitUntilAsync(() => IsOn(_main, "GateVanilla"), TimeSpan.FromSeconds(15), "bot on the main server");
+        await bot.ChatAsync("/server " + _modded.Id);
+
+        var message = await bot.WaitForAsync(e => TestBot.Kind(e) == "message" && e.GetProperty("text").GetString()!.Contains("needs mods on your game"),
+            TimeSpan.FromSeconds(15));
+        Assert.That(message, Is.Not.Null, "the player is told why: " + bot.Transcript);
+        Assert.That(message!.Value.GetProperty("text").GetString(), Does.Contain(ProxyService.DefaultPublicUrl + "/pc"));
+        await Task.Delay(3000);
+        Assert.That(await IsOn(_modded, "GateVanilla"), Is.False, "not moved to the modded server");
+        Assert.That(await IsOn(_main, "GateVanilla"), Is.True, "still on the main server, still connected");
+    }
+
+    [Test, Order(3)]
     public async Task BedrockPlayer_IsKeptOffTheJavaOnlyServer_WithAMessage()
     {
         await Task.Delay(3500); // Velocity login-ratelimit since the previous bot
