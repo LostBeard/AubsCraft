@@ -41,6 +41,9 @@ public sealed class TestBot : IAsyncDisposable
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            // Node writes UTF-8; the default (the console's code page) turned the locator bar's "⬤" into mojibake.
+            StandardOutputEncoding = System.Text.Encoding.UTF8,
+            StandardErrorEncoding = System.Text.Encoding.UTF8,
             UseShellExecute = false,
             CreateNoWindow = true,
         };

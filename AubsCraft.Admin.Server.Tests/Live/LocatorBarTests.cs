@@ -37,8 +37,15 @@ public class LocatorBarTests
             await hider.WaitForSpawnAsync(TimeSpan.FromSeconds(60));
             await Cmd("gamemode creative Seeker");
             await Cmd("gamemode creative Hider");
+            // Control: the client reports a plain action-bar message (so a silence below is the plugin's, not the bot's).
+            await Cmd("title Seeker actionbar {\"text\":\"control\"}");
+            Assert.That(await seeker.WaitForAsync(e => TestBot.Kind(e) == "actionbar" && e.GetProperty("text").GetString()!.Contains("control"),
+                TimeSpan.FromSeconds(10)), Is.Not.Null, "the bot sees action-bar messages: " + seeker.Transcript);
+
+            // Like the 1.21.6 bar it copies, it shows players within a 120-degree field of view. The test client keeps
+            // facing south (yaw 0; it overrides a teleport's facing), so the hider stands 40 blocks south.
             await Cmd("tp Seeker 0 120 0");
-            await Cmd("tp Hider 40 120 0");
+            await Cmd("tp Hider 0 120 40");
 
             var bar = await seeker.WaitForAsync(e => TestBot.Kind(e) == "actionbar" && e.GetProperty("text").GetString()!.Contains('⬤'), TimeSpan.FromSeconds(20));
             Assert.That(bar, Is.Not.Null, "the seeker's action bar shows the hider: " + seeker.Transcript);

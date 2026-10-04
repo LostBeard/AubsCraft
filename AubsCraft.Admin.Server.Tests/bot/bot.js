@@ -14,6 +14,9 @@ const bot = mineflayer.createBot({ host, port: Number(port), username, version: 
 bot.on('spawn', () => out({ event: 'spawn' }));
 bot.on('messagestr', text => out({ event: 'message', text }));
 bot.on('actionBar', msg => out({ event: 'actionbar', text: msg.toString() }));
+// 1.21.5 sends the action bar as its own packet (title ... actionbar, Paper's sendActionBar); this mineflayer only
+// reports overlay chat, so report the packet's raw text component too.
+bot._client.on('action_bar', packet => out({ event: 'actionbar', text: JSON.stringify(packet.text) }));
 bot.on('kicked', reason => out({ event: 'kicked', reason: typeof reason === 'string' ? reason : JSON.stringify(reason) }));
 bot.on('end', reason => { out({ event: 'end', reason: String(reason) }); process.exit(0); });
 bot.on('error', err => out({ event: 'error', message: String(err && err.message || err) }));
