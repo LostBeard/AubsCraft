@@ -147,7 +147,9 @@ quest.MapGet("/asset/{id}", async (string id, QuestAssetService svc, Cancellatio
     var asset = await svc.OpenAssetAsync(id, ct);
     if (asset == null) return Results.NotFound();
     // Seekable FileStream -> Content-Length is set automatically (drives browser download progress).
-    return Results.File(asset.Value.Stream, asset.Value.ContentType, enableRangeProcessing: true);
+    // The file name rides along so the headset browser saves QCXR-x.y.z.apk, which Horizon OS offers to install
+    // (the no-Developer-Mode path, same as SideQuest's sdq.st/go); the ADB installer streams it and ignores the name.
+    return Results.File(asset.Value.Stream, asset.Value.ContentType, fileDownloadName: asset.Value.Filename, enableRangeProcessing: true);
 });
 
 // -- PC mod pack (anonymous - the /pc page is a public family setup page) --

@@ -6,6 +6,7 @@
 @inject TangoService Tango
 @inject HttpClient Http
 @inject SpawnJSRuntime JS
+@inject NavigationManager NavigationManager
 @implements IDisposable
 
 <PageTitle>Set up QuestCraft - AubsCraft</PageTitle>
@@ -13,8 +14,58 @@
 <div class="container py-4" style="max-width: 820px;">
     <h2 class="mb-1"><span class="bi bi-headset"></span> Set up your Quest</h2>
     <p class="text-muted">
+        QuestCraft is Minecraft Java Edition for Quest 3/3S. It needs a Microsoft account that owns Minecraft Java Edition.
+        There are two ways to install it - pick one.
+    </p>
+
+    <!-- Option 1: everything inside the headset. Horizon OS installs an APK the headset browser downloads, the same
+         way SideQuest's in-headset installer (sdq.st/go) works since 2026-10 - no Developer Mode, no computer. -->
+    <h4 class="mt-3">Option 1: In the headset - no computer, no Developer Mode</h4>
+    <div class="card bg-dark text-light mb-3">
+        <div class="card-body">
+            <ol class="mb-0">
+                @if (!inHeadset)
+                {
+                    <li class="mb-2">Put the headset on, open the <b>Browser</b>, and go to <code>@NavigationManager.Uri</code></li>
+                }
+                <li class="mb-2">
+                    @if (manifest != null)
+                    {
+                        <a class="btn btn-primary btn-sm" href="api/quest/asset/@manifest.QuestCraft.Id" download="@manifest.QuestCraft.Filename">
+                            <span class="bi bi-download"></span> Download QuestCraft @manifest.QuestCraft.Version
+                        </a>
+                    }
+                    else
+                    {
+                        <span>Download QuestCraft (loading...)</span>
+                    }
+                    <div class="mt-1">When it finishes, open the download and tap <b>Install</b>. If the headset asks whether the browser may install apps, allow it.</div>
+                    <div class="form-text">Won't install? Get SideQuest in the headset from <code>sdq.st/go</code>, then install QuestCraft from inside SideQuest.</div>
+                </li>
+                <li class="mb-2">Turn on the microphone for voice chat: <b>Settings</b> &gt; <b>Privacy &amp; safety</b> &gt; <b>App permissions</b> &gt; <b>Microphone</b> &gt; turn on <b>QuestCraft</b>.</li>
+                <li class="mb-2">Open <b>QuestCraft</b> from your Library (look under <b>Unknown sources</b> if it isn't listed), sign in with the Microsoft account, and start Minecraft <b>1.21.5</b> once.</li>
+                <li class="mb-2">Multiplayer &gt; Add Server &gt; <code>mc.spawndev.com</code>, and join.</li>
+                <li class="mb-2">Voice chat is built into QuestCraft. Once you're in: press <b>B</b> &gt; <b>Voice Chat Menu</b> &gt; change <i>Push to Talk</i> to <b>Voice Activated</b>.</li>
+                @if (SpookyMods.Count > 0)
+                {
+                    <li>
+                        Extra mods for some servers - add them with QuestCraft's <b>Mod Manager</b> (search each name; the mods they need come along):
+                        <ul class="mb-0">
+                            @foreach (var group in SpookyMods.GroupBy(m => m.For))
+                            {
+                                <li><b>@group.Key</b>: @string.Join(", ", group.Select(m => m.Name))</li>
+                            }
+                        </ul>
+                    </li>
+                }
+            </ol>
+        </div>
+    </div>
+
+    <h4 class="mt-4">Option 2: From a computer (Developer Mode)</h4>
+    <p class="text-muted">
         Plug your Quest 3/3S into this computer with a USB-C cable, enable Developer Mode, then connect below.
-        This installs (or updates) QuestCraft and the mods AubsCraft needs - including voice chat - straight onto the headset.
+        This installs (or updates) QuestCraft and every mod the AubsCraft servers need - matched to the servers' versions - straight onto the headset.
     </p>
 
     @if (!Tango.IsWebUsbSupported)
@@ -186,8 +237,19 @@
     string busyLabel = "";
     readonly List<string> log = new();
 
+    bool inHeadset;
+
+    /// <summary>
+    /// Server mods a headset adds itself (Option 1): what a server lists, not the dependencies QuestCraft's
+    /// Mod Manager pulls in, nor voice chat, which QuestCraft bundles at a compatible version.
+    /// </summary>
+    List<ModDto> SpookyMods => manifest == null ? [] : manifest.Mods
+        .Where(m => !m.Id.Equals("simple-voice-chat", StringComparison.OrdinalIgnoreCase) && m.For != "Needed by another mod").ToList();
+
     protected override async Task OnInitializedAsync()
     {
+        using (var navigator = JS.Get<Navigator>("navigator"))
+            inHeadset = navigator.UserAgent.Contains("OculusBrowser", StringComparison.OrdinalIgnoreCase);
         Tango.ConnectionChanged += OnConnectionChanged;
         try { manifest = await Http.GetFromJsonAsync<ManifestDto>("api/quest/manifest"); }
         catch (Exception ex) { Log($"Could not load install manifest: {ex.Message}"); }

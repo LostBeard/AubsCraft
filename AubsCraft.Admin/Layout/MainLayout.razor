@@ -63,7 +63,7 @@ else
 
 @code {
     // Routes that anonymous visitors are allowed to view without being redirected to /login.
-    private static readonly string[] PublicRoutes = { "/play", "/pc" };
+    private static readonly string[] PublicRoutes = { "/play", "/pc", "/quest" };
 
     private bool _authChecked;
     private bool IsPublicRoute => PublicRoutes.Any(route =>
