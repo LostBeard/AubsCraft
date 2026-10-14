@@ -66,6 +66,23 @@ Updated: 2026-04-12
 - [ ] D12. **In-viewer UI** - Console commands, player list, chat overlay inside the 3D viewer
   - Check Lost/LostSpawns and SpawnScene for existing UI components
 
+## Phase V: Viewer on SpawnDev.VoxelEngine + SpawnDev.GameUI (TJ 2026-10-14: option 2)
+
+Why: the viewer meshes with its own one-thread-per-block kernels (66 floats per face, no merging), reads every
+mesh back to .NET (CopyToHostAsync + CPU section split + re-upload) and draws its own HUD as HTML. VoxelEngine
+has greedy meshing, GPU-resident PackedQuad buffers, vertex pooling, culling and LOD; GameUI has the HUD.
+Rule 2: every gap is fixed IN the library (VoxelEngine / GameUI), not worked around here.
+
+- [x] V0. Baseline captured BEFORE any change: `AubsCraft.Viewer.Tests` (published AOT build, own Chrome, real world) -> screenshots/viewer/baseline-pre-voxelengine/ (7 shots + shots.json). Far field is NOT settled in 240 s (world streams over SMB), so compare the near field; the gate takes AUBS_VIEWER_TAG to name the next run
+  - [ ] V0b. Shoreline and cave-mouth shots still to add (ground-level water edge, a cave entrance) before the cut-over
+- [ ] V1. GameUI runs in a worker: `GameUIService.Init` without a Blazor ElementReference, pushed-input provider (pointer/keys forwarded from the main thread), unit-tested
+- [ ] V2. GPU HUD in the viewer (FPS, XYZ, compass, time, draw stats, F3 overlay) replaces the HTML stats line; later chat/player list
+- [ ] V3. VoxelEngine textured pass: texture array + per-block per-face layer table, biome/foliage tint, alpha cutout (leaves/plants), water pass sorted back to front, time-of-day lighting + fog uniforms
+- [ ] V4. VoxelEngine ingest with no CPU copy: chunk column (palette indices) from a JS buffer -> GPU, palette-to-global-id remap on GPU, 24 sections meshed, transparent/cutout/cross-quad classes split
+- [ ] V5. Section pool: VertexPool + IndirectDrawBuffer + CullingPipeline (frustum + cave graph) replace MapRenderService slots
+- [ ] V6. Far tier (heightmap frames / LOD) as a PackedQuad producer in VoxelEngine
+- [ ] V7. Cut over: delete MinecraftMeshKernel/HeightmapMeshKernel/MinecraftLODKernel/CaveFillKernel/ChunkMesher paths, compare to the V0 baseline (same camera, same world), deploy
+
 ## Phase D2: Input System + UI Layout
 
 - [ ] D2.1. **Unified InputState** - Shared state that all input modes write to, camera/game reads from

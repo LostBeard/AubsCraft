@@ -4,6 +4,7 @@
 @inject WorldCacheService WorldCache
 @inject RenderWorkerHost WorkerHost
 @inject SpawnJSRuntime JS
+@inject NavigationManager Nav
 @implements IDisposable
 @using AubsCraft.Admin.Services
 @using SpawnDev.SpawnJS
@@ -87,6 +88,22 @@ else
             _blueMapUrl = config.Url;
     }
 
+    /// <summary>"cam=x,y,z" or "cam=x,y,z,pitch,yaw" (degrees, invariant culture) from a URL's query string.</summary>
+    internal static bool TryParseCameraQuery(string uri, out (float X, float Y, float Z, float? Pitch, float? Yaw) cam)
+    {
+        cam = default;
+        var query = System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query);
+        var parts = query["cam"]?.Split(',');
+        if (parts is not { Length: 3 or 5 }) return false;
+        var v = new float[parts.Length];
+        for (int i = 0; i < parts.Length; i++)
+            if (!float.TryParse(parts[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out v[i])
+                || !float.IsFinite(v[i]))
+                return false;
+        cam = (v[0], v[1], v[2], v.Length == 5 ? v[3] : null, v.Length == 5 ? v[4] : null);
+        return true;
+    }
+
     private void OnServerStatus(ServerStatusDto status)
     {
         if (status.TimeTicks >= 0 && _renderService != null)
@@ -162,6 +179,16 @@ else
                     var spawn = await Hub.GetWorldSpawnAsync();
                     if (spawn.Known) (camX, camZ) = (spawn.X, spawn.Z);
                     System.Console.WriteLine($"[Map] Starting at world spawn: ({camX:F0}, {camZ:F0}) known={spawn.Known}");
+                }
+
+                // Deep link /map?cam=x,y,z[,pitch,yaw] wins over the saved camera and the spawn (PLANS F5).
+                // First visit only: a worker that is already running keeps its camera.
+                if (TryParseCameraQuery(Nav.Uri, out var linked))
+                {
+                    (camX, camY, camZ) = (linked.X, linked.Y, linked.Z);
+                    if (linked.Pitch is { } p) pitch = p;
+                    if (linked.Yaw is { } yw) yaw = yw;
+                    System.Console.WriteLine($"[Map] Camera from link: ({camX:F0}, {camY:F0}, {camZ:F0}) pitch={pitch:F0} yaw={yaw:F0}");
                 }
 
                 await _renderService.StartAsync(serverId, camX, camY, camZ, pitch, yaw);
