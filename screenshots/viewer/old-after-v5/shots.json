@@ -1,0 +1,18 @@
+[
+  {
+    "Name": "01-spawn-topdown",
+    "SecondsToSettle": 240.4,
+    "Settled": false,
+    "Fps": 55,
+    "VisibleKVerts": 3874,
+    "TotalKVerts": 4683,
+    "VisibleSections": 2601,
+    "TotalSections": 3476,
+    "DrawDistance": 80,
+    "CamX": 240,
+    "CamY": 200,
+    "CamZ": -256,
+    "PixelStdDev": 37.85,
+    "File": "01-spawn-topdown.png"
+  }
+]
