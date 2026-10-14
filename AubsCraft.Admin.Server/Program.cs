@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Components.WebAssembly.Server;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<ActivityLogService>();
+builder.Services.AddSingleton<GlobalBlockRegistry>();
 // The managed Minecraft servers (servers.json) and one ServerInstance per server: RCON, systemd control,
 // add-ons, stats, world data and log tailing all live on the instance.
 builder.Services.AddSingleton<ServerRegistry>();
@@ -342,6 +343,23 @@ world.MapGet("/chunk/{x:int}/{z:int}", (int x, int z, string? server, ServerMana
     bw.Write(blockBytes);
 
     return Results.Bytes(ms.ToArray(), "application/octet-stream");
+});
+
+// Block names by global id (index = id, id 0 = air). Append-only: a client that has N names never needs to refetch
+// unless a response's X-Block-Registry-Count says the registry grew past N.
+world.MapGet("/blocks", (GlobalBlockRegistry registry) => Results.Ok(registry.Snapshot()));
+
+// The same chunk with GLOBAL block ids and no palette: the raw ushort[98304] (x + z*16 + y*256, 384 high, little-endian)
+// goes to the GPU as received. X-Block-Registry-Count = names the registry holds, which covers every id in this body.
+world.MapGet("/chunk-ids/{x:int}/{z:int}", (int x, int z, string? server, ServerManager servers, GlobalBlockRegistry registry, HttpContext ctx) =>
+{
+    if (servers.Get(server) is not { } instance) return Results.NotFound();
+    var chunk = instance.World.GetChunk(x, z);
+    if (chunk == null) return Results.NotFound();
+
+    var ids = registry.ToGlobalIds(chunk);
+    ctx.Response.Headers["X-Block-Registry-Count"] = registry.Count.ToString();
+    return Results.Bytes(System.Runtime.InteropServices.MemoryMarshal.AsBytes<ushort>(ids).ToArray(), "application/octet-stream");
 });
 
 // atlas.rgba served as static file from wwwroot

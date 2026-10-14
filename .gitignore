@@ -23,3 +23,5 @@ node_modules/
 
 # ProxyGate build intermediates (the shipped jar is AubsCraft.Admin.Server/ProxyPlugins/aubscraft-gate.jar)
 ProxyGate/build/
+block-registry.json
+block-registry.json.tmp
