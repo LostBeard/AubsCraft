@@ -365,7 +365,8 @@ world.MapGet("/chunk-ids/{x:int}/{z:int}", (int x, int z, string? server, Server
 // atlas.rgba served as static file from wwwroot
 
 // Binary WebSocket endpoint for camera-prioritized chunk streaming.
-world.MapGet("/ws", async (HttpContext ctx, string? server, ServerManager servers) =>
+// ?format=ids sends each heightmap frame in global block ids with no palette (HeightmapWire); the default frame keeps the palette strings.
+world.MapGet("/ws", async (HttpContext ctx, string? server, string? format, ServerManager servers, GlobalBlockRegistry registry) =>
 {
     if (!ctx.WebSockets.IsWebSocketRequest)
     {
@@ -461,27 +462,34 @@ world.MapGet("/ws", async (HttpContext ctx, string? server, ServerManager server
         }
 
         using var ms = new MemoryStream();
-        using var bw = new BinaryWriter(ms);
-        bw.Write(next.X);
-        bw.Write(next.Z);
-        bw.Write(hm.Palette.Count);
-        foreach (var name in hm.Palette)
+        ArraySegment<byte> frame;
+        if (format == "ids")
         {
-            var bytes = System.Text.Encoding.UTF8.GetBytes(name);
-            bw.Write(bytes.Length);
-            bw.Write(bytes);
+            frame = HeightmapWire.BuildIdsFrame(next.X, next.Z, hm, registry);
         }
-        foreach (var h in hm.Heights) bw.Write(h);
-        foreach (var b in hm.BlockIds) bw.Write(b);
-        foreach (var h in hm.SeabedHeights) bw.Write(h);
-        foreach (var b in hm.SeabedBlockIds) bw.Write(b);
-
-        bw.Flush();
+        else
+        {
+            using var bw = new BinaryWriter(ms);
+            bw.Write(next.X);
+            bw.Write(next.Z);
+            bw.Write(hm.Palette.Count);
+            foreach (var name in hm.Palette)
+            {
+                var bytes = System.Text.Encoding.UTF8.GetBytes(name);
+                bw.Write(bytes.Length);
+                bw.Write(bytes);
+            }
+            foreach (var h in hm.Heights) bw.Write(h);
+            foreach (var b in hm.BlockIds) bw.Write(b);
+            foreach (var h in hm.SeabedHeights) bw.Write(h);
+            foreach (var b in hm.SeabedBlockIds) bw.Write(b);
+            bw.Flush();
+            // The stream's own buffer, no ToArray() copy.
+            frame = new ArraySegment<byte>(ms.GetBuffer(), 0, (int)ms.Length);
+        }
         try
         {
-            // The stream's own buffer, no ToArray() copy.
-            await ws.SendAsync(new ArraySegment<byte>(ms.GetBuffer(), 0, (int)ms.Length),
-                System.Net.WebSockets.WebSocketMessageType.Binary, true, aborted);
+            await ws.SendAsync(frame, System.Net.WebSockets.WebSocketMessageType.Binary, true, aborted);
         }
         catch { break; }
 
