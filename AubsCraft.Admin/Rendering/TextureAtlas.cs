@@ -245,6 +245,17 @@ public static class TextureAtlas
     }
 
     /// <summary>
+    /// The atlas tile index (row * 16 + column, which is also the texture-array layer) of the top, side and bottom faces,
+    /// or -1 for a face without an atlas texture. Same table as <see cref="GetPerFaceUVs"/>.
+    /// </summary>
+    public static (int top, int side, int bottom) GetFaceLayers(string blockName)
+    {
+        if (PerFaceBlocks.TryGetValue(blockName, out var faces)) return faces;
+        if (BlockToIndex.TryGetValue(blockName, out var index)) return (index, index, index);
+        return (-1, -1, -1);
+    }
+
+    /// <summary>
     /// Returns per-face UVs: (top, side, bottom). Each is (u0, v0, u1, v1).
     /// For blocks without per-face overrides, all three are the same.
     /// Returns (-1,-1,-1,-1) for faces without atlas textures.
