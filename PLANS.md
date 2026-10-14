@@ -75,8 +75,11 @@ Rule 2: every gap is fixed IN the library (VoxelEngine / GameUI), not worked aro
 
 - [x] V0. Baseline captured BEFORE any change: `AubsCraft.Viewer.Tests` (published AOT build, own Chrome, real world) -> screenshots/viewer/baseline-pre-voxelengine/ (7 shots + shots.json). Far field is NOT settled in 240 s (world streams over SMB), so compare the near field; the gate takes AUBS_VIEWER_TAG to name the next run
   - [ ] V0b. Shoreline and cave-mouth shots still to add (ground-level water edge, a cave entrance) before the cut-over
-- [ ] V1. GameUI runs in a worker: `GameUIService.Init` without a Blazor ElementReference, pushed-input provider (pointer/keys forwarded from the main thread), unit-tested
-- [ ] V2. GPU HUD in the viewer (FPS, XYZ, compass, time, draw stats, F3 overlay) replaces the HTML stats line; later chat/player list
+- [x] V1. GameUI runs in a worker: `GameUIService.Init(device, queue, format, w, h)` + `PushedInputProvider` (GameUI 1.1.0-local.1, pushed 18f98d6, 12 tests red-checked); proven in a real worker by V2
+- [x] V2. GPU HUD in the viewer (stats panel, compass, crosshair while locked, hint, F3 debug overlay) drawn by GameUI in the render worker; the HTML stats line is now visually hidden (kept for screen readers and the gate). Gate: `ViewerHudTests` (same-scene `?hud=0` control; red-checked by running them with the HUD hidden: all 3 fail)
+  - Needed SpawnJS 3.0.4-local.1: the record-constructor fix (RenderStats) was only on SpawnJS's v3 branch, never in a release - now on main (df5d5f7)
+  - `/map?hud=0` hides the HUD (a clean frame for streaming and capture: D2.11/P4/P5)
+  - [ ] V2b. Chat box (replaces the HTML Chat button/panel), player list, minimap, notification toasts - GameUI has UIChatBox, UIMinimapFrame, UINotificationStack
 - [ ] V3. VoxelEngine textured pass: texture array + per-block per-face layer table, biome/foliage tint, alpha cutout (leaves/plants), water pass sorted back to front, time-of-day lighting + fog uniforms
 - [ ] V4. VoxelEngine ingest with no CPU copy: chunk column (palette indices) from a JS buffer -> GPU, palette-to-global-id remap on GPU, 24 sections meshed, transparent/cutout/cross-quad classes split
 - [ ] V5. Section pool: VertexPool + IndirectDrawBuffer + CullingPipeline (frustum + cave graph) replace MapRenderService slots

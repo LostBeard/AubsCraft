@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using AubsCraft.Admin;
 using AubsCraft.Admin.Services;
+using SpawnDev.GameUI;
 using SpawnDev.SpawnJS;
 using SpawnDev.SpawnJS.WebWorkers;
 using SpawnDev.SpawnJS.JSObjects;
@@ -27,6 +28,9 @@ builder.Services.AddSingleton<AubsCraft.Admin.Rendering.MapRenderService>();
 builder.Services.AddSingleton<WorldCacheService>();
 builder.Services.AddSingleton<ChunkStreamService>();
 builder.Services.AddSingleton<RenderWorkerHost>();
+// GameUI draws the viewer's HUD on the GPU, in the render worker (the AubsCraft theme is the blocky Minecraft look)
+builder.Services.AddGameUI(UITheme.AubsCraft);
+builder.Services.AddSingleton<AubsCraft.Admin.Rendering.ViewerHud>();
 // RenderWorkerService is NOT registered here - it's created via worker.New() with OffscreenCanvas
 
 if (JS.IsWindow)

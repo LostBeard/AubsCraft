@@ -19,7 +19,8 @@
     <div class="d-flex gap-2 align-items-center">
         @if (_viewMode == ViewMode.Viewer3D)
         {
-            <small class="text-muted font-monospace" style="font-size: 0.7rem;">
+            @* The numbers are on the GPU HUD now. This line stays for screen readers and for the viewer gate, which reads it. *@
+            <small class="text-muted font-monospace visually-hidden" style="font-size: 0.7rem;">
                 @if (_lastStats != null)
                 {
                     @($"{_lastStats.Fps:F0} FPS | {_lastStats.VisibleVerts / 1000}K/{_lastStats.TotalVerts / 1000}K verts | {_lastStats.VisibleChunks}/{_lastStats.TotalChunks} chunks | draw: {_lastStats.DrawDistance} | {_lastStats.ChunksPerSecond:F1} c/s | Worker | XYZ {_lastStats.CamX:F0} {_lastStats.CamY:F0} {_lastStats.CamZ:F0}")
@@ -104,6 +105,10 @@ else
         return true;
     }
 
+    /// <summary>True when the URL's query has hud=0.</summary>
+    internal static bool HudHiddenByLink(string uri)
+        => System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["hud"] == "0";
+
     private void OnServerStatus(ServerStatusDto status)
     {
         if (status.TimeTicks >= 0 && _renderService != null)
@@ -116,6 +121,13 @@ else
         _isPointerLocked = _document?.PointerLockElement != null;
         if (wasLocked && !_isPointerLocked)
             Input.ConsumeMouseDelta();
+        // The camera has (or gave up) the mouse: the HUD's crosshair/hover follow. Compared with what the HUD was last told,
+        // not with wasLocked: the input loop clears _isPointerLocked itself on Escape, before the browser's own event.
+        if (_isPointerLocked != Input.PointerLocked)
+        {
+            Input.PointerLocked = _isPointerLocked;
+            if (_renderService != null) _ = _renderService.SetPointerLockedAsync(_isPointerLocked);
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -191,6 +203,10 @@ else
                     System.Console.WriteLine($"[Map] Camera from link: ({camX:F0}, {camY:F0}, {camZ:F0}) pitch={pitch:F0} yaw={yaw:F0}");
                 }
 
+                // Deep link /map?hud=0 hides the GPU HUD: a clean frame for streaming and capture (first visit only, like cam=)
+                if (HudHiddenByLink(Nav.Uri))
+                    await _renderService.SetHudVisibleAsync(false);
+
                 await _renderService.StartAsync(serverId, camX, camY, camZ, pitch, yaw);
                 WorkerHost.IsStarted = true;
                 WorkerHost.ServerId = serverId;
@@ -198,6 +214,8 @@ else
 
             // Attach input service on main thread
             Input.Attach();
+            // The HUD runs in the worker, which has no DOM: this side listens on the canvas and forwards what it sees
+            Input.AttachCanvas(_canvas);
 
             // Pointer lock via event - zero per-frame JS calls
             _document = JS.Get<Document>("document");
@@ -234,6 +252,10 @@ else
         while (_viewMode == ViewMode.Viewer3D && _renderService != null)
         {
             await Task.Delay(16);
+
+            // Canvas input for the worker's GPU HUD (mouse position/buttons/wheel, keys, blur)
+            if (Input.TakeUiEvents() is { } uiEvents)
+                await _renderService.PushUiInputAsync(uiEvents);
 
             if (_isPointerLocked)
             {

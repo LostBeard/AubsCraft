@@ -18,6 +18,7 @@ public class RenderWorkerService : IRenderWorkerService
     private readonly MapRenderService _renderer;
     private readonly WorldCacheService _cache;
     private readonly ChunkStreamService _chunkStream;
+    private readonly ViewerHud _hud;
     private OffscreenCanvas? _canvas;
     private bool _initialized;
     private bool _disposed;
@@ -36,13 +37,15 @@ public class RenderWorkerService : IRenderWorkerService
         [FromServices] VoxelEngineService? engine = null,
         [FromServices] MapRenderService? renderer = null,
         [FromServices] WorldCacheService? cache = null,
-        [FromServices] ChunkStreamService? chunkStream = null)
+        [FromServices] ChunkStreamService? chunkStream = null,
+        [FromServices] ViewerHud? hud = null)
     {
         _js = js!;
         _engine = engine!;
         _renderer = renderer!;
         _cache = cache!;
         _chunkStream = chunkStream!;
+        _hud = hud!;
         _canvas = canvas;
         _canvas.Width = width;
         _canvas.Height = height;
@@ -61,6 +64,9 @@ public class RenderWorkerService : IRenderWorkerService
         // Init ILGPU + WebGPU in the worker
         await _engine.InitAsync();
         _renderer.InitOffscreen(_canvas!, _engine.Accelerator!);
+        // The HUD (GameUI) draws with the world's own device, into the same encoder, after the world pass.
+        _hud.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _canvas!.Width, _canvas.Height);
+        _renderer.OnOverlay = (encoder, view, w, h) => _hud.Draw(encoder, view, w, h);
         _initialized = true;
         Console.WriteLine($"[RenderWorker] Initialized: {_engine.BackendName}");
 
@@ -124,7 +130,28 @@ public class RenderWorkerService : IRenderWorkerService
             _canvas.Width = width;
             _canvas.Height = height;
             _renderer.HandleResize(width, height);
+            _hud.SetViewport(width, height);
         }
+        return Task.CompletedTask;
+    }
+
+    public Task PushUiInputAsync(UiInputEvent[] events)
+    {
+        if (!_initialized) return Task.CompletedTask;
+        foreach (var e in events)
+            _hud.Apply(e);
+        return Task.CompletedTask;
+    }
+
+    public Task SetPointerLockedAsync(bool locked)
+    {
+        if (_initialized) _hud.SetPointerLocked(locked);
+        return Task.CompletedTask;
+    }
+
+    public Task SetHudVisibleAsync(bool visible)
+    {
+        _hud.Visible = visible;
         return Task.CompletedTask;
     }
 
@@ -176,6 +203,7 @@ public class RenderWorkerService : IRenderWorkerService
         _canvas.Width = width;
         _canvas.Height = height;
         _renderer.AttachCanvas(_canvas);
+        _hud.SetViewport(width, height);
         _renderer.OnUpdate = OnRenderFrame;
         _renderer.StartRenderLoop();
         Console.WriteLine($"[RenderWorker] Canvas re-attached: {width}x{height}, chunks already loaded: {LoadedCount}");
@@ -532,6 +560,13 @@ public class RenderWorkerService : IRenderWorkerService
 
     private void OnRenderFrame(float dt)
     {
+        // HUD state first: it is drawn later in this same frame, after the world pass (MapRenderService.OnOverlay)
+        _hud.Update(dt, new HudData(
+            _renderer.Fps, _renderer.Camera.Position.X, _renderer.Camera.Position.Y, _renderer.Camera.Position.Z,
+            _renderer.Camera.Yaw,
+            _renderer.VisibleChunkCount, _renderer.TotalChunkCount, _renderer.VisibleVertices, _renderer.TotalVertices,
+            _renderer.DrawDistance, LoadedCount, _chunksPerSecond, _renderer.TimeOfDay, _engine.BackendName ?? "?"));
+
         // Trigger full 3D loading when camera moves to a new chunk
         var (camCX, camCZ) = CameraChunk();
         if (camCX != _lastStreamCX || camCZ != _lastStreamCZ) PostCameraToDataWorker();

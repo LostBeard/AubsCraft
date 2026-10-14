@@ -103,6 +103,18 @@ public sealed class MapRenderService : IDisposable
     }
     public bool IsInitialized { get; private set; }
     public Action<float>? OnUpdate { get; set; }
+
+    /// <summary>The WebGPU device and queue the world draws with (null until Init): the HUD draws with the same ones.</summary>
+    internal GPUDevice? Device => _device;
+    internal GPUQueue? Queue => _queue;
+    /// <summary>The canvas's texture format; anything drawn on top of the world must use it.</summary>
+    public string CanvasFormat => _canvasFormat;
+
+    /// <summary>
+    /// Called with the frame's command encoder, the canvas texture view and its size right after the world's render pass
+    /// ends and before the encoder is finished: whatever it records is drawn on top of the world, in the same submit.
+    /// </summary>
+    public Action<GPUCommandEncoder, GPUTextureView, int, int>? OnOverlay { get; set; }
     public int VisibleChunkCount { get; private set; }
     public int TotalChunkCount => _slots.Count;
     public float Fps { get; private set; }
@@ -1153,6 +1165,7 @@ public sealed class MapRenderService : IDisposable
         }
 
         pass.End();
+        OnOverlay?.Invoke(encoder, colorView, _canvasWidth, _canvasHeight);
         using var commandBuffer = encoder.Finish();
         _submitArray[0] = commandBuffer;
         _queue!.Submit(_submitArray);

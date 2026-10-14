@@ -25,13 +25,6 @@ public class ViewerShotTests
     private readonly List<ShotRecord> _records = [];
     private (int X, int Z) _spawn;
 
-    private static readonly Regex StatsLine = new(
-        @"(?<fps>\d+) FPS \| (?<vis>\d+)K/(?<tot>\d+)K verts \| (?<vc>\d+)/(?<tc>\d+) chunks \| draw: (?<draw>\d+) \| (?<cps>[\d.]+) c/s \| Worker \| XYZ (?<x>-?\d+) (?<y>-?\d+) (?<z>-?\d+)",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
-    private sealed record Stats(int Fps, int VisibleKVerts, int TotalKVerts, int VisibleSections, int TotalSections, int DrawDistance,
-        double SectionsPerSecond, int X, int Y, int Z);
-
     public sealed record ShotRecord(string Name, double SecondsToSettle, bool Settled, int Fps, int VisibleKVerts, int TotalKVerts,
         int VisibleSections, int TotalSections, int DrawDistance, int CamX, int CamY, int CamZ, double PixelStdDev, string File);
 
@@ -95,7 +88,7 @@ public class ViewerShotTests
 
     private record Cam(float X, float Y, float Z, float Pitch, float Yaw);
 
-    private void AssertCameraAt(Stats s, float y)
+    private void AssertCameraAt(ViewerStats s, float y)
     {
         Assert.That(Math.Abs(s.Y - y), Is.LessThanOrEqualTo(1.5), $"The cam= link put the camera at Y {s.Y}, asked for {y}");
     }
@@ -104,7 +97,7 @@ public class ViewerShotTests
     /// Opens the viewer at <paramref name="cam"/>, waits for the terrain around it to stream in (the stats line stops
     /// growing), saves the canvas, and records the stats.
     /// </summary>
-    private async Task<Stats> ShotAsync(string name, Cam? cam, int requireSections)
+    private async Task<ViewerStats> ShotAsync(string name, Cam? cam, int requireSections)
     {
         var page = await _rig.Context.NewPageAsync();
         var consoleErrors = new List<string>();
@@ -146,31 +139,21 @@ public class ViewerShotTests
         }
     }
 
-    private static async Task<(Stats Stats, bool Settled)> WaitForSettledAsync(IPage page, int minSections, int quietSeconds, int maxSeconds)
+    private static async Task<(ViewerStats Stats, bool Settled)> WaitForSettledAsync(IPage page, int minSections, int quietSeconds, int maxSeconds)
     {
         var started = DateTime.UtcNow;
-        Stats? last = null;
+        ViewerStats? last = null;
         int lastSections = -1;
         var lastChange = DateTime.UtcNow;
         while ((DateTime.UtcNow - started).TotalSeconds < maxSeconds)
         {
             await Task.Delay(1000);
 
-            // A failed GPU init replaces the canvas with this alert: report it, do not wait it out.
-            var alert = page.Locator(".alert");
-            if (await alert.CountAsync() > 0)
-                Assert.Fail("The viewer showed: " + (await alert.First.InnerTextAsync()).Trim());
+            // A failed GPU init replaces the canvas with an alert: report it, do not wait it out.
+            await ViewerStats.FailIfTheViewerFailedAsync(page);
 
-            var line = page.Locator("small.font-monospace:has-text('FPS')");
-            if (await line.CountAsync() == 0) continue;
-            var m = StatsLine.Match(await line.First.InnerTextAsync());
-            if (!m.Success) continue;
-
-            last = new Stats(
-                int.Parse(m.Groups["fps"].Value), int.Parse(m.Groups["vis"].Value), int.Parse(m.Groups["tot"].Value),
-                int.Parse(m.Groups["vc"].Value), int.Parse(m.Groups["tc"].Value), int.Parse(m.Groups["draw"].Value),
-                double.Parse(m.Groups["cps"].Value, CultureInfo.InvariantCulture),
-                int.Parse(m.Groups["x"].Value), int.Parse(m.Groups["y"].Value), int.Parse(m.Groups["z"].Value));
+            if (await ViewerStats.ReadAsync(page) is not { } now) continue;
+            last = now;
             if (last.TotalSections != lastSections) { lastSections = last.TotalSections; lastChange = DateTime.UtcNow; }
             if (last.TotalSections >= minSections && (DateTime.UtcNow - lastChange).TotalSeconds >= quietSeconds)
                 return (last, true);
@@ -199,7 +182,7 @@ public class ViewerShotTests
     private static int FloorDiv(int a, int b) => (int)Math.Floor(a / (double)b);
     private static int Mod(int a, int b) => ((a % b) + b) % b;
 
-    private static string RepoRoot()
+    internal static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir != null && !File.Exists(Path.Combine(dir.FullName, "AubsCraft.slnx"))) dir = dir.Parent;

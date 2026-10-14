@@ -13,6 +13,12 @@ public interface IRenderWorkerService : IAsyncDisposable
     Task AttachCanvasAsync(OffscreenCanvas canvas, int width, int height);
     Task DetachCanvasAsync();
     Task ProcessInputAsync(float dx, float dy, float dt, string[] keysDown);
+    /// <summary>Input the page saw on the canvas, for the worker's GPU HUD (the worker has no DOM to listen to).</summary>
+    Task PushUiInputAsync(UiInputEvent[] events);
+    /// <summary>The camera took (or released) the pointer: the HUD shows its crosshair and stops hovering under the mouse.</summary>
+    Task SetPointerLockedAsync(bool locked);
+    /// <summary>Shows or hides the GPU HUD (<c>/map?hud=0</c> hides it: a clean frame for streaming or capture).</summary>
+    Task SetHudVisibleAsync(bool visible);
     Task ResizeAsync(int width, int height);
     Task<RenderStats> GetStatsAsync();
     Task SetTimeOfDay(int ticks);
