@@ -116,7 +116,8 @@ public sealed class MapRenderService : IDisposable
     /// </summary>
     public Action<GPUCommandEncoder, GPUTextureView, int, int>? OnOverlay { get; set; }
     public int VisibleChunkCount { get; private set; }
-    public int TotalChunkCount => _slots.Count;
+    public int TotalChunkCount => Voxel != null ? _voxelSectionCount : _slots.Count;
+    private int _voxelSectionCount;
     public float Fps { get; private set; }
 
     // Cached per-frame descriptors to avoid allocation every frame
@@ -945,7 +946,8 @@ public sealed class MapRenderService : IDisposable
             _fpsAccumulator = 0;
 
             // Adaptive draw distance + vertex pressure feedback
-            float pressure = (float)TotalVertices / Math.Max(VertexBudget, 1);
+            // The vertex budget belongs to the old slot buffer; the voxel renderer has no such budget, so only frame rate steers it
+            float pressure = Voxel != null ? 0f : (float)TotalVertices / Math.Max(VertexBudget, 1);
             if (pressure > 0.9f && DrawDistance > MinDrawDistance)
                 DrawDistance = Math.Max(MinDrawDistance, DrawDistance - 2);
             else if (Fps >= 50 && pressure < 0.6f && DrawDistance < MaxDrawDistance)
@@ -965,10 +967,40 @@ public sealed class MapRenderService : IDisposable
         RequestFrame();
     }
 
+    /// <summary>
+    /// The VoxelEngine renderer (<c>?renderer=voxel</c>). When set, it draws the world instead of the slots above, which stay
+    /// empty; the old path goes away when the cut-over is done (PLANS Phase V7).
+    /// </summary>
+    public VoxelWorldRenderer? Voxel { get; set; }
+
+    private void RenderVoxelFrame(VoxelWorldRenderer voxel)
+    {
+        using var colorTexture = _context!.GetCurrentTexture();
+        using var colorView = colorTexture.CreateView();
+        using var encoder = _device!.CreateCommandEncoder();
+
+        var light = DayLighting.At(TimeOfDay);
+        var stats = voxel.Render(encoder, colorView, _canvasWidth, _canvasHeight, Camera, in light, DrawDistance);
+        VisibleChunkCount = stats.VisibleSections;
+        _voxelSectionCount = stats.SectionsWithQuads;
+        VisibleVertices = (int)Math.Min(stats.VisibleQuads * 6, int.MaxValue);
+        TotalVertices = (int)Math.Min(stats.TotalQuads * 6, int.MaxValue);
+
+        OnOverlay?.Invoke(encoder, colorView, _canvasWidth, _canvasHeight);
+        using var commandBuffer = encoder.Finish();
+        _submitArray[0] = commandBuffer;
+        _queue!.Submit(_submitArray);
+    }
+
     private int _diagFrameCount;
     private int _lastDiagSlotCount;
     private void RenderFrame()
     {
+        if (Voxel is { } voxel && _device != null && _context != null)
+        {
+            RenderVoxelFrame(voxel);
+            return;
+        }
         if (_device == null || _context == null || _pipeline == null ||
             _vertexBuffer == null || _slots.Count == 0)
             return;
@@ -994,48 +1026,25 @@ public sealed class MapRenderService : IDisposable
         _uniformFloats[18] = Camera.Position.Z;
         _uniformFloats[19] = 0f;
 
-        // Precompute time-of-day lighting on CPU once per frame (no per-pixel trig)
-        float t = TimeOfDay;
-        float angle = t * MathF.Tau;
-        float sunY = -MathF.Cos(angle);
-        float sx = MathF.Sin(angle) * 0.7f;
-        float len = MathF.Sqrt(sx * sx + sunY * sunY + 0.35f * 0.35f);
-        _uniformFloats[20] = sx / len;  // sun_dir.x
-        _uniformFloats[21] = sunY / len;  // sun_dir.y
-        _uniformFloats[22] = 0.35f / len; // sun_dir.z
+        // Time-of-day lighting, computed on the CPU once per frame (no per-pixel trig)
+        var light = DayLighting.At(TimeOfDay);
+        _uniformFloats[20] = light.SunDirection.X;
+        _uniformFloats[21] = light.SunDirection.Y;
+        _uniformFloats[22] = light.SunDirection.Z;
         _uniformFloats[23] = 0f;
-
-        float elevation = -MathF.Cos(angle);
-        float dayFactor = Math.Clamp(elevation * 2f + 0.5f, 0f, 1f);
-        float dawnFactor = Math.Clamp(1f - MathF.Abs(elevation) * 4f, 0f, 1f);
-
-        // Ambient
-        float ar = Lerp(0.05f, 0.30f, dayFactor); ar = Lerp(ar, 0.25f, dawnFactor * 0.6f);
-        float ag = Lerp(0.06f, 0.32f, dayFactor); ag = Lerp(ag, 0.18f, dawnFactor * 0.6f);
-        float ab = Lerp(0.12f, 0.38f, dayFactor); ab = Lerp(ab, 0.12f, dawnFactor * 0.6f);
-        _uniformFloats[24] = ar;
-        _uniformFloats[25] = ag;
-        _uniformFloats[26] = ab;
+        _uniformFloats[24] = light.Ambient.X;
+        _uniformFloats[25] = light.Ambient.Y;
+        _uniformFloats[26] = light.Ambient.Z;
         _uniformFloats[27] = 0f;
-
-        // Sun color
-        float sr2 = Lerp(0.15f, 1.0f, dayFactor); sr2 = Lerp(sr2, 1.0f, dawnFactor * 0.8f);
-        float sg2 = Lerp(0.18f, 0.95f, dayFactor); sg2 = Lerp(sg2, 0.55f, dawnFactor * 0.8f);
-        float sb2 = Lerp(0.35f, 0.85f, dayFactor); sb2 = Lerp(sb2, 0.25f, dawnFactor * 0.8f);
-        _uniformFloats[28] = sr2;
-        _uniformFloats[29] = sg2;
-        _uniformFloats[30] = sb2;
+        _uniformFloats[28] = light.SunColor.X;
+        _uniformFloats[29] = light.SunColor.Y;
+        _uniformFloats[30] = light.SunColor.Z;
         _uniformFloats[31] = 0f;
-
         // Fog color + sun strength packed in .w
-        float fr = Lerp(0.04f, 0.65f, dayFactor); fr = Lerp(fr, 0.85f, dawnFactor * 0.7f);
-        float fg = Lerp(0.05f, 0.80f, dayFactor); fg = Lerp(fg, 0.50f, dawnFactor * 0.7f);
-        float fb = Lerp(0.10f, 0.95f, dayFactor); fb = Lerp(fb, 0.30f, dawnFactor * 0.7f);
-        float sunStrength = Math.Clamp(dayFactor * 0.55f + 0.05f, 0.05f, 0.55f);
-        _uniformFloats[32] = fr;
-        _uniformFloats[33] = fg;
-        _uniformFloats[34] = fb;
-        _uniformFloats[35] = sunStrength;
+        _uniformFloats[32] = light.FogColor.X;
+        _uniformFloats[33] = light.FogColor.Y;
+        _uniformFloats[34] = light.FogColor.Z;
+        _uniformFloats[35] = light.SunStrength;
 
         _uniformBytes ??= new byte[144];
         Buffer.BlockCopy(_uniformFloats, 0, _uniformBytes, 0, 144);

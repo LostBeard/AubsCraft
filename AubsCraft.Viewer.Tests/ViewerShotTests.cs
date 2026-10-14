@@ -105,8 +105,13 @@ public class ViewerShotTests
         page.PageError += (_, e) => consoleErrors.Add(e);
         try
         {
-            string url = _rig.BaseUrl + "/map" + (cam == null ? "" : string.Create(CultureInfo.InvariantCulture,
-                $"?cam={cam.X},{cam.Y},{cam.Z},{cam.Pitch},{cam.Yaw}"));
+            var query = new List<string>();
+            if (cam != null) query.Add(string.Create(CultureInfo.InvariantCulture, $"cam={cam.X},{cam.Y},{cam.Z},{cam.Pitch},{cam.Yaw}"));
+            // AUBS_VIEWER_RENDERER=voxel: the same shots through the SpawnDev.VoxelEngine renderer (/map?renderer=voxel)
+            if (Environment.GetEnvironmentVariable("AUBS_VIEWER_RENDERER") is { Length: > 0 } renderer) query.Add("renderer=" + renderer);
+            // AUBS_VIEWER_HUD=0: no HUD in the frame, so two renderers' shots compare as worlds
+            if (Environment.GetEnvironmentVariable("AUBS_VIEWER_HUD") == "0") query.Add("hud=0");
+            string url = _rig.BaseUrl + "/map" + (query.Count == 0 ? "" : "?" + string.Join("&", query));
             await page.GotoAsync(url, new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
 
             var sw = System.Diagnostics.Stopwatch.StartNew();

@@ -20,6 +20,8 @@ public class RenderWorkerService : IRenderWorkerService
     private readonly ChunkStreamService _chunkStream;
     private readonly ViewerHud _hud;
     private OffscreenCanvas? _canvas;
+    /// <summary>Set for <c>/map?renderer=voxel</c>: SpawnDev.VoxelEngine draws the world (null = the original renderer).</summary>
+    private VoxelWorldRenderer? _voxel;
     private bool _initialized;
     private bool _disposed;
     public int LoadedCount { get; private set; }
@@ -56,7 +58,7 @@ public class RenderWorkerService : IRenderWorkerService
     /// <summary>
     /// Initialize GPU and start the render loop + chunk loading.
     /// </summary>
-    public async Task StartAsync(string serverId, float camX, float camY, float camZ, float pitch, float yaw)
+    public async Task StartAsync(string serverId, float camX, float camY, float camZ, float pitch, float yaw, bool voxelRenderer)
     {
         _serverQuery = "server=" + Uri.EscapeDataString(serverId);
         _cache.ServerId = serverId;
@@ -64,6 +66,14 @@ public class RenderWorkerService : IRenderWorkerService
         // Init ILGPU + WebGPU in the worker
         await _engine.InitAsync();
         _renderer.InitOffscreen(_canvas!, _engine.Accelerator!);
+        if (voxelRenderer)
+        {
+            // Draws with SpawnDev.VoxelEngine on the same device; the original mesh kernels stay idle (PLANS Phase V)
+            _voxel = new VoxelWorldRenderer();
+            _voxel.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _engine.Accelerator!);
+            _renderer.Voxel = _voxel;
+            Console.WriteLine("[RenderWorker] renderer=voxel: SpawnDev.VoxelEngine draws the world");
+        }
         // The HUD (GameUI) draws with the world's own device, into the same encoder, after the world pass.
         _hud.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _canvas!.Width, _canvas.Height);
         _renderer.OnOverlay = (encoder, view, w, h) => _hud.Draw(encoder, view, w, h);
@@ -258,6 +268,15 @@ public class RenderWorkerService : IRenderWorkerService
     {
         try
         {
+            if (_voxel != null)
+            {
+                // The voxel renderer draws columns, not heightmaps (the far tier is PLANS V6): the heightmap only says the chunk exists
+                _populatedChunks.Add((cx, cz));
+                if (IsInFullRadius(cx, cz) && !_voxel.HasColumn(cx, cz)) _fullDirty = true;
+                buffer.Dispose();
+                _dataPort?.PostMessage(new { type = "ready" });
+                return;
+            }
             _populatedChunks.Add((cx, cz));
             // A heightmap arriving inside the full-3D radius makes that chunk loadable in 3D;
             // the render loop picks it up (the camera may never change chunk on its own).
@@ -330,6 +349,15 @@ public class RenderWorkerService : IRenderWorkerService
             }
 
             using var buffer = await response.ArrayBuffer();
+            if (_voxel != null)
+            {
+                // The pixels go from the fetched ArrayBuffer to the GPU texture array without entering .NET
+                using var pixels = new Uint8Array(buffer);
+                int atlasSize = (int)Math.Sqrt(pixels.Length / 4);
+                _voxel.SetAtlas(pixels, atlasSize);
+                Console.WriteLine($"[RenderWorker] Atlas {atlasSize}x{atlasSize} sliced into the voxel texture array");
+                return;
+            }
             var rgba = buffer.ReadBytes();
             int size = (int)Math.Sqrt(rgba.Length / 4);
             Console.WriteLine($"[RenderWorker] Atlas data: {rgba.Length} bytes, {size}x{size}");
@@ -395,6 +423,7 @@ public class RenderWorkerService : IRenderWorkerService
     private async Task LoadCachedChunksAsync()
     {
         _loadTimer.Start();
+        if (_voxel != null) return; // columns stream from the server; no heightmap cache to replay
 
         // Load from OPFS cache if available. WebSocket streaming handled by data worker.
         var regionCount = await _cache.GetCachedRegionCountAsync();
@@ -618,6 +647,11 @@ public class RenderWorkerService : IRenderWorkerService
     /// </summary>
     private async Task LoadFullChunksNearbyAsync(int camCX, int camCZ)
     {
+        if (_voxel != null)
+        {
+            await LoadVoxelColumnsNearbyAsync();
+            return;
+        }
         _loadingFull = true;
         var attempted = new HashSet<(int, int)>(); // a chunk that fails is retried on the next pass, not this one
         try
@@ -701,6 +735,124 @@ public class RenderWorkerService : IRenderWorkerService
         finally
         {
             _loadingFull = false;
+        }
+    }
+
+    // ---- renderer=voxel: columns with the server's global block ids, meshed by SpawnDev.VoxelEngine ----
+
+    /// <summary>Columns fetched at once: the round trip, not the GPU, is what a lone request waits for.</summary>
+    private const int VoxelParallelFetches = 4;
+    private readonly SemaphoreSlim _voxelNamesLock = new(1, 1);
+
+    /// <summary>Loads columns nearest-first around the CURRENT camera until every populated chunk in the radius is in.</summary>
+    private async Task LoadVoxelColumnsNearbyAsync()
+    {
+        _loadingFull = true;
+        var attempted = new HashSet<(int, int)>(); // a column that fails is retried on the next pass, not this one
+        try
+        {
+            if (_voxel!.NamesKnown == 0) await RefreshVoxelBlockNamesAsync();
+            if (_voxel.NamesKnown == 0) return;
+
+            while (!_disposed)
+            {
+                var (camCX, camCZ) = CameraChunk();
+                EvictFarVoxelColumns(camCX, camCZ);
+                var batch = NearestPendingVoxelColumns(camCX, camCZ, attempted, VoxelParallelFetches);
+                if (batch.Count == 0) break;
+                foreach (var c in batch) attempted.Add(c);
+                await Task.WhenAll(batch.Select(c => LoadVoxelColumnAsync(c.cx, c.cz)));
+                LoadedCount = _voxel.ColumnCount;
+            }
+        }
+        finally
+        {
+            _loadingFull = false;
+        }
+    }
+
+    private List<(int cx, int cz)> NearestPendingVoxelColumns(int camCX, int camCZ, HashSet<(int, int)> attempted, int count)
+    {
+        var candidates = new List<(int d, int cx, int cz)>();
+        for (int dz = -FullRenderRadius; dz <= FullRenderRadius; dz++)
+        for (int dx = -FullRenderRadius; dx <= FullRenderRadius; dx++)
+        {
+            int d = dx * dx + dz * dz;
+            if (d > FullRenderRadius * FullRenderRadius) continue;
+            var c = (camCX + dx, camCZ + dz);
+            if (!_populatedChunks.Contains(c) || attempted.Contains(c) || _voxel!.HasColumn(c.Item1, c.Item2)) continue;
+            candidates.Add((d, c.Item1, c.Item2));
+        }
+        candidates.Sort((a, b) => a.d.CompareTo(b.d));
+        return candidates.Take(count).Select(c => (c.cx, c.cz)).ToList();
+    }
+
+    // Columns well outside the radius go, so a long flight does not run out of section slots or GPU memory.
+    private void EvictFarVoxelColumns(int camCX, int camCZ)
+    {
+        int limit = (FullRenderRadius + 3) * (FullRenderRadius + 3);
+        foreach (var (cx, cz) in _voxel!.ColumnKeys.ToArray())
+        {
+            int dx = cx - camCX, dz = cz - camCZ;
+            if (dx * dx + dz * dz > limit) _voxel.RemoveColumn(cx, cz);
+        }
+    }
+
+    private async Task LoadVoxelColumnAsync(int cx, int cz)
+    {
+        try
+        {
+            using var response = await _js.Fetch($"{_baseUrl}/api/world/chunk-ids/{cx}/{cz}?{_serverQuery}",
+                new FetchOptions { Credentials = "include" });
+            if (!response.Ok)
+            {
+                Console.WriteLine($"[RenderWorker] Voxel column ({cx},{cz}) HTTP {response.Status}");
+                return;
+            }
+
+            // The server says how many block names it knows; a column can use ids we have no name for yet
+            int registryCount = 0;
+            using (var headers = response.Headers)
+                int.TryParse(headers.Get("X-Block-Registry-Count"), out registryCount);
+            if (registryCount > _voxel!.NamesKnown) await RefreshVoxelBlockNamesAsync(registryCount);
+
+            using var buffer = await response.ArrayBuffer();
+            using var ids = new Uint8Array(buffer);
+            if (!await _voxel.AddColumnAsync(cx, cz, ids))
+                Console.WriteLine($"[RenderWorker] Voxel column ({cx},{cz}) dropped: no free section slots");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[RenderWorker] Voxel column ({cx},{cz}) failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Fetch the block names (index = global id) and rebuild the class and material tables. Columns meshed before the names grew
+    /// treated the new ids as air, so they are meshed again.
+    /// </summary>
+    private async Task RefreshVoxelBlockNamesAsync(int atLeast = 1)
+    {
+        await _voxelNamesLock.WaitAsync();
+        try
+        {
+            if (_voxel!.NamesKnown >= atLeast && _voxel.NamesKnown > 0) return; // another caller got there first
+            using var response = await _js.Fetch($"{_baseUrl}/api/world/blocks", new FetchOptions { Credentials = "include" });
+            if (!response.Ok)
+            {
+                Console.WriteLine($"[RenderWorker] Block names HTTP {response.Status}");
+                return;
+            }
+            var names = System.Text.Json.JsonSerializer.Deserialize<string[]>(await response.Text());
+            if (names == null || names.Length == 0) return;
+            bool grew = _voxel.NamesKnown > 0;
+            _voxel.SetBlockNames(names);
+            Console.WriteLine($"[RenderWorker] {names.Length} block names");
+            if (grew) await _voxel.RemeshAllAsync();
+        }
+        finally
+        {
+            _voxelNamesLock.Release();
         }
     }
 
@@ -816,6 +968,7 @@ public class RenderWorkerService : IRenderWorkerService
         _disposed = true;
         // Data worker handles WebSocket - no OnChunkReceived to unsubscribe
         _renderer.StopRenderLoop();
+        _voxel?.Dispose();
         _canvas?.Dispose();
         return ValueTask.CompletedTask;
     }

@@ -109,6 +109,10 @@ else
     internal static bool HudHiddenByLink(string uri)
         => System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["hud"] == "0";
 
+    /// <summary>True when the URL's query has renderer=voxel: the SpawnDev.VoxelEngine renderer instead of the original one.</summary>
+    internal static bool VoxelRendererByLink(string uri)
+        => string.Equals(System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["renderer"], "voxel", StringComparison.OrdinalIgnoreCase);
+
     private void OnServerStatus(ServerStatusDto status)
     {
         if (status.TimeTicks >= 0 && _renderService != null)
@@ -207,7 +211,7 @@ else
                 if (HudHiddenByLink(Nav.Uri))
                     await _renderService.SetHudVisibleAsync(false);
 
-                await _renderService.StartAsync(serverId, camX, camY, camZ, pitch, yaw);
+                await _renderService.StartAsync(serverId, camX, camY, camZ, pitch, yaw, VoxelRendererByLink(Nav.Uri));
                 WorkerHost.IsStarted = true;
                 WorkerHost.ServerId = serverId;
             }
