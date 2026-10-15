@@ -98,10 +98,10 @@ one constant colour (no biomes); nothing animates; no entities at all. Today's a
 869 entity textures and the grass/foliage colormaps. The server has NO live entity feed (players' positions only, through RCON `data get entity`).
 
 ### W-T: Texture accuracy (asset-driven, client-side: nothing to install)
-- [ ] WT1. **Asset pipeline**: a tool (`AubsCraft.Assets`: C# library + CLI, tested) reads the client jar: blockstates + models (parent chain, texture variables, rotations,
+- [x] WT1. **Asset pipeline**: a tool (`AubsCraft.Assets`: C# library + CLI, tested) reads the client jar: blockstates + models (parent chain, texture variables, rotations,
   elements) and writes the texture array (all ~1,400 block textures = ~1.5 MB) + `blocks.json` (state -> class, per-face layer, tint kind, animation, model). Replaces the
   hand-made atlas and `TextureAtlas.GetFaceLayers`. Gate: every block name in the world resolves; the report lists what does not.
-- [ ] WT2. **Cube-model blocks all correct**: per-face layers for the 135 flat names that are cubes (ores, wool, copper, glass, furnace, barrel...), cutout/transparent
+- [x] WT2. **Cube-model blocks all correct**: per-face layers for the 135 flat names that are cubes (ores, wool, copper, glass, furnace, barrel...), cutout/transparent
   classes from the model's render type, `tintindex` from the model.
 - [ ] WT3. **Block states in the registry**: the server's global id is the NAME only; stairs/slabs/doors/fences/panes need their PROPERTIES (facing, half, shape,
   open, connections, waterlogged). Registry becomes rendered-state ids (12-bit = 4096 states: fits a normal world; measured per world), chunk-ids wire unchanged.
@@ -112,20 +112,20 @@ one constant colour (no biomes); nothing animates; no entities at all. Today's a
 - [ ] WT6. Resource packs (stretch): the same pipeline on a pack's assets; 32x/64x textures need per-layer size (texture array of one size: resample or mip packs).
 
 ### W-A: Animation
-- [ ] WA1. **Animated block textures** (water, lava, fire, soul fire, nether portal, magma, sea lantern, prismarine, kelp, seagrass, command blocks...): frames as layers,
+- [x] WA1. **Animated block textures** (water, lava, fire, soul fire, nether portal, magma, sea lantern, prismarine, kelp, seagrass, command blocks...): frames as layers,
   `BlockMaterial` gains (frame count, frame time, interpolate); `BlockFrameUniforms` gains `time`; the shader picks the layer. VoxelEngine change + tests.
 - [ ] WA2. Water/lava surface: flowing direction, small wave, lava emissive (ignores lighting).
 - [ ] WA3. Sky: sun/moon/stars/clouds (E2), weather particles and tint (E3).
 
 ### W-L: Live activity (players and animals going about their play)
-- [ ] WL1. **Feed**: a small Paper plugin `AubsCraft Live` (Java 21, built with `javac` against paper-api; jar installed through the panel's plugin manager) pushes, ~5-10 Hz,
+- [ ] WL1. (DONE: plugin source+jar, frame format, panel ingest/fan-out/installer/WS, viewer client; LEFT: panel UI button, install + restart on the live servers, a real Paper run) **Feed**: a small Paper plugin `AubsCraft Live` (Java 21, built with `javac` against paper-api; jar installed through the panel's plugin manager) pushes, ~5-10 Hz,
   every entity in the loaded chunks near players: uuid, type, position, yaw/pitch/head yaw, velocity, pose, baby/variant/colour, held item, custom name; for players name,
   uuid and skin URL. Loopback WebSocket with a shared secret -> panel -> browsers (binary deltas, ~16 bytes an entity). NEEDS TJ'S GO to install on the live servers.
   Without it, the stepping stones: players via the existing RCON positions (1 Hz), animals from the `entities/` region files (static, stale between saves).
-- [ ] WL2. **Entity renderer** (VoxelEngine `EntityRenderPipeline`: instanced model parts, per-part UV into the entity textures): player (biped + skin + second layer), zombie,
+- [ ] WL2. (DONE: EntityRenderPipeline, entity atlas, models: pig cow mooshroom sheep chicken creeper zombie/husk/drowned/zombified piglin skeleton/stray/bogged/wither skeleton villager player; boxes for the rest; LEFT: horse wolf cat fox rabbit bat spider enderman slime fish ... and their rigs) **Entity renderer** (VoxelEngine `EntityRenderPipeline`: instanced model parts, per-part UV into the entity textures): player (biped + skin + second layer), zombie,
   skeleton, creeper, cow, pig, sheep, chicken, villager, horse, wolf, cat, fox, rabbit, bat, spider, enderman, slime, fish, then a textured-box fallback with a name label.
-- [ ] WL3. **Motion**: interpolate 5-10 Hz snapshots to the display rate (render ~150 ms behind), walk cycle from speed, head look, sneak/sleep/swim poses, hurt flash.
-- [ ] WL4. Player skins (server-side fetch + cache of the profile texture URL), name tags, chat bubbles, minimap markers (players, animals; toggles), follow-camera on a player.
+- [ ] WL3. (DONE: interpolation, walk cycle, head look, wing flap; LEFT: sneak/sleep/swim poses, hurt flash) **Motion**: interpolate 5-10 Hz snapshots to the display rate (render ~150 ms behind), walk cycle from speed, head look, sneak/sleep/swim poses, hurt flash.
+- [ ] WL4. (DONE: skins via the panel proxy; LEFT: name tags, chat bubbles, minimap markers, follow camera) Player skins (server-side fetch + cache of the profile texture URL), name tags, chat bubbles, minimap markers (players, animals; toggles), follow-camera on a player.
 - [ ] WL5. Item entities, projectiles, falling blocks, minecarts/boats, particles.
 
 Order: WT1 + WA1 first (biggest visible change, client only), then WL1 stepping stones (RCON players) + WL2, then WT3/WT4/WT5.
