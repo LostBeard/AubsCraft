@@ -15,7 +15,9 @@ public sealed record LivePluginInstallResult(bool Success, bool Changed, string 
 /// </summary>
 public sealed class LivePluginService
 {
+    /// <summary>The Paper plugin and the Fabric mod: the same frames, two builds (each is shipped with the panel, built from LivePlugin/ and LiveFabric/).</summary>
     public const string JarFileName = "aubscraft-live.jar";
+    public const string FabricJarFileName = "aubscraft-live-fabric.jar";
     private readonly LiveFeedService _live;
     private readonly IConfiguration _configuration;
     private readonly ILogger<LivePluginService> _logger;
@@ -27,18 +29,38 @@ public sealed class LivePluginService
         _logger = logger;
     }
 
-    /// <summary>The plugin jar shipped with the panel.</summary>
+    /// <summary>The Paper plugin jar shipped with the panel.</summary>
     public static string ShippedJar => Path.Combine(AppContext.BaseDirectory, "ServerPlugins", JarFileName);
+    /// <summary>The Fabric mod jar shipped with the panel.</summary>
+    public static string ShippedFabricJar => Path.Combine(AppContext.BaseDirectory, "ServerPlugins", FabricJarFileName);
+
+    private static bool Supports(ServerDefinition server) => server.Loader is ServerLoader.Paper or ServerLoader.Fabric;
+    private static bool IsFabric(ServerDefinition server) => server.Loader == ServerLoader.Fabric;
+    private static string ShippedFor(ServerDefinition server) => IsFabric(server) ? ShippedFabricJar : ShippedJar;
+    private static string InstalledJarName(ServerDefinition server) => IsFabric(server) ? FabricJarFileName : JarFileName;
+
+    /// <summary>Where the config goes: a Paper plugin has its own folder, a Fabric mod a file in the server's config folder.</summary>
+    private static string ConfigPath(ServerDefinition server, string folder) =>
+        IsFabric(server) ? Path.Combine(server.Path, "config", "aubscraft-live.properties") : Path.Combine(folder, "AubsCraftLive", "config.yml");
 
     /// <summary>Where the plugin reaches the panel: the same machine (Live:PluginPanelUrl, default http://127.0.0.1:5080).</summary>
     public string PanelUrl => _configuration.GetValue<string>("Live:PluginPanelUrl") ?? "http://127.0.0.1:5080";
 
-    private static string? PluginsFolder(ServerDefinition server) =>
-        server.Loader == ServerLoader.Paper ? server.AddonsPath : null;
+    private static string? PluginsFolder(ServerDefinition server) => Supports(server) ? server.AddonsPath : null;
 
-    /// <summary>The plugin's config for a server: the panel writes it, nobody edits the secret by hand.</summary>
-    public string ConfigFor(ServerDefinition server, int intervalTicks = 4) =>
-        new StringBuilder()
+    /// <summary>The plugin's (or mod's) config for a server: the panel writes it, nobody edits the secret by hand.</summary>
+    public string ConfigFor(ServerDefinition server, int intervalTicks = 4)
+    {
+        if (IsFabric(server))
+            return new StringBuilder()
+                .AppendLine("# Written by the AubsCraft panel: do not edit the secret by hand (the panel rewrites this file when it installs the mod).")
+                .AppendLine($"panel-url={PanelUrl}")
+                .AppendLine($"server-id={server.Id}")
+                .AppendLine($"secret={_live.Secret}")
+                .AppendLine($"interval-ticks={intervalTicks}")
+                .AppendLine("max-entities=3000")
+                .ToString();
+        return new StringBuilder()
             .AppendLine("# Written by the AubsCraft panel: do not edit the secret by hand (the panel rewrites this file when it installs the plugin).")
             .AppendLine($"panel-url: \"{PanelUrl}\"")
             .AppendLine($"server-id: \"{server.Id}\"")
@@ -47,17 +69,19 @@ public sealed class LivePluginService
             .AppendLine("max-entities: 3000")
             .AppendLine("include-items: false")
             .ToString();
+    }
 
     public LivePluginState Inspect(ServerDefinition server)
     {
         var folder = PluginsFolder(server);
         if (folder == null)
-            return new LivePluginState(false, false, false, false, false, "This server has no Paper plugins folder (the live view needs a Paper server).");
+            return new LivePluginState(false, false, false, false, false, "The live view needs a Paper or Fabric server.");
 
-        var jar = Path.Combine(folder, JarFileName);
+        var jar = Path.Combine(folder, InstalledJarName(server));
+        var shipped = ShippedFor(server);
         bool installed = File.Exists(jar);
-        bool upToDate = installed && File.Exists(ShippedJar) && File.ReadAllBytes(jar).AsSpan().SequenceEqual(File.ReadAllBytes(ShippedJar));
-        var configPath = Path.Combine(folder, "AubsCraftLive", "config.yml");
+        bool upToDate = installed && File.Exists(shipped) && File.ReadAllBytes(jar).AsSpan().SequenceEqual(File.ReadAllBytes(shipped));
+        var configPath = ConfigPath(server, folder);
         bool configOk = File.Exists(configPath) && File.ReadAllText(configPath) == ConfigFor(server);
         bool live = _live.StatusOf(server.Id).Live;
         string message = live ? "Live: frames are arriving."
@@ -72,35 +96,35 @@ public sealed class LivePluginService
     public LivePluginInstallResult Install(ServerDefinition server)
     {
         var folder = PluginsFolder(server);
-        if (folder == null) return new LivePluginInstallResult(false, false, "This server has no Paper plugins folder.");
-        if (!File.Exists(ShippedJar)) return new LivePluginInstallResult(false, false, "The panel was built without the live plugin jar.");
+        if (folder == null) return new LivePluginInstallResult(false, false, "The live view needs a Paper or Fabric server.");
+        var shipped = ShippedFor(server);
+        if (!File.Exists(shipped)) return new LivePluginInstallResult(false, false, "The panel was built without the live view jar for this kind of server.");
         try
         {
             bool changed = false;
-            var bytes = File.ReadAllBytes(ShippedJar);
-            var jar = Path.Combine(folder, JarFileName);
+            var bytes = File.ReadAllBytes(shipped);
+            var jar = Path.Combine(folder, InstalledJarName(server));
             if (!File.Exists(jar) || !File.ReadAllBytes(jar).AsSpan().SequenceEqual(bytes))
             {
                 Directory.CreateDirectory(folder);
                 File.WriteAllBytes(jar, bytes);
                 changed = true;
             }
-            var configDir = Path.Combine(folder, "AubsCraftLive");
-            var configPath = Path.Combine(configDir, "config.yml");
+            var configPath = ConfigPath(server, folder);
             var config = ConfigFor(server);
             if (!File.Exists(configPath) || File.ReadAllText(configPath) != config)
             {
-                Directory.CreateDirectory(configDir);
+                Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
                 File.WriteAllText(configPath, config);
                 changed = true;
             }
-            if (changed) _logger.LogInformation("Live plugin: installed into {Folder} for {Server} (takes effect when the server restarts)", folder, server.Id);
+            if (changed) _logger.LogInformation("Live view: installed into {Folder} for {Server} (takes effect when the server restarts)", folder, server.Id);
             return new LivePluginInstallResult(true, changed, changed ? "Installed. Restart the server to start the live feed." : "Already installed and up to date.");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _logger.LogWarning(ex, "Live plugin: could not install into {Folder}", folder);
-            return new LivePluginInstallResult(false, false, "Could not write to the server's plugins folder: " + ex.Message);
+            return new LivePluginInstallResult(false, false, "Could not write to the server's plugins/mods folder: " + ex.Message);
         }
     }
 
@@ -108,14 +132,22 @@ public sealed class LivePluginService
     public LivePluginInstallResult Uninstall(ServerDefinition server)
     {
         var folder = PluginsFolder(server);
-        if (folder == null) return new LivePluginInstallResult(false, false, "This server has no Paper plugins folder.");
+        if (folder == null) return new LivePluginInstallResult(false, false, "The live view needs a Paper or Fabric server.");
         try
         {
             bool changed = false;
-            var jar = Path.Combine(folder, JarFileName);
+            var jar = Path.Combine(folder, InstalledJarName(server));
             if (File.Exists(jar)) { File.Delete(jar); changed = true; }
-            var configDir = Path.Combine(folder, "AubsCraftLive");
-            if (Directory.Exists(configDir)) { Directory.Delete(configDir, recursive: true); changed = true; }
+            if (IsFabric(server))
+            {
+                var file = ConfigPath(server, folder);
+                if (File.Exists(file)) { File.Delete(file); changed = true; }
+            }
+            else
+            {
+                var configDir = Path.Combine(folder, "AubsCraftLive");
+                if (Directory.Exists(configDir)) { Directory.Delete(configDir, recursive: true); changed = true; }
+            }
             return new LivePluginInstallResult(true, changed, changed ? "Removed. Restart the server to stop the live feed." : "It was not installed.");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

@@ -42,7 +42,7 @@
                     @if (_live.Live) { <span class="badge bg-success ms-1">live</span> }
                     else if (_live.JarInstalled) { <span class="badge bg-secondary ms-1">installed</span> }
                 </h6>
-                <div class="text-muted small">Shows the animals, monsters and players of this server in the 3D map as they move (the AubsCraft Live plugin). @_live.Message</div>
+                <div class="text-muted small">Shows the animals, monsters and players of this server in the 3D map as they move (the AubsCraft Live @(Hub.SelectedServer?.Loader == "Fabric" ? "mod" : "plugin")). @_live.Message</div>
             </div>
             <div class="d-flex gap-2">
                 @if (!_live.JarInstalled || !_live.JarUpToDate || !_live.ConfigWritten)

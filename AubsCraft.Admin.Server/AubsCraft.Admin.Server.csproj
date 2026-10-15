@@ -36,6 +36,8 @@
 		<None Include="ProxyPlugins\aubscraft-gate.jar" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 		<!-- Our own live-activity plugin for the Paper servers (source + build script: ../LivePlugin). LivePluginService installs it into a server's plugins folder. -->
 		<None Include="ServerPlugins\aubscraft-live.jar" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+		<!-- The same for Fabric servers (source + build: ../LiveFabric, Gradle + Loom; the Paper plugin's Frames.java is shared) -->
+		<None Include="ServerPlugins\aubscraft-live-fabric.jar" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 	</ItemGroup>
 
 </Project>

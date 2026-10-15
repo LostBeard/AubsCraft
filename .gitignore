@@ -29,3 +29,8 @@ block-registry.json.tmp
 # Generated at build time from the Minecraft client jar (AubsCraft.AssetTool): never committed
 AubsCraft.Admin/wwwroot/assets/
 LivePlugin/build/
+
+# LiveFabric (Gradle + Loom) intermediates; the shipped jar is AubsCraft.Admin.Server/ServerPlugins/aubscraft-live-fabric.jar
+LiveFabric/.gradle/
+LiveFabric/build/
+LiveFabric/run/

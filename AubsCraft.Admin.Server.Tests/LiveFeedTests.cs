@@ -261,14 +261,50 @@ public class LiveFeedTests
     }
 
     [Test]
-    public void AServerThatIsNotPaper_IsNotSupported_AndNothingIsWritten()
+    public void AServerThatIsNeitherPaperNorFabric_IsNotSupported_AndNothingIsWritten()
     {
-        var (plugin, _, server) = PluginFor(ServerLoader.Fabric);
-        Assert.That(plugin.Inspect(server).Supported, Is.False);
+        foreach (var loader in new[] { ServerLoader.Vanilla, ServerLoader.Forge, ServerLoader.NeoForge })
+        {
+            var (plugin, _, server) = PluginFor(loader);
+            Assert.That(plugin.Inspect(server).Supported, Is.False, loader.ToString());
+            var result = plugin.Install(server);
+            Assert.That(result.Success, Is.False);
+            Assert.That(Directory.GetFileSystemEntries(server.Path), Is.Empty, loader + ": nothing written");
+        }
+    }
+
+    [Test]
+    public void Fabric_Install_PutsTheModInMods_AndItsConfigInConfig()
+    {
+        var (plugin, feed, server) = PluginFor(ServerLoader.Fabric);
+        Assert.That(plugin.Inspect(server).Supported, Is.True);
         var result = plugin.Install(server);
-        Assert.That(result.Success, Is.False);
-        Assert.That(Directory.Exists(Path.Combine(server.Path, "mods")), Is.False);
-        Assert.That(Directory.GetFileSystemEntries(server.Path), Is.Empty);
+        Assert.That(result.Success && result.Changed, Is.True, result.Message);
+        var jar = Path.Combine(server.Path, "mods", "aubscraft-live-fabric.jar");
+        Assert.That(File.ReadAllBytes(jar), Is.EqualTo(File.ReadAllBytes(LivePluginService.ShippedFabricJar)));
+        var config = File.ReadAllText(Path.Combine(server.Path, "config", "aubscraft-live.properties"));
+        Assert.That(config, Does.Contain("server-id=creative").And.Contain("panel-url=http://127.0.0.1:5999").And.Contain($"secret={feed.Secret}"));
+        Assert.That(Directory.Exists(Path.Combine(server.Path, "plugins")), Is.False, "a Fabric server has no plugins folder");
+        var state = plugin.Inspect(server);
+        Assert.That(state.JarInstalled && state.JarUpToDate && state.ConfigWritten, Is.True);
+        Assert.That(plugin.Install(server).Changed, Is.False, "installing again changes nothing");
+
+        File.WriteAllText(Path.Combine(server.Path, "config", "aubscraft-live.properties"), "secret=wrong" + Environment.NewLine);
+        Assert.That(plugin.Inspect(server).ConfigWritten, Is.False);
+        Assert.That(plugin.Install(server).Changed, Is.True);
+
+        var removed = plugin.Uninstall(server);
+        Assert.That(removed.Success && removed.Changed, Is.True);
+        Assert.That(File.Exists(jar), Is.False);
+        Assert.That(File.Exists(Path.Combine(server.Path, "config", "aubscraft-live.properties")), Is.False);
+        Assert.That(plugin.Uninstall(server).Changed, Is.False);
+    }
+
+    [Test]
+    public void TheFabricMod_IsInTheBuild_AndIsAJar()
+    {
+        Assert.That(File.Exists(LivePluginService.ShippedFabricJar), Is.True, LivePluginService.ShippedFabricJar);
+        Assert.That(File.ReadAllBytes(LivePluginService.ShippedFabricJar).AsSpan(0, 2).ToArray(), Is.EqualTo("PK"u8.ToArray()));
     }
 
     [Test]

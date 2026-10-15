@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "aubscraft-live",
+  "version": "${version}",
+  "name": "AubsCraft Live",
+  "description": "Sends what is happening in the world (animals, mobs, players) to the AubsCraft panel's 3D viewer.",
+  "authors": ["SpawnDev"],
+  "environment": "server",
+  "entrypoints": { "server": ["com.spawndev.aubscraftlive.LiveFabricMod"] },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.5",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
