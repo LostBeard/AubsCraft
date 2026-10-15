@@ -75,7 +75,7 @@ public static class EntityPoser
                     Inflate = box.Inflate,
                     Size = new Vector3(box.W, box.H, box.D),
                     Mirror = box.Mirror,
-                    Texture = part.Texture ?? (texture != null && model.Texture == "player" ? texture : model.Texture),
+                    Texture = part.Texture ?? (texture != null && model.Texture == "player" ? texture : model.TextureByVariant?.Invoke(view.Variant) ?? model.Texture),
                     U = box.U,
                     V = box.V,
                     Tint = part.Dyed ? dye : Vector3.One,

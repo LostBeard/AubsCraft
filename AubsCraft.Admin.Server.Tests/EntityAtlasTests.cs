@@ -139,7 +139,7 @@ public class EntityAtlasTests
         foreach (var name in EntityModels.TextureNames().Where(n => n != "white")) SizeOf(name);
 
         foreach (var type in new[] { "pig", "cow", "mooshroom", "sheep", "chicken", "creeper", "zombie", "husk", "drowned", "zombified_piglin", "skeleton", "stray", "bogged",
-                     "wither_skeleton", "villager" })
+                     "wither_skeleton", "villager", "wolf", "spider", "cave_spider", "enderman" })
         {
             var model = EntityModels.Get(type)!;
             foreach (var part in model.Parts)

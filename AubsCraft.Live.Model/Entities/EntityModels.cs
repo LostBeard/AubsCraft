@@ -39,6 +39,7 @@ public static class EntityModels
         foreach (var model in Models.Values)
         {
             if (model.Texture != "player") names.Add(model.Texture);
+            foreach (var t in model.VariantTextures) names.Add(t);
             foreach (var part in model.Parts) if (part.Texture != null) names.Add(part.Texture);
         }
         foreach (var skin in DefaultSkinNames) { names.Add($"player/wide/{skin}"); names.Add($"player/slim/{skin}"); }
@@ -175,6 +176,42 @@ public static class EntityModels
         d["bogged"] = Skeletal("skeleton/bogged", 1f);
         d["wither_skeleton"] = Skeletal("skeleton/wither_skeleton", 1.2f);
 
+        // ---- the wild and the household ----
+        string[] wolfCoats = ["pale", "ashen", "black", "chestnut", "rusty", "snowy", "spotted", "striped", "woods"];
+        d["wolf"] = new EntityModel
+        {
+            Texture = "wolf/wolf", Rig = EntityRig.Quadruped, Width = 0.6f, Height = 0.85f,
+            TextureByVariant = v => v is null or "pale" ? "wolf/wolf" : $"wolf/wolf_{v}",
+            VariantTextures = wolfCoats.Where(c => c != "pale").Select(c => $"wolf/wolf_{c}").ToArray(),
+            Parts =
+            [
+                P("head", PartRole.Head, -1, -1, 13.5f, -7, [B(0, 0, -2, -3, -2, 6, 6, 4), B(16, 14, -2, -5, 0, 2, 2, 1), B(16, 14, 2, -5, 0, 2, 2, 1), B(0, 10, -0.5f, 0, -5, 3, 3, 4)]),
+                P("body", PartRole.Body, -1, 0, 14, 2, [B(18, 14, -3, -2, -3, 6, 9, 6)], rx: HalfPi),
+                P("mane", PartRole.Body, -1, -1, 14, -3, [B(21, 0, -3, -3, -3, 8, 6, 7)], rx: HalfPi),
+                P("right_hind_leg", PartRole.RightHindLeg, -1, -2.5f, 16, 7, [B(0, 18, 0, 0, -1, 2, 8, 2)]),
+                P("left_hind_leg", PartRole.LeftHindLeg, -1, 0.5f, 16, 7, [B(0, 18, 0, 0, -1, 2, 8, 2)]),
+                P("right_front_leg", PartRole.RightFrontLeg, -1, -2.5f, 16, -4, [B(0, 18, 0, 0, -1, 2, 8, 2)]),
+                P("left_front_leg", PartRole.LeftFrontLeg, -1, 0.5f, 16, -4, [B(0, 18, 0, 0, -1, 2, 8, 2)]),
+                P("tail", PartRole.Static, -1, -1, 12, 8, [B(9, 18, 0, 0, -1, 2, 8, 2)], rx: 0.62f),
+            ],
+        };
+        d["spider"] = SpiderModel("spider/spider", 1.4f, 0.9f, 1f);
+        d["cave_spider"] = SpiderModel("spider/cave_spider", 0.7f, 0.5f, 0.7f);
+        d["enderman"] = new EntityModel
+        {
+            Texture = "enderman/enderman", Rig = EntityRig.Biped, Width = 0.6f, Height = 2.9f,
+            Parts =
+            [
+                P("head", PartRole.Head, -1, 0, -14, 0, [B(0, 0, -4, -8, -4, 8, 8, 8)]),
+                P("hat", PartRole.Static, 0, 0, 0, 0, [B(0, 16, -4, -8, -4, 8, 8, 8, inflate: -0.5f)]),
+                P("body", PartRole.Body, -1, 0, -14, 0, [B(32, 16, -4, 0, -2, 8, 12, 4)]),
+                P("right_arm", PartRole.RightArm, -1, -3, -12, 0, [B(56, 0, -1, -2, -1, 2, 30, 2)]),
+                P("left_arm", PartRole.LeftArm, -1, 5, -12, 0, [B(56, 0, -1, -2, -1, 2, 30, 2, mirror: true)]),
+                P("right_leg", PartRole.RightLeg, -1, -2, -6, 0, [B(56, 0, -1, 0, -1, 2, 30, 2)]),
+                P("left_leg", PartRole.LeftLeg, -1, 2, -6, 0, [B(56, 0, -1, 0, -1, 2, 30, 2, mirror: true)]),
+            ],
+        };
+
         // ---- people ----
         d["villager"] = new EntityModel
         {
@@ -193,6 +230,28 @@ public static class EntityModels
         d["player"] = Player(slim: false);
         d["player_slim"] = Player(slim: true);
         return d;
+    }
+
+    /// <summary>A spider: head, neck, body and eight legs splayed at the game's angles (the legs do not walk yet).</summary>
+    private static EntityModel SpiderModel(string texture, float width, float height, float scale)
+    {
+        const float q = MathF.PI / 4f, e = MathF.PI / 8f;
+        ModelPart Leg(string name, float px, float pz, float rz, float ry, bool right) =>
+            P(name, PartRole.Static, -1, px, 15, pz, [right ? B(18, 0, -15, -1, -1, 16, 2, 2) : B(18, 0, -1, -1, -1, 16, 2, 2)], ry: ry, rz: rz);
+        return new EntityModel
+        {
+            Texture = texture, Rig = EntityRig.Static, Width = width, Height = height, BabyScale = 0.5f,
+            Parts =
+            [
+                P("head", PartRole.Head, -1, 0, 15, -3, [B(32, 4, -4, -4, -8, 8, 8, 8)]),
+                P("neck", PartRole.Static, -1, 0, 15, 0, [B(0, 0, -3, -3, -3, 6, 6, 6)]),
+                P("body", PartRole.Static, -1, 0, 15, 9, [B(0, 12, -5, -4, -6, 10, 8, 12)]),
+                Leg("leg0", -4, 2, -q, q, true), Leg("leg1", 4, 2, q, -q, false),
+                Leg("leg2", -4, 1, -0.58f, e, true), Leg("leg3", 4, 1, 0.58f, -e, false),
+                Leg("leg4", -4, 0, -0.58f, -e, true), Leg("leg5", 4, 0, 0.58f, e, false),
+                Leg("leg6", -4, -1, -q, -q, true), Leg("leg7", 4, -1, q, q, false),
+            ],
+        };
     }
 
     /// <summary>The humanoid model of the zombie family: 64 x 64 texture, the left limbs the mirror of the right.</summary>

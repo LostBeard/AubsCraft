@@ -643,7 +643,7 @@ public sealed class VoxelWorldRenderer : IDisposable
         });
 
         // Creatures are posed for this moment and uploaded before the pass; nothing past the fog is posed
-        Entities?.Prepare(camera.Position, FarWindow.FogEndBlocks(drawDistanceChunks));
+        Entities?.Prepare(camera.Position, FarWindow.FogEndBlocks(drawDistanceChunks), camera.GetVpMatrix(aspect), width, height);
 
         int camCX = (int)MathF.Floor(camera.Position.X / 16f);
         int camCZ = (int)MathF.Floor(camera.Position.Z / 16f);

@@ -62,7 +62,7 @@ public class EntityPoserTests
     [Test]
     public void ACreature_StandsOnTheGround_AtItsPosition()
     {
-        foreach (var type in new[] { "pig", "cow", "sheep", "chicken", "creeper", "zombie", "skeleton", "villager", "player" })
+        foreach (var type in new[] { "pig", "cow", "sheep", "chicken", "creeper", "zombie", "skeleton", "villager", "player", "wolf", "enderman" })
         {
             var (min, max) = VerticalExtent(Pose(type, View(type, y: 70)));
             Assert.That(min, Is.EqualTo(70f).Within(0.03f), $"{type}: its lowest point");
@@ -301,7 +301,7 @@ public class EntityPoserTests
     public void EveryModel_IsWellFormed()
     {
         foreach (var type in new[] { "pig", "cow", "mooshroom", "sheep", "chicken", "creeper", "zombie", "husk", "drowned", "zombified_piglin", "skeleton", "stray", "bogged",
-                     "wither_skeleton", "villager", "player", "player_slim" })
+                     "wither_skeleton", "villager", "wolf", "spider", "cave_spider", "enderman", "player", "player_slim" })
         {
             var model = EntityModels.Get(type) ?? throw new Exception(type);
             Assert.That(model.Parts, Is.Not.Empty, type);
@@ -324,18 +324,28 @@ public class EntityPoserTests
     }
 
     [Test]
+    public void AWolfsCoat_FollowsItsVariant()
+    {
+        string TextureOf(string? variant) => Pose("wolf", View("wolf", variant: variant))[0].Texture;
+        Assert.That(TextureOf(null), Is.EqualTo("wolf/wolf"));
+        Assert.That(TextureOf("pale"), Is.EqualTo("wolf/wolf"));
+        Assert.That(TextureOf("ashen"), Is.EqualTo("wolf/wolf_ashen"));
+        Assert.That(EntityModels.TextureNames(), Does.Contain("wolf/wolf_ashen").And.Contain("wolf/wolf_woods"), "every coat is packed into the atlas");
+    }
+
+    [Test]
     public void ATypeWithNoModel_IsABoxOfItsRealSize_StandingOnTheGround()
     {
         Assert.That(EntityModels.Get("ender_dragon"), Is.Null);
-        var (w, h) = EntityModels.SizeOf("enderman");
-        Assert.That((w, h), Is.EqualTo((0.6f, 2.9f)));
-        var model = EntityModels.Fallback("enderman");
+        var (w, h) = EntityModels.SizeOf("ghast");
+        Assert.That((w, h), Is.EqualTo((4f, 4f)));
+        var model = EntityModels.Fallback("ghast");
         var list = new List<PartDraw>();
-        EntityPoser.Pose(View("enderman", y: 50), model, 0, list);
+        EntityPoser.Pose(View("ghast", y: 50), model, 0, list);
         Assert.That(list.Count, Is.EqualTo(1));
         var (min, max) = VerticalExtent(list);
         Assert.That(min, Is.EqualTo(50f).Within(0.02f));
-        Assert.That(max, Is.EqualTo(52.9f).Within(0.02f));
+        Assert.That(max, Is.EqualTo(54f).Within(0.02f));
         Assert.That(EntityModels.SizeOf("mymod:thing"), Is.EqualTo((0.6f, 0.8f)), "a creature nobody has heard of still gets a size");
     }
 

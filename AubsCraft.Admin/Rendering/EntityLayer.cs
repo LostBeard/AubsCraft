@@ -8,6 +8,9 @@ using SpawnDev.VoxelEngine.Rendering;
 
 namespace AubsCraft.Admin.Rendering;
 
+/// <summary>A label to draw over a creature, at this screen position (pixels, the label's bottom centre).</summary>
+public readonly record struct NameTag(float X, float Y, string Text, bool IsPlayer);
+
 /// <summary>
 /// The creatures of the world: everything the live feed says is out there (animals, monsters, villagers, players), drawn where it is, walking as it
 /// walks, as the game's own models wearing the game's own textures. The feed is a few frames a second; <see cref="LiveWorldState"/> turns it into smooth
@@ -120,9 +123,13 @@ public sealed class EntityLayer : IDisposable
     /// <summary>
     /// Pose the creatures near <paramref name="camera"/> for this moment and upload their boxes. Call before the render pass; <see cref="Draw"/> inside it.
     /// </summary>
-    public void Prepare(Vector3 camera, float maxDistance)
+    public void Prepare(Vector3 camera, float maxDistance, in Matrix4x4 viewProj, int width, int height)
     {
         EntityCount = 0;
+        Tags.Clear();
+        _viewProj = viewProj;
+        _width = width;
+        _height = height;
         var world = _state.PrimaryWorld;
         if (_atlas == null || _assets == null || world == null)
         {
@@ -149,7 +156,7 @@ public sealed class EntityLayer : IDisposable
         }
 
         _draws.Clear();
-        foreach (var (_, v) in _inRange) PoseOne(world, v, ageTicks, now);
+        foreach (var (d2, v) in _inRange) PoseOne(world, v, ageTicks, now, d2);
         EntityCount = _inRange.Count;
 
         if (_parts.Length < _draws.Count) _parts = new EntityPartInstance[Math.Max(_draws.Count, _parts.Length * 2)];
@@ -169,14 +176,14 @@ public sealed class EntityLayer : IDisposable
         _pipe.SetParts(_parts.AsSpan(0, n));
 
         // A line every few seconds while there is anything to draw (the gate reads it; so does anyone wondering why a creature is missing)
-        if (now - _lastLog >= 5.0 && Known > 0)
+        if (now - _lastLog >= 3.0 && Known > 0 && EntityCount > 0)
         {
             _lastLog = now;
-            Console.WriteLine($"[Live] creatures {EntityCount} drawn of {Known} ({n} parts, {_state.PlayerCount} players, {_frames} frames)");
+            Console.WriteLine($"[Live] creatures {EntityCount} drawn of {Known} ({n} parts, {_state.PlayerCount} players, {_frames} frames, {Tags.Count} name tags)");
         }
     }
 
-    private void PoseOne(string world, in LiveEntityView v, float ageTicks, double now)
+    private void PoseOne(string world, in LiveEntityView v, float ageTicks, double now, float distSq)
     {
         EntityModel model;
         string? texture = null;
@@ -195,6 +202,8 @@ public sealed class EntityLayer : IDisposable
             fallback = true;
         }
 
+        AddTag(world, v, model, distSq);
+
         int first = _draws.Count;
         EntityPoser.Pose(v, model, ageTicks, _draws, texture);
         if (fallback)
@@ -203,6 +212,29 @@ public sealed class EntityLayer : IDisposable
             var tint = HashColour(v.Type);
             for (int i = first; i < _draws.Count; i++) { var d = _draws[i]; d.Tint = tint; _draws[i] = d; }
         }
+    }
+
+    /// <summary>Name tags for the HUD this frame: players by name, any creature that has been given a name by its custom name; screen pixels.</summary>
+    public List<NameTag> Tags { get; } = new();
+    private Matrix4x4 _viewProj;
+    private int _width, _height;
+    private const float PlayerTagRange = 96f, MobTagRange = 32f;
+    private const int MaxTags = 24;
+
+    private void AddTag(string world, in LiveEntityView v, EntityModel model, float distSq)
+    {
+        if (Tags.Count >= MaxTags || _width <= 0) return;
+        string? text = v.IsPlayer ? _state.PlayerOf(world, v.Id)?.Name : v.Name;
+        if (string.IsNullOrEmpty(text)) return;
+        float range = v.IsPlayer ? PlayerTagRange : MobTagRange;
+        if (distSq > range * range) return;
+
+        float top = v.Y + model.Height * (v.Baby ? model.BabyScale : 1f) + 0.35f;
+        var clip = Vector4.Transform(new Vector4(v.X, top, v.Z, 1f), _viewProj);
+        if (clip.W <= 0.05f) return;   // behind the camera
+        float nx = clip.X / clip.W, ny = clip.Y / clip.W;
+        if (nx < -1.2f || nx > 1.2f || ny < -1.2f || ny > 1.2f) return;
+        Tags.Add(new NameTag((nx * 0.5f + 0.5f) * _width, (1f - (ny * 0.5f + 0.5f)) * _height, text, v.IsPlayer));
     }
 
     private static Vector3 HashColour(string type)

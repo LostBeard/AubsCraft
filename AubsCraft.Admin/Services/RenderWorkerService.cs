@@ -76,7 +76,11 @@ public class RenderWorkerService : IRenderWorkerService
         _voxel.Entities = _entities;
         // The HUD (GameUI) draws with the world's own device, into the same encoder, after the world pass.
         _hud.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _canvas!.Width, _canvas.Height);
-        _renderer.OnOverlay = (encoder, view, w, h) => _hud.Draw(encoder, view, w, h);
+        _renderer.OnOverlay = (encoder, view, w, h) =>
+        {
+            _hud.SetNameTags(_entities?.Tags);
+            _hud.Draw(encoder, view, w, h);
+        };
         _initialized = true;
         Console.WriteLine($"[RenderWorker] Initialized: {_gpu.BackendName}");
 

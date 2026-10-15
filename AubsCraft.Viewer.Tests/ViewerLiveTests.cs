@@ -94,10 +94,10 @@ public class ViewerLiveTests
         // yaw 180 faces north (-z), toward the camera's view direction: the creatures look away; the second row is turned toward the camera (yaw 0)
         var stationary = new List<LiveEntity>
         {
-            At(1, "pig", -2.6f, 2.5f, 20f), At(2, "cow", -0.9f, 2.0f, -30f), At(3, "sheep", 0.9f, 2.5f, 15f, variant: "pink"), At(4, "chicken", 2.6f, 2.0f, -20f),
+            At(1, "pig", -2.6f, 2.5f, 20f), At(2, "cow", -0.9f, 2.0f, -30f), Mob(3, "sheep", cx + 0.9f, y, cz + 2.5f, 15f, LiveFlags.OnGround, "pink", "Dolly"), At(4, "chicken", 2.6f, 2.0f, -20f),
             At(5, "zombie", -3.5f, -0.5f, 0f), At(6, "creeper", -1.5f, -0.5f, 10f), At(7, "villager", 0.5f, -0.5f, -15f), At(8, "skeleton", 2.5f, -0.5f, 0f),
             At(9, "cow", 4.2f, 0.0f, 0f), At(10, "enderman", -4.5f, 2.0f, 0f),
-            new LiveEntity(11, "player", cx + 1.6f, y, cz - 2.0f, 180f, 0f, 180f, LiveFlags.Player | LiveFlags.OnGround, 0f, 0f, 0f, null, null),
+            new LiveEntity(11, "player", cx + 3.4f, y, cz + 1.0f, 200f, 0f, 180f, LiveFlags.Player | LiveFlags.OnGround, 0f, 0f, 0f, null, null),
         };
         var player = new LivePlayer(11, "01234567-89ab-cdef-fedc-ba9876543210", "Steve", "", false, 0, "diamond_sword", 1f);
 
@@ -151,7 +151,7 @@ public class ViewerLiveTests
                     await Task.Delay(200);
                 }
             });
-            await Task.Delay(4000);   // the socket connects, frames arrive, the render worker settles into them
+            await Task.Delay(8000);   // the socket connects, frames arrive, the render worker settles into them
 
             var a = Path.Combine(_outDir, "live-1-a.png");
             var b = Path.Combine(_outDir, "live-1-b.png");
@@ -171,16 +171,29 @@ public class ViewerLiveTests
             var lines = log.ToArray();
             Assert.That(lines.Any(l => l.Contains("[Live] Entity assets:")), Is.True, "the creature textures should have loaded:\n" + string.Join("\n", lines.Where(l => l.Contains("Live")).Take(10)));
             Assert.That(lines.Any(l => l.Contains("Live feed connected")), Is.True, "the live socket should have connected");
-            var creatures = lines.Select(l => System.Text.RegularExpressions.Regex.Match(l, @"\[Live\] creatures (\d+) drawn of (\d+) \((\d+) parts, (\d+) players, (\d+) frames\)")).Where(m => m.Success).ToList();
+            var creatures = lines.Select(l => System.Text.RegularExpressions.Regex.Match(l, @"\[Live\] creatures (\d+) drawn of (\d+) \((\d+) parts, (\d+) players, (\d+) frames, (\d+) name tags\)")).Where(m => m.Success).ToList();
             Assert.That(creatures, Is.Not.Empty, "the worker should report the creatures");
             var best = creatures.OrderByDescending(m => int.Parse(m.Groups[1].Value)).First();
             TestContext.Progress.WriteLine($"[live] the worker reports: {best.Value}");
             Assert.That(int.Parse(best.Groups[1].Value), Is.GreaterThanOrEqualTo(10), "most of the 12 creatures should be in range and drawn");
             Assert.That(int.Parse(best.Groups[3].Value), Is.GreaterThan(60), "their boxes");
 
-            Assert.That(noise, Is.LessThan(0.005), "with no creatures two frames are alike");
+            Assert.That(noise, Is.LessThan(0.05), "with no creatures two frames are nearly alike (the lake in view animates)");
             Assert.That(drawn, Is.GreaterThan(0.03), "the creatures cover a good part of the view");
-            Assert.That(moved, Is.GreaterThan(noise + 0.002), "the walking pig and the swaying arms change the picture between frames");
+            Assert.That(moved, Is.GreaterThan(noise + 0.003), "the walking pig and the swaying arms change the picture between frames");
+
+            // With the HUD on, names float over the player and the named sheep
+            while (log.TryDequeue(out _)) { }
+            await page.GotoAsync($"{_rig.BaseUrl}/map?hud=1&time=6000&dd=14&cam={cx.ToString(System.Globalization.CultureInfo.InvariantCulture)},{cam.y.ToString(System.Globalization.CultureInfo.InvariantCulture)},{cam.z.ToString(System.Globalization.CultureInfo.InvariantCulture)},-8,-90",
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await ViewerShotTests.WaitForSettledAsync(page, minSections: 150, quietSeconds: 4, maxSeconds: 90);
+            await Task.Delay(6000);
+            await canvas.ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "live-2-hud-nametags.png") });
+            var tagLines = log.ToArray().Select(l => System.Text.RegularExpressions.Regex.Match(l, @"(\d+) name tags\)")).Where(m => m.Success).Select(m => int.Parse(m.Groups[1].Value)).ToList();
+            TestContext.Progress.WriteLine($"[live] name tags reported: {string.Join(",", tagLines)}");
+            Assert.That(tagLines, Is.Not.Empty, "the worker should report its name tags");
+            Assert.That(tagLines.Max(), Is.GreaterThanOrEqualTo(2), "the player and the named sheep each get a name tag");
+
             Assert.That(errors, Is.Empty, "The page logged errors");
         }
         finally
@@ -188,6 +201,67 @@ public class ViewerLiveTests
             stop.Cancel();
             try { if (poster != null) await poster; } catch (OperationCanceledException) { }
             try { File.WriteAllLines(Path.Combine(_outDir, "live-console.log"), log); } catch { }
+            await page.CloseAsync();
+        }
+    }
+
+    [Test]
+    public async Task TheZoo_EveryModel_StandsInARow_ForTheEye()
+    {
+        var (gx, gz, top) = await FindFlatGroundAsync();
+        float cx = gx + 0.5f, cz = gz + 0.5f, y = top;
+        string[] front = ["pig", "cow", "sheep", "chicken", "mooshroom", "villager", "player", "creeper"];
+        string[] back = ["zombie", "husk", "skeleton", "stray", "enderman", "wolf", "spider", "cave_spider"];
+        var entities = new List<LiveEntity>();
+        int id = 1;
+        for (int i = 0; i < front.Length; i++)
+            entities.Add(new LiveEntity(id++, front[i], cx - 5.25f + i * 1.5f, y, cz + 1.5f, 180f, 0f, 180f,
+                front[i] == "player" ? LiveFlags.Player | LiveFlags.OnGround : LiveFlags.OnGround, 0f, 0f, 0f, null, null));
+        for (int i = 0; i < back.Length; i++)
+            entities.Add(new LiveEntity(id++, back[i], cx - 5.25f + i * 1.5f, y, cz - 1.5f, 180f, 0f, 180f, LiveFlags.OnGround, 0f, 0f, 0f, null, null));
+        var players = new[] { new LivePlayer(front.ToList().IndexOf("player") + 1, "89abcdef-0123-4567-89ab-cdef01234567", "Alex", "", true, 0, "air", 1f) };
+        long tick = 200_000;
+        byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
+        {
+            FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
+            Worlds = [new LiveWorld { Name = "world", Entities = entities, Players = players }],
+        });
+
+        var page = await _rig.Context.NewPageAsync();
+        var errors = new List<string>();
+        var log = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        page.Console += (_, m) => { log.Enqueue(m.Text); if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.Worker += (_, w) => w.Console += (_, m) => log.Enqueue(m.Text);
+        page.PageError += (_, e) => errors.Add(e);
+        using var stop = new CancellationTokenSource();
+        Task? poster = null;
+        try
+        {
+            string F(float v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            // Facing south (yaw 90 in the viewer's convention) from the north edge, a little above, looking at both rows from the front
+            await page.GotoAsync($"{_rig.BaseUrl}/map?hud=1&time=6000&dd=14&cam={F(cx)},{F(top + 3.2f)},{F(cz - 7.5f)},-14,90",
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await ViewerShotTests.WaitForSettledAsync(page, minSections: 150, quietSeconds: 6, maxSeconds: 90);
+            poster = Task.Run(async () =>
+            {
+                while (!stop.IsCancellationRequested)
+                {
+                    int status = await _rig.PostLiveFrameAsync(Frame());
+                    if (status != 204) throw new InvalidOperationException($"The panel answered {status} to a live frame");
+                    tick += 4;
+                    await Task.Delay(200);
+                }
+            });
+            await Task.Delay(7000);
+            await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "zoo.png") });
+            var drawn = log.ToArray().Select(l => System.Text.RegularExpressions.Regex.Match(l, @"\[Live\] creatures (\d+) drawn")).Where(m => m.Success).Select(m => int.Parse(m.Groups[1].Value)).ToList();
+            Assert.That(drawn.Count == 0 ? 0 : drawn.Max(), Is.EqualTo(16), "all sixteen are in range and drawn");
+            Assert.That(errors, Is.Empty, "The page logged errors");
+        }
+        finally
+        {
+            stop.Cancel();
+            try { if (poster != null) await poster; } catch (OperationCanceledException) { }
             await page.CloseAsync();
         }
     }

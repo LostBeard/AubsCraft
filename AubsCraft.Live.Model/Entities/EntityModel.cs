@@ -45,6 +45,10 @@ public sealed class EntityModel
     public bool ArmsForward { get; init; }
     /// <summary>The scale of a baby of this kind.</summary>
     public float BabyScale { get; init; } = 0.5f;
+    /// <summary>Picks the texture by the creature's variant (a wolf's coat, a cat's breed); null = <see cref="Texture"/> always.</summary>
+    public Func<string?, string>? TextureByVariant { get; init; }
+    /// <summary>Every texture <see cref="TextureByVariant"/> can answer, for the asset tool to pack.</summary>
+    public IReadOnlyList<string> VariantTextures { get; init; } = Array.Empty<string>();
     /// <summary>The model's feet: the y (model px) the lowest part reaches; the game places it so this is the ground.</summary>
     public float FootY { get; init; } = 24f;
 }

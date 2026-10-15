@@ -112,6 +112,36 @@ public sealed class ViewerHud
         _ui.Screens.Register(ScreenName, _root);
     }
 
+    // ---- name tags over creatures ----
+
+    private readonly List<UILabel> _tagLabels = new();
+    private const float TagWidth = 240f;
+
+    /// <summary>Show these labels over the world this frame (screen pixels); an empty list hides them all.</summary>
+    public void SetNameTags(IReadOnlyList<NameTag>? tags)
+    {
+        if (_root == null) return;
+        int n = Visible ? tags?.Count ?? 0 : 0;
+        float lineH = _ui.Renderer.GetLineHeight(FontSize.Caption);
+        for (int i = 0; i < n; i++)
+        {
+            if (i >= _tagLabels.Count)
+            {
+                var label = new UILabel { FontSize = FontSize.Caption, Align = TextAlign.Center, Width = TagWidth, Height = lineH, OutlineWidth = 0.14f };
+                _root.AddChild(label);
+                _tagLabels.Add(label);
+            }
+            var tag = tags![i];
+            var l = _tagLabels[i];
+            l.Visible = true;
+            l.Text = tag.Text;
+            l.Color = tag.IsPlayer ? Color.White : Color.FromArgb(255, 220, 220, 190);
+            l.X = tag.X - TagWidth / 2f;
+            l.Y = tag.Y - lineH;
+        }
+        for (int i = n; i < _tagLabels.Count; i++) _tagLabels[i].Visible = false;
+    }
+
     private const float ChatWidth = 380f, ChatHeight = 170f;
     private const float ChatFadeSeconds = 14f; // = the chat box's FadeStart
 
