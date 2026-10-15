@@ -89,6 +89,47 @@ Rule 2: every gap is fixed IN the library (VoxelEngine / GameUI), not worked aro
 
 - [x] V8 (10-15): fewer calls on weak CPUs. VoxelEngine `QuadArena` (0.2.0-rc.2-local.2: columns AND far chunks share a few 16 MiB buffers; real binds counted by `BlockRenderPipeline.QuadBufferBinds`) and `IngestGovernor` (meshes wait for a per-frame turn by frame time; neighbour re-meshes coalesced and last). TJ on an Intel UHD 620: 837 draws/837 binds, 37 fps, 17.6 of 19.1 ms recording. Dev machine, same world, 100 s after open (screenshots/viewer/load-before vs load-after2): 2.8K vs 4.6-5.2K columns+far loaded, ~125 vs ~190 fps, record 6.5 vs 4-5 ms, binds 1541 vs 45 (of ~1790 draws). TJ's Intel 620 paste after V8a: 3621 draws at 14 us each (51.9 ms recording), 7365 columns+far loaded, 17382 meshes: most of it beyond the fog. V8b (10-15): fog-distance cull (30 chunks, frame cleared to the fog colour) + far meshes only within a window around the camera (`FarWindow`). Dev machine, same world, 100 s after open (load-far2): 7.3K columns+far loaded, 4.5K meshes (was 9.6K), ~240 fps, record 3.1 ms; all 9 shots now settle in 41-54 s (they hit the 150 s cap before); 0.00% changed pixels vs the previous accepted shots in 5 compared views; night sky checked (`?time=ticks` link, ViewerSkyTests). Gate 24/24. V8c: TJ's 620 after V8b: 42 fps, record 13.4 ms (3.9x less), 1652 draws, 4751 meshes, 0 waiting; now GPU-bound (780K quads), so the draw distance adapts (57/48 fps band, 12..30 chunks) and the fog follows it (dd=14 shows 4x the fog-coloured area of dd=30; full-distance shots 0.00% changed). Gate 25/25. V8d: TJ's 620 settled at 52 fps, 625 draws, but record 9.7 ms = 15 us/draw (it was 8 at 1652 draws): a fixed ~4-5 ms per frame, the walk over all 7,300 columns+far chunks (hash lookups + totals). Candidate list + running totals (gather 0.0-0.1 ms on the dev box; same 1541 draws; 9 of 9 shots 0.00% changed; gate 26/26). Not measured on the Intel 620 itself. Next lever if still slow: render bundles or batching draws in JS (draws are ~2.5 us each here, ~14 us on the 620)
 
+## Phase W: World fidelity - real textures, animation, live activity (started 2026-10-15, TJ: "we need better texture accuracy, animations, and live activity like seeing animals and players going about their play")
+
+MEASURED BASELINE (240 block names seen in the dev world sample, `block-registry.json`): 103 have a texture, 135 (56%) are flat colours; 74 are not full
+cubes (stairs, slabs, fences, doors, trapdoors, beds, panes, torches, lanterns, rails, ladders, chests, campfires, candles...) and are drawn AS CUBES; tint is
+one constant colour (no biomes); nothing animates; no entities at all. Today's atlas is hand-curated (89 PNGs, 80 used, mapped by name in
+`TextureAtlas.cs`). The client jars have what is needed: 26.3 has 1,289 blockstates, 2,884 block models, 1,405 block textures, 105 animated (`.mcmeta`),
+869 entity textures and the grass/foliage colormaps. The server has NO live entity feed (players' positions only, through RCON `data get entity`).
+
+### W-T: Texture accuracy (asset-driven, client-side: nothing to install)
+- [ ] WT1. **Asset pipeline**: a tool (`AubsCraft.Assets`: C# library + CLI, tested) reads the client jar: blockstates + models (parent chain, texture variables, rotations,
+  elements) and writes the texture array (all ~1,400 block textures = ~1.5 MB) + `blocks.json` (state -> class, per-face layer, tint kind, animation, model). Replaces the
+  hand-made atlas and `TextureAtlas.GetFaceLayers`. Gate: every block name in the world resolves; the report lists what does not.
+- [ ] WT2. **Cube-model blocks all correct**: per-face layers for the 135 flat names that are cubes (ores, wool, copper, glass, furnace, barrel...), cutout/transparent
+  classes from the model's render type, `tintindex` from the model.
+- [ ] WT3. **Block states in the registry**: the server's global id is the NAME only; stairs/slabs/doors/fences/panes need their PROPERTIES (facing, half, shape,
+  open, connections, waterlogged). Registry becomes rendered-state ids (12-bit = 4096 states: fits a normal world; measured per world), chunk-ids wire unchanged.
+- [ ] WT4. **Non-cube shapes**: VoxelEngine `ModelMesher` (element boxes with per-face UV/cullface/rotation into the same quad stream), stairs/slabs first, then
+  fences, walls, panes, doors, trapdoors, torches, ladders, rails, beds, chests, lanterns, candles, flower pots. Greedy merge stays for cubes.
+- [ ] WT5. **Biome tint**: server sends a biome id per column cell (chunk section biome palettes); grass/foliage/water colormaps from the jar; the shader tints per cell
+  (a per-column tint map in a storage buffer, indexed by the column slot). Water colour per biome (swamp, warm ocean...).
+- [ ] WT6. Resource packs (stretch): the same pipeline on a pack's assets; 32x/64x textures need per-layer size (texture array of one size: resample or mip packs).
+
+### W-A: Animation
+- [ ] WA1. **Animated block textures** (water, lava, fire, soul fire, nether portal, magma, sea lantern, prismarine, kelp, seagrass, command blocks...): frames as layers,
+  `BlockMaterial` gains (frame count, frame time, interpolate); `BlockFrameUniforms` gains `time`; the shader picks the layer. VoxelEngine change + tests.
+- [ ] WA2. Water/lava surface: flowing direction, small wave, lava emissive (ignores lighting).
+- [ ] WA3. Sky: sun/moon/stars/clouds (E2), weather particles and tint (E3).
+
+### W-L: Live activity (players and animals going about their play)
+- [ ] WL1. **Feed**: a small Paper plugin `AubsCraft Live` (Java 21, built with `javac` against paper-api; jar installed through the panel's plugin manager) pushes, ~5-10 Hz,
+  every entity in the loaded chunks near players: uuid, type, position, yaw/pitch/head yaw, velocity, pose, baby/variant/colour, held item, custom name; for players name,
+  uuid and skin URL. Loopback WebSocket with a shared secret -> panel -> browsers (binary deltas, ~16 bytes an entity). NEEDS TJ'S GO to install on the live servers.
+  Without it, the stepping stones: players via the existing RCON positions (1 Hz), animals from the `entities/` region files (static, stale between saves).
+- [ ] WL2. **Entity renderer** (VoxelEngine `EntityRenderPipeline`: instanced model parts, per-part UV into the entity textures): player (biped + skin + second layer), zombie,
+  skeleton, creeper, cow, pig, sheep, chicken, villager, horse, wolf, cat, fox, rabbit, bat, spider, enderman, slime, fish, then a textured-box fallback with a name label.
+- [ ] WL3. **Motion**: interpolate 5-10 Hz snapshots to the display rate (render ~150 ms behind), walk cycle from speed, head look, sneak/sleep/swim poses, hurt flash.
+- [ ] WL4. Player skins (server-side fetch + cache of the profile texture URL), name tags, chat bubbles, minimap markers (players, animals; toggles), follow-camera on a player.
+- [ ] WL5. Item entities, projectiles, falling blocks, minecarts/boats, particles.
+
+Order: WT1 + WA1 first (biggest visible change, client only), then WL1 stepping stones (RCON players) + WL2, then WT3/WT4/WT5.
+
 ## Phase D2: Input System + UI Layout
 
 - [ ] D2.1. **Unified InputState** - Shared state that all input modes write to, camera/game reads from
