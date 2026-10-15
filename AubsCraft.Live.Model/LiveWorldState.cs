@@ -55,6 +55,9 @@ public sealed class LiveWorldState
     /// <summary>Entities the state knows about (all worlds).</summary>
     public int TrackCount => _tracks.Count;
 
+    /// <summary>Players the state knows about.</summary>
+    public int PlayerCount => _players.Count;
+
     /// <summary>The server's clock (seconds) as of the newest frame.</summary>
     public double LatestServerTime => _latestServerTime;
 

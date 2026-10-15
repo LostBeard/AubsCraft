@@ -1,0 +1,219 @@
+<link rel=preload> has an invalid `href` value
+[RenderWorker] Created with 959x592 canvas
+[RenderWorker] Created with 959x592 canvas
+[Map] Render worker created, transferring canvas...
+[Cache] Load camera error: A requested file or directory could not be found at the time an operation was processed.
+[Map] Starting at world spawn: (240, -256) known=True
+[Map] Camera from link: (248, 67, -248) pitch=-8 yaw=-90
+[GpuContextService] Initialized: WebGPU
+[GpuContextService] Initialized: WebGPU
+[RenderWorker] Initialized: WebGPU
+[RenderWorker] Initialized: WebGPU
+[RenderWorker] Creating data worker: http://127.0.0.1:62837/data-worker.js
+[RenderWorker] Creating data worker: http://127.0.0.1:62837/data-worker.js
+[RenderWorker] Data worker created, GPU ready, requesting first chunk
+[RenderWorker] Data worker created, GPU ready, requesting first chunk
+[Live] Live feed connected
+[Live] Live feed connected
+[DataWorker] Initialized, connecting to ws://127.0.0.1:62837/api/world/ws?server=aubscraft&format=ids
+[DataWorker] Initialized, connecting to ws://127.0.0.1:62837/api/world/ws?server=aubscraft&format=ids
+[DataWorker] WebSocket connected
+[DataWorker] WebSocket connected
+[RenderWorker] Block assets for Minecraft 1.21.5: 1108 blocks, 1091 tiles, 36 animated
+[RenderWorker] Block assets for Minecraft 1.21.5: 1108 blocks, 1091 tiles, 36 animated
+[Live] Entity assets: 35 textures, 128 skin slots
+[Live] Entity assets: 35 textures, 128 skin slots
+[RenderWorker] 1 block names
+[RenderWorker] 1 block names
+[DataWorker] Chunk (0,0) received, total: 1
+[DataWorker] Chunk (0,0) received, total: 1
+[DataWorker] Chunk (15,-16) received, total: 2
+[DataWorker] Chunk (15,-16) received, total: 2
+[RenderWorker] 33 block names
+[RenderWorker] 33 block names
+[DataWorker] Chunk (14,-16) received, total: 3
+[DataWorker] Chunk (14,-16) received, total: 3
+[RenderWorker] 36 block names
+[RenderWorker] 36 block names
+[RenderWorker] 37 block names
+[RenderWorker] 37 block names
+[RenderWorker] 42 block names
+[RenderWorker] 42 block names
+[RenderWorker] 44 block names
+[RenderWorker] 44 block names
+[RenderWorker] 45 block names
+[RenderWorker] 45 block names
+[RenderWorker] 46 block names
+[RenderWorker] 46 block names
+[RenderWorker] 48 block names
+[RenderWorker] 48 block names
+[RenderWorker] 49 block names
+[RenderWorker] 49 block names
+[RenderWorker] 50 block names
+[RenderWorker] 50 block names
+[RenderWorker] 51 block names
+[RenderWorker] 51 block names
+[RenderWorker] 52 block names
+[RenderWorker] 52 block names
+[RenderWorker] 59 block names
+[RenderWorker] 59 block names
+[RenderWorker] 60 block names
+[RenderWorker] 60 block names
+[RenderWorker] 61 block names
+[RenderWorker] 61 block names
+[RenderWorker] 63 block names
+[RenderWorker] 63 block names
+[RenderWorker] 65 block names
+[RenderWorker] 65 block names
+[RenderWorker] 76 block names
+[RenderWorker] 76 block names
+[RenderWorker] 77 block names
+[RenderWorker] 77 block names
+[RenderWorker] 78 block names
+[RenderWorker] 78 block names
+[RenderWorker] 79 block names
+[RenderWorker] 79 block names
+[RenderWorker] 82 block names
+[RenderWorker] 82 block names
+[RenderWorker] 83 block names
+[RenderWorker] 83 block names
+[RenderWorker] 88 block names
+[RenderWorker] 88 block names
+[RenderWorker] 89 block names
+[RenderWorker] 89 block names
+[RenderWorker] 90 block names
+[RenderWorker] 90 block names
+[RenderWorker] 91 block names
+[RenderWorker] 91 block names
+[RenderWorker] 94 block names
+[RenderWorker] 94 block names
+[RenderWorker] 102 block names
+[RenderWorker] 102 block names
+[RenderWorker] 119 block names
+[RenderWorker] 119 block names
+[RenderWorker] 121 block names
+[RenderWorker] 121 block names
+[RenderWorker] 131 block names
+[RenderWorker] 131 block names
+[DataWorker] Chunk (11,-28) received, total: 500
+[DataWorker] Chunk (11,-28) received, total: 500
+[Voxel] 579 fps | frame CPU 0.9 ms (record 0.9, of it gather 0.0) | 467 draws, 6 binds | 1530/6861 sections | 1006 columns+far | 318K/1394K quads | 1227 meshes (378 re-meshes, 608 waiting) in 1 quad buffers | far 349/504 meshed
+[Voxel] 579 fps | frame CPU 0.9 ms (record 0.9, of it gather 0.0) | 467 draws, 6 binds | 1530/6861 sections | 1006 columns+far | 318K/1394K quads | 1227 meshes (378 re-meshes, 608 waiting) in 1 quad buffers | far 349/504 meshed
+[RenderWorker] 137 block names
+[RenderWorker] 137 block names
+[RenderWorker] 139 block names
+[RenderWorker] 139 block names
+[RenderWorker] 144 block names
+[RenderWorker] 144 block names
+[RenderWorker] 145 block names
+[RenderWorker] 145 block names
+[RenderWorker] 150 block names
+[RenderWorker] 150 block names
+[RenderWorker] 155 block names
+[RenderWorker] 155 block names
+[RenderWorker] 157 block names
+[RenderWorker] 157 block names
+[RenderWorker] 159 block names
+[RenderWorker] 159 block names
+[RenderWorker] 160 block names
+[RenderWorker] 160 block names
+[RenderWorker] 161 block names
+[RenderWorker] 161 block names
+[RenderWorker] 162 block names
+[RenderWorker] 162 block names
+[RenderWorker] 163 block names
+[RenderWorker] 163 block names
+[RenderWorker] 169 block names
+[RenderWorker] 169 block names
+[RenderWorker] 171 block names
+[RenderWorker] 171 block names
+[RenderWorker] 172 block names
+[RenderWorker] 172 block names
+[BlockColorMap] No color for minecraft:oak_sign (renders magenta)
+[BlockColorMap] No color for minecraft:oak_sign (renders magenta)
+[BlockColorMap] No color for minecraft:oak_wall_sign (renders magenta)
+[BlockColorMap] No color for minecraft:oak_wall_sign (renders magenta)
+[RenderWorker] 174 block names
+[RenderWorker] 174 block names
+[RenderWorker] 175 block names
+[RenderWorker] 175 block names
+[Voxel] 500 fps | frame CPU 1.1 ms (record 1.1, of it gather 0.0) | 544 draws, 6 binds | 1675/9645 sections | 1783 columns+far | 314K/1917K quads | 2839 meshes (1502 re-meshes, 169 waiting) in 2 quad buffers | far 540/986 meshed
+[Voxel] 500 fps | frame CPU 1.1 ms (record 1.1, of it gather 0.0) | 544 draws, 6 binds | 1675/9645 sections | 1783 columns+far | 314K/1917K quads | 2839 meshes (1502 re-meshes, 169 waiting) in 2 quad buffers | far 540/986 meshed
+[DataWorker] Chunk (7,-32) received, total: 1000
+[DataWorker] Chunk (7,-32) received, total: 1000
+[RenderWorker] 176 block names
+[RenderWorker] 176 block names
+[RenderWorker] 179 block names
+[RenderWorker] 179 block names
+[BlockColorMap] No color for minecraft:redstone_torch (renders magenta)
+[BlockColorMap] No color for minecraft:redstone_torch (renders magenta)
+[RenderWorker] 180 block names
+[RenderWorker] 180 block names
+[RenderWorker] 182 block names
+[RenderWorker] 182 block names
+[RenderWorker] 184 block names
+[RenderWorker] 184 block names
+[RenderWorker] 185 block names
+[RenderWorker] 185 block names
+[RenderWorker] 186 block names
+[RenderWorker] 186 block names
+[RenderWorker] 187 block names
+[RenderWorker] 187 block names
+[DataWorker] Chunk (31,-1) received, total: 1500
+[DataWorker] Chunk (31,-1) received, total: 1500
+[Voxel] 671 fps | frame CPU 1.5 ms (record 1.4, of it gather 0.0) | 544 draws, 6 binds | 1673/9466 sections | 2298 columns+far | 313K/1876K quads | 3008 meshes (1671 re-meshes, 0 waiting) in 2 quad buffers | far 540/1501 meshed
+[Voxel] 671 fps | frame CPU 1.5 ms (record 1.4, of it gather 0.0) | 544 draws, 6 binds | 1673/9466 sections | 2298 columns+far | 313K/1876K quads | 3008 meshes (1671 re-meshes, 0 waiting) in 2 quad buffers | far 540/1501 meshed
+[RenderWorker] 188 block names
+[RenderWorker] 188 block names
+[RenderWorker] 189 block names
+[RenderWorker] 189 block names
+[RenderWorker] 192 block names
+[RenderWorker] 192 block names
+[BlockColorMap] No color for minecraft:cherry_fence (renders magenta)
+[BlockColorMap] No color for minecraft:cherry_fence (renders magenta)
+[BlockColorMap] No color for minecraft:bamboo (renders magenta)
+[BlockColorMap] No color for minecraft:bamboo (renders magenta)
+[BlockColorMap] No color for minecraft:pale_oak_fence (renders magenta)
+[BlockColorMap] No color for minecraft:pale_oak_fence (renders magenta)
+[RenderWorker] 195 block names
+[RenderWorker] 195 block names
+[BlockColorMap] No color for minecraft:lantern (renders magenta)
+[BlockColorMap] No color for minecraft:lantern (renders magenta)
+[RenderWorker] 203 block names
+[RenderWorker] 203 block names
+[RenderWorker] 205 block names
+[RenderWorker] 205 block names
+[RenderWorker] 206 block names
+[RenderWorker] 206 block names
+[BlockColorMap] No color for minecraft:pink_bed (renders magenta)
+[BlockColorMap] No color for minecraft:pink_bed (renders magenta)
+[RenderWorker] 212 block names
+[RenderWorker] 212 block names
+[BlockColorMap] No color for minecraft:cherry_fence_gate (renders magenta)
+[BlockColorMap] No color for minecraft:cherry_fence_gate (renders magenta)
+[BlockColorMap] No color for minecraft:pale_oak_fence_gate (renders magenta)
+[BlockColorMap] No color for minecraft:pale_oak_fence_gate (renders magenta)
+[RenderWorker] 214 block names
+[RenderWorker] 214 block names
+[BlockColorMap] No color for minecraft:smoker (renders magenta)
+[BlockColorMap] No color for minecraft:smoker (renders magenta)
+[BlockColorMap] No color for minecraft:acacia_door (renders magenta)
+[BlockColorMap] No color for minecraft:acacia_door (renders magenta)
+[BlockColorMap] No color for minecraft:jukebox (renders magenta)
+[BlockColorMap] No color for minecraft:jukebox (renders magenta)
+[RenderWorker] 218 block names
+[RenderWorker] 218 block names
+[RenderWorker] 219 block names
+[RenderWorker] 219 block names
+[DataWorker] Chunk (-10,-13) received, total: 2000
+[DataWorker] Chunk (-10,-13) received, total: 2000
+[Voxel] 574 fps | frame CPU 1.4 ms (record 1.4, of it gather 0.0) | 544 draws, 6 binds | 1673/9466 sections | 2823 columns+far | 313K/1876K quads | 3008 meshes (1671 re-meshes, 0 waiting) in 2 quad buffers | far 540/2026 meshed
+[Voxel] 574 fps | frame CPU 1.4 ms (record 1.4, of it gather 0.0) | 544 draws, 6 binds | 1673/9466 sections | 2823 columns+far | 313K/1876K quads | 3008 meshes (1671 re-meshes, 0 waiting) in 2 quad buffers | far 540/2026 meshed
+[RenderWorker] 220 block names
+[RenderWorker] 220 block names
+[RenderWorker] 222 block names
+[RenderWorker] 222 block names
+[RenderWorker] 223 block names
+[RenderWorker] 223 block names
+[RenderWorker] 224 block names
+[RenderWorker] 224 block names

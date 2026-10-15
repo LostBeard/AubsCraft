@@ -171,8 +171,8 @@ public class ViewerLiveTests
             var lines = log.ToArray();
             Assert.That(lines.Any(l => l.Contains("[Live] Entity assets:")), Is.True, "the creature textures should have loaded:\n" + string.Join("\n", lines.Where(l => l.Contains("Live")).Take(10)));
             Assert.That(lines.Any(l => l.Contains("Live feed connected")), Is.True, "the live socket should have connected");
-            var creatures = lines.Select(l => System.Text.RegularExpressions.Regex.Match(l, @"creatures (\d+) drawn of (\d+) \((\d+) parts, (\d+) frames\)")).Where(m => m.Success).ToList();
-            Assert.That(creatures, Is.Not.Empty, "the [Voxel] line should report the creatures");
+            var creatures = lines.Select(l => System.Text.RegularExpressions.Regex.Match(l, @"\[Live\] creatures (\d+) drawn of (\d+) \((\d+) parts, (\d+) players, (\d+) frames\)")).Where(m => m.Success).ToList();
+            Assert.That(creatures, Is.Not.Empty, "the worker should report the creatures");
             var best = creatures.OrderByDescending(m => int.Parse(m.Groups[1].Value)).First();
             TestContext.Progress.WriteLine($"[live] the worker reports: {best.Value}");
             Assert.That(int.Parse(best.Groups[1].Value), Is.GreaterThanOrEqualTo(10), "most of the 12 creatures should be in range and drawn");

@@ -39,6 +39,8 @@ public sealed class EntityLayer : IDisposable
     private string[] _slotOwner = System.Array.Empty<string>();
     private int _skinLoads;
     private bool _disposed;
+    private double _lastLog = double.NegativeInfinity;
+    private long _frames;
 
     private sealed class Skin
     {
@@ -111,6 +113,7 @@ public sealed class EntityLayer : IDisposable
             Console.WriteLine("[Live] A frame was refused: " + ex.Message);
             return;
         }
+        _frames++;
         _state.Apply(frame, _clock.Elapsed.TotalSeconds);
     }
 
@@ -164,6 +167,13 @@ public sealed class EntityLayer : IDisposable
             };
         }
         _pipe.SetParts(_parts.AsSpan(0, n));
+
+        // A line every few seconds while there is anything to draw (the gate reads it; so does anyone wondering why a creature is missing)
+        if (now - _lastLog >= 5.0 && Known > 0)
+        {
+            _lastLog = now;
+            Console.WriteLine($"[Live] creatures {EntityCount} drawn of {Known} ({n} parts, {_state.PlayerCount} players, {_frames} frames)");
+        }
     }
 
     private void PoseOne(string world, in LiveEntityView v, float ageTicks, double now)
