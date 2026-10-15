@@ -1,11 +1,15 @@
 using System.Drawing;
 using System.Globalization;
 using AubsCraft.Admin.Services;
+using AubsCraft.Live.Model;
 using SpawnDev.GameUI;
 using SpawnDev.GameUI.Elements;
 using SpawnDev.SpawnJS.JSObjects;
 
 namespace AubsCraft.Admin.Rendering;
+
+/// <summary>What the viewer user can ask of a player in the list.</summary>
+public enum PlayerAction { GoTo, Follow, Eyes, StopFollowing }
 
 /// <summary>What the HUD shows, read from the renderer each frame.</summary>
 public readonly record struct HudData(
@@ -38,7 +42,13 @@ public sealed class ViewerHud
     private UILabel _playersTitle = null!;
     private UIList _playerList = null!;
     private UINotificationStack _toasts = null!;
+    private UIContextMenu _menu = null!;
+    private UILabel _followLabel = null!;
     private UIMinimapFrame _minimap = null!;
+    // Where the mouse is (canvas pixels): a menu opens under the click
+    private float _mouseX, _mouseY;
+    private string? _followName;
+    private FollowMode _followMode;
     private int _minimapZoom = 1;
     // Lines the player typed into the chat, waiting for the page to take them to the server
     private readonly List<string> _outgoingChat = new();
@@ -102,14 +112,81 @@ public sealed class ViewerHud
 
         _hint = new UILabel
         {
-            Text = "Click the view to fly   WASD move   Space / Shift up / down   Esc release   Enter chat   M map zoom   F3 debug",
+            Text = "Click the view to fly   WASD move   Space / Shift up / down   Esc release   Enter chat   M map zoom   F3 debug   Click a player in the list for actions",
             FontSize = FontSize.Caption,
             Color = theme.TextPrimary,
             OutlineWidth = 0.12f,
         };
         _root.AddAnchored(_hint, Anchor.BottomCenter, 0, -10);
 
+        _followLabel = new UILabel { FontSize = FontSize.Caption, Color = theme.TextPrimary, OutlineWidth = 0.14f, Visible = false };
+        _root.AddAnchored(_followLabel, Anchor.BottomCenter, 0, -34);
+
+        // Last, so it is on top of everything and gets a click first
+        _menu = new UIContextMenu { Visible = false, MenuWidth = MenuWidth };
+        _root.AddChild(_menu);
+
         _ui.Screens.Register(ScreenName, _root);
+    }
+
+    // ---- what a click on a player in the list does ----
+
+    private const float MenuWidth = 210f;
+
+    /// <summary>The viewer user chose an action for a player (the worker moves the camera). The name is the one in the list.</summary>
+    public Action<string, PlayerAction>? OnPlayerAction { get; set; }
+
+    private void OpenPlayerMenu(int index)
+    {
+        if (index < 0 || index >= _playerList.ItemCount) return;
+        string name = _playerList.GetItem(index).Text;
+        // The same row can be clicked again: the selection is only a trigger, so clear it
+        _playerList.SelectedIndex = -1;
+
+        _menu.ClearItems();
+        _menu.AddItem("Go to " + name, () => OnPlayerAction?.Invoke(name, PlayerAction.GoTo));
+        if (string.Equals(_followName, name, StringComparison.OrdinalIgnoreCase))
+            _menu.AddItem("Stop following " + name, () => OnPlayerAction?.Invoke(name, PlayerAction.StopFollowing));
+        else
+        {
+            _menu.AddItem("Follow " + name, () => OnPlayerAction?.Invoke(name, PlayerAction.Follow));
+            _menu.AddItem("See through " + name + "'s eyes", () => OnPlayerAction?.Invoke(name, PlayerAction.Eyes));
+        }
+        _menu.AddSeparator();
+        _menu.AddItem("Close", null);
+        // Under the click, kept inside the view
+        float x = Math.Clamp(_mouseX, 0, Math.Max(0, _root.Width - MenuWidth));
+        _menu.Show(new System.Numerics.Vector2(x, _mouseY));
+        float maxY = Math.Max(0, _root.Height - _menu.Height);
+        _menu.Y = Math.Min(_menu.Y, maxY);
+    }
+
+    /// <summary>Show (or clear, with null) which player the camera follows, for the label and the menu.</summary>
+    public void SetFollowing(string? name, FollowMode mode = FollowMode.Chase)
+    {
+        _followName = name;
+        _followMode = mode;
+        if (_followLabel == null) return;
+        _followLabel.Visible = name != null;
+        if (name != null)
+            _followLabel.Text = mode == FollowMode.Eyes
+                ? "Seeing through " + name + "'s eyes   move to stop"
+                : "Following " + name + "   mouse orbits, move to stop";
+    }
+
+    /// <summary>A short message over the world (the toast stack).</summary>
+    public void Toast(string text, NotificationType type = NotificationType.Info) => _toasts?.Push(text, type);
+
+    /// <summary>
+    /// Rectangles (x, y, width, height in canvas pixels, four floats each) where a click belongs to the HUD, not to the camera: the player list, and the
+    /// whole view while a menu is open (a click then only closes the menu). The page asks before it takes the pointer for the camera.
+    /// </summary>
+    public float[] ClickRects()
+    {
+        if (_menu == null || !Visible) return [];
+        if (_menu.Visible) return [0, 0, _root.Width, _root.Height];
+        var b = _playersPanel.ScreenBounds;
+        return [b.X, b.Y, b.Width, b.Height];
     }
 
     // ---- name tags over creatures ----
@@ -182,6 +259,7 @@ public sealed class ViewerHud
             Width = PlayersWidth - 2 * (PlayersPad - 2),
             Height = PlayerRow,
         };
+        _playerList.OnSelectionChanged = OpenPlayerMenu;
         _playersPanel.AddChild(_playerList);
         _root.AddAnchored(_playersPanel, Anchor.TopRight, -8, MinimapReserve);
         SetPlayers([]);
@@ -267,7 +345,7 @@ public sealed class ViewerHud
         if (!Visible || _ui.Pushed is not { } input) return;
         switch (e.Kind)
         {
-            case UiInputEvent.MouseMove: input.MouseMove(e.X, e.Y); break;
+            case UiInputEvent.MouseMove: _mouseX = e.X; _mouseY = e.Y; input.MouseMove(e.X, e.Y); break;
             case UiInputEvent.MouseDown: input.MouseDown((int)e.X); break;
             case UiInputEvent.MouseUp: input.MouseUp((int)e.X); break;
             case UiInputEvent.Wheel: input.Wheel(e.Y); break;

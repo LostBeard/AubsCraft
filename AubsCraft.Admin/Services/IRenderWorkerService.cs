@@ -25,6 +25,11 @@ public interface IRenderWorkerService : IAsyncDisposable
     Task PushHudFeedAsync(HudFeed feed);
     /// <summary>The lines the player typed into the HUD's chat since the last call (the page sends them to the server).</summary>
     Task<string[]> TakeOutgoingChatAsync();
+    /// <summary>
+    /// Where a click belongs to the HUD, not to the camera, as rectangles of four floats (x, y, width, height; canvas pixels): the player list, and the whole
+    /// view while a menu is open. The page asks before it gives the pointer to the camera.
+    /// </summary>
+    Task<float[]> GetHudClickRectsAsync();
     Task ResizeAsync(int width, int height);
     Task<RenderStats> GetStatsAsync();
     Task SetTimeOfDay(int ticks);

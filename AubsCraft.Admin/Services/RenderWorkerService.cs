@@ -2,6 +2,9 @@ using SpawnDev.SpawnJS;
 using SpawnDev.SpawnJS.JSObjects;
 using SpawnDev.SpawnJS.WebWorkers;
 using AubsCraft.Admin.Rendering;
+using AubsCraft.Live.Model;
+using SpawnDev.GameUI;
+using SpawnDev.GameUI.Elements;
 using System.Numerics;
 
 namespace AubsCraft.Admin.Services;
@@ -76,6 +79,7 @@ public class RenderWorkerService : IRenderWorkerService
         _voxel.Entities = _entities;
         // The HUD (GameUI) draws with the world's own device, into the same encoder, after the world pass.
         _hud.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _canvas!.Width, _canvas.Height);
+        _hud.OnPlayerAction = OnPlayerAction;
         _renderer.OnOverlay = (encoder, view, w, h) =>
         {
             _hud.SetNameTags(_entities?.Tags);
@@ -166,6 +170,76 @@ public class RenderWorkerService : IRenderWorkerService
 
     public Task<string[]> TakeOutgoingChatAsync() => Task.FromResult(_hud.TakeOutgoingChat());
 
+    public Task<float[]> GetHudClickRectsAsync() => Task.FromResult(_initialized ? _hud.ClickRects() : []);
+
+    // ---- going to a player and following one (the player list's menu) ----
+
+    private string? _followName;
+    private FollowMode _followMode;
+    private float _followMissing;
+    private const float FollowGraceSeconds = 2.5f;
+    private static readonly string[] MoveKeys = ["KeyW", "KeyA", "KeyS", "KeyD", "Space", "ShiftLeft"];
+
+    private void OnPlayerAction(string name, PlayerAction action)
+    {
+        if (_entities == null) return;
+        if (action == PlayerAction.StopFollowing) { StopFollowing(null); return; }
+        switch (_entities.LookupPlayer(name, out var view))
+        {
+            case PlayerLookup.Unknown:
+                _hud.Toast($"{name} is not in the live view yet (it needs the Live view plugin on the server, and the player in a loaded area)", NotificationType.Warning);
+                return;
+            case PlayerLookup.OtherWorld:
+                _hud.Toast($"{name} is in another dimension; the viewer shows the main world", NotificationType.Warning);
+                return;
+        }
+        var camera = _renderer.Camera;
+        if (action == PlayerAction.GoTo)
+        {
+            StopFollowing(null);
+            var c = FollowCamera.Behind(view);
+            camera.Position = new Vector3(c.X, c.Y, c.Z);
+            camera.Yaw = c.Yaw;
+            camera.Pitch = c.Pitch;
+            return;
+        }
+        _followName = name;
+        _followMode = action == PlayerAction.Eyes ? FollowMode.Eyes : FollowMode.Chase;
+        _followMissing = 0;
+        // Start behind the player, as a teleport would, then the mouse orbits from there
+        camera.Yaw = FollowCamera.CameraYawOf(view.Yaw);
+        camera.Pitch = FollowCamera.DefaultPitch;
+        _hud.SetFollowing(name, _followMode);
+        UpdateFollow(0);
+    }
+
+    private void StopFollowing(string? why)
+    {
+        if (_followName == null) return;
+        if (why != null) _hud.Toast(why, NotificationType.Info);
+        _followName = null;
+        _hud.SetFollowing(null);
+    }
+
+    /// <summary>Once per frame, before anything reads the camera: put it where the followed player is.</summary>
+    private void UpdateFollow(float dt)
+    {
+        if (_followName == null || _entities == null) return;
+        if (_entities.LookupPlayer(_followName, out var view) != PlayerLookup.Found)
+        {
+            // A missing frame or two is nothing; gone for good is the player leaving (or going through a portal)
+            _followMissing += dt;
+            if (_followMissing > FollowGraceSeconds) StopFollowing($"Stopped following {_followName}: they are no longer in the view");
+            return;
+        }
+        _followMissing = 0;
+        var camera = _renderer.Camera;
+        var c = FollowCamera.Place(view, _followMode, camera.Yaw, camera.Pitch, FollowCamera.DefaultDistance);
+        camera.Position = new Vector3(c.X, c.Y, c.Z);
+        camera.Yaw = c.Yaw;
+        camera.Pitch = c.Pitch;
+    }
+
     public Task SetPointerLockedAsync(bool locked)
     {
         if (_initialized) _hud.SetPointerLocked(locked);
@@ -194,7 +268,9 @@ public class RenderWorkerService : IRenderWorkerService
             _renderer.Camera.ProcessMouseMovement(dx, dy);
         _inputKeysReuse.Clear();
         foreach (var k in keysDown) _inputKeysReuse.Add(k);
-        _renderer.Camera.ProcessKeyboard(_inputKeysReuse, dt);
+        // Moving yourself ends a follow (the keys then move the camera from where it is)
+        if (_followName != null && MoveKeys.Any(_inputKeysReuse.Contains)) StopFollowing($"Stopped following {_followName}");
+        if (_followName == null) _renderer.Camera.ProcessKeyboard(_inputKeysReuse, dt);
         return Task.CompletedTask;
     }
 
@@ -417,6 +493,7 @@ public class RenderWorkerService : IRenderWorkerService
     private void OnRenderFrame(float dt)
     {
         _ingest.OnFrame(dt * 1000.0);
+        UpdateFollow(dt);
 
         // The minimap is drawn into its own texture before the frame (a few times a second: it is a map, not a view)
         if (_voxel != null && _hud.Visible)

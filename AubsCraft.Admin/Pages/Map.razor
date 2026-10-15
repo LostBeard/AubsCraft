@@ -383,9 +383,18 @@ else
         if (_isPointerLocked) return;
         try
         {
+            // A click on the HUD (the player list, an open menu) is the HUD's: it does not take the mouse for the camera
+            if (_renderService != null && OverHud(await _renderService.GetHudClickRectsAsync(), Input.MouseX, Input.MouseY)) return;
             _canvas?.RequestPointerLock();
         }
         catch { }
+    }
+
+    private static bool OverHud(float[] rects, float x, float y)
+    {
+        for (int i = 0; i + 3 < rects.Length; i += 4)
+            if (x >= rects[i] && x < rects[i] + rects[i + 2] && y >= rects[i + 1] && y < rects[i + 1] + rects[i + 3]) return true;
+        return false;
     }
 
     private void SwitchTo3D() => _viewMode = ViewMode.Viewer3D;

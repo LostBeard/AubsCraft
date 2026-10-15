@@ -139,31 +139,62 @@ public sealed class LiveWorldState
 
         foreach (var ((w, id), track) in _tracks)
         {
-            if (w != world || track.Snapshots.Count == 0) continue;
-            var snaps = track.Snapshots;
-            var newest = snaps[^1].Entity;
-            if (mayBeWanted != null && !mayBeWanted(newest.X, newest.Y, newest.Z)) continue;
-            if (t < snaps[0].Time) continue;                         // not yet: it appears when the moment reaches its first snapshot
-            if (!double.IsNaN(track.MissingSince) && t > track.MissingSince + 0.2) continue; // it has left the frames and the moment has passed
-
-            // The snapshots either side of t; past the newest it is held (never extrapolated beyond a short while)
-            int hi = snaps.Count - 1;
-            while (hi > 0 && snaps[hi - 1].Time >= t) hi--;
-            var b = snaps[hi];
-            if (t >= b.Time)
-            {
-                if (t - b.Time > HoldSeconds && !double.IsNaN(track.MissingSince)) continue;
-                result.Add(ToView(id, b.Entity, b.Entity, 0, SpeedOf(snaps, hi), b.Walked, b.Walked));
-                continue;
-            }
-            var a = snaps[hi - 1];
-            double span = b.Time - a.Time;
-            float f = span <= 0 ? 1f : (float)((t - a.Time) / span);
-            float dx = b.Entity.X - a.Entity.X, dy = b.Entity.Y - a.Entity.Y, dz = b.Entity.Z - a.Entity.Z;
-            bool teleported = MathF.Sqrt(dx * dx + dy * dy + dz * dz) >= TeleportDistance;
-            result.Add(ToView(id, a.Entity, b.Entity, teleported ? 1f : f, SpeedOf(snaps, hi), a.Walked, b.Walked, f));
+            if (w != world) continue;
+            if (TrySample(id, track, t, mayBeWanted, out var view)) result.Add(view);
         }
         return result;
+    }
+
+    /// <summary>One entity as it should be drawn at <paramref name="localNow"/> (the same place <see cref="Sample"/> gives it), or null when it is not known or not shown.</summary>
+    public LiveEntityView? SampleOne(string world, int entityId, double localNow)
+    {
+        if (!_haveOffset || !_tracks.TryGetValue((world, entityId), out var track)) return null;
+        double t = localNow - _offset - RenderDelaySeconds;
+        return TrySample(entityId, track, t, null, out var view) ? view : null;
+    }
+
+    /// <summary>The world and entity id of the player called <paramref name="name"/> (any case), or false when no such player is in the frames.</summary>
+    public bool TryFindPlayer(string name, out string world, out int entityId)
+    {
+        foreach (var ((w, id), p) in _players)
+        {
+            if (!string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)) continue;
+            world = w;
+            entityId = id;
+            return true;
+        }
+        world = "";
+        entityId = 0;
+        return false;
+    }
+
+    private static bool TrySample(int id, Track track, double t, Func<float, float, float, bool>? mayBeWanted, out LiveEntityView view)
+    {
+        view = default;
+        if (track.Snapshots.Count == 0) return false;
+        var snaps = track.Snapshots;
+        var newest = snaps[^1].Entity;
+        if (mayBeWanted != null && !mayBeWanted(newest.X, newest.Y, newest.Z)) return false;
+        if (t < snaps[0].Time) return false;                         // not yet: it appears when the moment reaches its first snapshot
+        if (!double.IsNaN(track.MissingSince) && t > track.MissingSince + 0.2) return false; // it has left the frames and the moment has passed
+
+        // The snapshots either side of t; past the newest it is held (never extrapolated beyond a short while)
+        int hi = snaps.Count - 1;
+        while (hi > 0 && snaps[hi - 1].Time >= t) hi--;
+        var b = snaps[hi];
+        if (t >= b.Time)
+        {
+            if (t - b.Time > HoldSeconds && !double.IsNaN(track.MissingSince)) return false;
+            view = ToView(id, b.Entity, b.Entity, 0, SpeedOf(snaps, hi), b.Walked, b.Walked);
+            return true;
+        }
+        var a = snaps[hi - 1];
+        double span = b.Time - a.Time;
+        float f = span <= 0 ? 1f : (float)((t - a.Time) / span);
+        float dx = b.Entity.X - a.Entity.X, dy = b.Entity.Y - a.Entity.Y, dz = b.Entity.Z - a.Entity.Z;
+        bool teleported = MathF.Sqrt(dx * dx + dy * dy + dz * dz) >= TeleportDistance;
+        view = ToView(id, a.Entity, b.Entity, teleported ? 1f : f, SpeedOf(snaps, hi), a.Walked, b.Walked, f);
+        return true;
     }
 
     // Horizontal blocks per tick over the interval ending at snapshot i

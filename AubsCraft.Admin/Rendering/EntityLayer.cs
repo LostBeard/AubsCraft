@@ -11,6 +11,9 @@ namespace AubsCraft.Admin.Rendering;
 /// <summary>A label to draw over a creature, at this screen position (pixels, the label's bottom centre).</summary>
 public readonly record struct NameTag(float X, float Y, string Text, bool IsPlayer);
 
+/// <summary>Whether a player can be found in the live feed.</summary>
+public enum PlayerLookup { Found, Unknown, OtherWorld }
+
 /// <summary>
 /// The creatures of the world: everything the live feed says is out there (animals, monsters, villagers, players), drawn where it is, walking as it
 /// walks, as the game's own models wearing the game's own textures. The feed is a few frames a second; <see cref="LiveWorldState"/> turns it into smooth
@@ -131,6 +134,19 @@ public sealed class EntityLayer : IDisposable
         PrepareCore(camera, maxDistance, viewProj, width, height);
         // Smoothed, so the log line shows what a frame costs, not one lucky or unlucky frame
         PrepareMs += (timer.Elapsed.TotalMilliseconds - PrepareMs) * 0.05;
+    }
+
+    /// <summary>
+    /// A player by name, as they are shown right now (the place the camera must use to follow them without lagging behind or jumping ahead of what is drawn).
+    /// </summary>
+    public PlayerLookup LookupPlayer(string name, out LiveEntityView view)
+    {
+        view = default;
+        if (!_state.TryFindPlayer(name, out var world, out var id)) return PlayerLookup.Unknown;
+        if (world != _state.PrimaryWorld) return PlayerLookup.OtherWorld;
+        if (_state.SampleOne(world, id, _clock.Elapsed.TotalSeconds) is not { } v) return PlayerLookup.Unknown;
+        view = v;
+        return PlayerLookup.Found;
     }
 
     /// <summary>What posing and uploading the creatures costs a frame, in ms (a running average).</summary>

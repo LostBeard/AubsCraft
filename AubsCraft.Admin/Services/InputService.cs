@@ -92,9 +92,15 @@ public sealed class InputService : IAsyncDisposable
         return events;
     }
 
+    /// <summary>Where the mouse last was over the canvas (canvas pixels): a click is checked against the HUD's rectangles with it.</summary>
+    public float MouseX { get; private set; }
+    public float MouseY { get; private set; }
+
     private void OnCanvasMouseMove(MouseEvent e)
     {
         if (PointerLocked) return;
+        MouseX = (float)e.OffsetX;
+        MouseY = (float)e.OffsetY;
         // Only the latest position matters: a run of moves collapses into one
         if (_uiEvents.Count > 0 && _uiEvents[^1].Kind == UiInputEvent.MouseMove)
             _uiEvents[^1] = new UiInputEvent(UiInputEvent.MouseMove, (float)e.OffsetX, (float)e.OffsetY);

@@ -266,6 +266,124 @@ public class ViewerLiveTests
         }
     }
 
+    [Test]
+    public async Task ThePlayerList_ClickOpensAMenu_NotThePointerLock_AndGoToAndFollowMoveTheCamera()
+    {
+        var (gx, gz, top) = await FindFlatGroundAsync();
+        float cx = gx + 0.5f, cz = gz + 0.5f, y = top;
+        string F(float v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        // "Aubs" (the name the demo player list has) walks east at 2.5 blocks a second, from the patch's west edge
+        float walkerX = cx - 6f;
+        long tick = 300_000;
+        var aubs = new LivePlayer(21, "11111111-2222-3333-4444-555555555555", "Aubs", "", false, 0, "air", 1f);
+        byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
+        {
+            FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
+            Worlds = [new LiveWorld
+            {
+                Name = "world",
+                Entities = [new LiveEntity(21, "player", walkerX, y, cz, -90f, 0f, -90f, LiveFlags.Player | LiveFlags.OnGround, 0.125f, 0f, 0f, null, null)],
+                Players = [aubs],
+            }],
+        });
+
+        var page = await _rig.Context.NewPageAsync();
+        var errors = new List<string>();
+        page.Console += (_, m) => { if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.PageError += (_, e) => errors.Add(e);
+        using var stop = new CancellationTokenSource();
+        Task? poster = null;
+        try
+        {
+            // Far from the player (60 blocks south), looking at nothing in particular
+            await page.GotoAsync($"{_rig.BaseUrl}/map?hudfeed=demo&time=6000&dd=8&cam={F(cx)},{F(top + 12f)},{F(cz + 60f)},-20,-90",
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await ViewerShotTests.WaitForSettledAsync(page, minSections: 40, quietSeconds: 4, maxSeconds: 70);
+            poster = Task.Run(async () =>
+            {
+                while (!stop.IsCancellationRequested)
+                {
+                    int status = await _rig.PostLiveFrameAsync(Frame());
+                    if (status != 204) throw new InvalidOperationException($"The panel answered {status} to a live frame");
+                    tick += 4;
+                    walkerX += 0.5f;
+                    await Task.Delay(200);
+                }
+            });
+            await Task.Delay(5000);
+
+            var canvas = page.Locator("#map-canvas");
+            var box = (await canvas.BoundingBoxAsync())!;
+            async Task<bool> Locked() => await page.EvaluateAsync<bool>("document.pointerLockElement !== null");
+            async Task ClickAsync(float x, float yy)
+            {
+                await page.Mouse.MoveAsync(box.X + x, box.Y + yy, new MouseMoveOptions { Steps = 4 });
+                await Task.Delay(150);
+                await page.Mouse.DownAsync();
+                await Task.Delay(120);
+                await page.Mouse.UpAsync();
+                await Task.Delay(500);
+            }
+            async Task<ViewerStats> Stats()
+            {
+                await Task.Delay(1300);   // the page's stats line refreshes about once a second
+                return (await ViewerStats.ReadAsync(page))!;
+            }
+
+            // The first row of the player list (top right, under the minimap): Aubs
+            float listX = (float)box.Width - 8 - 95, rowY = 262;
+            await ClickAsync(listX, rowY);
+            await canvas.ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "playerlist-1-menu.png") });
+            Assert.That(await Locked(), Is.False, "a click on the player list must not take the mouse for the camera");
+
+            // The menu is under the click: Go to is its first row, Follow its second
+            float menuX = Math.Min(listX, (float)box.Width - 210) + 30, menuY = rowY;
+            var before = await Stats();
+            await ClickAsync(menuX, menuY + 18);   // Go to Aubs
+            Assert.That(await Locked(), Is.False, "a click on the menu must not take the mouse for the camera either");
+            var gone = await Stats();
+            await canvas.ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "playerlist-2-goto.png") });
+            TestContext.Progress.WriteLine($"[player-list] camera before {before.X},{before.Z}; after Go to {gone.X},{gone.Z}; the player is at about {walkerX:F0},{cz:F0}");
+            Assert.That(Math.Abs(gone.Z - before.Z), Is.GreaterThan(30), "the camera went from 60 blocks south to the player");
+            Assert.That(Math.Abs(gone.Z - cz), Is.LessThan(12), "and stands near the player's row");
+            var later = await Stats();
+            Assert.That(Math.Abs(later.X - gone.X), Is.LessThan(2), "Go to is one jump: the camera does not go on with the player");
+
+            // Follow: second item. The player walks east; the camera goes with them
+            await ClickAsync(listX, rowY);
+            await ClickAsync(menuX, menuY + 18 + 28);   // Follow Aubs
+            Assert.That(await Locked(), Is.False);
+            var f1 = await Stats();
+            await Task.Delay(2500);
+            var f2 = await Stats();
+            await canvas.ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "playerlist-3-follow.png") });
+            TestContext.Progress.WriteLine($"[player-list] following: {f1.X} -> {f2.X} while the player is at about {walkerX:F0}");
+            Assert.That(f2.X - f1.X, Is.GreaterThan(3), "the camera goes along with the walking player");
+            Assert.That(Math.Abs(f2.X - walkerX), Is.LessThan(10), "and stays within a few blocks of them");
+
+            // Stop following: the first menu row is now Go to, the second Stop following
+            await ClickAsync(listX, rowY);
+            await ClickAsync(menuX, menuY + 18 + 28);
+            var s1 = await Stats();
+            var s2 = await Stats();
+            Assert.That(Math.Abs(s2.X - s1.X), Is.LessThan(2), "after Stop following the camera stays where it is");
+            Assert.That(await Locked(), Is.False);
+
+            // A click on the world still takes the mouse (the fly camera is how the viewer is used)
+            await ClickAsync((float)box.Width / 2, (float)box.Height / 2);
+            Assert.That(await Locked(), Is.True, "a click on the world takes the mouse for the camera (and this proves the checks above could fail)");
+
+            Assert.That(errors, Is.Empty, "The page logged errors");
+        }
+        finally
+        {
+            stop.Cancel();
+            try { if (poster != null) await poster; } catch (OperationCanceledException) { }
+            await page.CloseAsync();
+        }
+    }
+
     // The share of sampled pixels that differ by more than a few levels between the two images
     private static double ChangedFraction(Bitmap a, Bitmap b)
     {
