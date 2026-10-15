@@ -414,6 +414,17 @@ public class ServerHubClient : IAsyncDisposable
     public Task<HostCapacityDto?> GetCreateCapacityAsync(int memoryMb)
         => SafeInvokeAsync<HostCapacityDto?>("GetCreateCapacity", null, memoryMb);
 
+    // -- Live view plugin (animals, monsters and players in the 3D viewer) --
+
+    public Task<LivePluginStateDto?> GetLivePluginStateAsync(string serverId)
+        => SafeInvokeAsync<LivePluginStateDto?>("GetLivePluginState", null, serverId);
+
+    public Task<LivePluginInstallResultDto> InstallLivePluginAsync(string serverId)
+        => SafeInvokeAsync("InstallLivePlugin", new LivePluginInstallResultDto(false, false, "Connection lost"), serverId);
+
+    public Task<LivePluginInstallResultDto> UninstallLivePluginAsync(string serverId)
+        => SafeInvokeAsync("UninstallLivePlugin", new LivePluginInstallResultDto(false, false, "Connection lost"), serverId);
+
     // -- Velocity proxy (owner) --
 
     public Task<ProxyStatusDto?> GetProxyStatusAsync()
@@ -724,6 +735,12 @@ public record CreateServerDto(string Id, string Name, string Loader, string Game
 public record PrerequisiteDto(string What, bool Ok, string Fix);
 public record CutoverPreviewDto(string ServerId, string ServerName, int PublicPort, int BedrockPort, int VoicePort,
     int NewGamePort, int NewVoicePort, List<PrerequisiteDto> Prerequisites, List<string> Log);
+/// <summary>Where a server stands with the AubsCraft Live plugin (same shape as the server's LivePluginState).</summary>
+public record LivePluginStateDto(bool Supported, bool JarInstalled, bool JarUpToDate, bool ConfigWritten, bool Live, string Message);
+
+/// <summary>What installing or removing the live plugin did; Changed means the Minecraft server needs a restart to take it up.</summary>
+public record LivePluginInstallResultDto(bool Success, bool Changed, string Message);
+
 public record ProxyStatusDto(bool Online, int Port, int BedrockPort, int VoicePort, string Version, string? Players);
 public record OperationProgressDto(string Operation, string Message, bool Done, bool Failed);
 

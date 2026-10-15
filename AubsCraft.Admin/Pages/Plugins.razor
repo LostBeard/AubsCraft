@@ -33,6 +33,38 @@
     </div>
 }
 
+@if (_live is { Supported: true })
+{
+    <div class="card mb-3">
+        <div class="card-body d-flex flex-wrap align-items-center gap-3">
+            <div class="flex-grow-1">
+                <h6 class="mb-1">Live view
+                    @if (_live.Live) { <span class="badge bg-success ms-1">live</span> }
+                    else if (_live.JarInstalled) { <span class="badge bg-secondary ms-1">installed</span> }
+                </h6>
+                <div class="text-muted small">Shows the animals, monsters and players of this server in the 3D map as they move (the AubsCraft Live plugin). @_live.Message</div>
+            </div>
+            <div class="d-flex gap-2">
+                @if (!_live.JarInstalled || !_live.JarUpToDate || !_live.ConfigWritten)
+                {
+                    <button class="btn btn-sm btn-primary" @onclick="InstallLiveAsync" disabled="@_liveBusy">@(_live.JarInstalled ? "Update" : "Install")</button>
+                }
+                @if (_live.JarInstalled)
+                {
+                    <button class="btn btn-sm btn-outline-danger" @onclick="RemoveLiveAsync" disabled="@_liveBusy">Remove</button>
+                }
+            </div>
+        </div>
+        @if (_liveNeedsRestart)
+        {
+            <div class="card-footer d-flex align-items-center gap-2">
+                <span class="small">A server loads plugins when it starts: restart it to start the live view (players on it are disconnected for a moment).</span>
+                <button class="btn btn-sm btn-warning ms-auto" @onclick="RestartAfterLiveAsync" disabled="@_controlBusy">Restart now</button>
+            </div>
+        }
+    </div>
+}
+
 <!-- Tabs -->
 <ul class="nav nav-tabs mb-3">
     <li class="nav-item">
@@ -316,6 +348,50 @@ else
     {
         await Hub.ConnectAsync();
         await ReloadAsync();
+        await RefreshLiveAsync();
+    }
+
+    // The live view plugin (Paper servers only)
+    private LivePluginStateDto? _live;
+    private bool _liveBusy;
+    private bool _liveNeedsRestart;
+
+    private async Task RefreshLiveAsync()
+    {
+        _live = Hub.SelectedServer is { } server ? await Hub.GetLivePluginStateAsync(server.Id) : null;
+    }
+
+    private async Task InstallLiveAsync()
+    {
+        if (Hub.SelectedServer is not { } server) return;
+        _liveBusy = true;
+        var result = await Hub.InstallLivePluginAsync(server.Id);
+        _lastResult = result.Message;
+        _lastResultSuccess = result.Success;
+        _liveNeedsRestart = result.Success && result.Changed;
+        await RefreshLiveAsync();
+        await ReloadAsync();
+        _liveBusy = false;
+    }
+
+    private async Task RemoveLiveAsync()
+    {
+        if (Hub.SelectedServer is not { } server) return;
+        _liveBusy = true;
+        var result = await Hub.UninstallLivePluginAsync(server.Id);
+        _lastResult = result.Message;
+        _lastResultSuccess = result.Success;
+        _liveNeedsRestart = result.Success && result.Changed;
+        await RefreshLiveAsync();
+        await ReloadAsync();
+        _liveBusy = false;
+    }
+
+    private async Task RestartAfterLiveAsync()
+    {
+        await RestartServerAsync();
+        _liveNeedsRestart = false;
+        await RefreshLiveAsync();
     }
 
     private async Task ToggleAsync(PluginInfoDto plugin)

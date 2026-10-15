@@ -8,7 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace AubsCraft.Admin.Server.Tests.Live;
+namespace AubsCraft.Admin.Server.Tests;
 
 /// <summary>
 /// The panel's side of the live activity: the shared secret, frames accepted only when they parse, fan-out to viewers that lose the oldest
