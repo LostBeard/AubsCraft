@@ -18,14 +18,25 @@ public static class VoxelBlockTables
 
     private static bool IsAir(string name) => name is "minecraft:air" or "minecraft:cave_air" or "minecraft:void_air";
 
+    /// <summary>The plain block name of a registry name: <c>minecraft:oak_log[axis=x]</c> is <c>minecraft:oak_log</c>.</summary>
+    public static string BaseName(string name)
+    {
+        int i = name.IndexOf('[');
+        return i < 0 ? name : name[..i];
+    }
+
+    // The asset of a registry name: its exact state when the assets have one (a log lying down), else the block's own (default state)
+    private static bool TryAsset(string name, BlockAssets assets, out BlockAsset block) =>
+        assets.Blocks.TryGetValue(name, out block!) || (name.Contains('[') && assets.Blocks.TryGetValue(BaseName(name), out block!));
+
     /// <summary>Plants that stand in a cell of water: the cell is water, with the plant in it (the registry carries no waterlogged state, and these are never anywhere else).</summary>
-    public static bool IsAquaticPlant(string name) => name is "minecraft:seagrass" or "minecraft:tall_seagrass" or "minecraft:kelp" or "minecraft:kelp_plant";
+    public static bool IsAquaticPlant(string name) => BaseName(name) is "minecraft:seagrass" or "minecraft:tall_seagrass" or "minecraft:kelp" or "minecraft:kelp_plant";
 
     /// <summary>The mesh class of a block name.</summary>
     public static int ClassOf(string name, BlockAssets assets)
     {
         if (IsAquaticPlant(name)) return BlockClass.Plant | BlockClass.Water;
-        if (assets.Blocks.TryGetValue(name, out var block))
+        if (TryAsset(name, assets, out var block))
         {
             // A thin block (carpet, rail, plate, snow layer) is a layer on the block below: it hides nothing beside or under it
             if (block.Kind == BlockKinds.Shape && block.Thickness > 0) return BlockClass.Cutout;
@@ -38,16 +49,16 @@ public static class VoxelBlockTables
                 _ => block.Render == BlockRenders.Opaque ? BlockClass.Opaque : BlockClass.Cutout,
             };
         }
-        return IsAir(name) ? BlockClass.None : BlockClass.Opaque;
+        return IsAir(BaseName(name)) ? BlockClass.None : BlockClass.Opaque;
     }
 
     /// <summary>How a block name is drawn.</summary>
     public static BlockMaterial MaterialOf(string name, BlockAssets assets)
     {
-        if (!assets.Blocks.TryGetValue(name, out var block))
+        if (!TryAsset(name, assets, out var block))
         {
             // Unknown to the assets: its flat colour on every face
-            var (r, g, b) = BlockColorMap.GetColor(name);
+            var (r, g, b) = BlockColorMap.GetColor(BaseName(name));
             return BlockMaterial.Uniform(BlockMaterial.NoTexture, new Vector3(r, g, b));
         }
 
@@ -67,7 +78,7 @@ public static class VoxelBlockTables
         if (block.TintFaces != 0) colour = new Vector3(block.TintColor[0], block.TintColor[1], block.TintColor[2]) / 255f;
         else
         {
-            var (r, g, b) = BlockColorMap.GetColor(name);
+            var (r, g, b) = BlockColorMap.GetColor(BaseName(name));
             colour = new Vector3(r, g, b);
         }
 

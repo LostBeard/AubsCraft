@@ -19,6 +19,11 @@ public sealed class BlockAssets
     public int TileCount { get; set; }
     /// <summary>Block name ("minecraft:stone") to how it looks, for every block the version has.</summary>
     public Dictionary<string, BlockAsset> Blocks { get; set; } = new();
+    /// <summary>
+    /// The block states that look different, as extra entries of <see cref="Blocks"/> keyed <c>minecraft:name[prop=value,...]</c>, and per block name the properties those
+    /// keys use (in key order). The server names a block with these properties only, so a chunk's ids carry exactly the states the viewer can tell apart.
+    /// </summary>
+    public Dictionary<string, string[]> StateProps { get; set; } = new();
     /// <summary>Tiles that play through other tiles (water, lava, fire, portals...).</summary>
     public List<TileAnimation> Animations { get; set; } = new();
 

@@ -133,7 +133,7 @@ public sealed class WorldDataService
         var plantIds = new HashSet<ushort>();
         for (int i = 0; i < chunk.Palette.Count; i++)
         {
-            var name = chunk.Palette[i];
+            var name = BlockStateNamer.NameOf(chunk.Palette[i]);
             if (name is "minecraft:water" or "minecraft:flowing_water")
                 waterIds.Add((ushort)i);
             if (IsPlantBlock(name))
@@ -226,7 +226,7 @@ public sealed class WorldDataService
         // around the generated area, and opening the map over one shows only sky.
         foreach (var c in GetPopulatedChunks().OrderBy(c => (long)c.X * c.X + (long)c.Z * c.Z))
         {
-            if (GetChunk(c.X, c.Z) is { } chunk && chunk.Palette.Any(n => n is not ("minecraft:air" or "minecraft:cave_air" or "minecraft:void_air")))
+            if (GetChunk(c.X, c.Z) is { } chunk && chunk.Palette.Any(n => BlockStateNamer.NameOf(n) is not ("minecraft:air" or "minecraft:cave_air" or "minecraft:void_air")))
                 return new WorldSpawnDto(c.X * 16 + 8, c.Z * 16 + 8, true);
         }
         return new WorldSpawnDto(0, 0, false);

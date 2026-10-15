@@ -125,4 +125,38 @@ public class RealJarAssetTests
             Assert.That(thin.ContainsKey(name), Is.False, name + " is not a layer on the floor");
         foreach (var (name, t) in thin) Assert.That(t, Is.InRange(1, 6), name);
     }
+
+    [Test]
+    public async Task TheStatesOfTheRealGame_AreFewEnoughForTheRegistry_AndTheCommonOnesAreThere()
+    {
+        var (r, _) = await BuildOnceAsync();
+        var a = r.Assets;
+        int stateEntries = a.Blocks.Keys.Count(k => k.Contains('['));
+        TestContext.Progress.WriteLine($"[assets] {a.StateProps.Count} blocks with states, {stateEntries} state entries");
+        // The registry holds 4,096 ids and the seabed variants of 2,048 of them: every state the game has must fit with room for a world's plain names
+        Assert.That(stateEntries, Is.InRange(100, 1000));
+        foreach (var name in a.StateProps.Keys) Assert.That(a.Blocks.ContainsKey(name), Is.True, name + " keeps its default asset");
+        foreach (var key in a.Blocks.Keys.Where(k => k.Contains('[')))
+        {
+            var name = key[..key.IndexOf('[')];
+            Assert.That(a.StateProps.ContainsKey(name), Is.True, key);
+            var props = key[(key.IndexOf('[') + 1)..^1].Split(',').Select(p => p[..p.IndexOf('=')]).ToArray();
+            Assert.That(props, Is.EqualTo(a.StateProps[name]), key + ": the key has exactly the properties of its block");
+        }
+        // What makes the picture right in a real world
+        Assert.That(a.StateProps["minecraft:oak_log"], Is.EqualTo(new[] { "axis" }));
+        Assert.That(a.StateProps["minecraft:rail"], Is.EqualTo(new[] { "shape" }));
+        Assert.That(a.StateProps["minecraft:furnace"], Is.EquivalentTo(new[] { "facing", "lit" }));
+        Assert.That(a.StateProps["minecraft:wheat"], Is.EqualTo(new[] { "age" }));
+        Assert.That(a.Blocks.ContainsKey("minecraft:oak_log[axis=z]"), Is.True);
+        Assert.That(a.Blocks.ContainsKey("minecraft:rail[shape=south_east]"), Is.True);
+        // Not stateful: blocks whose states do not change the picture
+        Assert.That(a.StateProps.ContainsKey("minecraft:stone"), Is.False);
+        Assert.That(a.StateProps.ContainsKey("minecraft:oak_leaves"), Is.False, "leaves distance/persistent do not change the picture");
+        // A lying log has its ends on the ends of its axis: tile of +Y of an axis=x log is a side, of +X an end
+        var upright = a.Blocks["minecraft:oak_log[axis=y]"].Faces;
+        var alongX = a.Blocks["minecraft:oak_log[axis=x]"].Faces;
+        Assert.That(alongX[0], Is.Not.EqualTo(alongX[2]), "its east end is not its south side");
+        Assert.That(upright[4], Is.Not.EqualTo(upright[0]), "upright: top is an end, sides are bark");
+    }
 }

@@ -45,6 +45,8 @@ public class VoxelBlockTablesTests
             ["minecraft:rail"] = new BlockAsset { Kind = BlockKinds.Shape, Faces = Enumerable.Repeat(61, 6).ToArray(), Render = BlockRenders.Cutout, Thickness = 1 },
             ["minecraft:snow"] = new BlockAsset { Kind = BlockKinds.Shape, Faces = Enumerable.Repeat(62, 6).ToArray(), Thickness = 2 },
             ["minecraft:seagrass"] = new BlockAsset { Kind = BlockKinds.Cross, Faces = Enumerable.Repeat(63, 6).ToArray(), Render = BlockRenders.Cutout },
+            ["minecraft:oak_log"] = new BlockAsset { Kind = BlockKinds.Cube, Faces = new[] { 70, 70, 70, 70, 71, 71 } },
+            ["minecraft:oak_log[axis=x]"] = new BlockAsset { Kind = BlockKinds.Cube, Faces = new[] { 71, 71, 70, 70, 70, 70 } },
             ["minecraft:poppy"] = new BlockAsset { Kind = BlockKinds.Cross, Faces = Enumerable.Repeat(51, 6).ToArray(), Render = BlockRenders.Cutout },
         },
     };
@@ -211,5 +213,24 @@ public class VoxelBlockTablesTests
         // A plant that is not aquatic is unchanged
         Assert.That(VoxelBlockTables.IsAquaticPlant("minecraft:poppy"), Is.False);
         Assert.That(VoxelBlockTables.ClassOf("minecraft:poppy", Assets), Is.EqualTo(BlockClass.Cross));
+    }
+
+    [Test]
+    public void AStateName_UsesItsOwnAsset_AndFallsBackToTheBlocksWhenTheAssetsKnowNoSuchState()
+    {
+        Assert.That(Faces(VoxelBlockTables.MaterialOf("minecraft:oak_log[axis=x]", Assets)), Is.EqualTo(new ushort[] { 71, 71, 70, 70, 70, 70 }), "lying along x");
+        Assert.That(Faces(VoxelBlockTables.MaterialOf("minecraft:oak_log", Assets)), Is.EqualTo(new ushort[] { 70, 70, 70, 70, 71, 71 }));
+        // A state the assets have no entry for (a newer game version, a mod's property) is drawn as the block's default
+        Assert.That(Faces(VoxelBlockTables.MaterialOf("minecraft:oak_log[axis=q]", Assets)), Is.EqualTo(new ushort[] { 70, 70, 70, 70, 71, 71 }));
+        Assert.That(VoxelBlockTables.ClassOf("minecraft:oak_log[axis=x]", Assets), Is.EqualTo(BlockClass.Opaque));
+        // Names the assets do not know at all keep their flat colour and class, state or not
+        Assert.That(VoxelBlockTables.ClassOf("minecraft:air", Assets), Is.EqualTo(BlockClass.None));
+        Assert.That(VoxelBlockTables.ClassOf("mymod:thing[a=b]", Assets), Is.EqualTo(BlockClass.Opaque));
+        Assert.That(VoxelBlockTables.BaseName("minecraft:oak_log[axis=x]"), Is.EqualTo("minecraft:oak_log"));
+        Assert.That(VoxelBlockTables.IsAquaticPlant("minecraft:kelp[age=3]"), Is.True);
+        // And the whole table builds with state names among the names
+        var (classes, materials) = VoxelBlockTables.Build(new[] { "minecraft:air", "minecraft:oak_log", "minecraft:oak_log[axis=x]" }, Assets);
+        Assert.That(classes, Is.EqualTo(new[] { BlockClass.None, BlockClass.Opaque, BlockClass.Opaque }));
+        Assert.That(Faces(materials[2]), Is.EqualTo(new ushort[] { 71, 71, 70, 70, 70, 70 }));
     }
 }

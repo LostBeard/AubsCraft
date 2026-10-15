@@ -79,7 +79,8 @@ public sealed class RegionReader
         return chunks;
     }
 
-    private static ChunkResult ParseChunkNbt(NbtCompound root)
+    /// <summary>A chunk column from its NBT (public for the tests).</summary>
+    public static ChunkResult ParseChunkNbt(NbtCompound root)
     {
         var blocks = new ushort[ChunkWidth * TotalHeight * ChunkWidth];
         var palette = new List<string> { "minecraft:air" }; // ID 0 is always air
@@ -112,7 +113,8 @@ public sealed class RegionReader
             for (int p = 0; p < sectionPalette.Count; p++)
             {
                 var entry = sectionPalette.GetCompound(p);
-                var blockName = entry.GetString("Name");
+                // The block as the viewer tells it apart: its name and the properties that change its look (a log lying down is not an upright one)
+                var blockName = BlockStateNamer.Current.Key(entry.GetString("Name"), entry.ContainsKey("Properties") ? entry.GetCompound("Properties") : null);
                 var globalIndex = palette.IndexOf(blockName);
                 if (globalIndex < 0)
                 {
@@ -174,7 +176,8 @@ public sealed class RegionReader
 }
 
 /// <summary>
-/// Result of reading a chunk column: block IDs and the global palette.
+/// Result of reading a chunk column: block IDs and the chunk's palette. A palette entry is a block's name, with the properties that change its look when it has
+/// any (<see cref="BlockStateNamer"/>): <c>minecraft:oak_log[axis=x]</c>. Code that wants the plain name uses <see cref="BlockStateNamer.NameOf"/>.
 /// </summary>
 public record ChunkResult(ushort[] Blocks, List<string> Palette);
 

@@ -40,4 +40,9 @@
 		<None Include="ServerPlugins\aubscraft-live-fabric.jar" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<!-- Which block properties change how a block looks, generated with the viewer's assets (AubsCraft.Admin builds first and writes it): the server names blocks with them -->
+		<None Include="../AubsCraft.Admin/wwwroot/assets/mc-state-props.json" Link="ServerData/mc-state-props.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+	</ItemGroup>
+
 </Project>

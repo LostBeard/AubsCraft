@@ -85,6 +85,9 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+// Which block properties change how a block looks (generated with the viewer's assets): a chunk's palette names a block with them, so the viewer can tell a lying log from a standing one
+BlockStateNamer.Current = BlockStateNamer.Load(
+    app.Configuration["BlockStates:PropsPath"] ?? Path.Combine(AppContext.BaseDirectory, "ServerData", "mc-state-props.json"), app.Logger);
 
 // A proxy set up before the gate plugin existed gets it (and its Java-only list) here; the list is also rewritten
 // whenever the proxy is configured. A newly installed jar loads on the proxy's next restart.
@@ -340,9 +343,9 @@ world.MapGet("/chunk/{x:int}/{z:int}", (int x, int z, string? server, ServerMana
     using var ms = new MemoryStream();
     using var bw = new BinaryWriter(ms);
     bw.Write(chunk.Palette.Count);
-    foreach (var name in chunk.Palette)
+    foreach (var key in chunk.Palette)
     {
-        var bytes = System.Text.Encoding.UTF8.GetBytes(name);
+        var bytes = System.Text.Encoding.UTF8.GetBytes(BlockStateNamer.NameOf(key));   // the plain-names format: no states
         bw.Write(bytes.Length);
         bw.Write(bytes);
     }
@@ -495,9 +498,9 @@ world.MapGet("/ws", async (HttpContext ctx, string? server, string? format, Serv
             bw.Write(next.X);
             bw.Write(next.Z);
             bw.Write(hm.Palette.Count);
-            foreach (var name in hm.Palette)
+            foreach (var key in hm.Palette)
             {
-                var bytes = System.Text.Encoding.UTF8.GetBytes(name);
+                var bytes = System.Text.Encoding.UTF8.GetBytes(BlockStateNamer.NameOf(key));
                 bw.Write(bytes.Length);
                 bw.Write(bytes);
             }

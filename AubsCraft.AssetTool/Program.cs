@@ -37,6 +37,8 @@ try
         File.Move(path + ".tmp", path, overwrite: true);
     }
     Write("mc-blocks.json", JsonSerializer.SerializeToUtf8Bytes(result.Assets, BlockAssetsJson.Default.BlockAssets));
+    // Which properties of which blocks the viewer can tell apart: the server reads this to name block states (a log lying down is another id than a standing one)
+    Write("mc-state-props.json", JsonSerializer.SerializeToUtf8Bytes(result.Assets.StateProps.OrderBy(k => k.Key, StringComparer.Ordinal).ToDictionary(k => k.Key, k => k.Value)));
     Write("mc-atlas.rgba", result.AtlasRgba);
     Write("mc-atlas.png", TileSet.EncodePng(result.AtlasRgba, result.AtlasWidth, result.AtlasHeight));
     // The creatures' textures (the skin slots below them are filled by the viewer): a missing texture is reported, not fatal

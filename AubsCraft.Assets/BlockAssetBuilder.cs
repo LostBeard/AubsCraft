@@ -80,6 +80,14 @@ public sealed class BlockAssetBuilder
             if (asset.Kind != BlockKinds.None && asset.Faces.All(f => f < 0)) untextured.Add(name);
         }
 
+        // The states that look different from the default (a log lying down, a furnace facing east, a rail curving, a crop grown)
+        foreach (var name in names)
+        {
+            if (DescribeStates(name) is not { } states) continue;
+            assets.StateProps["minecraft:" + name] = states.Props;
+            foreach (var (key, asset) in states.Assets) assets.Blocks[key] = asset;
+        }
+
         var (atlas, w, h, perRow) = _tiles.BuildAtlas();
         assets.TileCount = _tiles.Count;
         assets.TilesPerRow = perRow;
@@ -119,7 +127,12 @@ public sealed class BlockAssetBuilder
 
         var statePath = $"assets/minecraft/blockstates/{name}.json";
         if (!_jar.Exists(statePath)) return new BlockAsset { Kind = BlockKinds.Cube };
-        var state = BlockStateFile.Parse(_jar.ReadText(statePath)).DefaultModel();
+        return DescribeModel(name, BlockStateFile.Parse(_jar.ReadText(statePath)).DefaultModel());
+    }
+
+    // The block drawn with this model of its blockstate (turned by the state's x and y)
+    private BlockAsset DescribeModel(string name, StateModel? state)
+    {
         var model = state == null ? null : _models.Resolve(state.Model);
         if (model == null)
         {
@@ -130,7 +143,9 @@ public sealed class BlockAssetBuilder
         if (ForcedCross.Contains(name) || CrossAncestors.Any(model.HasAncestor))
             return DescribeCross(name, model);
 
-        var cube = DescribeCube(name, model, state!.Y);
+        // Rails: every shape (straight, curved, sloping) is drawn as a flat layer with the right texture turned the right way
+        if (name.EndsWith("rail", StringComparison.Ordinal)) return DescribeFlat(name, model, state!.X, state.Y);
+        var cube = DescribeCube(name, model, state!.X, state.Y);
         if (cube != null) return cube;
         return DescribeShape(name, model);
     }
@@ -155,7 +170,7 @@ public sealed class BlockAssetBuilder
     }
 
     // A full cube: null when the model is not one (no element fills the cell with all six faces)
-    private BlockAsset? DescribeCube(string name, ResolvedModel model, int yRotation)
+    private BlockAsset? DescribeCube(string name, ResolvedModel model, int xRotation, int yRotation)
     {
         var cubes = model.Elements.Where(e => e.IsFullCube).ToList();
         if (cubes.Count == 0) return null;
@@ -163,18 +178,13 @@ public sealed class BlockAssetBuilder
         // Anything besides full-cell elements (a slab, a torch, a hanging bit) makes it a shape
         if (model.Elements.Count != cubes.Count) return null;
 
-        int steps = ((yRotation % 360) + 360) % 360 / 90;
         var faces = new int[6];
         int tintMask = 0;
         for (int f = 0; f < 6; f++)
         {
-            // A block turned clockwise by y: the face now looking in direction d came from the direction 'steps' quarter turns before it
-            string source = FaceDirs[f];
-            int uvRotation = 0;
-            int ci = Array.IndexOf(Clockwise, source);
-            if (ci >= 0) source = Clockwise[((ci - steps) % 4 + 4) % 4];
-            else if (source == "up") uvRotation = steps * 90;
-            else uvRotation = -steps * 90;
+            // The face now looking in direction f came from another face of the unturned model, its texture turned with it
+            var (sourceFace, uvRotation) = SourceFace(f, xRotation, yRotation);
+            string source = FaceDirs[sourceFace];
 
             var layers = cubes.Where(c => c.Faces.ContainsKey(source)).Select(c => c.Faces[source]).ToList();
             var baseFace = layers[0];
@@ -222,6 +232,124 @@ public sealed class BlockAssetBuilder
         asset.Thickness = ThicknessOf(model);
         if (tintIndex >= 0) ApplyTint(name, asset, 0b111111);
         return asset;
+    }
+
+    // ---- turned models ------------------------------------------------------------------------------------------------------
+
+    // The outward normal of each face and the direction the top of its texture points (the default UVs: the top of an up face's texture is north, a down face's south)
+    private static readonly (int x, int y, int z)[] FaceNormals = { (1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1), (0, 1, 0), (0, -1, 0) };
+    private static readonly (int x, int y, int z)[] FaceUps = { (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 0, -1), (0, 0, 1) };
+
+    // A quarter turn about x as a blockstate "x": 90 does it (north goes to down, up to north), and about y clockwise seen from above (north goes to east)
+    private static (int x, int y, int z) QuarterX((int x, int y, int z) v) => (v.x, v.z, -v.y);
+    private static (int x, int y, int z) QuarterY((int x, int y, int z) v) => (-v.z, v.y, v.x);
+
+    private static (int x, int y, int z) Turn((int x, int y, int z) v, int xSteps, int ySteps)
+    {
+        for (int i = 0; i < xSteps; i++) v = QuarterX(v);   // x first, then y: the order the game applies them in
+        for (int i = 0; i < ySteps; i++) v = QuarterY(v);
+        return v;
+    }
+
+    /// <summary>
+    /// For a model turned by a blockstate's <paramref name="xRotation"/> and <paramref name="yRotation"/> (degrees, multiples of 90): the face of the UNTURNED model that
+    /// now looks in direction <paramref name="dest"/> (0..5: +X -X +Z -Z +Y -Y), and how many degrees clockwise (seen from outside) its texture is turned with it.
+    /// </summary>
+    public static (int source, int uvRotation) SourceFace(int dest, int xRotation, int yRotation)
+    {
+        int xs = ((xRotation % 360) + 360) % 360 / 90, ys = ((yRotation % 360) + 360) % 360 / 90;
+        for (int s = 0; s < 6; s++)
+        {
+            var n = Turn(FaceNormals[s], xs, ys);
+            if (n != FaceNormals[dest]) continue;
+            var up = Turn(FaceUps[s], xs, ys);
+            var u0 = FaceUps[dest];
+            // The angle from the face's natural top to the turned top, counter-clockwise about its normal; the texture turn is clockwise, so the opposite
+            int cross = (u0.y * up.z - u0.z * up.y) * n.x + (u0.z * up.x - u0.x * up.z) * n.y + (u0.x * up.y - u0.y * up.x) * n.z;
+            int dot = u0.x * up.x + u0.y * up.y + u0.z * up.z;
+            int degrees = (int)Math.Round(-Math.Atan2(cross, dot) * 180.0 / Math.PI);
+            return (s, ((degrees % 360) + 360) % 360);
+        }
+        throw new InvalidOperationException("a quarter-turn model has a face looking every way");
+    }
+
+    // A layer on the floor (a rail): its up face texture turned with the model on top, the same on the sides (a strip of it), as a thin shape of one sixteenth
+    private BlockAsset DescribeFlat(string name, ResolvedModel model, int xRotation, int yRotation)
+    {
+        var (_, turn) = SourceFace(4, xRotation, yRotation);
+        int tile = -1;
+        foreach (var e in model.Elements)
+        {
+            if (!e.Faces.TryGetValue("up", out var face)) continue;
+            var texture = model.ResolveTexture(face.Texture);
+            if (texture == null) continue;
+            tile = _tiles.GetTexture(texture, face.Rotation + turn);
+            break;
+        }
+        var asset = new BlockAsset { Kind = BlockKinds.Shape, Faces = Enumerable.Repeat(tile, 6).ToArray(), Thickness = 1 };
+        asset.Render = RenderOf(name, asset.Faces);
+        return asset;
+    }
+
+    // ---- states ------------------------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The states of one block that LOOK different, keyed as the server names them: <c>name[prop=value,...]</c> with only the properties that change the picture
+    /// (a log's axis, a furnace's facing, a rail's shape, a crop's age), in the order the blockstate file lists them. Null when the block has no such properties,
+    /// or its states are shapes the viewer cannot draw yet (stairs, fences...): those stay one asset a name.
+    /// </summary>
+    private (string[] Props, Dictionary<string, BlockAsset> Assets)? DescribeStates(string name)
+    {
+        var statePath = $"assets/minecraft/blockstates/{name}.json";
+        if (Invisible.Contains(name) || !_jar.Exists(statePath)) return null;
+        var variants = BlockStateFile.Parse(_jar.ReadText(statePath)).Variants;
+        if (variants.Count < 2 || variants.Any(v => v.Key.Length == 0)) return null;
+
+        var described = variants.Select(v => (Props: ParseKey(v.Key), Asset: DescribeModel(name, v.Model))).ToList();
+        // Only blocks the viewer draws properly in every state: cubes, plants, flat layers
+        if (described.Any(d => d.Asset.Kind == BlockKinds.Shape && d.Asset.Thickness == 0)) return null;
+
+        // A property matters when changing only it changes the picture
+        static string Sig(BlockAsset a) => $"{a.Kind}|{string.Join(",", a.Faces)}|{a.TintFaces}|{a.Render}|{a.Thickness}";
+        var propNames = described[0].Props.Select(p => p.Key).ToList();
+        var relevant = new List<string>();
+        foreach (var prop in propNames)
+        {
+            bool matters = false;
+            foreach (var a in described)
+            {
+                foreach (var b in described)
+                {
+                    if (!SameExcept(a.Props, b.Props, prop)) continue;
+                    if (Sig(a.Asset) != Sig(b.Asset)) { matters = true; break; }
+                }
+                if (matters) break;
+            }
+            if (matters) relevant.Add(prop);
+        }
+        if (relevant.Count == 0) return null;
+
+        var assets = new Dictionary<string, BlockAsset>(StringComparer.Ordinal);
+        foreach (var d in described)
+        {
+            var key = $"minecraft:{name}[{string.Join(",", relevant.Select(r => $"{r}={d.Props.First(p => p.Key == r).Value}"))}]";
+            assets.TryAdd(key, d.Asset);
+        }
+        return (relevant.ToArray(), assets);
+    }
+
+    private static List<KeyValuePair<string, string>> ParseKey(string key) =>
+        key.Split(',').Select(kv => { int i = kv.IndexOf('='); return new KeyValuePair<string, string>(kv[..i], kv[(i + 1)..]); }).ToList();
+
+    private static bool SameExcept(List<KeyValuePair<string, string>> a, List<KeyValuePair<string, string>> b, string except)
+    {
+        if (a.Count != b.Count) return false;
+        for (int i = 0; i < a.Count; i++)
+        {
+            if (a[i].Key != b[i].Key) return false;
+            if (a[i].Key != except && a[i].Value != b[i].Value) return false;
+        }
+        return true;
     }
 
     /// <summary>How many sixteenths of the floor a model reaches, when it is flat enough to draw as a squashed cube (at most 6); 0 otherwise.</summary>
