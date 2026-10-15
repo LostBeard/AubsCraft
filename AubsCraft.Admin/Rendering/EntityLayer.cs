@@ -125,6 +125,17 @@ public sealed class EntityLayer : IDisposable
     /// </summary>
     public void Prepare(Vector3 camera, float maxDistance, in Matrix4x4 viewProj, int width, int height)
     {
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        PrepareCore(camera, maxDistance, viewProj, width, height);
+        // Smoothed, so the log line shows what a frame costs, not one lucky or unlucky frame
+        PrepareMs += (timer.Elapsed.TotalMilliseconds - PrepareMs) * 0.05;
+    }
+
+    /// <summary>What posing and uploading the creatures costs a frame, in ms (a running average).</summary>
+    public double PrepareMs { get; private set; }
+
+    private void PrepareCore(Vector3 camera, float maxDistance, in Matrix4x4 viewProj, int width, int height)
+    {
         EntityCount = 0;
         Tags.Clear();
         _viewProj = viewProj;
