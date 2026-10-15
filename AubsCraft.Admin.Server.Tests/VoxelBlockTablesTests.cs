@@ -43,6 +43,7 @@ public class VoxelBlockTablesTests
             },
             ["minecraft:white_carpet"] = new BlockAsset { Kind = BlockKinds.Shape, Faces = Enumerable.Repeat(60, 6).ToArray(), Thickness = 1 },
             ["minecraft:rail"] = new BlockAsset { Kind = BlockKinds.Shape, Faces = Enumerable.Repeat(61, 6).ToArray(), Render = BlockRenders.Cutout, Thickness = 1 },
+            ["minecraft:rail[shape=ascending_east]"] = new BlockAsset { Kind = BlockKinds.Shape, Faces = Enumerable.Repeat(64, 6).ToArray(), Render = BlockRenders.Cutout, Thickness = 1, Slope = 1 },
             ["minecraft:snow"] = new BlockAsset { Kind = BlockKinds.Shape, Faces = Enumerable.Repeat(62, 6).ToArray(), Thickness = 2 },
             ["minecraft:seagrass"] = new BlockAsset { Kind = BlockKinds.Cross, Faces = Enumerable.Repeat(63, 6).ToArray(), Render = BlockRenders.Cutout },
             ["minecraft:oak_log"] = new BlockAsset { Kind = BlockKinds.Cube, Faces = new[] { 70, 70, 70, 70, 71, 71 } },
@@ -232,5 +233,15 @@ public class VoxelBlockTablesTests
         var (classes, materials) = VoxelBlockTables.Build(new[] { "minecraft:air", "minecraft:oak_log", "minecraft:oak_log[axis=x]" }, Assets);
         Assert.That(classes, Is.EqualTo(new[] { BlockClass.None, BlockClass.Opaque, BlockClass.Opaque }));
         Assert.That(Faces(materials[2]), Is.EqualTo(new ushort[] { 71, 71, 70, 70, 70, 70 }));
+    }
+
+    [Test]
+    public void ASlopingRail_IsARamp()
+    {
+        var m = VoxelBlockTables.MaterialOf("minecraft:rail[shape=ascending_east]", Assets);
+        Assert.That(m.Flags & ~(63u << 16), Is.EqualTo(BlockMaterial.Thickness(1) | BlockMaterial.Slope(BlockMaterial.SlopeEast)));
+        Assert.That(VoxelBlockTables.ClassOf("minecraft:rail[shape=ascending_east]", Assets), Is.EqualTo(BlockClass.Cutout));
+        // A level thin block is not a ramp
+        Assert.That(VoxelBlockTables.MaterialOf("minecraft:rail", Assets).Flags & ~(63u << 16), Is.EqualTo(BlockMaterial.Thickness(1)));
     }
 }

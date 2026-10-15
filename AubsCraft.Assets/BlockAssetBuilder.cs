@@ -286,9 +286,20 @@ public sealed class BlockAssetBuilder
             tile = _tiles.GetTexture(texture, face.Rotation + turn);
             break;
         }
-        var asset = new BlockAsset { Kind = BlockKinds.Shape, Faces = Enumerable.Repeat(tile, 6).ToArray(), Thickness = 1 };
+        var asset = new BlockAsset { Kind = BlockKinds.Shape, Faces = Enumerable.Repeat(tile, 6).ToArray(), Thickness = 1, Slope = SlopeOf(model, yRotation) };
         asset.Render = RenderOf(name, asset.Faces);
         return asset;
+    }
+
+    // A sloping rail's model (rail_raised_ne rises toward north, rail_raised_sw toward south, before the state turns it): which way it rises as 1 east, 2 west, 3 south, 4 north; 0 for a level one
+    private static int SlopeOf(ResolvedModel model, int yRotation)
+    {
+        (int x, int y, int z) up;
+        if (model.Id.EndsWith("raised_ne", StringComparison.Ordinal)) up = (0, 0, -1);
+        else if (model.Id.EndsWith("raised_sw", StringComparison.Ordinal)) up = (0, 0, 1);
+        else return 0;
+        up = Turn(up, 0, ((yRotation % 360) + 360) % 360 / 90);
+        return up switch { (1, 0, 0) => 1, (-1, 0, 0) => 2, (0, 0, 1) => 3, _ => 4 };
     }
 
     // ---- states ------------------------------------------------------------------------------------------------------------------
@@ -310,7 +321,7 @@ public sealed class BlockAssetBuilder
         if (described.Any(d => d.Asset.Kind == BlockKinds.Shape && d.Asset.Thickness == 0)) return null;
 
         // A property matters when changing only it changes the picture
-        static string Sig(BlockAsset a) => $"{a.Kind}|{string.Join(",", a.Faces)}|{a.TintFaces}|{a.Render}|{a.Thickness}";
+        static string Sig(BlockAsset a) => $"{a.Kind}|{string.Join(",", a.Faces)}|{a.TintFaces}|{a.Render}|{a.Thickness}|{a.Slope}";
         var propNames = described[0].Props.Select(p => p.Key).ToList();
         var relevant = new List<string>();
         foreach (var prop in propNames)

@@ -51,6 +51,10 @@ public sealed class BlockAsset
     /// as a cube squashed to that height. 0 for everything else (slabs, 8/16, are left as cubes: whether one is the bottom, the top or a double is a block state the registry does not carry yet).
     /// </summary>
     public int Thickness { get; set; }
+    /// <summary>
+    /// 0 for a level block; for a thin block that is a ramp (a sloping rail) the direction it rises: 1 east (+X), 2 west (-X), 3 south (+Z), 4 north (-Z). The viewer shears the layer so its far end is a block higher.
+    /// </summary>
+    public int Slope { get; set; }
 }
 
 /// <summary>A tile that shows <c>Timeline[tick % Timeline.Length]</c>, 20 ticks a second, where it is used.</summary>

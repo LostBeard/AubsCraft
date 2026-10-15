@@ -83,7 +83,7 @@ public static class VoxelBlockTables
         }
 
         uint flags = BlockMaterial.TintFaces(block.TintFaces);
-        if (block.Kind == BlockKinds.Shape) flags |= BlockMaterial.Thickness(block.Thickness);
+        if (block.Kind == BlockKinds.Shape) flags |= BlockMaterial.Thickness(block.Thickness) | BlockMaterial.Slope(block.Slope);
         float alpha = 1f;
         if (block.Kind == BlockKinds.Water)
         {

@@ -159,4 +159,20 @@ public class RealJarAssetTests
         Assert.That(alongX[0], Is.Not.EqualTo(alongX[2]), "its east end is not its south side");
         Assert.That(upright[4], Is.Not.EqualTo(upright[0]), "upright: top is an end, sides are bark");
     }
+
+    [Test]
+    public async Task SlopingRails_RiseTheWayTheirShapeSays()
+    {
+        var (r, _) = await BuildOnceAsync();
+        var a = r.Assets.Blocks;
+        // ascending_east rises toward east (+X) = 1, west 2, south (+Z) 3, north (-Z) 4; level shapes do not rise
+        foreach (var (shape, slope) in new[] { ("ascending_east", 1), ("ascending_west", 2), ("ascending_south", 3), ("ascending_north", 4), ("north_south", 0), ("east_west", 0), ("south_east", 0) })
+        {
+            Assert.That(a[$"minecraft:rail[shape={shape}]"].Slope, Is.EqualTo(slope), shape);
+            Assert.That(a[$"minecraft:rail[shape={shape}]"].Thickness, Is.EqualTo(1), shape);
+        }
+        Assert.That(a["minecraft:powered_rail[powered=true,shape=ascending_north]"].Slope, Is.EqualTo(4));
+        Assert.That(a["minecraft:detector_rail[powered=false,shape=ascending_west]"].Slope, Is.EqualTo(2));
+        Assert.That(a["minecraft:oak_log[axis=y]"].Slope, Is.EqualTo(0));
+    }
 }

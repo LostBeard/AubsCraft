@@ -89,6 +89,18 @@ public class ViewerStatesTests
             ("pumpkin", n => n.Contains("pumpkin[") || n.Contains("jack_o_lantern[")),
         };
 
+        // Where the whole world has them (RealWorldFinderTests reads every region file): shot first, the nearby ones above are the fallback
+        var locations = Environment.GetEnvironmentVariable("AUBS_STATES_LOCATIONS") ?? "D:/users/tj/Projects/_scratch/states-locations.json";
+        var known = new List<(string label, int x, int y, int z, string name)>();
+        if (File.Exists(locations))
+            foreach (var kind in JsonDocument.Parse(File.ReadAllText(locations)).RootElement.EnumerateObject())
+                foreach (var place in kind.Value.EnumerateArray().Take(2))
+                    known.Add((kind.Name, place.GetProperty("x").GetInt32(), place.GetProperty("y").GetInt32(), place.GetProperty("z").GetInt32(), place.GetProperty("name").GetString()!));
+
+        // AUBS_STATES_ONLY=rail-slope,rail-curve: only these kinds (a quick look at one thing)
+        if (Environment.GetEnvironmentVariable("AUBS_STATES_ONLY") is { Length: > 0 } only)
+            known = known.Where(k => only.Split(',').Contains(k.label)).ToList();
+
         var page = await _rig.Context.NewPageAsync();
         var errors = new List<string>();
         page.Console += (_, m) => { if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
@@ -96,7 +108,24 @@ public class ViewerStatesTests
         var shot = 0;
         try
         {
-            foreach (var (label, wanted) in targets)
+            foreach (var (label, x, y, z, name) in known)
+            {
+                TestContext.Progress.WriteLine($"[states] {label}: {name} at {x},{y},{z}");
+                // Close, from inside the air above it: straight down from 1.9 above, and from 2.5 south and 1.7 up, tipped down
+                int n = known.Where(k => k.label == label).ToList().FindIndex(k => k.x == x && k.z == z && k.y == y);
+                foreach (var (suffix, cam) in new[]
+                {
+                    ("down", $"{F(x + 0.5f)},{F(y + 2.2f)},{F(z + 0.5f)},-89,-90"),
+                    ("side", $"{F(x + 0.5f)},{F(y + 2.0f)},{F(z + 3f)},-30,-90"),
+                })
+                {
+                    await page.GotoAsync($"{_rig.BaseUrl}/map?hud=0&time=6000&dd=8&cam={cam}", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+                    await ViewerShotTests.WaitForSettledAsync(page, minSections: 40, quietSeconds: 4, maxSeconds: 70);
+                    await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, $"world-{label}-{n}-{suffix}.png") });
+                    shot++;
+                }
+            }
+            foreach (var (label, wanted) in known.Count > 0 ? Array.Empty<(string, Func<string, bool>)>() : targets)
             {
                 var at = Find(wanted);
                 if (at is null) { TestContext.Progress.WriteLine($"[states] {label}: none in the {chunks.Count} chunks around the spawn"); continue; }
