@@ -68,6 +68,37 @@ public class VoxelBlockTablesTests
     }
 
     [Test]
+    public void Seabed_IsTheSameBlockDarker_AtTheOffsetSlot()
+    {
+        string[] names = ["minecraft:air", "minecraft:stone", "minecraft:grass_block", "minecraft:beacon"];
+        var (classes, all) = VoxelBlockTables.BuildWithSeabeds(names);
+        Assert.That(classes, Has.Length.EqualTo(4));
+        Assert.That(all, Has.Length.EqualTo(VoxelBlockTables.SeabedTypeOffset + 4));
+
+        // stone: untinted texture 2 -> the texture, tinted by 0.7 grey
+        var stone = all[VoxelBlockTables.SeabedTypeOffset + 1];
+        Assert.That(Faces(stone), Is.EqualTo(Faces(all[1])), "the same textures");
+        Assert.That(stone.Flags & BlockMaterial.FlagTinted, Is.EqualTo(BlockMaterial.FlagTinted), "the darkening is applied as a tint");
+        Assert.That(new Vector3(stone.TintR, stone.TintG, stone.TintB), Is.EqualTo(new Vector3(0.7f, 0.7f, 0.7f)));
+        // grass: already tinted green -> green x 0.7
+        var grass = all[VoxelBlockTables.SeabedTypeOffset + 2];
+        Assert.That(grass.TintG, Is.EqualTo(0.65f * 0.7f).Within(1e-6));
+        // an untextured block: its colour x 0.7
+        var beacon = all[VoxelBlockTables.SeabedTypeOffset + 3];
+        Assert.That(beacon.TintG, Is.EqualTo(0.85f * 0.7f).Within(1e-6));
+        // the plain entries are untouched, and the gap is the visible "missing" material
+        Assert.That(new Vector3(all[1].TintR, all[1].TintG, all[1].TintB), Is.EqualTo(Vector3.One));
+        Assert.That(all[100].TintG, Is.EqualTo(0f), "an unregistered type is magenta");
+    }
+
+    [Test]
+    public void TooManyNames_DoNotFitBelowTheSeabedOffset()
+    {
+        var names = Enumerable.Range(0, VoxelBlockTables.SeabedTypeOffset + 1).Select(i => "x:b" + i).ToArray();
+        Assert.Throws<InvalidOperationException>(() => VoxelBlockTables.BuildWithSeabeds(names));
+    }
+
+    [Test]
     public void Build_IndexIsTheGlobalId()
     {
         string[] names = ["minecraft:air", "minecraft:stone", "minecraft:water", "minecraft:short_grass"];

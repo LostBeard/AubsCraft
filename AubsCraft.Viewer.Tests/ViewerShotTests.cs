@@ -101,7 +101,15 @@ public class ViewerShotTests
     {
         var page = await _rig.Context.NewPageAsync();
         var consoleErrors = new List<string>();
-        page.Console += (_, m) => { if (m.Type == "error") consoleErrors.Add(m.Text); };
+        // Every console line of the page and its workers (the render worker's [RenderWorker]/[Voxel] lines are where a silent
+        // failure shows up) goes to console-<shot>.log beside the screenshot
+        var consoleLog = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        page.Console += (_, m) =>
+        {
+            consoleLog.Enqueue($"[page {m.Type}] {m.Text}");
+            if (m.Type == "error") consoleErrors.Add(m.Text);
+        };
+        page.Worker += (_, w) => w.Console += (_, m) => consoleLog.Enqueue($"[worker {m.Type}] {m.Text}");
         page.PageError += (_, e) => consoleErrors.Add(e);
         try
         {
@@ -115,7 +123,7 @@ public class ViewerShotTests
             await page.GotoAsync(url, new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
 
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            var (stats, settled) = await WaitForSettledAsync(page, requireSections, quietSeconds: 20, maxSeconds: 240);
+            var (stats, settled) = await WaitForSettledAsync(page, requireSections, quietSeconds: 20, maxSeconds: int.TryParse(Environment.GetEnvironmentVariable("AUBS_VIEWER_MAX_SECONDS"), out var cap) ? cap : 240);
             double seconds = sw.Elapsed.TotalSeconds;
 
             var file = Path.Combine(_outDir, name + ".png");
@@ -140,6 +148,7 @@ public class ViewerShotTests
         }
         finally
         {
+            try { File.WriteAllLines(Path.Combine(_outDir, $"console-{name}.log"), consoleLog); } catch { }
             await page.CloseAsync();
         }
     }

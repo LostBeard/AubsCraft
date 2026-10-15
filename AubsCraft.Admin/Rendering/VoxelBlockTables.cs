@@ -56,6 +56,40 @@ public static class VoxelBlockTables
         return BlockMaterial.Create(Layer(side), Layer(side), Layer(side), Layer(side), Layer(top), Layer(bottom), tint, flags, alpha);
     }
 
+    /// <summary>
+    /// What lies under water is drawn with the type + this offset: the same block, darker (the old far tier darkened a seabed to 0.7).
+    /// Real block ids stay below it (the registry holds a few hundred names; <see cref="BuildWithSeabeds"/> checks).
+    /// </summary>
+    public const int SeabedTypeOffset = 2048;
+    public const float SeabedDarkening = 0.7f;
+
+    /// <summary>The material of a block seen through water: <see cref="MaterialOf"/> multiplied by <see cref="SeabedDarkening"/>.</summary>
+    public static BlockMaterial SeabedMaterialOf(string name)
+    {
+        var m = MaterialOf(name);
+        var tint = new Vector3(m.TintR, m.TintG, m.TintB) * SeabedDarkening;
+        // A textured, untinted block has a white tint it does not use; the darkening needs the tint applied, so switch it on
+        m.Flags |= BlockMaterial.FlagTinted;
+        m.TintR = tint.X; m.TintG = tint.Y; m.TintB = tint.Z;
+        return m;
+    }
+
+    /// <summary>
+    /// <see cref="Build"/> plus the darker seabed variants: materials[i] draws block i, materials[<see cref="SeabedTypeOffset"/> + i] the
+    /// same block under water. The class table is as for <see cref="Build"/>.
+    /// </summary>
+    public static (int[] Classes, BlockMaterial[] Materials) BuildWithSeabeds(IReadOnlyList<string> names)
+    {
+        if (names.Count > SeabedTypeOffset)
+            throw new InvalidOperationException($"{names.Count} block names do not fit below the seabed offset {SeabedTypeOffset}");
+        var (classes, materials) = Build(names);
+        var all = new BlockMaterial[SeabedTypeOffset + names.Count];
+        System.Array.Fill(all, BlockMaterial.Missing);
+        materials.CopyTo(all, 0);
+        for (int i = 0; i < names.Count; i++) all[SeabedTypeOffset + i] = SeabedMaterialOf(names[i]);
+        return (classes, all);
+    }
+
     /// <summary>The class and material tables for ids 0 .. names.Count-1.</summary>
     public static (int[] Classes, BlockMaterial[] Materials) Build(IReadOnlyList<string> names)
     {

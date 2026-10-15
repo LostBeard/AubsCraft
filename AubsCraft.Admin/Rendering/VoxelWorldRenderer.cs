@@ -5,6 +5,8 @@ using SpawnDev.ILGPU.WebGPU;
 using SpawnDev.SpawnJS.JSObjects;
 using SpawnDev.VoxelEngine.Meshing;
 using SpawnDev.VoxelEngine.Rendering;
+// The library's far-tier mesher; AubsCraft.Admin.Rendering has an older HeightmapMesher of its own (deleted at the cut-over, PLANS V7)
+using FarMesher = SpawnDev.VoxelEngine.Meshing.HeightmapMesher;
 
 namespace AubsCraft.Admin.Rendering;
 
@@ -29,10 +31,13 @@ public sealed class VoxelWorldRenderer : IDisposable
     private static readonly Vector3 SkyColor = new(0.65f, 0.80f, 0.95f);
     private static readonly BlockRenderPipeline.Pass[] CubePasses = { BlockRenderPipeline.Pass.Opaque, BlockRenderPipeline.Pass.Cross };
 
+    /// <summary>A full-detail block column (Blocks), or a far chunk (Heights): one chunk's surface, meshed by <see cref="FarMesher"/>.</summary>
     private sealed class Column
     {
         public required int Cx, Cz, Slot;
-        public required MemoryBuffer1D<ushort, Stride1D.Dense> Blocks;
+        public MemoryBuffer1D<ushort, Stride1D.Dense>? Blocks;
+        public MemoryBuffer1D<int, Stride1D.Dense>? Heights;
+        public bool IsFar => Heights != null;
         public ColumnMesh? Mesh;
         /// <summary>Which neighbours existed when the mesh was made: bit 0 -X, 1 +X, 2 -Z, 3 +Z.</summary>
         public int MeshedWith;
@@ -41,9 +46,11 @@ public sealed class VoxelWorldRenderer : IDisposable
 
     private readonly BlockRenderPipeline _pipe = new();
     private readonly Dictionary<(int cx, int cz), Column> _columns = new();
+    private readonly Dictionary<(int cx, int cz), Column> _far = new();
     private readonly Stack<int> _freeSlots = new();
     private readonly SemaphoreSlim _meshLock = new(1, 1);
     private ColumnMesher? _mesher;
+    private FarMesher? _farMesher;
     private GPUQueue? _queue;
     private BlockTextureArray? _textures;
     private GPUTexture? _depth;
@@ -65,20 +72,25 @@ public sealed class VoxelWorldRenderer : IDisposable
     {
         Device = device;
         _queue = queue;
-        _pipe.Init(device, queue, colorFormat);
+        // A section slot per 16-high section of every column and far chunk (24 each); the origin table is 16 bytes a slot
+        _pipe.Init(device, queue, colorFormat, maxSections: 1 << 18);
         _maxColumns = _pipe.MaxSections / SectionsPerColumn;
         _mesher = new ColumnMesher(accelerator, SectionsPerColumn) { MissingNeighborsAreSolid = false };
+        _farMesher = new FarMesher(accelerator, SectionsPerColumn) { SeabedTypeOffset = VoxelBlockTables.SeabedTypeOffset };
     }
 
     public GPUDevice? Device { get; private set; }
 
     public bool HasColumn(int cx, int cz) => _columns.ContainsKey((cx, cz));
+    public bool HasFarChunk(int cx, int cz) => _far.ContainsKey((cx, cz));
+    public int FarChunkCount => _far.Count;
 
     /// <summary>Use these block names (index = the server's global id): rebuilds the class and material tables.</summary>
     public void SetBlockNames(IReadOnlyList<string> names)
     {
-        var (classes, materials) = VoxelBlockTables.Build(names);
+        var (classes, materials) = VoxelBlockTables.BuildWithSeabeds(names);
         _mesher!.SetBlockClasses(classes);
+        _farMesher!.SetBlockClasses(classes);
         _pipe.SetMaterials(materials);
         NamesKnown = names.Count;
     }
@@ -101,34 +113,62 @@ public sealed class VoxelWorldRenderer : IDisposable
         if (_disposed) return false;
         if (_columns.ContainsKey((cx, cz))) RemoveColumn(cx, cz);
 
-        int slot = _freeSlots.Count > 0 ? _freeSlots.Pop() : (_nextSlot < _maxColumns ? _nextSlot++ : -1);
+        int slot = TakeSlot();
         if (slot < 0) return false;
 
         var blocks = _mesher!.CreateColumnBufferFromJS(blockIds);
         var col = new Column { Cx = cx, Cz = cz, Slot = slot, Blocks = blocks };
         _columns[(cx, cz)] = col;
-
-        var origins = new Vector3[SectionsPerColumn];
-        for (int sy = 0; sy < SectionsPerColumn; sy++)
-            origins[sy] = new Vector3(cx * 16, WorldMinY + sy * 16, cz * 16);
-        _pipe.SetSectionOrigins(slot * SectionsPerColumn, origins);
-
-        await MeshAsync(col);
-
-        // A neighbour meshed before this column existed drew faces toward the gap: now they are interior, so mesh it again.
-        foreach (var (n, facingMe) in NeighboursOf(cx, cz))
-            if (n.Mesh != null && (n.MeshedWith & facingMe) == 0)
-                await MeshAsync(n);
+        await PlaceAndMeshAsync(col);
         return true;
     }
 
-    // The 4 neighbours of (cx, cz) that exist, each with the bit that (cx, cz) occupies in THAT neighbour's MeshedWith.
-    private IEnumerable<(Column col, int bitInNeighbour)> NeighboursOf(int cx, int cz)
+    /// <summary>
+    /// Take a chunk's heightmap (the 3072 bytes of <c>HeightmapLayout</c>, global block ids) as a far-tier chunk: its surface, drawn
+    /// wherever no full column is loaded. Returns false when there is no room.
+    /// </summary>
+    public async Task<bool> AddFarChunkAsync(int cx, int cz, Uint8Array heightmap)
     {
-        if (_columns.TryGetValue((cx - 1, cz), out var a)) yield return (a, 2); // my -X neighbour has me on its +X
-        if (_columns.TryGetValue((cx + 1, cz), out var b)) yield return (b, 1);
-        if (_columns.TryGetValue((cx, cz - 1), out var c)) yield return (c, 8);
-        if (_columns.TryGetValue((cx, cz + 1), out var d)) yield return (d, 4);
+        if (_disposed) return false;
+        if (_far.ContainsKey((cx, cz))) RemoveFarChunk(cx, cz);
+
+        int slot = TakeSlot();
+        if (slot < 0) return false;
+
+        var heights = _farMesher!.CreateHeightmapBufferFromJS(heightmap);
+        var chunk = new Column { Cx = cx, Cz = cz, Slot = slot, Heights = heights };
+        _far[(cx, cz)] = chunk;
+        await PlaceAndMeshAsync(chunk);
+        return true;
+    }
+
+    private int TakeSlot() => _freeSlots.Count > 0 ? _freeSlots.Pop() : (_nextSlot < _maxColumns ? _nextSlot++ : -1);
+
+    private async Task PlaceAndMeshAsync(Column col)
+    {
+        var origins = new Vector3[SectionsPerColumn];
+        for (int sy = 0; sy < SectionsPerColumn; sy++)
+            origins[sy] = new Vector3(col.Cx * 16, WorldMinY + sy * 16, col.Cz * 16);
+        _pipe.SetSectionOrigins(col.Slot * SectionsPerColumn, origins);
+
+        await MeshAsync(col);
+
+        // A neighbour meshed before this one existed drew faces toward the gap: now they are interior, so mesh it again.
+        foreach (var (n, facingMe) in NeighboursOf(col).ToList())
+            if (n.Mesh != null && (n.MeshedWith & facingMe) == 0)
+                await MeshAsync(n);
+    }
+
+    private Dictionary<(int cx, int cz), Column> SetOf(Column col) => col.IsFar ? _far : _columns;
+
+    // The 4 neighbours (of the same kind) that exist, each with the bit that col occupies in THAT neighbour's MeshedWith.
+    private IEnumerable<(Column col, int bitInNeighbour)> NeighboursOf(Column col)
+    {
+        var set = SetOf(col);
+        if (set.TryGetValue((col.Cx - 1, col.Cz), out var a)) yield return (a, 2); // my -X neighbour has me on its +X
+        if (set.TryGetValue((col.Cx + 1, col.Cz), out var b)) yield return (b, 1);
+        if (set.TryGetValue((col.Cx, col.Cz - 1), out var c)) yield return (c, 8);
+        if (set.TryGetValue((col.Cx, col.Cz + 1), out var d)) yield return (d, 4);
     }
 
     private async Task MeshAsync(Column col)
@@ -137,15 +177,18 @@ public sealed class VoxelWorldRenderer : IDisposable
         try
         {
             if (col.Removed || _disposed) return;
-            _columns.TryGetValue((col.Cx - 1, col.Cz), out var nx);
-            _columns.TryGetValue((col.Cx + 1, col.Cz), out var px);
-            _columns.TryGetValue((col.Cx, col.Cz - 1), out var nz);
-            _columns.TryGetValue((col.Cx, col.Cz + 1), out var pz);
+            var set = SetOf(col);
+            set.TryGetValue((col.Cx - 1, col.Cz), out var nx);
+            set.TryGetValue((col.Cx + 1, col.Cz), out var px);
+            set.TryGetValue((col.Cx, col.Cz - 1), out var nz);
+            set.TryGetValue((col.Cx, col.Cz + 1), out var pz);
             int mask = (nx != null ? 1 : 0) | (px != null ? 2 : 0) | (nz != null ? 4 : 0) | (pz != null ? 8 : 0);
 
-            var mesh = await _mesher!.MeshAsync(col.Blocks, nx?.Blocks, px?.Blocks, nz?.Blocks, pz?.Blocks);
+            var mesh = col.IsFar
+                ? await _farMesher!.MeshAsync(col.Heights!, nx?.Heights, px?.Heights, nz?.Heights, pz?.Heights)
+                : await _mesher!.MeshAsync(col.Blocks!, nx?.Blocks, px?.Blocks, nz?.Blocks, pz?.Blocks);
             if (mesh.Overflow != 0)
-                Console.WriteLine($"[Voxel] column ({col.Cx},{col.Cz}) overflowed its quad scratch by {mesh.Overflow}");
+                Console.WriteLine($"[Voxel] {(col.IsFar ? "far chunk" : "column")} ({col.Cx},{col.Cz}) overflowed its quad scratch by {mesh.Overflow}");
             if (col.Removed || _disposed)
             {
                 mesh.Dispose();
@@ -167,6 +210,8 @@ public sealed class VoxelWorldRenderer : IDisposable
     {
         foreach (var col in _columns.Values.ToArray())
             await MeshAsync(col);
+        foreach (var chunk in _far.Values.ToArray())
+            await MeshAsync(chunk);
     }
 
     private void DisposeMesh(ColumnMesh mesh)
@@ -183,6 +228,13 @@ public sealed class VoxelWorldRenderer : IDisposable
         _ = DisposeColumnAsync(col);
     }
 
+    public void RemoveFarChunk(int cx, int cz)
+    {
+        if (!_far.Remove((cx, cz), out var chunk)) return;
+        chunk.Removed = true;
+        _ = DisposeColumnAsync(chunk);
+    }
+
     // Waits for a mesh in flight (it may be reading this column's buffers) before freeing anything.
     private async Task DisposeColumnAsync(Column col)
     {
@@ -191,7 +243,8 @@ public sealed class VoxelWorldRenderer : IDisposable
         {
             if (col.Mesh != null) DisposeMesh(col.Mesh);
             col.Mesh = null;
-            col.Blocks.Dispose();
+            col.Blocks?.Dispose();
+            col.Heights?.Dispose();
             _freeSlots.Push(col.Slot);
         }
         finally
@@ -252,18 +305,10 @@ public sealed class VoxelWorldRenderer : IDisposable
         _visible.Clear();
         _waterOrder.Clear();
         foreach (var col in _columns.Values)
-        {
-            var mesh = col.Mesh;
-            if (mesh == null) continue;
-            totalQuads += mesh.Opaque.Count + mesh.Plants.Count + mesh.Water.Count;
-            long dx = col.Cx - camCX, dz = col.Cz - camCZ;
-            if (dx * dx + dz * dz > drawDistSq) continue;
-            var min = new Vector3(col.Cx * 16, WorldMinY, col.Cz * 16);
-            var max = new Vector3(col.Cx * 16 + 16, WorldMinY + SectionsPerColumn * 16, col.Cz * 16 + 16);
-            if (!FrustumCuller.IsBoxVisible(in frustum, min, max)) continue;
-            _visible.Add(col);
-            if (mesh.Water.Count > 0) _waterOrder.Add((dx * dx + dz * dz, col));
-        }
+            GatherVisible(col, null, in frustum, camCX, camCZ, drawDistSq, ref sectionsWithQuads, ref totalQuads);
+        // A far chunk gives way to the full column on the same spot, once that column is meshed
+        foreach (var chunk in _far.Values)
+            GatherVisible(chunk, _columns, in frustum, camCX, camCZ, drawDistSq, ref sectionsWithQuads, ref totalQuads);
 
         // Water sections within a column: farthest from the camera's section first
         int camSy = Math.Clamp((int)MathF.Floor((camera.Position.Y - WorldMinY) / 16f), 0, SectionsPerColumn - 1);
@@ -309,12 +354,27 @@ public sealed class VoxelWorldRenderer : IDisposable
         }
         pass.End();
 
-        foreach (var col in _columns.Values)
-            if (col.Mesh is { } m)
-                for (int sy = 0; sy < SectionsPerColumn; sy++)
-                    if (m.Opaque.QuadsIn(sy) + m.Plants.QuadsIn(sy) + m.Water.QuadsIn(sy) > 0) sectionsWithQuads++;
+        return new VoxelFrameStats(_columns.Count + _far.Count, sectionsWithQuads, visibleSections, totalQuads, visibleQuads);
+    }
 
-        return new VoxelFrameStats(_columns.Count, sectionsWithQuads, visibleSections, totalQuads, visibleQuads);
+    // Adds col to the frame's draw lists when it is meshed, in range and in view; counts its quads and sections either way.
+    // covered: the set whose meshed entry at the same position hides col (far chunks), or null.
+    private void GatherVisible(Column col, Dictionary<(int cx, int cz), Column>? covered, in FrustumCuller.Frustum frustum,
+        int camCX, int camCZ, long drawDistSq, ref int sectionsWithQuads, ref long totalQuads)
+    {
+        var mesh = col.Mesh;
+        if (mesh == null) return;
+        if (covered != null && covered.TryGetValue((col.Cx, col.Cz), out var over) && over.Mesh != null) return;
+        totalQuads += mesh.Opaque.Count + mesh.Plants.Count + mesh.Water.Count;
+        for (int sy = 0; sy < SectionsPerColumn; sy++)
+            if (mesh.Opaque.QuadsIn(sy) + mesh.Plants.QuadsIn(sy) + mesh.Water.QuadsIn(sy) > 0) sectionsWithQuads++;
+        long dx = col.Cx - camCX, dz = col.Cz - camCZ;
+        if (dx * dx + dz * dz > drawDistSq) return;
+        var min = new Vector3(col.Cx * 16, WorldMinY, col.Cz * 16);
+        var max = new Vector3(col.Cx * 16 + 16, WorldMinY + SectionsPerColumn * 16, col.Cz * 16 + 16);
+        if (!FrustumCuller.IsBoxVisible(in frustum, min, max)) return;
+        _visible.Add(col);
+        if (mesh.Water.Count > 0) _waterOrder.Add((dx * dx + dz * dz, col));
     }
 
     private static bool SectionVisible(in FrustumCuller.Frustum frustum, Column col, int sy)
@@ -332,10 +392,18 @@ public sealed class VoxelWorldRenderer : IDisposable
         {
             col.Removed = true;
             if (col.Mesh != null) DisposeMesh(col.Mesh);
-            col.Blocks.Dispose();
+            col.Blocks?.Dispose();
         }
         _columns.Clear();
+        foreach (var chunk in _far.Values)
+        {
+            chunk.Removed = true;
+            if (chunk.Mesh != null) DisposeMesh(chunk.Mesh);
+            chunk.Heights?.Dispose();
+        }
+        _far.Clear();
         _mesher?.Dispose();
+        _farMesher?.Dispose();
         _textures?.Dispose();
         _depthView?.Dispose();
         _depth?.Destroy();

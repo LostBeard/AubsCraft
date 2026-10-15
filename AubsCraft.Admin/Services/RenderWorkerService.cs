@@ -110,7 +110,8 @@ public class RenderWorkerService : IRenderWorkerService
         var protocol = location.Protocol == "https:" ? "wss:" : "ws:";
         var host = location.Host;
         location.Dispose();
-        var wsUrl = $"{protocol}//{host}/api/world/ws?{_serverQuery}";
+        // The voxel renderer's far tier takes heightmaps in global block ids (no palette): the bytes go to the GPU as they arrive
+        var wsUrl = $"{protocol}//{host}/api/world/ws?{_serverQuery}" + (_voxel != null ? "&format=ids" : "");
 
         // Use absolute URL for worker script (relative paths may not resolve in nested worker context)
         var origin = _js.Get<string>("location.origin");
@@ -270,10 +271,26 @@ public class RenderWorkerService : IRenderWorkerService
         {
             if (_voxel != null)
             {
-                // The voxel renderer draws columns, not heightmaps (the far tier is PLANS V6): the heightmap only says the chunk exists
+                // Voxel mode: the frame is [cx][cz][registry count] + the 3072-byte heightmap in global ids (server HeightmapWire).
+                // It says the chunk exists (a full column may be fetched) and is the far tier's mesh input.
                 _populatedChunks.Add((cx, cz));
                 if (IsInFullRadius(cx, cz) && !_voxel.HasColumn(cx, cz)) _fullDirty = true;
-                buffer.Dispose();
+                try
+                {
+                    int registryCount;
+                    using (var header = new Int32Array(buffer, 0, 3)) registryCount = header[2];
+                    if (registryCount > _voxel.NamesKnown) await RefreshVoxelBlockNamesAsync(registryCount);
+                    if (_voxel.NamesKnown > 0 && !_voxel.HasFarChunk(cx, cz))
+                    {
+                        using var heightmap = new Uint8Array(buffer, 12, 3072);
+                        if (!await _voxel.AddFarChunkAsync(cx, cz, heightmap) && _farDropLogged++ == 0)
+                            Console.WriteLine("[RenderWorker] Far chunk dropped: no free section slots");
+                    }
+                }
+                finally
+                {
+                    buffer.Dispose();
+                }
                 _dataPort?.PostMessage(new { type = "ready" });
                 return;
             }
@@ -743,6 +760,7 @@ public class RenderWorkerService : IRenderWorkerService
     /// <summary>Columns fetched at once: the round trip, not the GPU, is what a lone request waits for.</summary>
     private const int VoxelParallelFetches = 4;
     private readonly SemaphoreSlim _voxelNamesLock = new(1, 1);
+    private int _farDropLogged;
 
     /// <summary>Loads columns nearest-first around the CURRENT camera until every populated chunk in the radius is in.</summary>
     private async Task LoadVoxelColumnsNearbyAsync()
@@ -828,8 +846,7 @@ public class RenderWorkerService : IRenderWorkerService
     }
 
     /// <summary>
-    /// Fetch the block names (index = global id) and rebuild the class and material tables. Columns meshed before the names grew
-    /// treated the new ids as air, so they are meshed again.
+    /// Fetch the block names (index = global id) and rebuild the class and material tables.
     /// </summary>
     private async Task RefreshVoxelBlockNamesAsync(int atLeast = 1)
     {
@@ -845,10 +862,10 @@ public class RenderWorkerService : IRenderWorkerService
             }
             var names = System.Text.Json.JsonSerializer.Deserialize<string[]>(await response.Text());
             if (names == null || names.Length == 0) return;
-            bool grew = _voxel.NamesKnown > 0;
             _voxel.SetBlockNames(names);
             Console.WriteLine($"[RenderWorker] {names.Length} block names");
-            if (grew) await _voxel.RemeshAllAsync();
+            // No re-mesh of what is loaded: a chunk is only meshed after the names covering its ids arrived (its frame says how many
+            // the server knew), and an id never changes meaning, so nothing already meshed can contain an id we had no name for.
         }
         finally
         {
