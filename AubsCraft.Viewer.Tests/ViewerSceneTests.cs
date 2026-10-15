@@ -47,23 +47,36 @@ public class ViewerSceneTests
         var errors = new List<string>();
         page.Console += (_, m) => { if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
         page.PageError += (_, e) => errors.Add(e);
+        // What the worker says about the camera and the water, per shot (the viewer logs when it decides the camera is under water or out of it)
+        var waterLog = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        page.Worker += (_, w) => w.Console += (_, m) => { if (m.Text.Contains("camera under water") || m.Text.Contains("camera out of water")) waterLog.Enqueue(m.Text); };
         try
         {
             foreach (var (label, x, y, z) in items)
             {
                 // From the south (looking north), from the east (looking west), and from above
-                foreach (var (suffix, cam) in new[]
+                var cams = new List<(string suffix, string cam)>
                 {
                     ("south", $"{F(x + 0.5f)},{F(y + 2.2f)},{F(z + 5.5f)},-18,-90"),
                     ("east", $"{F(x + 6f)},{F(y + 2.2f)},{F(z + 0.5f)},-18,180"),
                     ("top", $"{F(x + 0.5f)},{F(y + 7f)},{F(z + 0.5f)},-89,-90"),
                     ("diag", $"{F(x + 4f)},{F(y + 2.2f)},{F(z + 4f)},-22,-135"),
                     ("profile", $"{F(x + 2.5f)},{F(y + 0.5f)},{F(z + 8f)},0,-90"),
-                })
+                };
+                // A pool (seven blocks across, three deep, water from y to y + 2) is also seen from INSIDE: the camera under the surface
+                if (label == "pool")
+                {
+                    cams.Add(("under-across", $"{F(x - 2f)},{F(y + 1.2f)},{F(z - 2f)},0,45"));   // looking across the pool, two blocks under the surface
+                    cams.Add(("under-up", $"{F(x + 0.5f)},{F(y + 0.7f)},{F(z + 0.5f)},55,0"));    // looking up at the surface from below
+                    cams.Add(("under-down", $"{F(x + 0.5f)},{F(y + 1.7f)},{F(z - 1f)},-40,90"));  // just under the surface, looking down at the seabed
+                    cams.Add(("surface-edge", $"{F(x - 3.5f)},{F(y + 2.6f)},{F(z + 0.5f)},-5,0"));   // half in the air: the camera at the waterline, looking across the surface
+                }
+                foreach (var (suffix, cam) in cams)
                 {
                     await page.GotoAsync($"{_rig.BaseUrl}/map?hud=0&time=6000&dd=6&cam={cam}", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
                     await ViewerShotTests.WaitForSettledAsync(page, minSections: 8, quietSeconds: 3, maxSeconds: 60);
                     await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, $"{label}-{suffix}.png") });
+                    while (waterLog.TryDequeue(out var line)) TestContext.Progress.WriteLine($"[scene] {label}-{suffix}: {line}");
                 }
             }
             Assert.That(errors, Is.Empty, "The page logged errors");

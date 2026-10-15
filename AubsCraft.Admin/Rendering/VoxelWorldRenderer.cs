@@ -170,12 +170,17 @@ public sealed class VoxelWorldRenderer : IDisposable
         {
             var blocks = col.Blocks;
             if (blocks == null || col.Removed) { CameraUnderwater = false; return; }
-            var here = new ushort[1];
-            var above = new ushort[1];
-            await blocks.CopyToHostAsync(here, index, 1);
-            await blocks.CopyToHostAsync(above, index + 256, 1);
+            // A 4-byte aligned pair of ids around each cell: a WebGPU buffer copy needs a 4-aligned offset and size, which one ushort at an odd index is not
+            int at = index & ~1, atAbove = (index + 256) & ~1;
+            var pair = new ushort[2];
+            await blocks.CopyToHostAsync(pair, at, 2);
+            var here = pair[index - at];
+            await blocks.CopyToHostAsync(pair, atAbove, 2);
+            var above = pair[index + 256 - atAbove];
             bool IsWater(ushort id) => id < _blockClasses.Length && (_blockClasses[id] & BlockClass.EmitWater) != 0;
-            CameraUnderwater = UnderwaterLook.IsUnder(IsWater(here[0]), IsWater(above[0]), eyeY);
+            bool under = UnderwaterLook.IsUnder(IsWater(here), IsWater(above), eyeY);
+            if (under != CameraUnderwater) Console.WriteLine($"[Voxel] camera {(under ? "under" : "out of")} water (eye cell id {here}, above {above}, eye y {eyeY:F2})");
+            CameraUnderwater = under;
         }
         catch (Exception)
         {
