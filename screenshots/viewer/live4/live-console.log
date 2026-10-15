@@ -1,0 +1,114 @@
+<link rel=preload> has an invalid `href` value
+[RenderWorker] Created with 959x592 canvas
+[RenderWorker] Created with 959x592 canvas
+[Map] Render worker created, transferring canvas...
+[Map] Restored camera: (248, 67, -248)
+[Map] Camera from link: (248, 67, -248) pitch=-8 yaw=-90
+[GpuContextService] Initialized: WebGPU
+[GpuContextService] Initialized: WebGPU
+[RenderWorker] Initialized: WebGPU
+[RenderWorker] Initialized: WebGPU
+[RenderWorker] Creating data worker: http://127.0.0.1:57105/data-worker.js
+[RenderWorker] Creating data worker: http://127.0.0.1:57105/data-worker.js
+[RenderWorker] Data worker created, GPU ready, requesting first chunk
+[RenderWorker] Data worker created, GPU ready, requesting first chunk
+[Live] Live feed connected
+[Live] Live feed connected
+[DataWorker] Initialized, connecting to ws://127.0.0.1:57105/api/world/ws?server=aubscraft&format=ids
+[DataWorker] Initialized, connecting to ws://127.0.0.1:57105/api/world/ws?server=aubscraft&format=ids
+[DataWorker] WebSocket connected
+[DataWorker] WebSocket connected
+[RenderWorker] Block assets for Minecraft 1.21.5: 1108 blocks, 1091 tiles, 36 animated
+[RenderWorker] Block assets for Minecraft 1.21.5: 1108 blocks, 1091 tiles, 36 animated
+[Live] Entity assets: 47 textures, 128 skin slots
+[Live] Entity assets: 47 textures, 128 skin slots
+[BlockColorMap] No color for minecraft:oak_sign (renders magenta)
+[BlockColorMap] No color for minecraft:oak_sign (renders magenta)
+[BlockColorMap] No color for minecraft:oak_wall_sign (renders magenta)
+[BlockColorMap] No color for minecraft:oak_wall_sign (renders magenta)
+[BlockColorMap] No color for minecraft:redstone_torch (renders magenta)
+[BlockColorMap] No color for minecraft:redstone_torch (renders magenta)
+[BlockColorMap] No color for minecraft:cherry_fence (renders magenta)
+[BlockColorMap] No color for minecraft:cherry_fence (renders magenta)
+[BlockColorMap] No color for minecraft:bamboo (renders magenta)
+[BlockColorMap] No color for minecraft:bamboo (renders magenta)
+[BlockColorMap] No color for minecraft:pale_oak_fence (renders magenta)
+[BlockColorMap] No color for minecraft:pale_oak_fence (renders magenta)
+[BlockColorMap] No color for minecraft:lantern (renders magenta)
+[BlockColorMap] No color for minecraft:lantern (renders magenta)
+[BlockColorMap] No color for minecraft:pink_bed (renders magenta)
+[BlockColorMap] No color for minecraft:pink_bed (renders magenta)
+[BlockColorMap] No color for minecraft:cherry_fence_gate (renders magenta)
+[BlockColorMap] No color for minecraft:cherry_fence_gate (renders magenta)
+[BlockColorMap] No color for minecraft:pale_oak_fence_gate (renders magenta)
+[BlockColorMap] No color for minecraft:pale_oak_fence_gate (renders magenta)
+[BlockColorMap] No color for minecraft:smoker (renders magenta)
+[BlockColorMap] No color for minecraft:smoker (renders magenta)
+[BlockColorMap] No color for minecraft:acacia_door (renders magenta)
+[BlockColorMap] No color for minecraft:acacia_door (renders magenta)
+[BlockColorMap] No color for minecraft:jukebox (renders magenta)
+[BlockColorMap] No color for minecraft:jukebox (renders magenta)
+[RenderWorker] 226 block names
+[RenderWorker] 226 block names
+[DataWorker] Chunk (0,0) received, total: 1
+[DataWorker] Chunk (0,0) received, total: 1
+[DataWorker] Chunk (15,-16) received, total: 2
+[DataWorker] Chunk (15,-16) received, total: 2
+[DataWorker] Chunk (14,-16) received, total: 3
+[DataWorker] Chunk (14,-16) received, total: 3
+[DataWorker] Chunk (11,-28) received, total: 500
+[DataWorker] Chunk (11,-28) received, total: 500
+[DataWorker] Chunk (7,-32) received, total: 1000
+[DataWorker] Chunk (7,-32) received, total: 1000
+[Live] creatures 12 drawn of 12 (99 parts, 1 players, 2 frames, 2 name tags)
+[Live] creatures 12 drawn of 12 (99 parts, 1 players, 2 frames, 2 name tags)
+[DataWorker] Chunk (31,-1) received, total: 1500
+[DataWorker] Chunk (31,-1) received, total: 1500
+[DataWorker] Chunk (-10,-13) received, total: 2000
+[DataWorker] Chunk (-10,-13) received, total: 2000
+[DataWorker] Chunk (40,-3) received, total: 2500
+[DataWorker] Chunk (40,-3) received, total: 2500
+[RenderWorker] 227 block names
+[RenderWorker] 227 block names
+[DataWorker] Chunk (13,15) received, total: 3000
+[DataWorker] Chunk (13,15) received, total: 3000
+[BlockColorMap] No color for minecraft:birch_trapdoor (renders magenta)
+[BlockColorMap] No color for minecraft:birch_trapdoor (renders magenta)
+[RenderWorker] 228 block names
+[RenderWorker] 228 block names
+[Live] creatures 12 drawn of 12 (99 parts, 1 players, 17 frames, 2 name tags)
+[Live] creatures 12 drawn of 12 (99 parts, 1 players, 17 frames, 2 name tags)
+[Voxel] 422 fps | frame CPU 1.3 ms (record 1.0, of it gather 0.0) | 459 draws, 6 binds | 1497/5516 sections | 2664 columns+far | 309K/1205K quads | 955 meshes (230 re-meshes, 373 waiting) in 1 quad buffers | far 232/2170 meshed
+[Voxel] 422 fps | frame CPU 1.3 ms (record 1.0, of it gather 0.0) | 459 draws, 6 binds | 1497/5516 sections | 2664 columns+far | 309K/1205K quads | 955 meshes (230 re-meshes, 373 waiting) in 1 quad buffers | far 232/2170 meshed
+[Live] creatures 12 drawn of 12 (99 parts, 1 players, 31 frames, 2 name tags)
+[Live] creatures 12 drawn of 12 (99 parts, 1 players, 31 frames, 2 name tags)
+[DataWorker] Chunk (19,18) received, total: 3500
+[DataWorker] Chunk (19,18) received, total: 3500
+[Live] creatures 12 drawn of 12 (99 parts, 1 players, 46 frames, 2 name tags)
+[Live] creatures 12 drawn of 12 (99 parts, 1 players, 46 frames, 2 name tags)
+[RenderWorker] 229 block names
+[RenderWorker] 229 block names
+[Voxel] 362 fps | frame CPU 1.5 ms (record 1.2, of it gather 0.1) | 544 draws, 6 binds | 1673/8584 sections | 4593 columns+far | 313K/1718K quads | 2118 meshes (938 re-meshes, 54 waiting) in 1 quad buffers | far 383/3796 meshed
+[Voxel] 362 fps | frame CPU 1.5 ms (record 1.2, of it gather 0.1) | 544 draws, 6 binds | 1673/8584 sections | 4593 columns+far | 313K/1718K quads | 2118 meshes (938 re-meshes, 54 waiting) in 1 quad buffers | far 383/3796 meshed
+[RenderWorker] 230 block names
+[RenderWorker] 230 block names
+[DataWorker] Chunk (18,22) received, total: 4000
+[DataWorker] Chunk (18,22) received, total: 4000
+[RenderWorker] 234 block names
+[RenderWorker] 234 block names
+[Live] creatures 12 drawn of 12 (99 parts, 1 players, 61 frames, 2 name tags)
+[Live] creatures 12 drawn of 12 (99 parts, 1 players, 61 frames, 2 name tags)
+[RenderWorker] 235 block names
+[RenderWorker] 235 block names
+[Voxel] 488 fps | frame CPU 1.5 ms (record 1.2, of it gather 0.0) | 544 draws, 6 binds | 1673/8556 sections | 5117 columns+far | 313K/1705K quads | 2173 meshes (993 re-meshes, 0 waiting) in 1 quad buffers | far 383/4320 meshed
+[Voxel] 488 fps | frame CPU 1.5 ms (record 1.2, of it gather 0.0) | 544 draws, 6 binds | 1673/8556 sections | 5117 columns+far | 313K/1705K quads | 2173 meshes (993 re-meshes, 0 waiting) in 1 quad buffers | far 383/4320 meshed
+[Live] creatures 12 drawn of 12 (99 parts, 1 players, 75 frames, 2 name tags)
+[Live] creatures 12 drawn of 12 (99 parts, 1 players, 75 frames, 2 name tags)
+[DataWorker] Chunk (40,-50) received, total: 4500
+[DataWorker] Chunk (40,-50) received, total: 4500
+[RenderWorker] 236 block names
+[RenderWorker] 236 block names
+[Live] creatures 12 drawn of 12 (99 parts, 1 players, 90 frames, 2 name tags)
+[Live] creatures 12 drawn of 12 (99 parts, 1 players, 90 frames, 2 name tags)
+[Voxel] 484 fps | frame CPU 1.5 ms (record 1.3, of it gather 0.0) | 544 draws, 6 binds | 1673/8556 sections | 5645 columns+far | 313K/1705K quads | 2173 meshes (993 re-meshes, 0 waiting) in 1 quad buffers | far 383/4848 meshed
+[Voxel] 484 fps | frame CPU 1.5 ms (record 1.3, of it gather 0.0) | 544 draws, 6 binds | 1673/8556 sections | 5645 columns+far | 313K/1705K quads | 2173 meshes (993 re-meshes, 0 waiting) in 1 quad buffers | far 383/4848 meshed
