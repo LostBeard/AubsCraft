@@ -37,7 +37,9 @@ public class ViewerSkyTests
     }
 
     // Looking up and out from a height: the top of the frame is cleared sky (nothing is drawn there)
-    private async Task<Bitmap> ShotAsync(string name, int ticks)
+    private Task<Bitmap> ShotAsync(string name, int ticks) => ShotAsync(name, ticks, "&cam=0,120,0,12,0");
+
+    private async Task<Bitmap> ShotAsync(string name, int ticks, string camAndOptions)
     {
         var page = await _rig.Context.NewPageAsync();
         var errors = new List<string>();
@@ -45,7 +47,7 @@ public class ViewerSkyTests
         page.PageError += (_, e) => errors.Add(e);
         try
         {
-            string url = _rig.BaseUrl + "/map?hud=0&time=" + ticks.ToString(CultureInfo.InvariantCulture) + "&cam=0,120,0,12,0";
+            string url = _rig.BaseUrl + "/map?hud=0&time=" + ticks.ToString(CultureInfo.InvariantCulture) + camAndOptions;
             await page.GotoAsync(url, new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
             // Terrain streaming in below the horizon: a short wait, the sky does not depend on it
             await ViewerShotTests.WaitForSettledAsync(page, minSections: 150, quietSeconds: 6, maxSeconds: 90);
@@ -58,6 +60,33 @@ public class ViewerSkyTests
         {
             await page.CloseAsync();
         }
+    }
+
+    // Pixels within 8 of the sky colour (166, 204, 242) below the horizon: what the fog has swallowed
+    private static int SkyLike(Bitmap bmp)
+    {
+        int n = 0;
+        for (int y = bmp.Height / 2; y < bmp.Height - 6; y += 3)
+            for (int x = 6; x < bmp.Width - 6; x += 3)
+            {
+                var p = bmp.GetPixel(x, y);
+                if (Math.Abs(p.R - 166) <= 8 && Math.Abs(p.G - 204) <= 8 && Math.Abs(p.B - 242) <= 8) n++;
+            }
+        return n;
+    }
+
+    [Test]
+    public async Task AShorterDrawDistance_BringsTheFogIn_SoTheEdgeOfTheWorldIsNeverSeen()
+    {
+        // The same view at the full distance and at 14 chunks (a weak GPU settles somewhere like that). The fog follows the draw distance,
+        // so the short one has swallowed more of the land: more of the frame below the horizon is fog colour, and there is no ring of
+        // unfogged terrain where the drawing stops (look at the saved shots: a hard edge would be a visible line)
+        string view = "&cam=0,95,0,-4,0";
+        using var far = await ShotAsync("dd30", ticks: 6000, camAndOptions: view + "&dd=30");
+        using var near = await ShotAsync("dd14", ticks: 6000, camAndOptions: view + "&dd=14");
+        int farSky = SkyLike(far), nearSky = SkyLike(near);
+        TestContext.Progress.WriteLine($"[sky] fog-coloured samples below the horizon: dd=30 {farSky}, dd=14 {nearSky}");
+        Assert.That(nearSky, Is.GreaterThan(farSky + 200), "a 14-chunk draw distance should show clearly more fog than 30");
     }
 
     [Test]

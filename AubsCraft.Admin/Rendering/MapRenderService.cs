@@ -73,9 +73,14 @@ public sealed class MapRenderService : IDisposable
     private double _fpsAccumulator;
     private float _lastDt;
     public int DrawDistance { get; private set; } = 30;
-    private const int MinDrawDistance = 12;
-    // Nothing past the fog is drawn (see FarWindow), so asking for more would only show a bigger number
-    private const int MaxDrawDistance = DayLighting.FogEndChunks;
+    private bool _drawDistanceFixed;
+
+    /// <summary>Hold the draw distance at this many chunks (within the policy's range) instead of adapting it: for the gate and for screenshots.</summary>
+    public void FixDrawDistance(int chunks)
+    {
+        DrawDistance = Math.Clamp(chunks, FarWindow.MinDrawDistance, FarWindow.MaxDrawDistance);
+        _drawDistanceFixed = true;
+    }
 
     public MapRenderService(SpawnJSRuntime js)
     {
@@ -212,10 +217,8 @@ public sealed class MapRenderService : IDisposable
             _frameCount = 0;
             _fpsAccumulator = 0;
 
-            // Adaptive draw distance
-            if (Fps >= 50 && DrawDistance < MaxDrawDistance) DrawDistance += 2;
-            else if (Fps >= 40 && DrawDistance < MaxDrawDistance) DrawDistance += 1;
-            else if (Fps < 30 && DrawDistance > MinDrawDistance) DrawDistance -= 2;
+            // Adaptive draw distance (the fog follows it, so a shorter one is a closer horizon, not a visible edge)
+            if (!_drawDistanceFixed) DrawDistance = FarWindow.NextDrawDistance(DrawDistance, Fps);
         }
 
         OnUpdate?.Invoke(dt);

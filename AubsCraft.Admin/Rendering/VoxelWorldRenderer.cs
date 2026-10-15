@@ -606,7 +606,7 @@ public sealed class VoxelWorldRenderer : IDisposable
             SunColor = new Vector4(light.SunColor, light.SunStrength),
             Ambient = new Vector4(light.Ambient, FillLightStrength),
             FogColor = new Vector4(light.FogColor, 1f),
-            FogRange = new Vector4(DayLighting.FogStart, DayLighting.FogEnd, 0f, 0f),
+            FogRange = new Vector4(FarWindow.FogStartBlocks(drawDistanceChunks), FarWindow.FogEndBlocks(drawDistanceChunks), 0f, 0f),
         });
 
         int camCX = (int)MathF.Floor(camera.Position.X / 16f);

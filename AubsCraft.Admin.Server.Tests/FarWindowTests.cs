@@ -51,6 +51,53 @@ public class FarWindowTests
     }
 
     [Test]
+    public void TheAdaptivePolicy_StepsOneChunk_AndHoldsBetweenItsThresholds()
+    {
+        Assert.That(FarWindow.NextDrawDistance(20, 60f), Is.EqualTo(21), "at the display's rate: grow");
+        Assert.That(FarWindow.NextDrawDistance(20, FarWindow.GrowAtFps), Is.EqualTo(21));
+        Assert.That(FarWindow.NextDrawDistance(20, 42f), Is.EqualTo(19), "below 48: shrink one chunk");
+        Assert.That(FarWindow.NextDrawDistance(20, 50f), Is.EqualTo(20), "between: hold, so it does not hunt");
+        Assert.That(FarWindow.NextDrawDistance(20, FarWindow.ShrinkBelowFps), Is.EqualTo(20));
+        Assert.That(FarWindow.NextDrawDistance(FarWindow.MaxDrawDistance, 240f), Is.EqualTo(FarWindow.MaxDrawDistance), "never past the fog");
+        Assert.That(FarWindow.NextDrawDistance(FarWindow.MinDrawDistance, 5f), Is.EqualTo(FarWindow.MinDrawDistance), "never below the floor");
+        Assert.That(FarWindow.GrowAtFps, Is.GreaterThan(FarWindow.ShrinkBelowFps), "a gap between the thresholds");
+    }
+
+    [Test]
+    public void ASlowMachine_SettlesWhereItHoldsTheFrameRate()
+    {
+        // A GPU that does 42 fps at 30 chunks and gains 2 fps per chunk removed: the policy walks down until it is out of the shrink zone
+        int dd = 30;
+        for (int step = 0; step < 100; step++)
+            dd = FarWindow.NextDrawDistance(dd, 42f + 2f * (30 - dd));
+        Assert.That(dd, Is.EqualTo(27), "42 + 2 * 3 = 48: no longer below the threshold");
+    }
+
+    [Test]
+    public void TheFog_AtTheFullDistance_IsTheOriginalFog()
+    {
+        Assert.That(FarWindow.FogEndBlocks(FarWindow.MaxDrawDistance), Is.EqualTo(DayLighting.FogEnd));
+        Assert.That(FarWindow.FogStartBlocks(FarWindow.MaxDrawDistance), Is.EqualTo(DayLighting.FogStart).Within(0.01f));
+    }
+
+    [Test]
+    public void TheFog_FollowsTheDrawDistance_AndIsTotalWhereTheTerrainStopsBeingDrawn()
+    {
+        float last = 0;
+        for (int dd = FarWindow.MinDrawDistance; dd <= FarWindow.MaxDrawDistance; dd++)
+        {
+            float end = FarWindow.FogEndBlocks(dd), start = FarWindow.FogStartBlocks(dd);
+            Assert.That(start, Is.LessThan(end), $"dd {dd}");
+            Assert.That(end, Is.GreaterThan(last), "a longer draw distance has a longer fog");
+            last = end;
+            // The nearest block of a chunk at the draw radius is at least radius * 16 - 16 sqrt(2) away: fully fogged there, so a chunk that is
+            // not drawn (and shows the fog colour behind it) and one that is look the same
+            float nearest = FarWindow.CullRadius(dd) * 16f - 16f * MathF.Sqrt(2f);
+            Assert.That(nearest, Is.GreaterThanOrEqualTo(end), $"dd {dd}: terrain at the radius is still visible through the fog");
+        }
+    }
+
+    [Test]
     public void ALargeDistanceDoesNotOverflow()
     {
         Assert.That(FarWindow.DistanceSq(1_000_000, 1_000_000, -1_000_000, -1_000_000), Is.EqualTo(8_000_000_000_000L));

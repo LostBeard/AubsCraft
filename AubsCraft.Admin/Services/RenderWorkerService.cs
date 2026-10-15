@@ -160,6 +160,12 @@ public class RenderWorkerService : IRenderWorkerService
         return Task.CompletedTask;
     }
 
+    public Task SetDrawDistanceAsync(int chunks)
+    {
+        _renderer.FixDrawDistance(chunks);
+        return Task.CompletedTask;
+    }
+
     private readonly HashSet<string> _inputKeysReuse = new();
 
     /// <summary>Process keyboard/mouse input from the main thread.</summary>

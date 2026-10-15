@@ -18,6 +18,37 @@ public static class FarWindow
     /// <summary>Chunks past the draw radius at which a mesh is given up. Larger than <see cref="MeshMargin"/> on purpose.</summary>
     public const int FreeMargin = 6;
 
+    /// <summary>The smallest draw distance the adaptive policy goes down to (chunks).</summary>
+    public const int MinDrawDistance = 12;
+
+    /// <summary>The largest: the fog distance. Past it nothing shows.</summary>
+    public const int MaxDrawDistance = DayLighting.FogEndChunks;
+
+    /// <summary>The draw distance grows at or above this frame rate (a 60 Hz display tops out at 60) and shrinks below <see cref="ShrinkBelowFps"/>; between the two it stays.</summary>
+    public const float GrowAtFps = 57f;
+    public const float ShrinkBelowFps = 48f;
+
+    /// <summary>
+    /// The adaptive draw distance: one chunk at a time, so a weak GPU settles where it can hold the frame rate (like a game's render distance)
+    /// and a strong one stays at the fog distance.
+    /// </summary>
+    public static int NextDrawDistance(int current, float fps)
+    {
+        if (fps >= GrowAtFps) return Math.Min(current + 1, MaxDrawDistance);
+        if (fps < ShrinkBelowFps) return Math.Max(current - 1, MinDrawDistance);
+        return current;
+    }
+
+    /// <summary>
+    /// Where fog is total at this draw distance (blocks): the nearest block of a chunk at the draw radius is at least radius * 16 - 24 from the
+    /// camera, so terrain at the radius is fully fogged and what lies beyond (not drawn) is indistinguishable from it. At the largest distance
+    /// this is <see cref="DayLighting.FogEnd"/>: nothing changes for a machine that can draw it all.
+    /// </summary>
+    public static float FogEndBlocks(int drawDistanceChunks) => Math.Min(DayLighting.FogEnd, CullRadius(drawDistanceChunks) * 16f - 24f);
+
+    /// <summary>Where fog starts at this draw distance: the same share of the way as at the full distance (250 of 450).</summary>
+    public static float FogStartBlocks(int drawDistanceChunks) => FogEndBlocks(drawDistanceChunks) * (DayLighting.FogStart / DayLighting.FogEnd);
+
     /// <summary>The draw radius in chunks: what the camera asked for, but never past the fog (nothing there is visible).</summary>
     public static int CullRadius(int drawDistanceChunks) => Math.Clamp(drawDistanceChunks, 1, DayLighting.FogEndChunks);
 

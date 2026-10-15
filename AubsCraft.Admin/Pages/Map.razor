@@ -118,6 +118,10 @@ else
     internal static int? TimeByLink(string uri)
         => int.TryParse(System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["time"], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var ticks) ? ticks : null;
 
+    /// <summary>"dd=chunks": hold the draw distance (the fog follows it) instead of adapting it to the frame rate. For the gate and for screenshots.</summary>
+    internal static int? DrawDistanceByLink(string uri)
+        => int.TryParse(System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["dd"], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var chunks) ? chunks : null;
+
     /// <summary>True when the URL's query has hud=0.</summary>
     internal static bool HudHiddenByLink(string uri)
         => System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["hud"] == "0";
@@ -249,6 +253,8 @@ else
                     await _renderService.SetHudVisibleAsync(false);
 
                 await _renderService.StartAsync(serverId, camX, camY, camZ, pitch, yaw);
+                if (DrawDistanceByLink(Nav.Uri) is { } linkedDistance)
+                    await _renderService.SetDrawDistanceAsync(linkedDistance);
                 if (TimeByLink(Nav.Uri) is { } linkedTicks)
                 {
                     _timeLinked = linkedTicks;
