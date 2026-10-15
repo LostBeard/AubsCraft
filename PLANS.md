@@ -135,6 +135,13 @@ one constant colour (no biomes); nothing animates; no entities at all. Today's a
 - [ ] Smoke / particles (campfire, furnace, fire) do not render (WL5).
 - [ ] Intel 620: creatures cost 14.4 ms a frame with 531 drawn (4,794 parts): frustum culling + head-and-body-only beyond 40 blocks added; re-measure.
 
+### TJ 10-15 (later): the viewer must be a complete spectator client
+- [ ] WU. **Underwater looks underwater**: camera in water -> blue fog, short visibility, tint; the water surface seen from below (double-sided water pass). Verify with the scene tool.
+- [ ] WM. **Every mob and NPC rendered** (everything in the game): all vanilla types with their models + variant textures + rigs (horses, wolves, cats, villagers with professions, iron golems, bees, bats, fish, squid, dolphins, turtles, ghasts, blazes, slimes, phantoms, endermen, spiders (walking), pandas, foxes, axolotls, allays, frogs, camels, armadillos, breeze, bogged, ... ), armor and held items, baby proportions, sneak/sleep/swim poses. Test with `SceneBuilderTests` summons (NoAI) and the gate. Vertex (Data) can help test live.
+- [ ] WT4. Shape meshing: stairs, slabs, doors, fences, gates, panes, walls, trapdoors (open), ladders, torches, buttons, beds, chests, lanterns, candles, flower pots ... needs block states beyond today's picture states (facing/half/shape/open/connections) in the registry.
+- [ ] WV. **VR and AR** in the viewer (WebXR, as SpawnScene and GameUI already do): immersive-vr and immersive-ar sessions from the map page, stereo rendering (VoxelEngine VR helpers), controller locomotion, the GameUI HUD in world space. Reference: SpawnScene's XR code.
+- [ ] Fish models + swim rig, particles (smoke, fire, rain).
+
 Order: WT1 + WA1 first (biggest visible change, client only), then WL1 stepping stones (RCON players) + WL2, then WT3/WT4/WT5.
 
 ## Phase D2: Input System + UI Layout
