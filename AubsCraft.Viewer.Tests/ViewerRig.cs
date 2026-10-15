@@ -227,5 +227,9 @@ public sealed class ChunkColumn
     }
 
     private static bool IsAir(string n) => n is "minecraft:air" or "minecraft:cave_air" or "minecraft:void_air";
+
+    /// <summary>True when the block at column-local (x, y from the column bottom, z) is air; false outside the column.</summary>
+    public bool IsAirAt(int x, int y, int z)
+        => x is >= 0 and < 16 && z is >= 0 and < 16 && y is >= 0 and < Height && IsAir(Palette[Blocks[x + z * 16 + y * 256]]);
     private static bool IsWater(string n) => n is "minecraft:water" or "minecraft:flowing_water";
 }

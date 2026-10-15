@@ -118,13 +118,6 @@ else
     internal static bool HudHiddenByLink(string uri)
         => System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["hud"] == "0";
 
-    /// <summary>
-    /// The SpawnDev.VoxelEngine renderer is the default (loads faster, better FPS: TJ 10-14); <c>/map?renderer=classic</c> brings back
-    /// the original mesh kernels until they are deleted (PLANS V7).
-    /// </summary>
-    internal static bool VoxelRendererByLink(string uri)
-        => !string.Equals(System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["renderer"], "classic", StringComparison.OrdinalIgnoreCase);
-
     // What SignalR delivers goes to the worker's GPU HUD (chat box, player list, notices) in batches; the worker has no connection of its own
     private readonly HudFeedBuffer _hudFeed = new();
     private bool _hudDemo;
@@ -249,7 +242,7 @@ else
                 if (HudHiddenByLink(Nav.Uri))
                     await _renderService.SetHudVisibleAsync(false);
 
-                await _renderService.StartAsync(serverId, camX, camY, camZ, pitch, yaw, VoxelRendererByLink(Nav.Uri));
+                await _renderService.StartAsync(serverId, camX, camY, camZ, pitch, yaw);
                 WorkerHost.IsStarted = true;
                 WorkerHost.ServerId = serverId;
             }

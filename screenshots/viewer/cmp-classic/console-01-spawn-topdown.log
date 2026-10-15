@@ -1,0 +1,580 @@
+[page warning] <link rel=preload> has an invalid `href` value
+[worker log] [RenderWorker] Created with 959x592 canvas
+[page log] [RenderWorker] Created with 959x592 canvas
+[page log] [Map] Render worker created, transferring canvas...
+[page log] [Cache] Load camera error: A requested file or directory could not be found at the time an operation was processed.
+[page log] [Map] Starting at world spawn: (240, -256) known=True
+[worker log] [VoxelEngineService] Initialized: WebGPU
+[page log] [VoxelEngineService] Initialized: WebGPU
+[worker log] [MapRender] Device maxBufferSize=2147483648, MaxBufferVertices=10000000, VertexBudget=7000000
+[page log] [MapRender] Device maxBufferSize=2147483648, MaxBufferVertices=10000000, VertexBudget=7000000
+[worker log] [RenderWorker] Initialized: WebGPU
+[page log] [RenderWorker] Initialized: WebGPU
+[worker log] [RenderWorker] Fetching atlas from: http://127.0.0.1:56686/atlas.rgba
+[page log] [RenderWorker] Fetching atlas from: http://127.0.0.1:56686/atlas.rgba
+[worker log] [RenderWorker] Creating data worker: http://127.0.0.1:56686/data-worker.js
+[page log] [RenderWorker] Creating data worker: http://127.0.0.1:56686/data-worker.js
+[worker log] [RenderWorker] Data worker created, GPU ready, requesting first chunk
+[page log] [RenderWorker] Data worker created, GPU ready, requesting first chunk
+[worker log] [RenderWorker] Atlas fetch status: 200
+[page log] [RenderWorker] Atlas fetch status: 200
+[worker log] [RenderWorker] Atlas data: 262144 bytes, 256x256
+[page log] [RenderWorker] Atlas data: 262144 bytes, 256x256
+[worker log] [MapRender] Atlas uploaded: 256x256
+[page log] [MapRender] Atlas uploaded: 256x256
+[worker log] [RenderWorker] Atlas uploaded to GPU
+[page log] [RenderWorker] Atlas uploaded to GPU
+[worker log] [DataWorker] Initialized, connecting to ws://127.0.0.1:56686/api/world/ws?server=aubscraft
+[page log] [DataWorker] Initialized, connecting to ws://127.0.0.1:56686/api/world/ws?server=aubscraft
+[worker log] [DataWorker] WebSocket connected
+[page log] [DataWorker] WebSocket connected
+[worker log] [DataWorker] Chunk (0,0) received, total: 1
+[page log] [DataWorker] Chunk (0,0) received, total: 1
+[worker log] [DataWorker] Chunk (15,-16) received, total: 2
+[page log] [DataWorker] Chunk (15,-16) received, total: 2
+[worker log] [DataWorker] Chunk (14,-16) received, total: 3
+[page log] [DataWorker] Chunk (14,-16) received, total: 3
+[worker log] [DIAG-RENDER] slots: 0 -> 3 (frame 1)
+[page log] [DIAG-RENDER] slots: 0 -> 3 (frame 1)
+[worker log] [DIAG-RENDER] slots: 3 -> 5 (frame 2)
+[page log] [DIAG-RENDER] slots: 3 -> 5 (frame 2)
+[worker log] [DataWorker] Chunk (11,-28) received, total: 500
+[page log] [DataWorker] Chunk (11,-28) received, total: 500
+[worker log] [DIAG] Replacing large section (15,8,-16): old=1656 new=2448
+[page log] [DIAG] Replacing large section (15,8,-16): old=1656 new=2448
+[worker log] [RenderWorker] Full3D (15,-16): palette=27, opaque=11688, water=0
+[page log] [RenderWorker] Full3D (15,-16): palette=27, opaque=11688, water=0
+[worker log] [DIAG-RENDER] slots: 5 -> 10 (frame 3)
+[page log] [DIAG-RENDER] slots: 5 -> 10 (frame 3)
+[worker log] [DIAG-RENDER] slots: 10 -> 14 (frame 4)
+[page log] [DIAG-RENDER] slots: 10 -> 14 (frame 4)
+[worker log] [RenderWorker] Full3D (14,-16): palette=26, opaque=13656, water=204
+[page log] [RenderWorker] Full3D (14,-16): palette=26, opaque=13656, water=204
+[worker log] [DIAG-RENDER] slots: 14 -> 19 (frame 5)
+[page log] [DIAG-RENDER] slots: 14 -> 19 (frame 5)
+[worker log] [DIAG-RENDER] slots: 19 -> 21 (frame 6)
+[page log] [DIAG-RENDER] slots: 19 -> 21 (frame 6)
+[worker log] [DIAG] Replacing large section (15,8,-15): old=1650 new=1650
+[page log] [DIAG] Replacing large section (15,8,-15): old=1650 new=1650
+[worker log] [RenderWorker] Full3D (15,-15): palette=27, opaque=15672, water=72
+[page log] [RenderWorker] Full3D (15,-15): palette=27, opaque=15672, water=72
+[worker log] [DIAG-RENDER] slots: 21 -> 26 (frame 7)
+[page log] [DIAG-RENDER] slots: 21 -> 26 (frame 7)
+[worker log] [DIAG-RENDER] slots: 26 -> 29 (frame 8)
+[page log] [DIAG-RENDER] slots: 26 -> 29 (frame 8)
+[worker log] [DIAG] Replacing large section (16,8,-16): old=1404 new=5472
+[page log] [DIAG] Replacing large section (16,8,-16): old=1404 new=5472
+[worker log] [DIAG-RENDER] slots: 29 -> 33 (frame 9)
+[page log] [DIAG-RENDER] slots: 29 -> 33 (frame 9)
+[worker log] [DIAG-RENDER] slots: 33 -> 36 (frame 10)
+[page log] [DIAG-RENDER] slots: 33 -> 36 (frame 10)
+[worker log] [DIAG] Replacing large section (15,8,-17): old=1362 new=4566
+[page log] [DIAG] Replacing large section (15,8,-17): old=1362 new=4566
+[worker log] [DIAG-RENDER] slots: 36 -> 41 (frame 11)
+[page log] [DIAG-RENDER] slots: 36 -> 41 (frame 11)
+[worker log] [DIAG-RENDER] slots: 41 -> 44 (frame 12)
+[page log] [DIAG-RENDER] slots: 41 -> 44 (frame 12)
+[worker log] [DIAG] Replacing large section (14,8,-17): old=1110 new=3186
+[page log] [DIAG] Replacing large section (14,8,-17): old=1110 new=3186
+[worker log] [DIAG-RENDER] slots: 44 -> 48 (frame 13)
+[page log] [DIAG-RENDER] slots: 44 -> 48 (frame 13)
+[worker log] [DIAG-RENDER] slots: 48 -> 52 (frame 14)
+[page log] [DIAG-RENDER] slots: 48 -> 52 (frame 14)
+[worker log] [DIAG] Replacing large section (14,7,-15): old=1710 new=4614
+[page log] [DIAG] Replacing large section (14,7,-15): old=1710 new=4614
+[worker log] [DIAG-RENDER] slots: 52 -> 55 (frame 15)
+[page log] [DIAG-RENDER] slots: 52 -> 55 (frame 15)
+[worker log] [DIAG-RENDER] slots: 55 -> 59 (frame 16)
+[page log] [DIAG-RENDER] slots: 55 -> 59 (frame 16)
+[worker log] [DIAG] Replacing large section (16,7,-17): old=1542 new=5088
+[page log] [DIAG] Replacing large section (16,7,-17): old=1542 new=5088
+[worker log] [DIAG-RENDER] slots: 59 -> 62 (frame 17)
+[page log] [DIAG-RENDER] slots: 59 -> 62 (frame 17)
+[worker log] [DIAG-RENDER] slots: 62 -> 65 (frame 18)
+[page log] [DIAG-RENDER] slots: 62 -> 65 (frame 18)
+[worker log] [DIAG] Replacing large section (16,8,-15): old=1884 new=4458
+[page log] [DIAG] Replacing large section (16,8,-15): old=1884 new=4458
+[worker log] [DIAG-RENDER] slots: 65 -> 69 (frame 19)
+[page log] [DIAG-RENDER] slots: 65 -> 69 (frame 19)
+[worker log] [DIAG-RENDER] slots: 69 -> 72 (frame 20)
+[page log] [DIAG-RENDER] slots: 69 -> 72 (frame 20)
+[worker log] [DIAG] Replacing large section (15,7,-18): old=2214 new=3276
+[page log] [DIAG] Replacing large section (15,7,-18): old=2214 new=3276
+[worker log] [DIAG-RENDER] slots: 72 -> 76 (frame 21)
+[page log] [DIAG-RENDER] slots: 72 -> 76 (frame 21)
+[worker log] [DIAG-RENDER] slots: 76 -> 80 (frame 22)
+[page log] [DIAG-RENDER] slots: 76 -> 80 (frame 22)
+[worker log] [DIAG] Replacing large section (15,8,-14): old=1506 new=3780
+[page log] [DIAG] Replacing large section (15,8,-14): old=1506 new=3780
+[worker log] [DIAG-RENDER] slots: 80 -> 85 (frame 23)
+[page log] [DIAG-RENDER] slots: 80 -> 85 (frame 23)
+[worker log] [DIAG-RENDER] slots: 85 -> 89 (frame 24)
+[page log] [DIAG-RENDER] slots: 85 -> 89 (frame 24)
+[worker log] [DIAG] Replacing large section (13,7,-16): old=2784 new=4038
+[page log] [DIAG] Replacing large section (13,7,-16): old=2784 new=4038
+[worker log] [DIAG-RENDER] slots: 89 -> 93 (frame 25)
+[page log] [DIAG-RENDER] slots: 89 -> 93 (frame 25)
+[worker log] [DIAG-RENDER] slots: 93 -> 97 (frame 26)
+[page log] [DIAG-RENDER] slots: 93 -> 97 (frame 26)
+[worker log] [DIAG] Replacing large section (17,7,-16): old=1398 new=3228
+[page log] [DIAG] Replacing large section (17,7,-16): old=1398 new=3228
+[worker log] [DIAG-RENDER] slots: 97 -> 99 (frame 27)
+[page log] [DIAG-RENDER] slots: 97 -> 99 (frame 27)
+[worker log] [DIAG-RENDER] slots: 99 -> 102 (frame 28)
+[page log] [DIAG-RENDER] slots: 99 -> 102 (frame 28)
+[worker log] [DIAG] Replacing large section (13,7,-17): old=1854 new=2172
+[page log] [DIAG] Replacing large section (13,7,-17): old=1854 new=2172
+[worker log] [DIAG-RENDER] slots: 102 -> 107 (frame 29)
+[page log] [DIAG-RENDER] slots: 102 -> 107 (frame 29)
+[worker log] [DIAG-RENDER] slots: 107 -> 111 (frame 30)
+[page log] [DIAG-RENDER] slots: 107 -> 111 (frame 30)
+[worker log] [DIAG] Replacing large section (14,7,-14): old=2130 new=5826
+[page log] [DIAG] Replacing large section (14,7,-14): old=2130 new=5826
+[worker log] [DIAG-RENDER] slots: 111 -> 115 (frame 31)
+[page log] [DIAG-RENDER] slots: 111 -> 115 (frame 31)
+[worker log] [DataWorker] Chunk (7,-32) received, total: 1000
+[page log] [DataWorker] Chunk (7,-32) received, total: 1000
+[worker log] [DIAG-RENDER] slots: 115 -> 119 (frame 32)
+[page log] [DIAG-RENDER] slots: 115 -> 119 (frame 32)
+[worker log] [DIAG] Replacing large section (14,7,-18): old=1848 new=3486
+[page log] [DIAG] Replacing large section (14,7,-18): old=1848 new=3486
+[worker log] [DIAG-RENDER] slots: 119 -> 124 (frame 33)
+[page log] [DIAG-RENDER] slots: 119 -> 124 (frame 33)
+[worker log] [DIAG-RENDER] slots: 124 -> 126 (frame 34)
+[page log] [DIAG-RENDER] slots: 124 -> 126 (frame 34)
+[worker log] [DIAG] Replacing large section (16,8,-14): old=2010 new=4086
+[page log] [DIAG] Replacing large section (16,8,-14): old=2010 new=4086
+[worker log] [DIAG-RENDER] slots: 126 -> 133 (frame 35)
+[page log] [DIAG-RENDER] slots: 126 -> 133 (frame 35)
+[worker log] [DIAG-RENDER] slots: 133 -> 137 (frame 36)
+[page log] [DIAG-RENDER] slots: 133 -> 137 (frame 36)
+[worker log] [DIAG] Replacing large section (17,7,-17): old=2310 new=4356
+[page log] [DIAG] Replacing large section (17,7,-17): old=2310 new=4356
+[worker log] [DIAG-RENDER] slots: 137 -> 141 (frame 37)
+[page log] [DIAG-RENDER] slots: 137 -> 141 (frame 37)
+[worker log] [DIAG-RENDER] slots: 141 -> 144 (frame 38)
+[page log] [DIAG-RENDER] slots: 141 -> 144 (frame 38)
+[worker log] [DIAG] Replacing large section (16,7,-18): old=2322 new=2682
+[page log] [DIAG] Replacing large section (16,7,-18): old=2322 new=2682
+[worker log] [DIAG-RENDER] slots: 144 -> 147 (frame 39)
+[page log] [DIAG-RENDER] slots: 144 -> 147 (frame 39)
+[worker log] [DIAG-RENDER] slots: 147 -> 149 (frame 40)
+[page log] [DIAG-RENDER] slots: 147 -> 149 (frame 40)
+[worker log] [DIAG] Replacing large section (13,7,-15): old=2820 new=3204
+[page log] [DIAG] Replacing large section (13,7,-15): old=2820 new=3204
+[worker log] [DIAG-RENDER] slots: 149 -> 154 (frame 41)
+[page log] [DIAG-RENDER] slots: 149 -> 154 (frame 41)
+[worker log] [DIAG-RENDER] slots: 154 -> 157 (frame 42)
+[page log] [DIAG-RENDER] slots: 154 -> 157 (frame 42)
+[worker log] [DIAG] Replacing large section (17,7,-15): old=1530 new=3642
+[page log] [DIAG] Replacing large section (17,7,-15): old=1530 new=3642
+[worker log] [DIAG-RENDER] slots: 157 -> 161 (frame 43)
+[page log] [DIAG-RENDER] slots: 157 -> 161 (frame 43)
+[worker log] [DIAG-RENDER] slots: 161 -> 164 (frame 44)
+[page log] [DIAG-RENDER] slots: 161 -> 164 (frame 44)
+[worker log] [DIAG] Replacing large section (13,7,-14): old=2424 new=2580
+[page log] [DIAG] Replacing large section (13,7,-14): old=2424 new=2580
+[worker log] [DIAG-RENDER] slots: 164 -> 167 (frame 45)
+[page log] [DIAG-RENDER] slots: 164 -> 167 (frame 45)
+[worker log] [DIAG-RENDER] slots: 167 -> 171 (frame 46)
+[page log] [DIAG-RENDER] slots: 167 -> 171 (frame 46)
+[worker log] [DIAG] Replacing large section (17,7,-14): old=1362 new=1650
+[page log] [DIAG] Replacing large section (17,7,-14): old=1362 new=1650
+[worker log] [DIAG-RENDER] slots: 171 -> 175 (frame 47)
+[page log] [DIAG-RENDER] slots: 171 -> 175 (frame 47)
+[worker log] [DIAG-RENDER] slots: 175 -> 177 (frame 48)
+[page log] [DIAG-RENDER] slots: 175 -> 177 (frame 48)
+[worker log] [DIAG] Replacing large section (17,7,-18): old=2622 new=2658
+[page log] [DIAG] Replacing large section (17,7,-18): old=2622 new=2658
+[worker log] [DIAG-RENDER] slots: 177 -> 183 (frame 49)
+[page log] [DIAG-RENDER] slots: 177 -> 183 (frame 49)
+[worker log] [DIAG-RENDER] slots: 183 -> 186 (frame 50)
+[page log] [DIAG-RENDER] slots: 183 -> 186 (frame 50)
+[worker log] [DIAG] Replacing large section (13,7,-18): old=2040 new=2334
+[page log] [DIAG] Replacing large section (13,7,-18): old=2040 new=2334
+[worker log] [DIAG] Replacing large section (12,6,-16): old=1596 new=1596
+[page log] [DIAG] Replacing large section (12,6,-16): old=1596 new=1596
+[worker log] [DIAG] Replacing large section (18,7,-16): old=1602 new=1788
+[page log] [DIAG] Replacing large section (18,7,-16): old=1602 new=1788
+[worker log] [DIAG] Replacing large section (15,7,-13): old=2586 new=3654
+[page log] [DIAG] Replacing large section (15,7,-13): old=2586 new=3654
+[worker log] [DIAG] Replacing large section (15,7,-19): old=2958 new=4212
+[page log] [DIAG] Replacing large section (15,7,-19): old=2958 new=4212
+[worker log] [DataWorker] Chunk (31,-1) received, total: 1500
+[page log] [DataWorker] Chunk (31,-1) received, total: 1500
+[worker log] [DIAG] Replacing large section (16,8,-13): old=2124 new=7074
+[page log] [DIAG] Replacing large section (16,8,-13): old=2124 new=7074
+[worker log] [DIAG] Replacing large section (14,7,-13): old=2598 new=7392
+[page log] [DIAG] Replacing large section (14,7,-13): old=2598 new=7392
+[worker log] [DIAG] Replacing large section (16,7,-19): old=3024 new=3426
+[page log] [DIAG] Replacing large section (16,7,-19): old=3024 new=3426
+[worker log] [DIAG] Replacing large section (18,7,-15): old=1296 new=1674
+[page log] [DIAG] Replacing large section (18,7,-15): old=1296 new=1674
+[worker log] [DIAG] Replacing large section (18,7,-17): old=2334 new=2460
+[page log] [DIAG] Replacing large section (18,7,-17): old=2334 new=2460
+[worker log] [DIAG] Replacing large section (12,7,-15): old=2550 new=2796
+[page log] [DIAG] Replacing large section (12,7,-15): old=2550 new=2796
+[worker log] [DIAG] Replacing large section (14,7,-19): old=3012 new=4050
+[page log] [DIAG] Replacing large section (14,7,-19): old=3012 new=4050
+[worker log] [DIAG] Replacing large section (12,7,-17): old=2106 new=3042
+[page log] [DIAG] Replacing large section (12,7,-17): old=2106 new=3042
+[worker log] [DIAG] Replacing large section (18,7,-14): old=1938 new=5634
+[page log] [DIAG] Replacing large section (18,7,-14): old=1938 new=5634
+[worker log] [DIAG] Replacing large section (17,7,-19): old=3198 new=3696
+[page log] [DIAG] Replacing large section (17,7,-19): old=3198 new=3696
+[worker log] [DataWorker] Chunk (-10,-13) received, total: 2000
+[page log] [DataWorker] Chunk (-10,-13) received, total: 2000
+[worker log] [DIAG] Replacing large section (18,7,-18): old=2502 new=2820
+[page log] [DIAG] Replacing large section (18,7,-18): old=2502 new=2820
+[worker log] [DIAG] Replacing large section (12,7,-14): old=2694 new=3006
+[page log] [DIAG] Replacing large section (12,7,-14): old=2694 new=3006
+[worker log] [DIAG] Replacing large section (13,7,-19): old=2760 new=2964
+[page log] [DIAG] Replacing large section (13,7,-19): old=2760 new=2964
+[worker log] [DIAG] Replacing large section (13,7,-13): old=2988 new=5094
+[page log] [DIAG] Replacing large section (13,7,-13): old=2988 new=5094
+[worker log] [DIAG] Replacing large section (17,8,-13): old=1758 new=1794
+[page log] [DIAG] Replacing large section (17,8,-13): old=1758 new=1794
+[worker log] [DIAG] Replacing large section (12,7,-18): old=2418 new=2778
+[page log] [DIAG] Replacing large section (12,7,-18): old=2418 new=2778
+[worker log] [DIAG] Replacing large section (19,7,-16): old=2190 new=2202
+[page log] [DIAG] Replacing large section (19,7,-16): old=2190 new=2202
+[worker log] [DIAG] Replacing large section (15,7,-12): old=2598 new=6942
+[page log] [DIAG] Replacing large section (15,7,-12): old=2598 new=6942
+[worker log] [DIAG] Replacing large section (15,7,-20): old=2208 new=4248
+[page log] [DIAG] Replacing large section (15,7,-20): old=2208 new=4248
+[worker log] [DIAG] Replacing large section (11,6,-16): old=1626 new=1842
+[page log] [DIAG] Replacing large section (11,6,-16): old=1626 new=1842
+[worker log] [DataWorker] Chunk (40,-3) received, total: 2500
+[page log] [DataWorker] Chunk (40,-3) received, total: 2500
+[worker log] [DIAG] Replacing large section (14,7,-12): old=2664 new=9198
+[page log] [DIAG] Replacing large section (14,7,-12): old=2664 new=9198
+[worker log] [DIAG] Replacing large section (16,7,-12): old=1374 new=3312
+[page log] [DIAG] Replacing large section (16,7,-12): old=1374 new=3312
+[worker log] [DIAG] Replacing large section (16,8,-12): old=1344 new=2682
+[page log] [DIAG] Replacing large section (16,8,-12): old=1344 new=2682
+[worker log] [DIAG] Replacing large section (19,7,-17): old=2826 new=2910
+[page log] [DIAG] Replacing large section (19,7,-17): old=2826 new=2910
+[worker log] [DIAG] Replacing large section (11,7,-15): old=1866 new=1980
+[page log] [DIAG] Replacing large section (11,7,-15): old=1866 new=1980
+[worker log] [DIAG] Replacing large section (11,6,-17): old=1050 new=1392
+[page log] [DIAG] Replacing large section (11,6,-17): old=1050 new=1392
+[worker log] [DIAG] Replacing large section (11,7,-17): old=1590 new=3000
+[page log] [DIAG] Replacing large section (11,7,-17): old=1590 new=3000
+[worker log] [DIAG] Replacing large section (14,7,-20): old=1632 new=5880
+[page log] [DIAG] Replacing large section (14,7,-20): old=1632 new=5880
+[worker log] [DIAG] Replacing large section (16,7,-20): old=1698 new=3252
+[page log] [DIAG] Replacing large section (16,7,-20): old=1698 new=3252
+[worker log] [DIAG] Replacing large section (19,7,-15): old=2412 new=2496
+[page log] [DIAG] Replacing large section (19,7,-15): old=2412 new=2496
+[worker log] [DataWorker] Chunk (13,15) received, total: 3000
+[page log] [DataWorker] Chunk (13,15) received, total: 3000
+[worker log] [DIAG] Replacing large section (12,7,-19): old=3252 new=4122
+[page log] [DIAG] Replacing large section (12,7,-19): old=3252 new=4122
+[worker log] [DIAG] Replacing large section (18,8,-13): old=2070 new=2184
+[page log] [DIAG] Replacing large section (18,8,-13): old=2070 new=2184
+[worker log] [DIAG] Replacing large section (12,7,-13): old=2130 new=3204
+[page log] [DIAG] Replacing large section (12,7,-13): old=2130 new=3204
+[worker log] [DIAG] Replacing large section (18,7,-19): old=3102 new=3552
+[page log] [DIAG] Replacing large section (18,7,-19): old=3102 new=3552
+[worker log] [DIAG] Replacing large section (17,7,-20): old=1926 new=2676
+[page log] [DIAG] Replacing large section (17,7,-20): old=1926 new=2676
+[worker log] [DIAG] Replacing large section (11,7,-18): old=2700 new=2784
+[page log] [DIAG] Replacing large section (11,7,-18): old=2700 new=2784
+[worker log] [DIAG] Replacing large section (11,7,-14): old=2718 new=3054
+[page log] [DIAG] Replacing large section (11,7,-14): old=2718 new=3054
+[worker log] [DataWorker] Chunk (19,18) received, total: 3500
+[page log] [DataWorker] Chunk (19,18) received, total: 3500
+[worker log] [DIAG] Replacing large section (19,7,-18): old=2874 new=3300
+[page log] [DIAG] Replacing large section (19,7,-18): old=2874 new=3300
+[worker log] [DIAG] Replacing large section (13,7,-12): old=2826 new=8316
+[page log] [DIAG] Replacing large section (13,7,-12): old=2826 new=8316
+[worker log] [DIAG] Replacing large section (19,7,-14): old=2826 new=5268
+[page log] [DIAG] Replacing large section (19,7,-14): old=2826 new=5268
+[worker log] [DIAG] Replacing large section (13,7,-20): old=1536 new=2970
+[page log] [DIAG] Replacing large section (13,7,-20): old=1536 new=2970
+[worker log] [DIAG] Replacing large section (17,8,-12): old=1722 new=1722
+[page log] [DIAG] Replacing large section (17,8,-12): old=1722 new=1722
+[worker log] [DIAG] Replacing large section (15,7,-21): old=1260 new=2988
+[page log] [DIAG] Replacing large section (15,7,-21): old=1260 new=2988
+[worker log] [DIAG] Replacing large section (18,8,-12): old=1320 new=1374
+[page log] [DIAG] Replacing large section (18,8,-12): old=1320 new=1374
+[worker log] [DIAG] Replacing large section (11,7,-19): old=2754 new=3504
+[page log] [DIAG] Replacing large section (11,7,-19): old=2754 new=3504
+[worker log] [DataWorker] Chunk (18,22) received, total: 4000
+[page log] [DataWorker] Chunk (18,22) received, total: 4000
+[worker log] [DIAG] Replacing large section (20,7,-16): old=2610 new=2664
+[page log] [DIAG] Replacing large section (20,7,-16): old=2610 new=2664
+[worker log] [DIAG] Replacing large section (19,5,-13): old=1278 new=6570
+[page log] [DIAG] Replacing large section (19,5,-13): old=1278 new=6570
+[worker log] [DIAG] Replacing large section (12,8,-20): old=1836 new=3672
+[page log] [DIAG] Replacing large section (12,8,-20): old=1836 new=3672
+[worker log] [DIAG] Replacing large section (19,7,-19): old=2634 new=2940
+[page log] [DIAG] Replacing large section (19,7,-19): old=2634 new=2940
+[worker log] [DIAG] Replacing large section (18,7,-20): old=2160 new=2442
+[page log] [DIAG] Replacing large section (18,7,-20): old=2160 new=2442
+[worker log] [DIAG] Replacing large section (15,7,-11): old=2484 new=2724
+[page log] [DIAG] Replacing large section (15,7,-11): old=2484 new=2724
+[worker log] [DIAG] Replacing large section (12,6,-12): old=1218 new=1602
+[page log] [DIAG] Replacing large section (12,6,-12): old=1218 new=1602
+[worker log] [DIAG] Replacing large section (12,7,-12): old=1230 new=3558
+[page log] [DIAG] Replacing large section (12,7,-12): old=1230 new=3558
+[worker log] [DIAG] Replacing large section (10,6,-16): old=2634 new=3186
+[page log] [DIAG] Replacing large section (10,6,-16): old=2634 new=3186
+[worker log] [DataWorker] Chunk (40,-50) received, total: 4500
+[page log] [DataWorker] Chunk (40,-50) received, total: 4500
+[worker log] [DIAG] Replacing large section (11,6,-13): old=1320 new=2664
+[page log] [DIAG] Replacing large section (11,6,-13): old=1320 new=2664
+[worker log] [DIAG] Replacing large section (11,7,-13): old=1908 new=6612
+[page log] [DIAG] Replacing large section (11,7,-13): old=1908 new=6612
+[worker log] [DIAG] Replacing large section (20,7,-15): old=2664 new=1128
+[page log] [DIAG] Replacing large section (20,7,-15): old=2664 new=1128
+[worker log] [DIAG] Replacing large section (14,7,-21): old=1422 new=1536
+[page log] [DIAG] Replacing large section (14,7,-21): old=1422 new=1536
+[worker log] [DIAG] Replacing large section (16,7,-11): old=2634 new=1194
+[page log] [DIAG] Replacing large section (16,7,-11): old=2634 new=1194
+[worker log] [DIAG] Replacing large section (10,6,-17): old=2058 new=1824
+[page log] [DIAG] Replacing large section (10,6,-17): old=2058 new=1824
+[worker log] [DIAG] Replacing large section (10,7,-17): old=1020 new=2400
+[page log] [DIAG] Replacing large section (10,7,-17): old=1020 new=2400
+[worker log] [DIAG] Replacing large section (14,7,-11): old=2634 new=780
+[page log] [DIAG] Replacing large section (14,7,-11): old=2634 new=780
+[worker log] [DataWorker] Chunk (22,-62) received, total: 5000
+[page log] [DataWorker] Chunk (22,-62) received, total: 5000
+[worker log] [DIAG] Replacing large section (10,7,-15): old=1716 new=612
+[page log] [DIAG] Replacing large section (10,7,-15): old=1716 new=612
+[worker log] [DIAG] Replacing large section (20,7,-17): old=2268 new=1182
+[page log] [DIAG] Replacing large section (20,7,-17): old=2268 new=1182
+[worker log] [DIAG] Replacing large section (16,7,-21): old=1302 new=1536
+[page log] [DIAG] Replacing large section (16,7,-21): old=1302 new=1536
+[worker log] [DIAG] Replacing large section (20,6,-14): old=1674 new=1536
+[page log] [DIAG] Replacing large section (20,6,-14): old=1674 new=1536
+[worker log] [DIAG] Replacing large section (10,7,-14): old=2292 new=2700
+[page log] [DIAG] Replacing large section (10,7,-14): old=2292 new=2700
+[worker log] [DIAG] Replacing large section (13,7,-11): old=2244 new=768
+[page log] [DIAG] Replacing large section (13,7,-11): old=2244 new=768
+[worker log] [DIAG] Replacing large section (10,6,-18): old=1608 new=1770
+[page log] [DIAG] Replacing large section (10,6,-18): old=1608 new=1770
+[worker log] [DIAG] Replacing large section (10,7,-18): old=1992 new=2118
+[page log] [DIAG] Replacing large section (10,7,-18): old=1992 new=2118
+[worker log] [DIAG] Replacing large section (17,7,-11): old=2184 new=1776
+[page log] [DIAG] Replacing large section (17,7,-11): old=2184 new=1776
+[worker log] [DataWorker] Chunk (14,35) received, total: 5500
+[page log] [DataWorker] Chunk (14,35) received, total: 5500
+[worker log] [DIAG] Replacing large section (20,7,-18): old=2664 new=1206
+[page log] [DIAG] Replacing large section (20,7,-18): old=2664 new=1206
+[worker log] [DIAG] Replacing large section (17,7,-21): old=1350 new=1536
+[page log] [DIAG] Replacing large section (17,7,-21): old=1350 new=1536
+[worker log] [DIAG] Replacing large section (13,8,-21): old=1968 new=1092
+[page log] [DIAG] Replacing large section (13,8,-21): old=1968 new=1092
+[worker log] [DIAG] Replacing large section (11,7,-20): old=2490 new=1908
+[page log] [DIAG] Replacing large section (11,7,-20): old=2490 new=1908
+[worker log] [DIAG] Replacing large section (19,7,-20): old=1908 new=1728
+[page log] [DIAG] Replacing large section (19,7,-20): old=1908 new=1728
+[worker log] [DIAG] Replacing large section (11,6,-12): old=2352 new=1926
+[page log] [DIAG] Replacing large section (11,6,-12): old=2352 new=1926
+[worker log] [DIAG] Replacing large section (19,5,-12): old=1650 new=1806
+[page log] [DIAG] Replacing large section (19,5,-12): old=1650 new=1806
+[worker log] [DIAG] Replacing large section (19,6,-12): old=1950 new=1812
+[page log] [DIAG] Replacing large section (19,6,-12): old=1950 new=1812
+[worker log] [DataWorker] Chunk (23,-71) received, total: 6000
+[page log] [DataWorker] Chunk (23,-71) received, total: 6000
+[worker log] [DIAG] Replacing large section (20,7,-19): old=2358 new=1686
+[page log] [DIAG] Replacing large section (20,7,-19): old=2358 new=1686
+[worker log] [DIAG] Replacing large section (12,8,-21): old=2208 new=1464
+[page log] [DIAG] Replacing large section (12,8,-21): old=2208 new=1464
+[worker log] [DIAG] Replacing large section (10,6,-19): old=1410 new=1716
+[page log] [DIAG] Replacing large section (10,6,-19): old=1410 new=1716
+[worker log] [DIAG] Replacing large section (18,7,-11): old=2496 new=1572
+[page log] [DIAG] Replacing large section (18,7,-11): old=2496 new=1572
+[worker log] [DIAG] Replacing large section (12,6,-11): old=2388 new=1758
+[page log] [DIAG] Replacing large section (12,6,-11): old=2388 new=1758
+[worker log] [DIAG] Replacing large section (10,6,-13): old=1908 new=1848
+[page log] [DIAG] Replacing large section (10,6,-13): old=1908 new=1848
+[worker log] [DIAG] Replacing large section (10,7,-13): old=1350 new=2580
+[page log] [DIAG] Replacing large section (10,7,-13): old=1350 new=2580
+[worker log] [DIAG] Replacing large section (20,6,-13): old=2154 new=1614
+[page log] [DIAG] Replacing large section (20,6,-13): old=2154 new=1614
+[worker log] [DIAG] Replacing large section (18,7,-21): old=1404 new=1536
+[page log] [DIAG] Replacing large section (18,7,-21): old=1404 new=1536
+[worker log] [DataWorker] Chunk (-13,-74) received, total: 6500
+[page log] [DataWorker] Chunk (-13,-74) received, total: 6500
+[worker log] [DataWorker] WebSocket closed: code=1000 reason=done
+[page log] [DataWorker] WebSocket closed: code=1000 reason=done
+[worker log] [DIAG] Replacing large section (9,6,-16): old=2670 new=1842
+[page log] [DIAG] Replacing large section (9,6,-16): old=2670 new=1842
+[worker log] [DIAG] Replacing large section (15,7,-10): old=2604 new=720
+[page log] [DIAG] Replacing large section (15,7,-10): old=2604 new=720
+[worker log] [DIAG] Replacing large section (21,7,-16): old=2490 new=1308
+[page log] [DIAG] Replacing large section (21,7,-16): old=2490 new=1308
+[worker log] [DIAG] Replacing large section (15,7,-22): old=1068 new=2364
+[page log] [DIAG] Replacing large section (15,7,-22): old=1068 new=2364
+[worker log] [DIAG] Replacing large section (15,8,-22): old=1620 new=1260
+[page log] [DIAG] Replacing large section (15,8,-22): old=1620 new=1260
+[worker log] [DIAG] Replacing large section (14,7,-10): old=2184 new=684
+[page log] [DIAG] Replacing large section (14,7,-10): old=2184 new=684
+[worker log] [DIAG] Replacing large section (21,7,-15): old=2964 new=1260
+[page log] [DIAG] Replacing large section (21,7,-15): old=2964 new=1260
+[worker log] [DIAG] Replacing large section (14,7,-22): old=1212 new=2580
+[page log] [DIAG] Replacing large section (14,7,-22): old=1212 new=2580
+[worker log] [DIAG] Replacing large section (14,8,-22): old=1260 new=1080
+[page log] [DIAG] Replacing large section (14,8,-22): old=1260 new=1080
+[worker log] [DIAG] Replacing large section (9,6,-17): old=1980 new=1896
+[page log] [DIAG] Replacing large section (9,6,-17): old=1980 new=1896
+[worker log] [DIAG] Replacing large section (9,7,-15): old=1860 new=660
+[page log] [DIAG] Replacing large section (9,7,-15): old=1860 new=660
+[worker log] [DIAG] Replacing large section (16,7,-10): old=2208 new=720
+[page log] [DIAG] Replacing large section (16,7,-10): old=2208 new=720
+[worker log] [DIAG] Replacing large section (21,7,-17): old=2832 new=1440
+[page log] [DIAG] Replacing large section (21,7,-17): old=2832 new=1440
+[worker log] [DIAG] Replacing large section (16,7,-22): old=1212 new=2298
+[page log] [DIAG] Replacing large section (16,7,-22): old=1212 new=2298
+[worker log] [DIAG] Replacing large section (16,8,-22): old=1338 new=1038
+[page log] [DIAG] Replacing large section (16,8,-22): old=1338 new=1038
+[worker log] [DIAG] Replacing large section (17,8,-22): old=1896 new=1176
+[page log] [DIAG] Replacing large section (17,8,-22): old=1896 new=1176
+[worker log] [DIAG] Replacing large section (21,7,-14): old=2406 new=804
+[page log] [DIAG] Replacing large section (21,7,-14): old=2406 new=804
+[worker log] [DIAG] Replacing large section (13,8,-22): old=2106 new=1086
+[page log] [DIAG] Replacing large section (13,8,-22): old=2106 new=1086
+[worker log] [DIAG] Replacing large section (21,7,-18): old=2148 new=1308
+[page log] [DIAG] Replacing large section (21,7,-18): old=2148 new=1308
+[worker log] [DIAG] Replacing large section (17,7,-10): old=2604 new=1008
+[page log] [DIAG] Replacing large section (17,7,-10): old=2604 new=1008
+[worker log] [DIAG] Replacing large section (9,6,-14): old=1434 new=1662
+[page log] [DIAG] Replacing large section (9,6,-14): old=1434 new=1662
+[worker log] [DIAG] Replacing large section (9,7,-14): old=1728 new=2232
+[page log] [DIAG] Replacing large section (9,7,-14): old=1728 new=2232
+[worker log] [DIAG] Replacing large section (13,7,-10): old=2256 new=684
+[page log] [DIAG] Replacing large section (13,7,-10): old=2256 new=684
+[worker log] [DIAG] Replacing large section (9,6,-18): old=1866 new=1728
+[page log] [DIAG] Replacing large section (9,6,-18): old=1866 new=1728
+[worker log] [DIAG] Replacing large section (9,7,-18): old=1434 new=2376
+[page log] [DIAG] Replacing large section (9,7,-18): old=1434 new=2376
+[worker log] [DIAG] Replacing large section (19,6,-11): old=1782 new=1752
+[page log] [DIAG] Replacing large section (19,6,-11): old=1782 new=1752
+[worker log] [DIAG] Replacing large section (11,6,-11): old=2244 new=1698
+[page log] [DIAG] Replacing large section (11,6,-11): old=2244 new=1698
+[worker log] [DIAG] Replacing large section (11,8,-21): old=2484 new=1584
+[page log] [DIAG] Replacing large section (11,8,-21): old=2484 new=1584
+[worker log] [DIAG] Replacing large section (20,6,-12): old=2202 new=1722
+[page log] [DIAG] Replacing large section (20,6,-12): old=2202 new=1722
+[worker log] [DIAG] Replacing large section (10,7,-20): old=1926 new=1632
+[page log] [DIAG] Replacing large section (10,7,-20): old=1926 new=1632
+[worker log] [DIAG] Replacing large section (19,7,-21): old=1524 new=1536
+[page log] [DIAG] Replacing large section (19,7,-21): old=1524 new=1536
+[worker log] [DIAG] Replacing large section (20,8,-20): old=1512 new=840
+[page log] [DIAG] Replacing large section (20,8,-20): old=1512 new=840
+[worker log] [DIAG] Replacing large section (10,6,-12): old=2118 new=1812
+[page log] [DIAG] Replacing large section (10,6,-12): old=2118 new=1812
+[worker log] [DIAG] Replacing large section (21,6,-13): old=1554 new=1536
+[page log] [DIAG] Replacing large section (21,6,-13): old=1554 new=1536
+[worker log] [DIAG] Replacing large section (18,7,-10): old=2430 new=1044
+[page log] [DIAG] Replacing large section (18,7,-10): old=2430 new=1044
+[worker log] [DIAG] Replacing large section (9,6,-13): old=2100 new=1662
+[page log] [DIAG] Replacing large section (9,6,-13): old=2100 new=1662
+[worker log] [DIAG] Replacing large section (9,7,-13): old=1200 new=2262
+[page log] [DIAG] Replacing large section (9,7,-13): old=1200 new=2262
+[worker log] [DIAG] Replacing large section (21,7,-19): old=1476 new=1626
+[page log] [DIAG] Replacing large section (21,7,-19): old=1476 new=1626
+[worker log] [DIAG] Replacing large section (21,8,-19): old=1248 new=546
+[page log] [DIAG] Replacing large section (21,8,-19): old=1248 new=546
+[worker log] [DIAG] Replacing large section (12,8,-22): old=2688 new=1812
+[page log] [DIAG] Replacing large section (12,8,-22): old=2688 new=1812
+[worker log] [DIAG] Replacing large section (18,8,-22): old=2538 new=1092
+[page log] [DIAG] Replacing large section (18,8,-22): old=2538 new=1092
+[worker log] [DIAG] Replacing large section (12,6,-10): old=2064 new=1614
+[page log] [DIAG] Replacing large section (12,6,-10): old=2064 new=1614
+[worker log] [DIAG] Replacing large section (9,6,-19): old=1614 new=1758
+[page log] [DIAG] Replacing large section (9,6,-19): old=1614 new=1758
+[worker log] [DIAG] Replacing large section (15,8,-23): old=2718 new=1686
+[page log] [DIAG] Replacing large section (15,8,-23): old=2718 new=1686
+[worker log] [DIAG] Replacing large section (8,6,-16): old=2064 new=1716
+[page log] [DIAG] Replacing large section (8,6,-16): old=2064 new=1716
+[worker log] [DIAG] Replacing large section (22,7,-16): old=2706 new=1512
+[page log] [DIAG] Replacing large section (22,7,-16): old=2706 new=1512
+[worker log] [DIAG] Replacing large section (15,7,-9): old=1620 new=612
+[page log] [DIAG] Replacing large section (15,7,-9): old=1620 new=612
+[worker log] [DIAG] Replacing large section (16,8,-23): old=2088 new=1446
+[page log] [DIAG] Replacing large section (16,8,-23): old=2088 new=1446
+[worker log] [DIAG] Replacing large section (22,7,-17): old=2514 new=1680
+[page log] [DIAG] Replacing large section (22,7,-17): old=2514 new=1680
+[worker log] [DIAG] Replacing large section (14,8,-23): old=1908 new=1704
+[page log] [DIAG] Replacing large section (14,8,-23): old=1908 new=1704
+[worker log] [DIAG] Replacing large section (8,6,-15): old=1950 new=1668
+[page log] [DIAG] Replacing large section (8,6,-15): old=1950 new=1668
+[worker log] [DIAG] Replacing large section (20,7,-21): old=1296 new=1536
+[page log] [DIAG] Replacing large section (20,7,-21): old=1296 new=1536
+[worker log] [DIAG] Replacing large section (10,6,-11): old=1938 new=1566
+[page log] [DIAG] Replacing large section (10,6,-11): old=1938 new=1566
+[worker log] [DIAG] Replacing large section (22,7,-15): old=2334 new=1200
+[page log] [DIAG] Replacing large section (22,7,-15): old=2334 new=1200
+[worker log] [DIAG] Replacing large section (16,7,-9): old=2394 new=660
+[page log] [DIAG] Replacing large section (16,7,-9): old=2394 new=660
+[worker log] [DIAG] Replacing large section (8,6,-17): old=2634 new=1884
+[page log] [DIAG] Replacing large section (8,6,-17): old=2634 new=1884
+[worker log] [DIAG] Replacing large section (10,8,-21): old=2544 new=1680
+[page log] [DIAG] Replacing large section (10,8,-21): old=2544 new=1680
+[worker log] [DIAG] Replacing large section (14,7,-9): old=1938 new=600
+[page log] [DIAG] Replacing large section (14,7,-9): old=1938 new=600
+[worker log] [DIAG] Replacing large section (20,6,-11): old=1908 new=1656
+[page log] [DIAG] Replacing large section (20,6,-11): old=1908 new=1656
+[worker log] [DIAG] Replacing large section (21,6,-12): old=1716 new=1536
+[page log] [DIAG] Replacing large section (21,6,-12): old=1716 new=1536
+[worker log] [DIAG] Replacing large section (19,7,-22): old=1236 new=1536
+[page log] [DIAG] Replacing large section (19,7,-22): old=1236 new=1536
+[worker log] [DIAG] Replacing large section (9,6,-12): old=2226 new=1812
+[page log] [DIAG] Replacing large section (9,6,-12): old=2226 new=1812
+[worker log] [DIAG] Replacing large section (21,8,-20): old=2028 new=1116
+[page log] [DIAG] Replacing large section (21,8,-20): old=2028 new=1116
+[worker log] [DIAG] Replacing large section (11,6,-10): old=2298 new=1626
+[page log] [DIAG] Replacing large section (11,6,-10): old=2298 new=1626
+[worker log] [DIAG] Replacing large section (11,8,-22): old=1926 new=1710
+[page log] [DIAG] Replacing large section (11,8,-22): old=1926 new=1710
+[worker log] [DIAG] Replacing large section (19,6,-10): old=1728 new=1536
+[page log] [DIAG] Replacing large section (19,6,-10): old=1728 new=1536
+[worker log] [DIAG] Replacing large section (9,7,-20): old=1998 new=1746
+[page log] [DIAG] Replacing large section (9,7,-20): old=1998 new=1746
+[worker log] [DIAG] Replacing large section (13,8,-23): old=1488 new=1632
+[page log] [DIAG] Replacing large section (13,8,-23): old=1488 new=1632
+[worker log] [DIAG] Replacing large section (13,9,-23): old=1182 new=504
+[page log] [DIAG] Replacing large section (13,9,-23): old=1182 new=504
+[worker log] [DIAG] Replacing large section (8,6,-14): old=2736 new=1710
+[page log] [DIAG] Replacing large section (8,6,-14): old=2736 new=1710
+[worker log] [DIAG] Replacing large section (17,8,-23): old=2010 new=1368
+[page log] [DIAG] Replacing large section (17,8,-23): old=2010 new=1368
+[worker log] [DIAG] Replacing large section (22,7,-18): old=2586 new=1716
+[page log] [DIAG] Replacing large section (22,7,-18): old=2586 new=1716
+[worker log] [DIAG] Replacing large section (22,7,-14): old=2862 new=960
+[page log] [DIAG] Replacing large section (22,7,-14): old=2862 new=960
+[worker log] [DIAG] Replacing large section (13,6,-9): old=1338 new=1536
+[page log] [DIAG] Replacing large section (13,6,-9): old=1338 new=1536
+[worker log] [DIAG] Replacing large section (13,7,-9): old=1596 new=1920
+[page log] [DIAG] Replacing large section (13,7,-9): old=1596 new=1920
+[worker log] [DIAG] Replacing large section (17,7,-9): old=2880 new=828
+[page log] [DIAG] Replacing large section (17,7,-9): old=2880 new=828
+[worker log] [DIAG] Replacing large section (8,6,-18): old=2118 new=2046
+[page log] [DIAG] Replacing large section (8,6,-18): old=2118 new=2046
+[worker log] [DIAG] Replacing large section (18,8,-23): old=1800 new=1272
+[page log] [DIAG] Replacing large section (18,8,-23): old=1800 new=1272
+[worker log] [DIAG] Replacing large section (22,7,-19): old=1344 new=1722
+[page log] [DIAG] Replacing large section (22,7,-19): old=1344 new=1722
+[worker log] [DIAG] Replacing large section (22,8,-19): old=1200 new=570
+[page log] [DIAG] Replacing large section (22,8,-19): old=1200 new=570
+[worker log] [DIAG] Replacing large section (8,6,-13): old=1986 new=1794
+[page log] [DIAG] Replacing large section (8,6,-13): old=1986 new=1794
+[worker log] [DIAG] Replacing large section (18,7,-9): old=1842 new=636
+[page log] [DIAG] Replacing large section (18,7,-9): old=1842 new=636
+[worker log] [DIAG] Replacing large section (12,6,-9): old=1482 new=1560
+[page log] [DIAG] Replacing large section (12,6,-9): old=1482 new=1560
+[worker log] [DIAG] Replacing large section (12,7,-9): old=1098 new=2592
+[page log] [DIAG] Replacing large section (12,7,-9): old=1098 new=2592
+[worker log] [DIAG] Replacing large section (12,8,-23): old=1074 new=1584
+[page log] [DIAG] Replacing large section (12,8,-23): old=1074 new=1584
+[worker log] [DIAG] Replacing large section (12,9,-23): old=1074 new=792
+[page log] [DIAG] Replacing large section (12,9,-23): old=1074 new=792
+[worker log] [DIAG] Replacing large section (8,6,-19): old=1326 new=1734
+[page log] [DIAG] Replacing large section (8,6,-19): old=1326 new=1734
+[worker log] [DIAG] Replacing large section (22,6,-13): old=1104 new=1536
+[page log] [DIAG] Replacing large section (22,6,-13): old=1104 new=1536
+[worker log] [DIAG] Replacing large section (22,7,-13): old=1854 new=2316
+[page log] [DIAG] Replacing large section (22,7,-13): old=1854 new=2316

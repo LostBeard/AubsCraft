@@ -85,6 +85,111 @@ public class ViewerShotTests
         AssertCameraAt(s, eye);
     }
 
+    // The two scenes the first seven shots do not cover: where land meets water at eye level, and the inside of a cave. Both spots are
+    // FOUND from the same chunk bytes the viewer streams (nearest to the spawn, in a fixed scan order), so every build and both
+    // renderers are shot from the same camera.
+
+    [Test, Order(4)]
+    public async Task Shoreline_08_LandMeetsWaterAtEyeLevel()
+    {
+        RequireSpawn();
+        var spot = await FindShorelineAsync() ?? throw new AssertionException("No shoreline (a beach cell next to water) within 6 chunks of the spawn");
+        TestContext.Progress.WriteLine($"[viewer] shoreline at {spot.X:F1} {spot.Y:F1} {spot.Z:F1} yaw {spot.Yaw:F0}");
+        var s = await ShotAsync("08-shoreline", spot, requireSections: 150);
+        AssertCameraAt(s, spot.Y);
+    }
+
+    [Test, Order(5)]
+    public async Task Cave_09_InsideARoomyCave()
+    {
+        RequireSpawn();
+        var spot = await FindCaveAsync() ?? throw new AssertionException("No roomy cave (5x3x5 of air, 12 blocks under the surface) within 6 chunks of the spawn");
+        TestContext.Progress.WriteLine($"[viewer] cave at {spot.X:F1} {spot.Y:F1} {spot.Z:F1} yaw {spot.Yaw:F0}");
+        var s = await ShotAsync("09-cave", spot, requireSections: 150);
+        AssertCameraAt(s, spot.Y);
+    }
+
+    private static readonly (int dx, int dz)[] FourWays = { (1, 0), (0, 1), (-1, 0), (0, -1) };
+
+    private static float YawOf(int dx, int dz) => MathF.Atan2(dz, dx) * 180f / MathF.PI;
+
+    /// <summary>Chunks around the spawn, nearest first (so the first match is the closest one to the camera of the other shots).</summary>
+    private IEnumerable<(int cx, int cz)> ChunksAroundSpawn(int radius)
+    {
+        int scx = FloorDiv(_spawn.X, 16), scz = FloorDiv(_spawn.Z, 16);
+        var all = new List<(int cx, int cz)>();
+        for (int dz = -radius; dz <= radius; dz++)
+            for (int dx = -radius; dx <= radius; dx++) all.Add((scx + dx, scz + dz));
+        return all.OrderBy(c => (c.cx - scx) * (c.cx - scx) + (c.cz - scz) * (c.cz - scz)).ThenBy(c => c.cx).ThenBy(c => c.cz);
+    }
+
+    /// <summary>A beach cell (land at most 3 above the water) with water beside it, eye height above it, looking at the water.</summary>
+    private async Task<Cam?> FindShorelineAsync()
+    {
+        foreach (var (cx, cz) in ChunksAroundSpawn(6))
+        {
+            ChunkColumn col;
+            try { col = await _rig.GetChunkAsync(cx, cz); } catch (InvalidOperationException) { continue; }
+            for (int z = 1; z < 15; z++)
+                for (int x = 1; x < 15; x++)
+                {
+                    if (col.SurfaceTop(x, z) is not { } land || col.TopOfAnything(x, z) is not { } landAny || landAny != land) continue; // a dry column
+                    foreach (var (dx, dz) in FourWays)
+                    {
+                        int wx = x + dx, wz = z + dz;
+                        if (col.SurfaceTop(wx, wz) is not { } floor || col.TopOfAnything(wx, wz) is not { } surface || surface <= floor) continue; // not water
+                        // The water must be deep enough to read as water and the beach low: standing at the edge of the sea
+                        if (surface - floor < 2 || land > surface + 3 || land < surface) continue;
+                        // ... and open water a few blocks further on, so the shot is not a puddle
+                        int wet = 0;
+                        for (int k = 1; k <= 4; k++)
+                        {
+                            int ax = x + dx * k, az = z + dz * k;
+                            if (ax < 0 || ax > 15 || az < 0 || az > 15) break;
+                            if (col.TopOfAnything(ax, az) is { } t && col.SurfaceTop(ax, az) is { } f && t > f) wet++;
+                        }
+                        if (wet < 4) continue;
+                        return new Cam(cx * 16 + x + 0.5f, land + 1.62f, cz * 16 + z + 0.5f, -4, YawOf(dx, dz));
+                    }
+                }
+        }
+        return null;
+    }
+
+    /// <summary>The middle of a 5 x 3 x 5 block of air that lies at least 12 blocks below the surface, looking along its longest open run.</summary>
+    private async Task<Cam?> FindCaveAsync()
+    {
+        foreach (var (cx, cz) in ChunksAroundSpawn(6))
+        {
+            ChunkColumn col;
+            try { col = await _rig.GetChunkAsync(cx, cz); } catch (InvalidOperationException) { continue; }
+            for (int y = 2; y < ChunkColumn.Height - 4; y++)
+                for (int z = 2; z < 14; z++)
+                    for (int x = 2; x < 14; x++)
+                    {
+                        if (!col.IsAirAt(x, y, z)) continue;
+                        if (col.TopOfAnything(x, z) is not { } surface || y + ChunkColumn.BaseY > surface - 12) continue;
+                        bool roomy = true;
+                        for (int dy = 0; dy < 3 && roomy; dy++)
+                            for (int dz = -2; dz <= 2 && roomy; dz++)
+                                for (int dx = -2; dx <= 2 && roomy; dx++)
+                                    roomy = col.IsAirAt(x + dx, y + dy, z + dz);
+                        if (!roomy) continue;
+                        // Look where the air runs farthest (up to 14 cells, within the chunk)
+                        int bestRun = -1, bdx = 1, bdz = 0;
+                        foreach (var (dx, dz) in FourWays)
+                        {
+                            int run = 0;
+                            while (run < 14 && x + dx * (run + 1) is >= 0 and <= 15 && z + dz * (run + 1) is >= 0 and <= 15
+                                   && col.IsAirAt(x + dx * (run + 1), y + 1, z + dz * (run + 1))) run++;
+                            if (run > bestRun) { bestRun = run; bdx = dx; bdz = dz; }
+                        }
+                        return new Cam(cx * 16 + x + 0.5f, y + ChunkColumn.BaseY + 1.62f, cz * 16 + z + 0.5f, -2, YawOf(bdx, bdz));
+                    }
+        }
+        return null;
+    }
+
     private void RequireSpawn() =>
         Assert.That(_spawn != default, Is.True, "Shot01 supplies the spawn the others are placed from; run the whole fixture");
 
@@ -117,8 +222,6 @@ public class ViewerShotTests
         {
             var query = new List<string>();
             if (cam != null) query.Add(string.Create(CultureInfo.InvariantCulture, $"cam={cam.X},{cam.Y},{cam.Z},{cam.Pitch},{cam.Yaw}"));
-            // AUBS_VIEWER_RENDERER=voxel: the same shots through the SpawnDev.VoxelEngine renderer (/map?renderer=voxel)
-            if (Environment.GetEnvironmentVariable("AUBS_VIEWER_RENDERER") is { Length: > 0 } renderer) query.Add("renderer=" + renderer);
             // AUBS_VIEWER_HUD=0: no HUD in the frame, so two renderers' shots compare as worlds
             if (Environment.GetEnvironmentVariable("AUBS_VIEWER_HUD") == "0") query.Add("hud=0");
             string url = _rig.BaseUrl + "/map" + (query.Count == 0 ? "" : "?" + string.Join("&", query));

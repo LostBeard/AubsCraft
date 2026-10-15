@@ -1,0 +1,120 @@
+[page warning] <link rel=preload> has an invalid `href` value
+[worker log] [RenderWorker] Created with 959x592 canvas
+[page log] [RenderWorker] Created with 959x592 canvas
+[page log] [Map] Render worker created, transferring canvas...
+[page log] [Map] Restored camera: (240, 110, -256)
+[page log] [Map] Camera from link: (240, 66, -256) pitch=-5 yaw=-90
+[worker log] [GpuContextService] Initialized: WebGPU
+[page log] [GpuContextService] Initialized: WebGPU
+[worker log] [RenderWorker] Initialized: WebGPU
+[page log] [RenderWorker] Initialized: WebGPU
+[worker log] [RenderWorker] Fetching atlas from: http://127.0.0.1:52623/atlas.rgba
+[page log] [RenderWorker] Fetching atlas from: http://127.0.0.1:52623/atlas.rgba
+[worker log] [RenderWorker] Creating data worker: http://127.0.0.1:52623/data-worker.js
+[page log] [RenderWorker] Creating data worker: http://127.0.0.1:52623/data-worker.js
+[worker log] [RenderWorker] Data worker created, GPU ready, requesting first chunk
+[page log] [RenderWorker] Data worker created, GPU ready, requesting first chunk
+[worker log] [RenderWorker] Atlas fetch status: 200
+[page log] [RenderWorker] Atlas fetch status: 200
+[worker log] [RenderWorker] Atlas 256x256 sliced into the voxel texture array
+[page log] [RenderWorker] Atlas 256x256 sliced into the voxel texture array
+[worker log] [DataWorker] Initialized, connecting to ws://127.0.0.1:52623/api/world/ws?server=aubscraft&format=ids
+[page log] [DataWorker] Initialized, connecting to ws://127.0.0.1:52623/api/world/ws?server=aubscraft&format=ids
+[worker log] [DataWorker] WebSocket connected
+[page log] [DataWorker] WebSocket connected
+[worker log] [BlockColorMap] No color for minecraft:oak_sign (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:oak_sign (renders magenta)
+[worker log] [BlockColorMap] No color for minecraft:oak_wall_sign (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:oak_wall_sign (renders magenta)
+[worker log] [BlockColorMap] No color for minecraft:redstone_torch (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:redstone_torch (renders magenta)
+[worker log] [BlockColorMap] No color for minecraft:cherry_fence (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:cherry_fence (renders magenta)
+[worker log] [BlockColorMap] No color for minecraft:bamboo (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:bamboo (renders magenta)
+[worker log] [BlockColorMap] No color for minecraft:pale_oak_fence (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:pale_oak_fence (renders magenta)
+[worker log] [BlockColorMap] No color for minecraft:lantern (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:lantern (renders magenta)
+[worker log] [BlockColorMap] No color for minecraft:pink_bed (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:pink_bed (renders magenta)
+[worker log] [BlockColorMap] No color for minecraft:cherry_fence_gate (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:cherry_fence_gate (renders magenta)
+[worker log] [BlockColorMap] No color for minecraft:pale_oak_fence_gate (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:pale_oak_fence_gate (renders magenta)
+[worker log] [BlockColorMap] No color for minecraft:smoker (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:smoker (renders magenta)
+[worker log] [BlockColorMap] No color for minecraft:acacia_door (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:acacia_door (renders magenta)
+[worker log] [BlockColorMap] No color for minecraft:jukebox (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:jukebox (renders magenta)
+[worker log] [BlockColorMap] No color for minecraft:birch_trapdoor (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:birch_trapdoor (renders magenta)
+[worker log] [BlockColorMap] No color for minecraft:oxidized_cut_copper (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:oxidized_cut_copper (renders magenta)
+[worker log] [BlockColorMap] No color for minecraft:waxed_oxidized_copper_trapdoor (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:waxed_oxidized_copper_trapdoor (renders magenta)
+[worker log] [BlockColorMap] No color for minecraft:moss_block (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:moss_block (renders magenta)
+[worker log] [BlockColorMap] No color for minecraft:pointed_dripstone (renders magenta)
+[page log] [BlockColorMap] No color for minecraft:pointed_dripstone (renders magenta)
+[worker log] [RenderWorker] 240 block names
+[page log] [RenderWorker] 240 block names
+[worker log] [DataWorker] Chunk (0,0) received, total: 1
+[page log] [DataWorker] Chunk (0,0) received, total: 1
+[worker log] [DataWorker] Chunk (15,-16) received, total: 2
+[page log] [DataWorker] Chunk (15,-16) received, total: 2
+[worker log] [DataWorker] Chunk (14,-16) received, total: 3
+[page log] [DataWorker] Chunk (14,-16) received, total: 3
+[worker log] [DataWorker] Chunk (11,-28) received, total: 500
+[page log] [DataWorker] Chunk (11,-28) received, total: 500
+[worker log] [DataWorker] Chunk (7,-32) received, total: 1000
+[page log] [DataWorker] Chunk (7,-32) received, total: 1000
+[worker log] [DataWorker] Chunk (31,-1) received, total: 1500
+[page log] [DataWorker] Chunk (31,-1) received, total: 1500
+[worker log] [DataWorker] Chunk (-10,-13) received, total: 2000
+[page log] [DataWorker] Chunk (-10,-13) received, total: 2000
+[worker log] [DataWorker] Chunk (40,-3) received, total: 2500
+[page log] [DataWorker] Chunk (40,-3) received, total: 2500
+[worker log] [DataWorker] Chunk (13,15) received, total: 3000
+[page log] [DataWorker] Chunk (13,15) received, total: 3000
+[worker log] [DataWorker] Chunk (19,18) received, total: 3500
+[page log] [DataWorker] Chunk (19,18) received, total: 3500
+[worker log] [DataWorker] Chunk (18,22) received, total: 4000
+[page log] [DataWorker] Chunk (18,22) received, total: 4000
+[worker log] [DataWorker] Chunk (40,-50) received, total: 4500
+[page log] [DataWorker] Chunk (40,-50) received, total: 4500
+[worker log] [DataWorker] Chunk (22,-62) received, total: 5000
+[page log] [DataWorker] Chunk (22,-62) received, total: 5000
+[worker log] [DataWorker] Chunk (14,35) received, total: 5500
+[page log] [DataWorker] Chunk (14,35) received, total: 5500
+[worker log] [DataWorker] Chunk (23,-71) received, total: 6000
+[page log] [DataWorker] Chunk (23,-71) received, total: 6000
+[worker log] [DataWorker] Chunk (-13,-74) received, total: 6500
+[page log] [DataWorker] Chunk (-13,-74) received, total: 6500
+[worker log] [DataWorker] WebSocket closed: code=1000 reason=done
+[page log] [DataWorker] WebSocket closed: code=1000 reason=done
+[worker log] [Voxel] 636 fps | frame CPU 1.2 ms (record 1.0) | 221 draws, 221 binds | 723/2125 sections | 542 columns+far | 142K/448K quads
+[page log] [Voxel] 636 fps | frame CPU 1.2 ms (record 1.0) | 221 draws, 221 binds | 723/2125 sections | 542 columns+far | 142K/448K quads
+[worker log] [Voxel] 452 fps | frame CPU 1.7 ms (record 1.6) | 361 draws, 361 binds | 1213/3678 sections | 942 columns+far | 232K/735K quads
+[page log] [Voxel] 452 fps | frame CPU 1.7 ms (record 1.6) | 361 draws, 361 binds | 1213/3678 sections | 942 columns+far | 232K/735K quads
+[worker log] [Voxel] 371 fps | frame CPU 2.1 ms (record 1.9) | 472 draws, 472 binds | 1585/4888 sections | 1272 columns+far | 298K/957K quads
+[page log] [Voxel] 371 fps | frame CPU 2.1 ms (record 1.9) | 472 draws, 472 binds | 1585/4888 sections | 1272 columns+far | 298K/957K quads
+[worker log] [Voxel] 323 fps | frame CPU 2.2 ms (record 2.1) | 572 draws, 572 binds | 1925/5943 sections | 1554 columns+far | 354K/1127K quads
+[page log] [Voxel] 323 fps | frame CPU 2.2 ms (record 2.1) | 572 draws, 572 binds | 1925/5943 sections | 1554 columns+far | 354K/1127K quads
+[worker log] [Voxel] 287 fps | frame CPU 3.1 ms (record 3.0) | 687 draws, 687 binds | 2459/7467 sections | 1918 columns+far | 405K/1371K quads
+[page log] [Voxel] 287 fps | frame CPU 3.1 ms (record 3.0) | 687 draws, 687 binds | 2459/7467 sections | 1918 columns+far | 405K/1371K quads
+[worker log] [Voxel] 262 fps | frame CPU 3.5 ms (record 3.4) | 799 draws, 799 binds | 2765/8215 sections | 2251 columns+far | 452K/1540K quads
+[page log] [Voxel] 262 fps | frame CPU 3.5 ms (record 3.4) | 799 draws, 799 binds | 2765/8215 sections | 2251 columns+far | 452K/1540K quads
+[worker log] [Voxel] 235 fps | frame CPU 5.6 ms (record 5.6) | 921 draws, 921 binds | 3068/8782 sections | 2549 columns+far | 499K/1660K quads
+[page log] [Voxel] 235 fps | frame CPU 5.6 ms (record 5.6) | 921 draws, 921 binds | 3068/8782 sections | 2549 columns+far | 499K/1660K quads
+[worker log] [Voxel] 214 fps | frame CPU 4.1 ms (record 4.1) | 1042 draws, 1042 binds | 3283/9170 sections | 2818 columns+far | 542K/1752K quads
+[page log] [Voxel] 214 fps | frame CPU 4.1 ms (record 4.1) | 1042 draws, 1042 binds | 3283/9170 sections | 2818 columns+far | 542K/1752K quads
+[worker log] [Voxel] 189 fps | frame CPU 4.8 ms (record 4.8) | 1168 draws, 1168 binds | 3525/9545 sections | 3060 columns+far | 585K/1831K quads
+[page log] [Voxel] 189 fps | frame CPU 4.8 ms (record 4.8) | 1168 draws, 1168 binds | 3525/9545 sections | 3060 columns+far | 585K/1831K quads
+[worker log] [Voxel] 174 fps | frame CPU 4.8 ms (record 4.8) | 1271 draws, 1271 binds | 3687/9840 sections | 3286 columns+far | 620K/1899K quads
+[page log] [Voxel] 174 fps | frame CPU 4.8 ms (record 4.8) | 1271 draws, 1271 binds | 3687/9840 sections | 3286 columns+far | 620K/1899K quads
+[worker log] [Voxel] 161 fps | frame CPU 5.8 ms (record 5.6) | 1374 draws, 1374 binds | 3843/10083 sections | 3496 columns+far | 657K/1961K quads
+[page log] [Voxel] 161 fps | frame CPU 5.8 ms (record 5.6) | 1374 draws, 1374 binds | 3843/10083 sections | 3496 columns+far | 657K/1961K quads
+[worker log] [Voxel] 152 fps | frame CPU 5.8 ms (record 5.8) | 1480 draws, 1480 binds | 3976/10297 sections | 3695 columns+far | 694K/2021K quads
+[page log] [Voxel] 152 fps | frame CPU 5.8 ms (record 5.8) | 1480 draws, 1480 binds | 3976/10297 sections | 3695 columns+far | 694K/2021K quads

@@ -27,24 +27,26 @@ AubsCraft is a real-time Minecraft server admin panel and GPU-accelerated 3D wor
 
 ### Data Flow - Where Data Lives
 
-- **JS side:** Binary chunk data, texture atlas, OPFS cache, WebGPU buffers
+- **JS side:** Binary chunk data (fetched ArrayBuffers), the texture atlas, WebGPU buffers
 - **.NET side:** Application logic, SignalR hub client, service orchestration
-- **GPU side:** Mesh kernels, rendering, all compute
+- **GPU side:** Meshing, rendering, all compute
 
 **NEVER pull data from JS to .NET without Captain's explicit approval.** `ReadBytes()` is BANNED. Data enters JS and goes to GPU via `CopyFromJS`. The .NET side orchestrates but doesn't touch the bulk data.
 
 ### GPU Compute - ILGPU for Everything
 
-- **ALL mesh generation runs on GPU** via ILGPU kernels (HeightmapMeshKernel, MinecraftMeshKernel)
+- **ALL mesh generation runs on GPU** via SpawnDev.VoxelEngine's ILGPU meshers (`ColumnMesher` for full columns, `HeightmapMesher` for the far tier). AubsCraft has no mesh kernels of its own.
 - **No CPU fallbacks.** ILGPU runs on all backends. If you're tempted to write a CPU loop for compute, write a kernel instead.
 - **WebGPU maxStorageBuffersPerShaderStage = 10** (Chrome). Kernels must stay under this limit. Use struct packing to combine related ArrayView parameters. ILGPU v4.9.1+ validates this at runtime.
 
 ### Rendering Pipeline
 
-- **WebGPU front-face:** `GPUFrontFace.CCW` + `CullMode.Back` on both opaque and transparent pipelines
-- **Two-pass rendering:** Opaque pipeline first, then alpha-blend pipeline for water
-- **Vertex format:** 11 floats per vertex (position.xyz + normal.xyz + color.rgb + uv.xy)
-- **Texture atlas:** 256x256 (16x16 grid), loaded from `atlas.rgba` (65KB static file)
+- **The world is drawn by `SpawnDev.VoxelEngine`** (`VoxelWorldRenderer` here): packed 8-byte quads (`PackedQuad`), vertex pulling, reversed-Z (`depth32float`), opaque + plant + water passes (water alpha blended, no depth write).
+- **One draw per column** (or far chunk): the quad carries its section index (`EmbedSectionIndex`), one origin per column. Recording the frame's browser calls was the whole frame cost, so keep draw and bind counts low (F3 shows them).
+- **Block ids are the server's GLOBAL ids** (`GlobalBlockRegistry`, `/api/world/blocks`, `/api/world/chunk-ids/{x}/{z}`, WebSocket `?format=ids`): the bytes go from the fetched ArrayBuffer to a GPU buffer with `CopyFromJS`, never into .NET. `VoxelBlockTables` turns names into classes and materials.
+- **Texture atlas:** 256x256 (16x16 grid), `atlas.rgba` (65KB static file), sliced on the GPU into a texture array (a tile index is its layer).
+- **HUD:** SpawnDev.GameUI in the render worker (`ViewerHud`): stats, compass, minimap, player list, chat, notices. SignalR stays on the page; `HudFeedBuffer` batches what it delivers to the worker.
+- **Gate:** `AubsCraft.Viewer.Tests` (Playwright, installed Chrome) shoots the real viewer; see PLANS.md Phase V.
 
 ## Build & Deploy
 
@@ -73,8 +75,8 @@ client's Release bin/obj first so every AOT build is clean. `dotnet build` (Debu
 AubsCraft/
   AubsCraft.Admin/           # Blazor WASM frontend
     Pages/                   # Razor pages (Map.razor = 3D viewer)
-    Services/                # Client services (VoxelEngineService, RenderWorkerService)
-    Rendering/               # GPU pipeline (MapRenderService, kernels, camera, culling)
+    Services/                # Client services (GpuContextService, RenderWorkerService)
+    Rendering/               # MapRenderService (loop), VoxelWorldRenderer (the world), ViewerHud, camera, block tables
   AubsCraft.Admin.Server/    # ASP.NET Core backend
     Services/                # Server services (WorldDataService, RegionReader, RCON)
     Hubs/                    # SignalR hub (ServerHub)
@@ -88,12 +90,13 @@ AubsCraft/
 
 | File | What It Does |
 |------|-------------|
-| `Rendering/MapRenderService.cs` | WebGPU render pipeline, shaders, draw calls |
-| `Rendering/HeightmapMeshKernel.cs` | ILGPU kernel - heightmap mesh (distant chunks) |
-| `Rendering/MinecraftMeshKernel.cs` | ILGPU kernel - full 3D voxel mesh (nearby chunks) |
-| `Services/VoxelEngineService.cs` | GPU buffer management, kernel dispatch |
-| `Services/RenderWorkerService.cs` | Web Worker orchestration, chunk loading, data flow |
-| `Services/WorldCacheService.cs` | OPFS/IndexedDB chunk caching |
+| `Rendering/MapRenderService.cs` | The frame loop and canvas: camera, day/night clock, asks the voxel renderer to draw, then the HUD |
+| `Rendering/VoxelWorldRenderer.cs` | The world: columns + far chunks meshed on the GPU, drawn by VoxelEngine; the minimap texture |
+| `Rendering/VoxelBlockTables.cs` | Block names -> mesh class and material (textures, tint, water) |
+| `Rendering/ViewerHud.cs` | The GPU HUD (SpawnDev.GameUI) |
+| `Services/GpuContextService.cs` | ILGPU context + accelerator |
+| `Services/RenderWorkerService.cs` | Web Worker orchestration: column streaming, data worker, HUD feed |
+| `Services/WorldCacheService.cs` | OPFS: the camera position per server |
 | `Server/Services/ServerMonitorService.cs` | Server status polling (3s cycle), SignalR push |
 | `Server/Hubs/ServerHub.cs` | SignalR hub - structured data push to clients |
 | `Server/Program.cs` | Server startup, HTTP endpoints, WebSocket setup |
@@ -105,7 +108,9 @@ AubsCraft/
 - **SpawnDev.SpawnJS.TangoADB** - ADB over WebUSB for the `/quest` installer
 - SpawnJS handles are MANUAL: dispose every wrapper you get back (`using var layout = pipeline.GetBindGroupLayout(0);`).
 - `@ref` elements: `ElementRef<HTMLCanvasElement>` field + `.Get()` (SpawnDev.SpawnJS.Blazor).
-- **SpawnDev.ILGPU** - GPU compute (WebGPU backend for mesh kernels)
+- **SpawnDev.ILGPU** - GPU compute (WebGPU backend)
+- **SpawnDev.VoxelEngine** - the voxel renderer and meshers (local feed builds until a release)
+- **SpawnDev.GameUI** - the HUD
 - Use DI correctly - never bypass the service container
 
 ### Banned Patterns - NO EXCEPTIONS

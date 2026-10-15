@@ -17,7 +17,7 @@ Built by [Todd Tanner (@LostBeard)](https://github.com/LostBeard) for his daught
 A real-time GPU-accelerated Minecraft world renderer running entirely in the browser via WebGPU.
 
 ### Rendering Features
-- **Full 3D voxel rendering** via ILGPU compute kernels on WebGPU
+- **Full 3D voxel rendering** via SpawnDev.VoxelEngine (GPU greedy meshing, vertex-pulled quads) on WebGPU
 - **Per-face block textures** - bark on log sides, rings on top/bottom, grass_block_side, dirt bottom (all 8 log types)
 - **Transparent water** - two-pass rendering with alpha blending, seabed visible through water at all distances
 - **Cross-shaped plant quads** - flowers, grass, and ferns render as intersecting diagonal planes (like real Minecraft)
@@ -26,13 +26,13 @@ A real-time GPU-accelerated Minecraft world renderer running entirely in the bro
 - **Distance fog** - smooth quadratic falloff blending to sky color
 - **Leaf transparency** - alpha discard for leaf cutouts
 - **Adaptive draw distance** - automatically adjusts based on FPS (10-50 chunk radius)
-- **Frustum culling** - only renders visible chunks
+- **Frustum culling** - only renders visible chunks, one draw per column
+- **GPU HUD** (SpawnDev.GameUI) - stats, compass, heading-up minimap, player list, chat, notices
 
 ### Architecture
 - **Dedicated render worker** - entire GPU pipeline runs in a Web Worker via OffscreenCanvas
 - **Binary WebSocket streaming** - raw binary chunk data, no JSON, no base64
-- **OPFS region-file cache** - 275 MB/s reads, instant world on revisit
-- **ILGPU HeightmapMeshKernel** - GPU-accelerated heightmap meshing (replaced CPU mesher)
+- **Far tier** - heightmaps meshed on the GPU (`HeightmapMesher`) beyond the full-detail radius
 - **CopyFromJS** - zero .NET allocation data path from JS WebSocket to GPU buffers
 - **Camera-prioritized loading** - chunks load outward from camera position
 

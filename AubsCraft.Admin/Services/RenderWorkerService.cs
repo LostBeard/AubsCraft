@@ -8,19 +8,18 @@ namespace AubsCraft.Admin.Services;
 
 /// <summary>
 /// Render pipeline running in a dedicated Web Worker via SpawnDev.SpawnJS.WebWorkers.
-/// Owns the OffscreenCanvas, WebGPU device, ILGPU accelerator, and render loop.
-/// Main thread sends input/camera updates, this service does ALL GPU work.
+/// Owns the OffscreenCanvas, WebGPU device, ILGPU accelerator, the world (<see cref="VoxelWorldRenderer"/>), the HUD and the render
+/// loop. The main thread sends input and what SignalR delivered; this service does ALL GPU work, and the block data never enters
+/// .NET: it goes from the fetched ArrayBuffer to a GPU buffer.
 /// </summary>
 public class RenderWorkerService : IRenderWorkerService
 {
     private readonly SpawnJSRuntime _js;
-    private readonly VoxelEngineService _engine;
+    private readonly GpuContextService _gpu;
     private readonly MapRenderService _renderer;
-    private readonly WorldCacheService _cache;
-    private readonly ChunkStreamService _chunkStream;
     private readonly ViewerHud _hud;
     private OffscreenCanvas? _canvas;
-    /// <summary>Set for <c>/map?renderer=voxel</c>: SpawnDev.VoxelEngine draws the world (null = the original renderer).</summary>
+    /// <summary>Draws the world with SpawnDev.VoxelEngine (created once the GPU is up).</summary>
     private VoxelWorldRenderer? _voxel;
     private bool _initialized;
     private bool _disposed;
@@ -36,17 +35,13 @@ public class RenderWorkerService : IRenderWorkerService
     public RenderWorkerService(
         OffscreenCanvas canvas, int width, int height,
         [FromServices] SpawnJSRuntime? js = null,
-        [FromServices] VoxelEngineService? engine = null,
+        [FromServices] GpuContextService? gpu = null,
         [FromServices] MapRenderService? renderer = null,
-        [FromServices] WorldCacheService? cache = null,
-        [FromServices] ChunkStreamService? chunkStream = null,
         [FromServices] ViewerHud? hud = null)
     {
         _js = js!;
-        _engine = engine!;
+        _gpu = gpu!;
         _renderer = renderer!;
-        _cache = cache!;
-        _chunkStream = chunkStream!;
         _hud = hud!;
         _canvas = canvas;
         _canvas.Width = width;
@@ -58,46 +53,37 @@ public class RenderWorkerService : IRenderWorkerService
     /// <summary>
     /// Initialize GPU and start the render loop + chunk loading.
     /// </summary>
-    public async Task StartAsync(string serverId, float camX, float camY, float camZ, float pitch, float yaw, bool voxelRenderer)
+    public async Task StartAsync(string serverId, float camX, float camY, float camZ, float pitch, float yaw)
     {
         _serverQuery = "server=" + Uri.EscapeDataString(serverId);
-        _cache.ServerId = serverId;
 
         // Init ILGPU + WebGPU in the worker
-        await _engine.InitAsync();
-        _renderer.InitOffscreen(_canvas!, _engine.Accelerator!);
-        if (voxelRenderer)
-        {
-            // Draws with SpawnDev.VoxelEngine on the same device; the original mesh kernels stay idle (PLANS Phase V)
-            _voxel = new VoxelWorldRenderer();
-            _voxel.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _engine.Accelerator!);
-            _renderer.Voxel = _voxel;
-            Console.WriteLine("[RenderWorker] renderer=voxel: SpawnDev.VoxelEngine draws the world");
-        }
+        await _gpu.InitAsync();
+        _renderer.InitOffscreen(_canvas!, _gpu.Accelerator!);
+        _voxel = new VoxelWorldRenderer();
+        _voxel.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _gpu.Accelerator!);
+        _renderer.Voxel = _voxel;
         // The HUD (GameUI) draws with the world's own device, into the same encoder, after the world pass.
         _hud.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _canvas!.Width, _canvas.Height);
         _renderer.OnOverlay = (encoder, view, w, h) => _hud.Draw(encoder, view, w, h);
         _initialized = true;
-        Console.WriteLine($"[RenderWorker] Initialized: {_engine.BackendName}");
+        Console.WriteLine($"[RenderWorker] Initialized: {_gpu.BackendName}");
 
         _renderer.Camera.Position = new Vector3(camX, camY, camZ);
         _renderer.Camera.Pitch = pitch;
         _renderer.Camera.Yaw = yaw;
 
-        // Cache base URL for full chunk HTTP requests
+        // Cache base URL for the column HTTP requests
         _baseUrl = _js.DedicateWorkerThis?.Location.Origin
             ?? _js.WindowThis?.Origin ?? "";
 
-        // Hook render loop to trigger full 3D loading near camera
+        // Hook the render loop to load columns near the camera
         _renderer.OnUpdate = OnRenderFrame;
-        _renderer.OnChunksEvicted = OnChunksEvicted;
         _renderer.StartRenderLoop();
+        _loadTimer.Start();
 
         // Load atlas in the worker - fetch directly, stays in JS
         _ = LoadAtlasAsync();
-
-        // Start loading from OPFS cache
-        _ = LoadCachedChunksAsync();
 
         // Create JS data worker and connect via MessageChannel
         // Render worker creates and controls the data worker (clean hierarchy)
@@ -110,8 +96,8 @@ public class RenderWorkerService : IRenderWorkerService
         var protocol = location.Protocol == "https:" ? "wss:" : "ws:";
         var host = location.Host;
         location.Dispose();
-        // The voxel renderer's far tier takes heightmaps in global block ids (no palette): the bytes go to the GPU as they arrive
-        var wsUrl = $"{protocol}//{host}/api/world/ws?{_serverQuery}" + (_voxel != null ? "&format=ids" : "");
+        // Heightmaps in global block ids (no palette): the bytes go to the GPU as they arrive
+        var wsUrl = $"{protocol}//{host}/api/world/ws?{_serverQuery}&format=ids";
 
         // Use absolute URL for worker script (relative paths may not resolve in nested worker context)
         var origin = _js.Get<string>("location.origin");
@@ -131,9 +117,6 @@ public class RenderWorkerService : IRenderWorkerService
         Console.WriteLine("[RenderWorker] Data worker created, GPU ready, requesting first chunk");
     }
 
-    /// <summary>
-    /// Process keyboard/mouse input from the main thread.
-    /// </summary>
     public Task ResizeAsync(int width, int height)
     {
         if (_canvas != null)
@@ -176,6 +159,7 @@ public class RenderWorkerService : IRenderWorkerService
 
     private readonly HashSet<string> _inputKeysReuse = new();
 
+    /// <summary>Process keyboard/mouse input from the main thread.</summary>
     public Task ProcessInputAsync(float dx, float dy, float dt, string[] keysDown)
     {
         if (!_initialized) return Task.CompletedTask;
@@ -187,9 +171,7 @@ public class RenderWorkerService : IRenderWorkerService
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// Get current stats for the main thread to display.
-    /// </summary>
+    /// <summary>Get current stats for the main thread to display.</summary>
     public Task<RenderStats> GetStatsAsync()
     {
         // Calculate chunks/sec over the last stats interval
@@ -225,7 +207,7 @@ public class RenderWorkerService : IRenderWorkerService
         _hud.SetViewport(width, height);
         _renderer.OnUpdate = OnRenderFrame;
         _renderer.StartRenderLoop();
-        Console.WriteLine($"[RenderWorker] Canvas re-attached: {width}x{height}, chunks already loaded: {LoadedCount}");
+        Console.WriteLine($"[RenderWorker] Canvas re-attached: {width}x{height}, columns already loaded: {LoadedCount}");
         return Task.CompletedTask;
     }
 
@@ -273,52 +255,33 @@ public class RenderWorkerService : IRenderWorkerService
         }
     }
 
+    // The frame is [cx][cz][registry count] + the 3072-byte heightmap in global ids (server HeightmapWire). It says the chunk exists
+    // (a full column may be fetched) and is the far tier's mesh input.
     private async Task ProcessDataWorkerChunkAsync(int cx, int cz, ArrayBuffer buffer)
     {
         try
         {
-            if (_voxel != null)
-            {
-                // Voxel mode: the frame is [cx][cz][registry count] + the 3072-byte heightmap in global ids (server HeightmapWire).
-                // It says the chunk exists (a full column may be fetched) and is the far tier's mesh input.
-                _populatedChunks.Add((cx, cz));
-                if (IsInFullRadius(cx, cz) && !_voxel.HasColumn(cx, cz)) _fullDirty = true;
-                try
-                {
-                    int registryCount;
-                    using (var header = new Int32Array(buffer, 0, 3)) registryCount = header[2];
-                    if (registryCount > _voxel.NamesKnown) await RefreshVoxelBlockNamesAsync(registryCount);
-                    if (_voxel.NamesKnown > 0 && !_voxel.HasFarChunk(cx, cz))
-                    {
-                        using var heightmap = new Uint8Array(buffer, 12, 3072);
-                        if (!await _voxel.AddFarChunkAsync(cx, cz, heightmap) && _farDropLogged++ == 0)
-                            Console.WriteLine("[RenderWorker] Far chunk dropped: no free section slots");
-                    }
-                }
-                finally
-                {
-                    buffer.Dispose();
-                }
-                _dataPort?.PostMessage(new { type = "ready" });
-                return;
-            }
             _populatedChunks.Add((cx, cz));
-            // A heightmap arriving inside the full-3D radius makes that chunk loadable in 3D;
-            // the render loop picks it up (the camera may never change chunk on its own).
-            if (!_fullChunks.Contains((cx, cz)) && IsInFullRadius(cx, cz)) _fullDirty = true;
-            if (!_loadedChunks.Contains((cx, cz)) && !_fullChunks.Contains((cx, cz)))
+            // A heightmap arriving inside the full-3D radius makes that chunk loadable in 3D; the render loop picks it up (the
+            // camera may never change chunk on its own).
+            if (IsInFullRadius(cx, cz) && !_voxel!.HasColumn(cx, cz)) _fullDirty = true;
+
+            int registryCount;
+            using (var header = new Int32Array(buffer, 0, 3)) registryCount = header[2];
+            if (registryCount > _voxel!.NamesKnown) await RefreshVoxelBlockNamesAsync(registryCount);
+            if (_voxel.NamesKnown > 0 && !_voxel.HasFarChunk(cx, cz))
             {
-                await RenderFromFrameAsync(buffer);
-                LoadedCount++;
-            }
-            else
-            {
-                buffer.Dispose();
+                using var heightmap = new Uint8Array(buffer, 12, 3072);
+                if (!await _voxel.AddFarChunkAsync(cx, cz, heightmap) && _farDropLogged++ == 0)
+                    Console.WriteLine("[RenderWorker] Far chunk dropped: no free section slots");
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[RenderWorker] Chunk ({cx},{cz}) process error: {ex.Message}");
+        }
+        finally
+        {
             buffer.Dispose();
         }
 
@@ -333,25 +296,6 @@ public class RenderWorkerService : IRenderWorkerService
             // 0.5 = noon. Without the +6000 the server's noon rendered as sunrise (sun on the horizon, dark terrain).
             _renderer.TimeOfDay = ((ticks + 6000) % 24000) / 24000f;
         return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Upload mesh result split into 16x16x16 sections.
-    /// Each section gets its own slot in the renderer for tight AABB culling.
-    /// Returns true if at least one opaque section was uploaded.
-    /// </summary>
-    private bool UploadSectionMeshes(int cx, int cz, MeshGenerationResult result)
-    {
-        var (opaqueSections, waterSections) = result.SplitIntoSections();
-        bool anyUploaded = false;
-        for (int sy = 0; sy < 24; sy++)
-        {
-            if (opaqueSections[sy] is { Length: > 0 } opaqueVerts)
-                anyUploaded |= _renderer.UploadChunkMesh(cx, sy, cz, opaqueVerts);
-            if (waterSections[sy] is { Length: > 0 } waterVerts)
-                _renderer.UploadWaterMesh(cx, sy, cz, waterVerts);
-        }
-        return anyUploaded;
     }
 
     private async Task LoadAtlasAsync()
@@ -373,21 +317,12 @@ public class RenderWorkerService : IRenderWorkerService
                 return;
             }
 
+            // The pixels go from the fetched ArrayBuffer to the GPU texture array without entering .NET
             using var buffer = await response.ArrayBuffer();
-            if (_voxel != null)
-            {
-                // The pixels go from the fetched ArrayBuffer to the GPU texture array without entering .NET
-                using var pixels = new Uint8Array(buffer);
-                int atlasSize = (int)Math.Sqrt(pixels.Length / 4);
-                _voxel.SetAtlas(pixels, atlasSize);
-                Console.WriteLine($"[RenderWorker] Atlas {atlasSize}x{atlasSize} sliced into the voxel texture array");
-                return;
-            }
-            var rgba = buffer.ReadBytes();
-            int size = (int)Math.Sqrt(rgba.Length / 4);
-            Console.WriteLine($"[RenderWorker] Atlas data: {rgba.Length} bytes, {size}x{size}");
-            _renderer.UploadAtlas(rgba, size, size);
-            Console.WriteLine($"[RenderWorker] Atlas uploaded to GPU");
+            using var pixels = new Uint8Array(buffer);
+            int atlasSize = (int)Math.Sqrt(pixels.Length / 4);
+            _voxel!.SetAtlas(pixels, atlasSize);
+            Console.WriteLine($"[RenderWorker] Atlas {atlasSize}x{atlasSize} sliced into the voxel texture array");
         }
         catch (Exception ex)
         {
@@ -395,206 +330,16 @@ public class RenderWorkerService : IRenderWorkerService
         }
     }
 
-    private HashSet<(int, int)> _populatedChunks = new();
-    private HashSet<(int, int)> _loadedChunks = new();
-    private HashSet<(int, int)> _fullChunks = new();
-    // LOD each full chunk was meshed at (0 = full detail); a chunk is re-meshed finer when the camera comes closer
-    private readonly Dictionary<(int, int), int> _fullChunkLod = new();
+    private readonly HashSet<(int, int)> _populatedChunks = new();
     private int _lastFullCX = int.MinValue, _lastFullCZ = int.MinValue;
     private bool _loadingFull;
     private bool _fullDirty;
-    // Full chunk data loaded within this radius. LOD kernel reduces detail for distant chunks.
-    // Heightmap from WebSocket covers beyond this radius.
+    // Full-detail columns are loaded within this radius (chunks). The far tier (heightmaps from the WebSocket) covers the rest.
     private const int FullRenderRadius = 16;
 
-    /// <summary>
-    /// Budget-aware LOD selection. Tiers shift based on vertex pressure.
-    /// Returns 0 (full), 2 (LOD 2x2x2), or 4 (LOD 4x4x4).
-    /// </summary>
-    private int SelectLOD(int distSq)
-    {
-        int totalVerts = _renderer.TotalVertices;
-        int budget = _renderer.VertexBudget;
-        float pressure = (float)totalVerts / Math.Max(budget, 1);
-
-        if (pressure > 0.9f)
-        {
-            // High pressure - aggressive LOD, only closest get full detail
-            if (distSq <= 4) return 0;
-            if (distSq <= 25) return 2;
-            return 4;
-        }
-        else if (pressure > 0.6f)
-        {
-            // Medium pressure - normal tiers
-            if (distSq <= 9) return 0;
-            if (distSq <= 64) return 2;
-            return 4;
-        }
-        else
-        {
-            // Under budget - more detail at distance
-            if (distSq <= 25) return 0;
-            if (distSq <= 100) return 2;
-            return 4;
-        }
-    }
     private string? _baseUrl;
     /// <summary>"server={id}" for every world request: the server whose world this worker renders.</summary>
     private string _serverQuery = "";
-
-
-
-    private async Task LoadCachedChunksAsync()
-    {
-        _loadTimer.Start();
-        if (_voxel != null) return; // columns stream from the server; no heightmap cache to replay
-
-        // Load from OPFS cache if available. WebSocket streaming handled by data worker.
-        var regionCount = await _cache.GetCachedRegionCountAsync();
-        if (regionCount > 0)
-        {
-            Console.WriteLine($"[RenderWorker] Loading {regionCount} cached regions...");
-            var cached = await _cache.LoadAllCachedHeightmapsAsync();
-
-            // Sort by camera distance - nearest chunks load first
-            int camCX = (int)MathF.Floor(_renderer.Camera.Position.X / 16f);
-            int camCZ = (int)MathF.Floor(_renderer.Camera.Position.Z / 16f);
-            cached.Sort((a, b) =>
-            {
-                int da = (a.cx - camCX) * (a.cx - camCX) + (a.cz - camCZ) * (a.cz - camCZ);
-                int db = (b.cx - camCX) * (b.cx - camCX) + (b.cz - camCZ) * (b.cz - camCZ);
-                return da.CompareTo(db);
-            });
-
-            // Load nearby heightmaps first (within full 3D radius + margin)
-            // so the full 3D pass has populated chunks to work with
-            int nearbyThreshold = (FullRenderRadius + 2) * (FullRenderRadius + 2);
-            int batchCount = 0;
-            int nearbyLoaded = 0;
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-
-            foreach (var (cx, cz, frame) in cached)
-            {
-                try
-                {
-                    using var jsFrame = new Uint8Array(frame);
-                    await RenderFromFrameAsync(jsFrame.Buffer);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[RenderWorker] Chunk ({cx},{cz}) error: {ex.Message}\n{ex.StackTrace}");
-                }
-                LoadedCount++;
-
-                int dist = (cx - camCX) * (cx - camCX) + (cz - camCZ) * (cz - camCZ);
-                if (dist <= nearbyThreshold) nearbyLoaded++;
-
-                batchCount++;
-                if (batchCount >= 10)
-                {
-                    batchCount = 0;
-                    await Task.Delay(1); // yield to render loop
-                }
-
-                // After loading nearby heightmaps, kick off full 3D immediately
-                // Don't wait for all distant heightmaps to finish
-                if (nearbyLoaded >= 20 && !_loadingFull)
-                {
-                    _ = LoadFullChunksNearbyAsync(camCX, camCZ);
-                }
-            }
-            sw.Stop();
-            Console.WriteLine($"[RenderWorker] Loaded {LoadedCount} from cache in {sw.ElapsedMilliseconds}ms");
-        }
-
-        // Ensure full 3D starts even if cache had few nearby chunks
-        if (!_loadingFull)
-        {
-            int camCX = (int)MathF.Floor(_renderer.Camera.Position.X / 16f);
-            int camCZ = (int)MathF.Floor(_renderer.Camera.Position.Z / 16f);
-            _ = LoadFullChunksNearbyAsync(camCX, camCZ);
-        }
-
-        // WebSocket streaming now handled by the JS data worker
-        // Chunks arrive via MessagePort -> OnDataWorkerMessage -> ProcessDataWorkerChunkAsync
-    }
-
-    // Old WebSocket queue code removed - data worker handles WebSocket now
-
-    /// <summary>
-    /// Render a heightmap from a JS ArrayBuffer. Binary data stays in JS.
-    /// Only palette strings cross to .NET for color/UV/flag computation.
-    /// Splits output into 16x16x16 sections for tight AABB frustum culling.
-    /// </summary>
-    private async Task RenderFromFrameAsync(ArrayBuffer frameBuffer)
-    {
-        var header = ChunkStreamService.ParseFrameHeader(frameBuffer);
-        if (header == null) return;
-        var (cx, cz, palette, binaryOffset) = header.Value;
-
-        _populatedChunks.Add((cx, cz));
-        if (_loadedChunks.Contains((cx, cz))) return;
-
-        // Build BlockPalette[] struct array (packs colors + UVs + flags into single binding)
-        var paletteData = BuildBlockPalette(palette);
-
-        // Dispatch kernel - returns CPU vertex data for section splitting
-        var result = await _engine.DispatchHeightmapFromFrameAsync(
-            frameBuffer, binaryOffset, paletteData, cx, cz);
-
-        // Upload split into 16x16x16 sections
-        if (result.OpaqueVertexCount > 0 || result.WaterVertexCount > 0)
-        {
-            UploadSectionMeshes(cx, cz, result);
-            _loadedChunks.Add((cx, cz));
-        }
-    }
-
-    /// <summary>
-    /// Build BlockPalette[] from palette string list. Packs colors, atlas UVs, and block flags
-    /// into a single struct per entry - one GPU binding instead of three.
-    /// </summary>
-    private static BlockPalette[] BuildBlockPalette(List<string> palette)
-    {
-        var result = new BlockPalette[palette.Count];
-        for (int i = 0; i < palette.Count; i++)
-        {
-            var name = palette[i];
-            var colors = BlockColorMap.GetColor(name);
-            var (u0, v0, u1, v1) = TextureAtlas.GetTileUVs(name);
-
-            float flag = 0f;
-            if (TextureAtlas.IsPlant(name))
-                flag = 1f; // plant: tinted, cross-quad
-            else if (name is "minecraft:water" or "minecraft:flowing_water")
-                flag = 2f; // water: tinted, transparent
-            else if (name.Contains("leaves"))
-                flag = 4f; // leaves: solid tinted, see-through for neighbors
-            else if (name.Contains("grass") || name.Contains("vine") || name.Contains("fern")
-                  || name.Contains("lily"))
-                flag = 3f; // solid tinted: biome color multiplied with texture
-
-            result[i] = new BlockPalette
-            {
-                R = colors.R, G = colors.G, B = colors.B,
-                U0 = u0, V0 = v0, U1 = u1, V1 = v1,
-                Flag = flag
-            };
-        }
-        return result;
-    }
-
-    private void OnChunksEvicted(List<(int cx, int sy, int cz)> evicted)
-    {
-        foreach (var (cx, _, cz) in evicted)
-        {
-            // Column-level tracking - if any section evicted, mark column for reload
-            _fullChunks.Remove((cx, cz));
-            _fullChunkLod.Remove((cx, cz));
-            _loadedChunks.Remove((cx, cz));
-        }
-    }
 
     private int _lastStreamCX = int.MinValue, _lastStreamCZ = int.MinValue;
 
@@ -640,7 +385,7 @@ public class RenderWorkerService : IRenderWorkerService
             _renderer.Fps, _renderer.Camera.Position.X, _renderer.Camera.Position.Y, _renderer.Camera.Position.Z,
             _renderer.Camera.Yaw,
             _renderer.VisibleChunkCount, _renderer.TotalChunkCount, _renderer.VisibleVertices, _renderer.TotalVertices,
-            _renderer.DrawDistance, LoadedCount, _chunksPerSecond, _renderer.TimeOfDay, _engine.BackendName ?? "?",
+            _renderer.DrawDistance, LoadedCount, _chunksPerSecond, _renderer.TimeOfDay, _gpu.BackendName ?? "?",
             _voxel == null ? "" : VoxelNote()));
 
         // Trigger full 3D loading when camera moves to a new chunk
@@ -651,7 +396,7 @@ public class RenderWorkerService : IRenderWorkerService
             _lastFullCX = camCX;
             _lastFullCZ = camCZ;
             _fullDirty = false;
-            _ = LoadFullChunksNearbyAsync(camCX, camCZ);
+            _ = LoadVoxelColumnsNearbyAsync();
         }
     }
 
@@ -665,127 +410,7 @@ public class RenderWorkerService : IRenderWorkerService
         return dx * dx + dz * dz <= FullRenderRadius * FullRenderRadius;
     }
 
-    /// <summary>
-    /// The chunk nearest the camera that needs (re)meshing in 3D: not yet 3D, or meshed at a coarser LOD
-    /// than its distance now calls for (distant LOD chunks have their caves filled, so they must be re-meshed
-    /// when approached). Only chunks whose heightmap has arrived (so the server has them) are considered.
-    /// </summary>
-    private (int cx, int cz)? NearestPendingFullChunk(int camCX, int camCZ, HashSet<(int, int)> skip)
-    {
-        (int, int)? best = null;
-        int bestDist = int.MaxValue;
-        for (int dz = -FullRenderRadius; dz <= FullRenderRadius; dz++)
-        for (int dx = -FullRenderRadius; dx <= FullRenderRadius; dx++)
-        {
-            int d = dx * dx + dz * dz;
-            if (d > FullRenderRadius * FullRenderRadius || d >= bestDist) continue;
-            var c = (camCX + dx, camCZ + dz);
-            if (!_populatedChunks.Contains(c) || skip.Contains(c)) continue;
-            if (_fullChunks.Contains(c) && _fullChunkLod.GetValueOrDefault(c) <= SelectLOD(d)) continue;
-            best = c;
-            bestDist = d;
-        }
-        return best;
-    }
-
-    /// <summary>
-    /// Loads full 3D chunks nearest-first around the CURRENT camera position (re-read every
-    /// chunk), so a moving camera always gets detail where it is, not where it was.
-    /// </summary>
-    private async Task LoadFullChunksNearbyAsync(int camCX, int camCZ)
-    {
-        if (_voxel != null)
-        {
-            await LoadVoxelColumnsNearbyAsync();
-            return;
-        }
-        _loadingFull = true;
-        var attempted = new HashSet<(int, int)>(); // a chunk that fails is retried on the next pass, not this one
-        try
-        {
-            while (true)
-            {
-                (camCX, camCZ) = CameraChunk();
-                var next = NearestPendingFullChunk(camCX, camCZ, attempted);
-                if (next == null) break;
-                var (cx, cz) = next.Value;
-                attempted.Add((cx, cz));
-
-                try
-                {
-                    // Binary endpoint - raw bytes, no JSON, no base64
-                    using var response = await _js.Fetch($"{_baseUrl}/api/world/chunk/{cx}/{cz}?{_serverQuery}",
-                        new FetchOptions { Credentials = "include" });
-                    if (!response.Ok)
-                    {
-                        if (_fullChunks.Count <= 1)
-                            Console.WriteLine($"[RenderWorker] Full3D ({cx},{cz}) HTTP {response.Status}");
-                        continue;
-                    }
-
-                    using var buffer = await response.ArrayBuffer();
-                    var raw = buffer.ReadBytes();
-                    var parsed = ParseFullChunkBinary(raw);
-                    if (parsed == null) continue;
-                    var (palette, blocks) = parsed.Value;
-                    if (blocks.Length != 16 * 384 * 16) continue;
-
-                    // Budget-aware LOD selection
-                    int distSq = (cx - camCX) * (cx - camCX) + (cz - camCZ) * (cz - camCZ);
-                    int lod = SelectLOD(distSq);
-
-                    // Distant (LOD) chunks fill their deep caves with this palette entry before meshing:
-                    // a camera chunks away cannot see into them. Near chunks keep their caves.
-                    int caveFillId = -1;
-                    if (lod > 0)
-                    {
-                        palette.Add("minecraft:stone");
-                        caveFillId = palette.Count - 1;
-                    }
-
-                    var paletteColors = BlockColorMap.BuildPaletteColors(palette);
-                    var atlasUVs = BuildFullAtlasUVs(palette);
-                    var blockFlags = BuildBlockFlags(palette);
-
-                    MeshGenerationResult result;
-                    if (lod == 0)
-                        result = await _engine.GenerateMeshAsync(blocks, paletteColors, atlasUVs, blockFlags, cx, cz);
-                    else
-                        result = await _engine.GenerateLODMeshAsync(blocks, paletteColors, atlasUVs, blockFlags, cx, cz, lod, caveFillId);
-
-                    // Split into 16x16x16 sections and upload
-                    bool uploaded = UploadSectionMeshes(cx, cz, result);
-
-                    // Compute per-section connectivity for cave-culling BFS.
-                    // Sodium-style flood-fill on transparent blocks; one 36-bit
-                    // mask per section. Computed CPU-side here (we already have
-                    // blocks parsed, transparent-mask is 96KB total per chunk).
-                    UploadSectionConnectivity(cx, cz, palette, blocks);
-
-                    // Only mark as loaded if upload actually succeeded
-                    if (uploaded)
-                    {
-                        _fullChunks.Add((cx, cz));
-                        _fullChunkLod[(cx, cz)] = lod;
-                        if (_fullChunks.Count <= 3)
-                            Console.WriteLine($"[RenderWorker] Full3D ({cx},{cz}): palette={palette.Count}, opaque={result.OpaqueVertexCount}, water={result.WaterVertexCount}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[RenderWorker] Full3D ({cx},{cz}) failed: {ex.Message}");
-                    // Do NOT add to _fullChunks on failure - allow retry
-                }
-                await Task.Yield();
-            }
-        }
-        finally
-        {
-            _loadingFull = false;
-        }
-    }
-
-    // ---- renderer=voxel: columns with the server's global block ids, meshed by SpawnDev.VoxelEngine ----
+    // ---- columns with the server's global block ids, meshed by SpawnDev.VoxelEngine ----
 
     /// <summary>Columns fetched at once: the round trip, not the GPU, is what a lone request waits for.</summary>
     private const int VoxelParallelFetches = 4;
@@ -854,7 +479,7 @@ public class RenderWorkerService : IRenderWorkerService
                 new FetchOptions { Credentials = "include" });
             if (!response.Ok)
             {
-                Console.WriteLine($"[RenderWorker] Voxel column ({cx},{cz}) HTTP {response.Status}");
+                Console.WriteLine($"[RenderWorker] Column ({cx},{cz}) HTTP {response.Status}");
                 return;
             }
 
@@ -867,17 +492,15 @@ public class RenderWorkerService : IRenderWorkerService
             using var buffer = await response.ArrayBuffer();
             using var ids = new Uint8Array(buffer);
             if (!await _voxel.AddColumnAsync(cx, cz, ids))
-                Console.WriteLine($"[RenderWorker] Voxel column ({cx},{cz}) dropped: no free section slots");
+                Console.WriteLine($"[RenderWorker] Column ({cx},{cz}) dropped: no free section slots");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[RenderWorker] Voxel column ({cx},{cz}) failed: {ex.Message}");
+            Console.WriteLine($"[RenderWorker] Column ({cx},{cz}) failed: {ex.Message}");
         }
     }
 
-    /// <summary>
-    /// Fetch the block names (index = global id) and rebuild the class and material tables.
-    /// </summary>
+    /// <summary>Fetch the block names (index = global id) and rebuild the class and material tables.</summary>
     private async Task RefreshVoxelBlockNamesAsync(int atLeast = 1)
     {
         await _voxelNamesLock.WaitAsync();
@@ -901,112 +524,6 @@ public class RenderWorkerService : IRenderWorkerService
         {
             _voxelNamesLock.Release();
         }
-    }
-
-    /// <summary>
-    /// Block flags for the full 3D MinecraftMeshKernel (separate from heightmap palette struct).
-    /// 0=solid non-tinted, 1=plant (tinted, cross-quad), 2=water (tinted, transparent), 3=solid tinted
-    /// </summary>
-    private static float[] BuildBlockFlags(List<string> palette)
-    {
-        var flags = new float[palette.Count];
-        for (int i = 0; i < palette.Count; i++)
-        {
-            var name = palette[i];
-            if (TextureAtlas.IsPlant(name))
-                flags[i] = 1f;
-            else if (name is "minecraft:water" or "minecraft:flowing_water")
-                flags[i] = 2f;
-            else if (name.Contains("leaves"))
-                flags[i] = 4f; // leaves: tinted solid that neighbors still show faces through
-            else if (name.Contains("grass") || name.Contains("vine") || name.Contains("fern")
-                  || name.Contains("lily"))
-                flags[i] = 3f;
-        }
-        return flags;
-    }
-
-    /// <summary>
-    /// Compute Sodium-style connectivity for each of the 24 sections in a chunk
-    /// and push the masks to the renderer for BFS cave-culling.
-    /// `blocks` is laid out as `x + z*16 + y*256` per the kernel.
-    /// World Y range is [0, 384); section sy spans [sy*16, sy*16+16).
-    /// Section sy=0 is at world Y -64 (which is chunk-local Y=0).
-    /// </summary>
-    private void UploadSectionConnectivity(int cx, int cz, List<string> palette, ushort[] blocks)
-    {
-        // 1. Per-palette "sight passes through" lookup: air, water, plants, leaves and glass. Counting a
-        //    see-through block as solid would HIDE what is behind it (a section full of ocean water blocked
-        //    the seabed below it); counting too much as see-through only draws a little extra.
-        var flags = BuildBlockFlags(palette);
-        var paletteSeeThrough = new bool[palette.Count];
-        for (int i = 0; i < palette.Count; i++)
-        {
-            float f = flags[i];
-            paletteSeeThrough[i] = palette[i] is "minecraft:air" or "minecraft:cave_air" or "minecraft:void_air"
-                || (f > 0.5f && f < 2.5f) || f > 3.5f // plant, water, leaves
-                || palette[i].Contains("glass");
-        }
-
-        Span<ulong> transparent = stackalloc ulong[SectionVisibility.SectionWords]; // reused across sections
-        for (int sy = 0; sy < 24; sy++)
-        {
-            transparent.Clear();
-            int yBase = sy * 16;
-            for (int yOff = 0; yOff < 16; yOff++)
-            {
-                int yLayerStart = (yBase + yOff) * 256; // chunk Y 0..383
-                for (int z = 0; z < 16; z++)
-                {
-                    int rowStartChunk = yLayerStart + z * 16;
-                    ulong row = 0;
-                    for (int x = 0; x < 16; x++)
-                        if (paletteSeeThrough[blocks[rowStartChunk + x]]) row |= 1UL << x;
-                    var (word, bit) = SectionVisibility.CellBit(0, yOff, z);
-                    transparent[word] |= row << bit;
-                }
-            }
-            long conn = SectionVisibility.ComputeConnectivity(transparent);
-            _renderer.SetSectionConnectivity(cx, sy, cz, conn);
-        }
-    }
-
-    /// <summary>Per-face atlas UVs for full 3D kernel (12 floats per block).</summary>
-    private static float[] BuildFullAtlasUVs(List<string> palette)
-    {
-        var uvs = new float[palette.Count * 12];
-        for (int i = 0; i < palette.Count; i++)
-        {
-            var (top, side, bottom) = TextureAtlas.GetPerFaceUVs(palette[i]);
-            int b = i * 12;
-            uvs[b]     = top.u0;   uvs[b + 1] = top.v0;   uvs[b + 2] = top.u1;   uvs[b + 3] = top.v1;
-            uvs[b + 4] = side.u0;  uvs[b + 5] = side.v0;  uvs[b + 6] = side.u1;  uvs[b + 7] = side.v1;
-            uvs[b + 8] = bottom.u0; uvs[b + 9] = bottom.v0; uvs[b + 10] = bottom.u1; uvs[b + 11] = bottom.v1;
-        }
-        return uvs;
-    }
-
-    /// <summary>Parse binary full chunk data. No JSON, no base64.</summary>
-    private static (List<string> palette, ushort[] blocks)? ParseFullChunkBinary(byte[] data)
-    {
-        if (data.Length < 4) return null;
-        int offset = 0;
-
-        int paletteCount = BitConverter.ToInt32(data, offset); offset += 4;
-        var palette = new List<string>(paletteCount);
-        for (int i = 0; i < paletteCount; i++)
-        {
-            if (offset + 4 > data.Length) return null;
-            int strLen = BitConverter.ToInt32(data, offset); offset += 4;
-            if (offset + strLen > data.Length) return null;
-            palette.Add(System.Text.Encoding.UTF8.GetString(data, offset, strLen));
-            offset += strLen;
-        }
-
-        int remaining = data.Length - offset;
-        var blocks = new ushort[remaining / 2];
-        Buffer.BlockCopy(data, offset, blocks, 0, remaining);
-        return (palette, blocks);
     }
 
     public ValueTask DisposeAsync()

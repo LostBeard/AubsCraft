@@ -8,11 +8,8 @@ namespace AubsCraft.Admin.Services;
 /// </summary>
 public interface IRenderWorkerService : IAsyncDisposable
 {
-    /// <summary>
-    /// Starts rendering serverId's world (the worker serves ONE server for its whole life). voxelRenderer draws it with
-    /// SpawnDev.VoxelEngine (<c>/map?renderer=voxel</c>) instead of the original mesh kernels; the choice is for the worker's life too.
-    /// </summary>
-    Task StartAsync(string serverId, float camX, float camY, float camZ, float pitch, float yaw, bool voxelRenderer);
+    /// <summary>Starts rendering serverId's world (the worker serves ONE server for its whole life), drawn by SpawnDev.VoxelEngine.</summary>
+    Task StartAsync(string serverId, float camX, float camY, float camZ, float pitch, float yaw);
     Task AttachCanvasAsync(OffscreenCanvas canvas, int width, int height);
     Task DetachCanvasAsync();
     Task ProcessInputAsync(float dx, float dy, float dt, string[] keysDown);

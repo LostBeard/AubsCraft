@@ -372,21 +372,4 @@ public static class BlockColorMap
 
     // Each unknown block is reported once, so new Minecraft blocks are easy to spot.
     private static readonly HashSet<string> ReportedUnknown = new();
-
-    /// <summary>
-    /// Build a flat float array of RGB colors for a palette (3 floats per entry).
-    /// Index into this array as: paletteIndex * 3 + channel.
-    /// </summary>
-    public static float[] BuildPaletteColors(List<string> palette)
-    {
-        var colors = new float[palette.Count * 3];
-        for (int i = 0; i < palette.Count; i++)
-        {
-            var (r, g, b) = GetColor(palette[i]);
-            colors[i * 3] = r;
-            colors[i * 3 + 1] = g;
-            colors[i * 3 + 2] = b;
-        }
-        return colors;
-    }
 }

@@ -1,0 +1,1790 @@
+info: AubsCraft.Admin.Server.Services.ServerRegistry[0]
+      Created C:\Users\TJ\AppData\Local\Temp\aubscraft-viewer-gate\b43ac149aebd4418951f90fa6bd2d163\servers.json from the single-server config: 'aubscraft' at M:/opt/minecraft/server
+info: AubsCraft.Admin.Server.Services.EmailNotificationService[0]
+      EmailNotificationService: disabled (set Email:Enabled=true to enable)
+info: AubsCraft.Admin.Server.Services.ServerManager[0]
+      Server 'aubscraft' (Paper 1.21.5) at M:/opt/minecraft/server
+info: AubsCraft.Admin.Server.Services.ServerMonitorService[0]
+      ServerMonitorService starting
+info: AubsCraft.Admin.Server.Services.LogTailService[0]
+      LogTailService starting
+info: AubsCraft.Admin.Server.Services.AutoBackupService[0]
+      Next nightly backup at 2026-10-15 08:00:00Z
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://127.0.0.1:52623
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: C:\Users\TJ\AppData\Local\Temp\claude\D--users-tj-Projects\73d9bada-302a-4d53-bf62-7c7a9d78e51c\scratchpad\aubs-cut1
+info: AubsCraft.Admin.Server.Services.AuthService[0]
+      Owner account created for owner
+info: AubsCraft.Admin.Server.Services.LogTailer[0]
+      Tailing M:/opt/minecraft/server\logs\latest.log for server 'aubscraft'
+info: AubsCraft.Admin.Server.Services.LogTailer[0]
+      Loaded 0 events from log history, position 649950
+info: AubsCraft.Admin.Server.Services.LogTailer[0]
+      FileSystemWatcher active for M:/opt/minecraft/server\logs\latest.log
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575
+fail: AubsCraft.Admin.Server.RconService[0]
+      RCON connection failed to 127.0.0.1:25575
+      System.Net.Sockets.SocketException (10061): No connection could be made because the target machine actively refused it.
+         at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource.GetResult(Int16 token)
+         at System.Net.Sockets.TcpClient.CompleteConnectAsync(ValueTask task)
+         at SpawnDev.Rcon.RconClient.ConnectAsync(String password, CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\SpawnDev.Rcon\RconClient.cs:line 66
+         at AubsCraft.Admin.Server.RconService.ConnectAsync(CancellationToken cancellationToken) in D:\users\tj\Projects\AubsCraft\AubsCraft.Admin.Server\RconService.cs:line 35
+warn: AubsCraft.Admin.Server.RconService[0]
+      RCON disconnected from 127.0.0.1:25575

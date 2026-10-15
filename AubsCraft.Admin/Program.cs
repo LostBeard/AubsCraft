@@ -22,11 +22,10 @@ builder.Services.AddTangoADB();
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddScoped<AuthStateProvider>();
 builder.Services.AddScoped<ServerHubClient>();
-builder.Services.AddSingleton<VoxelEngineService>();
+builder.Services.AddSingleton<GpuContextService>();
 builder.Services.AddSingleton<InputService>();
 builder.Services.AddSingleton<AubsCraft.Admin.Rendering.MapRenderService>();
 builder.Services.AddSingleton<WorldCacheService>();
-builder.Services.AddSingleton<ChunkStreamService>();
 builder.Services.AddSingleton<RenderWorkerHost>();
 // GameUI draws the viewer's HUD on the GPU, in the render worker (the AubsCraft theme is the blocky Minecraft look)
 builder.Services.AddGameUI(UITheme.AubsCraft);

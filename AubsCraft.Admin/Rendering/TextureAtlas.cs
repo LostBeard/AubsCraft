@@ -1,14 +1,12 @@
 namespace AubsCraft.Admin.Rendering;
 
 /// <summary>
-/// Maps Minecraft block names to texture atlas UV coordinates.
+/// Maps Minecraft block names to texture atlas tiles (a tile index is the texture-array layer).
 /// Atlas: 16x16 grid of 16x16 textures (256x256 pixels).
 /// Supports per-face textures (top/side/bottom) for blocks like logs and grass.
 /// </summary>
 public static class TextureAtlas
 {
-    private const float T = 1f / 16f; // tile size in UV space
-
     // Per-face texture overrides: (topIndex, sideIndex, bottomIndex)
     // Blocks not in this dictionary use the same texture for all faces.
     // Atlas layout reference:
@@ -223,56 +221,14 @@ public static class TextureAtlas
     /// <summary>Returns true if the block should render as cross-shaped quads instead of a cube.</summary>
     public static bool IsPlant(string blockName) => PlantBlocks.Contains(blockName);
 
-    public static (float u, float v) GetUV(string blockName)
-    {
-        if (BlockToIndex.TryGetValue(blockName, out var index))
-            return ((index % 16) * T, (index / 16) * T);
-        return (-1f, -1f);
-    }
-
-    public static (float u0, float v0, float u1, float v1) GetTileUVs(string blockName)
-    {
-        var (u, v) = GetUV(blockName);
-        if (u < 0) return (-1, -1, -1, -1);
-        return (u, v, u + T, v + T);
-    }
-
-    private static (float u0, float v0, float u1, float v1) IndexToUVs(int index)
-    {
-        float u = (index % 16) * T;
-        float v = (index / 16) * T;
-        return (u, v, u + T, v + T);
-    }
-
     /// <summary>
     /// The atlas tile index (row * 16 + column, which is also the texture-array layer) of the top, side and bottom faces,
-    /// or -1 for a face without an atlas texture. Same table as <see cref="GetPerFaceUVs"/>.
+    /// or -1 for a face without an atlas texture.
     /// </summary>
     public static (int top, int side, int bottom) GetFaceLayers(string blockName)
     {
         if (PerFaceBlocks.TryGetValue(blockName, out var faces)) return faces;
         if (BlockToIndex.TryGetValue(blockName, out var index)) return (index, index, index);
         return (-1, -1, -1);
-    }
-
-    /// <summary>
-    /// Returns per-face UVs: (top, side, bottom). Each is (u0, v0, u1, v1).
-    /// For blocks without per-face overrides, all three are the same.
-    /// Returns (-1,-1,-1,-1) for faces without atlas textures.
-    /// </summary>
-    public static (
-        (float u0, float v0, float u1, float v1) top,
-        (float u0, float v0, float u1, float v1) side,
-        (float u0, float v0, float u1, float v1) bottom
-    ) GetPerFaceUVs(string blockName)
-    {
-        if (PerFaceBlocks.TryGetValue(blockName, out var faces))
-        {
-            return (IndexToUVs(faces.top), IndexToUVs(faces.side), IndexToUVs(faces.bottom));
-        }
-
-        // Default: same texture for all faces
-        var uvs = GetTileUVs(blockName);
-        return (uvs, uvs, uvs);
     }
 }
