@@ -175,4 +175,13 @@ public class RealJarAssetTests
         Assert.That(a["minecraft:detector_rail[powered=false,shape=ascending_west]"].Slope, Is.EqualTo(2));
         Assert.That(a["minecraft:oak_log[axis=y]"].Slope, Is.EqualTo(0));
     }
+
+    [Test]
+    public async Task TheMaterialOfARealRamp_HasExactlyThicknessOneAndItsSlope()
+    {
+        var (r, _) = await BuildOnceAsync();
+        var m = AubsCraft.Admin.Rendering.VoxelBlockTables.MaterialOf("minecraft:rail[shape=ascending_west]", r.Assets);
+        TestContext.Progress.WriteLine($"[ramp] flags {m.Flags:X} layers {m.Layers01:X} {m.Layers23:X} {m.Layers45:X} alpha {m.Alpha} tint {m.TintR},{m.TintG},{m.TintB}");
+        Assert.That(m.Flags, Is.EqualTo(SpawnDev.VoxelEngine.Rendering.BlockMaterial.Thickness(1) | SpawnDev.VoxelEngine.Rendering.BlockMaterial.Slope(SpawnDev.VoxelEngine.Rendering.BlockMaterial.SlopeWest)));
+    }
 }

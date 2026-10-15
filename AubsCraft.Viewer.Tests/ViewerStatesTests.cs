@@ -117,6 +117,8 @@ public class ViewerStatesTests
                 {
                     ("down", $"{F(x + 0.5f)},{F(y + 2.2f)},{F(z + 0.5f)},-89,-90"),
                     ("side", $"{F(x + 0.5f)},{F(y + 2.0f)},{F(z + 3f)},-30,-90"),
+                    ("far", $"{F(x + 0.5f)},{F(y + 1.2f)},{F(z + 9f)},-2,-90"),
+                    ("far-east", $"{F(x + 9f)},{F(y + 1.5f)},{F(z + 0.5f)},-5,180"),
                 })
                 {
                     await page.GotoAsync($"{_rig.BaseUrl}/map?hud=0&time=6000&dd=8&cam={cam}", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
