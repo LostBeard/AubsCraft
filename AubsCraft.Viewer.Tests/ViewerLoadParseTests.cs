@@ -37,6 +37,18 @@ public class ViewerLoadParseTests
     }
 
     [Test]
+    public void TheGatherTime_IsParsedWhenPresent_AndAbsentOtherwise()
+    {
+        var s = ViewerLoadTests.Sample.TryParse(1,
+            "[Voxel] 52 fps | frame CPU 11.4 ms (record 9.7, of it gather 0.4) | 625 draws, 6 binds | 2108/7503 sections | 7297 columns+far | 376K/1476K quads | 4429 meshes (1030 re-meshes, 0 waiting) in 1 quad buffers | far 959/6500 meshed");
+        Assert.That(s, Is.Not.Null);
+        Assert.That((s!.RecordMs, s.GatherMs, s.Draws), Is.EqualTo((9.7, 0.4, 625)));
+        var old = ViewerLoadTests.Sample.TryParse(1,
+            "[Voxel] 52 fps | frame CPU 11.4 ms (record 9.7) | 625 draws, 6 binds | 2108/7503 sections | 7297 columns+far | 376K/1476K quads");
+        Assert.That(old!.GatherMs, Is.EqualTo(-1));
+    }
+
+    [Test]
     public void OtherConsoleLines_AreNotSamples()
     {
         Assert.That(ViewerLoadTests.Sample.TryParse(1, "[RenderWorker] Atlas 1024x1024 sliced into the voxel texture array"), Is.Null);

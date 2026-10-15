@@ -13,7 +13,7 @@ namespace AubsCraft.Admin.Rendering;
 
 /// <summary>What one voxel frame drew.</summary>
 public readonly record struct VoxelFrameStats(int Columns, int SectionsWithQuads, int VisibleSections, long TotalQuads, long VisibleQuads,
-    int DrawCalls, int BufferBinds, double RecordMs);
+    int DrawCalls, int BufferBinds, double RecordMs, double GatherMs);
 
 /// <summary>
 /// The viewer's world, drawn by SpawnDev.VoxelEngine: block columns arrive as the server's global-id ushort arrays (straight from a
@@ -74,6 +74,10 @@ public sealed class VoxelWorldRenderer : IDisposable
     // Per-frame scratch, reused
     private readonly List<Column> _visible = new(512);
     private readonly List<(float dist, Column col)> _waterOrder = new(512);
+    // The columns and far chunks Render looks at (see RebuildCandidates), and what they were built for
+    private readonly List<Column> _candidates = new(2048);
+    private bool _candidatesDirty = true;
+    private int _candCX = int.MinValue, _candCZ = int.MinValue, _candRadius = -1;
 
     public int ColumnCount => _columns.Count;
     public int NamesKnown { get; private set; }
@@ -300,8 +304,10 @@ public sealed class VoxelWorldRenderer : IDisposable
             foreach (var chunk in beyond)
             {
                 if (chunk.Mesh == null || chunk.Removed) continue;
+                ForgetTotals(chunk);
                 DisposeMesh(chunk.Mesh);
                 chunk.Mesh = null;
+                _candidatesDirty = true;
                 chunk.SectionsWithQuads = 0;
                 chunk.LowestSection = SectionsPerColumn;
                 chunk.HighestSection = -1;
@@ -392,6 +398,7 @@ public sealed class VoxelWorldRenderer : IDisposable
             }
             var old = col.Mesh;
             if (col.IsFar && old == null) FarMeshedCount++;
+            ForgetTotals(col); // the old mesh's share (its section count is read before it is overwritten below)
             col.Mesh = mesh;
             col.MeshedWith = mask;
             MeshesDone++;
@@ -405,6 +412,8 @@ public sealed class VoxelWorldRenderer : IDisposable
                 col.LowestSection = Math.Min(col.LowestSection, sy);
                 col.HighestSection = sy;
             }
+            CountTotals(col);
+            _candidatesDirty = true;
             if (old != null) DisposeMesh(old);
         }
         finally
@@ -435,6 +444,7 @@ public sealed class VoxelWorldRenderer : IDisposable
     {
         if (!_columns.Remove((cx, cz), out var col)) return;
         col.Removed = true;
+        _candidatesDirty = true; // it stops being drawn now, not when its buffers are freed
         _ = DisposeColumnAsync(col);
     }
 
@@ -442,6 +452,7 @@ public sealed class VoxelWorldRenderer : IDisposable
     {
         if (!_far.Remove((cx, cz), out var chunk)) return;
         chunk.Removed = true;
+        _candidatesDirty = true;
         _ = DisposeColumnAsync(chunk);
     }
 
@@ -453,10 +464,12 @@ public sealed class VoxelWorldRenderer : IDisposable
         {
             if (col.Mesh != null)
             {
+                ForgetTotals(col);
                 DisposeMesh(col.Mesh);
                 if (col.IsFar) FarMeshedCount--;
             }
             col.Mesh = null;
+            _candidatesDirty = true;
             col.Blocks?.Dispose();
             col.Heights?.Dispose();
             _freeSlots.Push(col.Slot);
@@ -613,16 +626,18 @@ public sealed class VoxelWorldRenderer : IDisposable
         int camCZ = (int)MathF.Floor(camera.Position.Z / 16f);
         // Never past the fog: terrain beyond it is the fog colour (the frame is cleared to it below) and only costs draws
         long drawDistSq = (long)FarWindow.CullRadius(drawDistanceChunks) * FarWindow.CullRadius(drawDistanceChunks);
-        int sectionsWithQuads = 0;
-        long totalQuads = 0;
-
+        var gatherTimer = System.Diagnostics.Stopwatch.StartNew();
         _visible.Clear();
         _waterOrder.Clear();
-        foreach (var col in _columns.Values)
-            GatherVisible(col, null, in frustum, camCX, camCZ, drawDistSq, ref sectionsWithQuads, ref totalQuads);
-        // A far chunk gives way to the full column on the same spot, once that column is meshed
-        foreach (var chunk in _far.Values)
-            GatherVisible(chunk, _columns, in frustum, camCX, camCZ, drawDistSq, ref sectionsWithQuads, ref totalQuads);
+        // Only the meshes in range are looked at each frame: the list is rebuilt when the camera changes chunk, the draw distance changes or a
+        // mesh appears, goes or is replaced - not by walking every column and far chunk of the world 60 times a second (7300 of them on a
+        // loaded world; on a laptop CPU that walk was 4-5 ms of the frame)
+        int radius = FarWindow.CullRadius(drawDistanceChunks);
+        if (_candidatesDirty || camCX != _candCX || camCZ != _candCZ || radius != _candRadius)
+            RebuildCandidates(camCX, camCZ, radius);
+        foreach (var col in _candidates)
+            GatherVisible(col, in frustum, camCX, camCZ);
+        double gatherMs = gatherTimer.Elapsed.TotalMilliseconds;
 
         int visibleSections = 0;
         long visibleQuads = 0;
@@ -658,29 +673,59 @@ public sealed class VoxelWorldRenderer : IDisposable
         }
         pass.End();
 
-        return new VoxelFrameStats(_columns.Count + _far.Count, sectionsWithQuads, visibleSections, totalQuads, visibleQuads,
-            drawCalls, (int)(_pipe.QuadBufferBinds + _pipe.PipelineSwitches - bindsBefore), recordTimer.Elapsed.TotalMilliseconds);
+        return new VoxelFrameStats(_columns.Count + _far.Count, _totalSections, visibleSections, _totalQuads, visibleQuads,
+            drawCalls, (int)(_pipe.QuadBufferBinds + _pipe.PipelineSwitches - bindsBefore), recordTimer.Elapsed.TotalMilliseconds, gatherMs);
     }
 
     // Adds col to the frame's draw lists when it is meshed, in range and in view; counts its quads and sections either way.
     // covered: the set whose meshed entry at the same position hides col (far chunks), or null.
-    private void GatherVisible(Column col, Dictionary<(int cx, int cz), Column>? covered, in FrustumCuller.Frustum frustum,
-        int camCX, int camCZ, long drawDistSq, ref int sectionsWithQuads, ref long totalQuads)
+    // Adds a candidate to the frame's draw lists when it is in view (it is already known to be meshed, in range and not under a full column).
+    private void GatherVisible(Column col, in FrustumCuller.Frustum frustum, int camCX, int camCZ)
     {
         var mesh = col.Mesh;
-        if (mesh == null) return;
-        if (covered != null && covered.TryGetValue((col.Cx, col.Cz), out var over) && over.Mesh != null) return;
-        totalQuads += mesh.Opaque.Count + mesh.Plants.Count + mesh.Water.Count;
-        sectionsWithQuads += col.SectionsWithQuads;
-        if (col.HighestSection < 0) return; // nothing to draw
+        if (mesh == null || col.HighestSection < 0) return; // gone since the list was built: it is rebuilt next frame
         long dx = col.Cx - camCX, dz = col.Cz - camCZ;
-        if (dx * dx + dz * dz > drawDistSq) return;
         // The box of the sections that hold quads, not the whole 384 blocks
         var min = new Vector3(col.Cx * 16, WorldMinY + col.LowestSection * 16, col.Cz * 16);
         var max = new Vector3(col.Cx * 16 + 16, WorldMinY + (col.HighestSection + 1) * 16, col.Cz * 16 + 16);
         if (!FrustumCuller.IsBoxVisible(in frustum, min, max)) return;
         _visible.Add(col);
         if (mesh.Water.Count > 0) _waterOrder.Add((dx * dx + dz * dz, col));
+    }
+
+    // The meshes worth looking at this frame: meshed, something to draw, within the draw radius, and a far chunk only where no full column
+    // is meshed on the same spot
+    private void RebuildCandidates(int camCX, int camCZ, int radius)
+    {
+        _candidates.Clear();
+        long limit = (long)radius * radius;
+        foreach (var col in _columns.Values)
+            if (col.Mesh != null && col.HighestSection >= 0 && FarWindow.DistanceSq(col.Cx, col.Cz, camCX, camCZ) <= limit)
+                _candidates.Add(col);
+        foreach (var chunk in _far.Values)
+        {
+            if (chunk.Mesh == null || chunk.HighestSection < 0 || FarWindow.DistanceSq(chunk.Cx, chunk.Cz, camCX, camCZ) > limit) continue;
+            if (_columns.TryGetValue((chunk.Cx, chunk.Cz), out var over) && over.Mesh != null) continue;
+            _candidates.Add(chunk);
+        }
+        _candCX = camCX; _candCZ = camCZ; _candRadius = radius;
+        _candidatesDirty = false;
+    }
+
+    // Running totals over every mesh held, for the stats: kept as meshes come and go instead of added up each frame
+    private long _totalQuads;
+    private int _totalSections;
+    private static long QuadsOf(ColumnMesh m) => m.Opaque.Count + m.Plants.Count + m.Water.Count;
+    private void CountTotals(Column col)
+    {
+        _totalQuads += QuadsOf(col.Mesh!);
+        _totalSections += col.SectionsWithQuads;
+    }
+    private void ForgetTotals(Column col)
+    {
+        if (col.Mesh == null) return;
+        _totalQuads -= QuadsOf(col.Mesh);
+        _totalSections -= col.SectionsWithQuads;
     }
 
     public void Dispose()
