@@ -175,7 +175,9 @@ public class ViewerHudTests
 
         TestContext.Progress.WriteLine($"[hud] under the panel: luma {before.Luma:F0} / {on.Luma:F0} (F3 on) / {off.Luma:F0} (F3 off); " +
             $"bright px {before.Bright} / {on.Bright} / {off.Bright}");
-        Assert.That(on.Luma, Is.LessThan(before.Luma * 0.6), "F3 darkens that area (the debug overlay's panel)");
+        // Measured 0.58-0.60 of the area without the overlay (its text pixels are part of the mean, and the note grows as the viewer gains
+        // numbers): 0.6 was ON the border and the test flipped between runs. 0.75 is clear of it, and an overlay that is not drawn gives 1.0.
+        Assert.That(on.Luma, Is.LessThan(before.Luma * 0.75), "F3 darkens that area (the debug overlay's panel)");
         Assert.That(on.Bright - before.Bright, Is.GreaterThanOrEqualTo(20), "and writes white text in it");
         Assert.That(off.Luma, Is.GreaterThan(on.Luma * 1.4), "a second F3 hides it again");
         Assert.That(_consoleErrors, Is.Empty);

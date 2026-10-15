@@ -32,7 +32,7 @@ public sealed class ViewerRig : IAsyncDisposable
 
     /// <param name="publishDir">Output of `dotnet publish AubsCraft.Admin.Server -c Release` (framework-dependent).</param>
     /// <param name="worldServerPath">A Minecraft server folder (contains world/); only read.</param>
-    public static async Task<ViewerRig> StartAsync(string publishDir, string worldServerPath)
+    public static async Task<ViewerRig> StartAsync(string publishDir, string worldServerPath, string? secondServerId = null)
     {
         var dll = Path.Combine(publishDir, "AubsCraft.Admin.Server.dll");
         if (!File.Exists(dll)) throw new FileNotFoundException($"No published server at {dll}");
@@ -51,7 +51,7 @@ public sealed class ViewerRig : IAsyncDisposable
                 // Not fatal: DisposeAsync still stops what this rig started. Only a crashed host would leak them.
                 TestContext.Progress.WriteLine($"[ViewerRig] No kill-on-exit safety net: {ex.Message}");
             }
-            await rig.StartServerAsync(dll, publishDir, worldServerPath);
+            await rig.StartServerAsync(dll, publishDir, worldServerPath, secondServerId);
             await rig.StartBrowserAsync();
             await rig.SignInAsync();
             return rig;
@@ -63,8 +63,22 @@ public sealed class ViewerRig : IAsyncDisposable
         }
     }
 
-    private async Task StartServerAsync(string dll, string publishDir, string worldServerPath)
+    private async Task StartServerAsync(string dll, string publishDir, string worldServerPath, string? secondServerId)
     {
+        // A second registered server (the same world folder under another id) so the gate can switch the viewed server: the panel shows a
+        // picker only when there is more than one. Pre-writing the registry replaces the one built from the single-server config.
+        if (secondServerId != null)
+        {
+            var path = worldServerPath.Replace('\\', '/');
+            File.WriteAllText(Path.Combine(_stateDir, "servers.json"), System.Text.Json.JsonSerializer.Serialize(new
+            {
+                Servers = new[]
+                {
+                    new { Id = "aubscraft", Name = "AubsCraft", Path = path },
+                    new { Id = secondServerId, Name = "Second", Path = path },
+                },
+            }));
+        }
         int port;
         using (var probe = new TcpListener(IPAddress.Loopback, 0))
         {

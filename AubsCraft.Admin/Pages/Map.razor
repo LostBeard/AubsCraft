@@ -402,6 +402,10 @@ else
         Hub.OnServerStatusReceived -= OnServerStatus;
         Hub.OnChatMessageReceived -= OnHubChat;
         Hub.OnActivityEventReceived -= OnHubActivity;
+        // Input first: it unsubscribes its handlers from the canvas element, which must still be alive. With the element disposed
+        // before this, Input.Detach threw a NullReferenceException inside Blazor's disposal queue ("Unhandled exception rendering
+        // component") every time the page was left - and a server switch re-keys the page (MainLayout @key), so it did the same.
+        Input.Detach();
         if (_document != null)
         {
             _document.OnPointerLockChange -= OnPointerLockChange;
@@ -415,6 +419,5 @@ else
         if (_renderService != null)
             _ = _renderService.DetachCanvasAsync();
         _canvas?.Dispose();
-        Input.Detach();
     }
 }
