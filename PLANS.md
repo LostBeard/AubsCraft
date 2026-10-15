@@ -128,6 +128,13 @@ one constant colour (no biomes); nothing animates; no entities at all. Today's a
 - [ ] WL4. (DONE: skins via the panel proxy; LEFT: name tags, chat bubbles, minimap markers, follow camera) Player skins (server-side fetch + cache of the profile texture URL), name tags, chat bubbles, minimap markers (players, animals; toggles), follow-camera on a player.
 - [ ] WL5. Item entities, projectiles, falling blocks, minecarts/boats, particles.
 
+### Reported by TJ 10-15 (live viewer), not yet handled
+- [ ] Rails draw wrong: they should be a thin layer on top of the block they lie on (shape meshing, WT4).
+- [ ] A top water block that also holds a plant (seagrass, kelp, waterlogged) does not draw its water (the class is the plant's, the water is lost).
+- [ ] Fish (cod, salmon, tropical, pufferfish, squid) are coloured boxes: need their models + a swim rig.
+- [ ] Smoke / particles (campfire, furnace, fire) do not render (WL5).
+- [ ] Intel 620: creatures cost 14.4 ms a frame with 531 drawn (4,794 parts): frustum culling + head-and-body-only beyond 40 blocks added; re-measure.
+
 Order: WT1 + WA1 first (biggest visible change, client only), then WL1 stepping stones (RCON players) + WL2, then WT3/WT4/WT5.
 
 ## Phase D2: Input System + UI Layout

@@ -25,6 +25,8 @@ public sealed class EntityLayer : IDisposable
     /// <summary>The most creatures drawn in a frame (the nearest ones): a few hundred already fill a view; the rest are specks.</summary>
     public const int MaxEntitiesDrawn = 600;
     private const int ParallelSkinLoads = 3;
+    /// <summary>Past this many blocks a creature is drawn as its head and body only.</summary>
+    public const float CoarseRange = 40f;
 
     private readonly SpawnJSRuntime _js;
     private readonly LiveWorldState _state = new();
@@ -152,13 +154,18 @@ public sealed class EntityLayer : IDisposable
         float ageTicks = (float)(now * 20.0);
         float maxSq = maxDistance * maxDistance;
 
+        // Only what the camera can see is posed: the server may have hundreds of creatures around and a view takes in a fraction of them
+        var frustum = FrustumCuller.ExtractPlanes(viewProj);
         _inRange.Clear();
         foreach (var v in _state.Sample(world, now))
         {
             if ((v.Flags & LiveFlags.Invisible) != 0 || EntityModels.IsNotACreature(v.Type)) continue;
             float dx = v.X - camera.X, dy = v.Y - camera.Y, dz = v.Z - camera.Z;
             float d2 = dx * dx + dy * dy + dz * dz;
-            if (d2 <= maxSq) _inRange.Add((d2, v));
+            if (d2 > maxSq) continue;
+            // A box around it, generous enough for the tallest (a name tag's creature, a giant's reach): off the side of the view, it is skipped
+            if (!FrustumCuller.IsBoxVisible(in frustum, new Vector3(v.X - 3f, v.Y - 1f, v.Z - 3f), new Vector3(v.X + 3f, v.Y + 4f, v.Z + 3f))) continue;
+            _inRange.Add((d2, v));
         }
         if (_inRange.Count > MaxEntitiesDrawn)
         {
@@ -216,7 +223,7 @@ public sealed class EntityLayer : IDisposable
         AddTag(world, v, model, distSq);
 
         int first = _draws.Count;
-        EntityPoser.Pose(v, model, ageTicks, _draws, texture);
+        EntityPoser.Pose(v, model, ageTicks, _draws, texture, coarse: distSq > CoarseRange * CoarseRange);
         if (fallback)
         {
             // A creature with no model of its own is a box, coloured by its kind so different kinds can be told apart

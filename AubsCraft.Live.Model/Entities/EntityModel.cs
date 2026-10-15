@@ -49,6 +49,9 @@ public sealed class EntityModel
     public Func<string?, string>? TextureByVariant { get; init; }
     /// <summary>Every texture <see cref="TextureByVariant"/> can answer, for the asset tool to pack.</summary>
     public IReadOnlyList<string> VariantTextures { get; init; } = Array.Empty<string>();
+    /// <summary>Whether any part is a head or a body: what a far-away creature is reduced to.</summary>
+    public bool HasHeadOrBody => _hasHeadOrBody ??= Parts.Any(p => p.Role is PartRole.Head or PartRole.Body);
+    private bool? _hasHeadOrBody;
     /// <summary>The model's feet: the y (model px) the lowest part reaches; the game places it so this is the ground.</summary>
     public float FootY { get; init; } = 24f;
 }

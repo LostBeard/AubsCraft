@@ -168,6 +168,33 @@ public class EntityPoserTests
     }
 
     [Test]
+    public void AFarCreature_IsDrawnAsHeadAndBodyOnly_InTheSamePlace()
+    {
+        foreach (var type in new[] { "pig", "cow", "sheep", "zombie", "villager", "player", "enderman" })
+        {
+            var model = EntityModels.Get(type)!;
+            var full = new List<PartDraw>();
+            var coarse = new List<PartDraw>();
+            EntityPoser.Pose(View(type), model, 3f, full);
+            EntityPoser.Pose(View(type), model, 3f, coarse, coarse: true);
+            int expected = model.Parts.Where(p => p.Role is PartRole.Head or PartRole.Body).Sum(p => p.Boxes.Length);
+            Assert.That(coarse.Count, Is.EqualTo(expected), type);
+            Assert.That(coarse.Count, Is.LessThan(full.Count), type);
+            // Each coarse box is one of the full pose's, unmoved
+            foreach (var c in coarse)
+                Assert.That(full.Any(f => f.Model == c.Model && f.Origin == c.Origin && f.U == c.U && f.V == c.V && f.Texture == c.Texture), Is.True, type);
+        }
+    }
+
+    [Test]
+    public void AOneBoxModel_IsNotReducedFurther()
+    {
+        var list = new List<PartDraw>();
+        EntityPoser.Pose(View("ghast"), EntityModels.Fallback("ghast"), 0, list, coarse: true);
+        Assert.That(list.Count, Is.EqualTo(1));
+    }
+
+    [Test]
     public void ALayer_MovesWithItsParent()
     {
         var model = EntityModels.Get("player")!;

@@ -45,7 +45,8 @@ public static class EntityPoser
     /// <summary>Append the boxes of <paramref name="model"/> as it stands at <paramref name="view"/>.</summary>
     /// <param name="ageTicks">A clock in ticks (idle sway, wing flap): any monotonic time.</param>
     /// <param name="texture">Replaces the model's own texture where it names the "player" texture (a player's skin); null leaves it.</param>
-    public static void Pose(in LiveEntityView view, EntityModel model, float ageTicks, List<PartDraw> output, string? texture = null)
+    /// <param name="coarse">A creature far away: only its head and body are drawn (limbs and overlay layers are a few pixels there), a third of the boxes.</param>
+    public static void Pose(in LiveEntityView view, EntityModel model, float ageTicks, List<PartDraw> output, string? texture = null, bool coarse = false)
     {
         float scale = view.Baby ? model.BabyScale : 1f;
         var root = Root(view.X, view.Y, view.Z, view.BodyYaw, scale);
@@ -56,10 +57,12 @@ public static class EntityPoser
         var dye = DyeColour(view.Variant);
 
         var parts = model.Parts;
+        if (coarse && !model.HasHeadOrBody) coarse = false;   // a one-box model is already as coarse as it gets
         Span<Matrix4x4> world = parts.Count <= 32 ? stackalloc Matrix4x4[parts.Count] : new Matrix4x4[parts.Count];
         for (int i = 0; i < parts.Count; i++)
         {
             var part = parts[i];
+            if (coarse && part.Role is not (PartRole.Head or PartRole.Body)) continue;
             var rot = part.Rotation + Animation(model, part.Role, view, swing, amount, headYaw, headPitch, ageTicks);
             var local = Matrix4x4.CreateRotationX(rot.X) * Matrix4x4.CreateRotationY(rot.Y) * Matrix4x4.CreateRotationZ(rot.Z)
                         * Matrix4x4.CreateTranslation(part.Pivot);
