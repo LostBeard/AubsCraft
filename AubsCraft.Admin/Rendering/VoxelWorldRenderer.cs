@@ -122,6 +122,12 @@ public sealed class VoxelWorldRenderer : IDisposable
 
     public GPUDevice? Device { get; private set; }
 
+    /// <summary>The frame uniforms (camera, light, fog) the creatures share with the blocks, so both are lit and fogged alike.</summary>
+    public GPUBuffer FrameBuffer => _pipe.FrameBuffer;
+
+    /// <summary>The creatures of the live feed, drawn inside the world's render pass between the blocks and the water (null: none).</summary>
+    public EntityLayer? Entities { get; set; }
+
     public bool HasColumn(int cx, int cz) => _columns.ContainsKey((cx, cz));
     public bool HasFarChunk(int cx, int cz) => _far.ContainsKey((cx, cz));
     public int FarChunkCount => _far.Count;
@@ -636,6 +642,9 @@ public sealed class VoxelWorldRenderer : IDisposable
             Time = (float)_clock.Elapsed.TotalSeconds,
         });
 
+        // Creatures are posed for this moment and uploaded before the pass; nothing past the fog is posed
+        Entities?.Prepare(camera.Position, FarWindow.FogEndBlocks(drawDistanceChunks));
+
         int camCX = (int)MathF.Floor(camera.Position.X / 16f);
         int camCZ = (int)MathF.Floor(camera.Position.Z / 16f);
         // Never past the fog: terrain beyond it is the fog colour (the frame is cleared to it below) and only costs draws
@@ -673,6 +682,9 @@ public sealed class VoxelWorldRenderer : IDisposable
                 visibleQuads += list.Count;
             }
         }
+
+        // The creatures: depth tested against the ground, before the water so water in front of one blends over it
+        Entities?.Draw(pass);
 
         // Water last, farthest column first, so nearer water blends over farther water
         _waterOrder.Sort((a, b) => b.dist.CompareTo(a.dist));

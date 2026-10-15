@@ -17,6 +17,7 @@ public sealed class ViewerRig : IAsyncDisposable
 {
     public const string OwnerName = "owner";
     public const string OwnerPassword = "viewer-gate-password";
+    public const string LiveSecret = "viewer-gate-live-secret";
 
     private readonly StringBuilder _serverLog = new();
     private readonly string _stateDir;
@@ -106,6 +107,9 @@ public sealed class ViewerRig : IAsyncDisposable
         psi.Environment["Auth__InviteCodesPath"] = Path.Combine(_stateDir, "invite-codes.json");
         psi.Environment["Auth__WhitelistAuditPath"] = Path.Combine(_stateDir, "whitelist-audit.json");
         psi.Environment["Moderation__BansPath"] = Path.Combine(_stateDir, "bans.json");
+        // The live feed's shared secret, so the gate can post frames the way the Minecraft plugin does (the real secret is never used here)
+        psi.Environment["Live__Secret"] = LiveSecret;
+        psi.Environment["Live__SecretPath"] = Path.Combine(_stateDir, "live-secret.txt");
         // The single-server config becomes the one registered server (ServerRegistry creates servers.json from it).
         // RCON is unreachable here; the world is read straight from the region files.
         psi.Environment["Minecraft__ServerPath"] = worldServerPath.Replace('\\', '/');
@@ -180,6 +184,16 @@ public sealed class ViewerRig : IAsyncDisposable
         var login = await Context.APIRequest.PostAsync(BaseUrl + "/api/auth/login",
             new APIRequestContextOptions { DataObject = new { Username = OwnerName, Password = OwnerPassword } });
         if (!login.Ok) throw new InvalidOperationException($"Login failed: {login.Status} {await login.TextAsync()}");
+    }
+
+    /// <summary>Send one live frame to the panel as the Minecraft plugin does (loopback, shared secret). Returns the status code.</summary>
+    public async Task<int> PostLiveFrameAsync(byte[] frame, string serverId = "aubscraft")
+    {
+        using var http = new HttpClient { BaseAddress = new Uri(BaseUrl) };
+        using var req = new HttpRequestMessage(HttpMethod.Post, $"/api/live/ingest/{serverId}") { Content = new ByteArrayContent(frame) };
+        req.Headers.Add("X-Live-Secret", LiveSecret);
+        using var resp = await http.SendAsync(req);
+        return (int)resp.StatusCode;
     }
 
     /// <summary>A world chunk column exactly as the viewer's full-3D path receives it.</summary>

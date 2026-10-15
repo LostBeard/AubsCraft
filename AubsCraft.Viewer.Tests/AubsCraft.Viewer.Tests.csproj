@@ -24,6 +24,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<!-- The live frame the gate posts in place of the Minecraft plugin -->
+		<ProjectReference Include="..\AubsCraft.Live.Model\AubsCraft.Live.Model.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<Using Include="NUnit.Framework" />
 	</ItemGroup>
 

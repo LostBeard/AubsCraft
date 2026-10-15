@@ -190,6 +190,19 @@ public class LiveWorldStateTests
     }
 
     [Test]
+    public void ThePrimaryWorld_IsTheFirstOfTheLatestFrame()
+    {
+        var s = new LiveWorldState();
+        Assert.That(s.PrimaryWorld, Is.Null);
+        s.Apply(new LiveFrame
+        {
+            FullTime = 0, DayTime = 0, Raining = false, Thundering = false,
+            Worlds = [new LiveWorld { Name = "Survival", Entities = [], Players = [] }, new LiveWorld { Name = "Survival_nether", Entities = [], Players = [] }],
+        }, 100);
+        Assert.That(s.PrimaryWorld, Is.EqualTo("Survival"));
+    }
+
+    [Test]
     public void Players_AreLookedUpByEntityId()
     {
         var s = new LiveWorldState();

@@ -58,6 +58,9 @@ public sealed class LiveWorldState
     /// <summary>The server's clock (seconds) as of the newest frame.</summary>
     public double LatestServerTime => _latestServerTime;
 
+    /// <summary>The first world of the latest frame: the server's main world, the one the viewer shows (a server names it as it likes).</summary>
+    public string? PrimaryWorld { get; private set; }
+
     /// <summary>The latest frame's day time in ticks and weather, for the sky.</summary>
     public long DayTime { get; private set; }
     public bool Raining { get; private set; }
@@ -72,6 +75,7 @@ public sealed class LiveWorldState
         DayTime = frame.DayTime;
         Raining = frame.Raining;
         Thundering = frame.Thundering;
+        if (frame.Worlds.Count > 0) PrimaryWorld = frame.Worlds[0].Name;
 
         _offsets.Enqueue(localNow - serverTime);
         while (_offsets.Count > OffsetWindow) _offsets.Dequeue();

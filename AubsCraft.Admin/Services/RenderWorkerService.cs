@@ -21,6 +21,9 @@ public class RenderWorkerService : IRenderWorkerService
     private OffscreenCanvas? _canvas;
     /// <summary>Draws the world with SpawnDev.VoxelEngine (created once the GPU is up).</summary>
     private VoxelWorldRenderer? _voxel;
+    /// <summary>The creatures of the live feed and the socket that feeds them.</summary>
+    private EntityLayer? _entities;
+    private LiveFeedClient? _liveFeed;
     /// <summary>Spreads the meshing of arriving columns over the frames, by how the frames are doing.</summary>
     private readonly IngestGovernor _ingest = new();
     private bool _initialized;
@@ -66,6 +69,11 @@ public class RenderWorkerService : IRenderWorkerService
         _voxel.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _gpu.Accelerator!);
         _voxel.Pace = _ingest.WaitTurnAsync; // every mesh waits for its turn: loading must not take the frame rate with it
         _renderer.Voxel = _voxel;
+        // The creatures of the live feed (animals, monsters, players): drawn in the world's pass, with the world's lighting and fog
+        var pageOrigin = _js.DedicateWorkerThis?.Location.Origin ?? _js.WindowThis?.Origin ?? "";
+        _entities = new EntityLayer(_js);
+        _entities.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _voxel.FrameBuffer, pageOrigin);
+        _voxel.Entities = _entities;
         // The HUD (GameUI) draws with the world's own device, into the same encoder, after the world pass.
         _hud.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _canvas!.Width, _canvas.Height);
         _renderer.OnOverlay = (encoder, view, w, h) => _hud.Draw(encoder, view, w, h);
@@ -88,6 +96,7 @@ public class RenderWorkerService : IRenderWorkerService
         // Load the block assets (textures, animations, what each block looks like) in the worker - fetched directly, the pixels stay in JS.
         // The block names wait for them: a block's class and material come from them
         _assetsLoad = LoadAssetsAsync();
+        _ = LoadEntityAssetsAsync();
 
         // Create JS data worker and connect via MessageChannel
         // Render worker creates and controls the data worker (clean hierarchy)
@@ -102,6 +111,10 @@ public class RenderWorkerService : IRenderWorkerService
         location.Dispose();
         // Heightmaps in global block ids (no palette): the bytes go to the GPU as they arrive
         var wsUrl = $"{protocol}//{host}/api/world/ws?{_serverQuery}&format=ids";
+
+        // The live feed (what the AubsCraft Live plugin on the Minecraft server sees: every animal, monster, player). Quiet when the server has no plugin.
+        _liveFeed = new LiveFeedClient($"{protocol}//{host}/api/live/ws?{_serverQuery}", _entities.OnFrame, m => Console.WriteLine("[Live] " + m));
+        _liveFeed.Start();
 
         // Use absolute URL for worker script (relative paths may not resolve in nested worker context)
         var origin = _js.Get<string>("location.origin");
@@ -354,6 +367,12 @@ public class RenderWorkerService : IRenderWorkerService
         }
     }
 
+    private async Task LoadEntityAssetsAsync()
+    {
+        try { await _entities!.LoadAssetsAsync(_renderer.Device!, _renderer.Queue!); }
+        catch (Exception ex) { Console.WriteLine($"[Live] Entity assets load error: {ex.Message}"); }
+    }
+
     private readonly HashSet<(int, int)> _populatedChunks = new();
     private int _lastFullCX = int.MinValue, _lastFullCZ = int.MinValue;
     private bool _loadingFull;
@@ -388,7 +407,7 @@ public class RenderWorkerService : IRenderWorkerService
     {
         var s = _renderer.LastVoxelStats;
         return $"Voxel: {s.DrawCalls} draws, {s.BufferBinds} binds, record {s.RecordMs:F1} ms, frame {_renderer.LastVoxelFrameMs:F1} ms; far chunks {_voxel!.FarMeshedCount} meshed of {_voxel.FarChunkCount}; "
-             + $"{_voxel.ArenaBlocks} quad buffers; loading {_ingest.TurnsPerFrame:F1} meshes/frame, {_ingest.Waiting} waiting, {_voxel.StaleCount} to re-mesh";
+             + $"{_voxel.ArenaBlocks} quad buffers; creatures {_entities?.EntityCount ?? 0} drawn of {_entities?.Known ?? 0} ({_entities?.PartCount ?? 0} parts, {_liveFeed?.Frames ?? 0} frames); loading {_ingest.TurnsPerFrame:F1} meshes/frame, {_ingest.Waiting} waiting, {_voxel.StaleCount} to re-mesh";
     }
 
     private void OnRenderFrame(float dt)
@@ -561,7 +580,9 @@ public class RenderWorkerService : IRenderWorkerService
         _disposed = true;
         // Data worker handles WebSocket - no OnChunkReceived to unsubscribe
         _renderer.StopRenderLoop();
+        _liveFeed?.Dispose();
         _voxel?.Dispose();
+        _entities?.Dispose();
         _canvas?.Dispose();
         return ValueTask.CompletedTask;
     }
