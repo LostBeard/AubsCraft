@@ -140,7 +140,48 @@ public sealed class VoxelWorldRenderer : IDisposable
         _mesher!.SetBlockClasses(classes);
         _farMesher!.SetBlockClasses(classes);
         _pipe.SetMaterials(materials);
+        _blockClasses = classes;
         NamesKnown = names.Count;
+    }
+
+    private int[] _blockClasses = System.Array.Empty<int>();
+    private bool _probing;
+    private double _lastProbe = double.NegativeInfinity;
+
+    /// <summary>The camera's eye is in water (or under a water surface): the world is drawn as seen from under water. Updated about ten times a second.</summary>
+    public bool CameraUnderwater { get; private set; }
+
+    // Is the eye's cell water? Two ids (the eye's cell and the one above it) are read back from the camera's column, never more: it is a question, not a download. Asked about ten
+    // times a second, one question at a time; the answer arrives a frame or two later, which is as fast as a swimmer can cross a water surface.
+    private void ProbeCamera(Vector3 eye)
+    {
+        if (_probing || _clock.Elapsed.TotalSeconds - _lastProbe < 0.1) return;
+        int x = (int)MathF.Floor(eye.X), y = (int)MathF.Floor(eye.Y), z = (int)MathF.Floor(eye.Z);
+        int ly = y - (int)WorldMinY;
+        if (!_columns.TryGetValue((x >> 4, z >> 4), out var col) || col.Blocks == null || ly < 0 || ly >= 383) { CameraUnderwater = false; return; }
+        _probing = true;
+        _lastProbe = _clock.Elapsed.TotalSeconds;
+        _ = ProbeAsync(col, (x & 15) + (z & 15) * 16 + ly * 256, eye.Y);
+    }
+
+    private async Task ProbeAsync(Column col, int index, float eyeY)
+    {
+        try
+        {
+            var blocks = col.Blocks;
+            if (blocks == null || col.Removed) { CameraUnderwater = false; return; }
+            var here = new ushort[1];
+            var above = new ushort[1];
+            await blocks.CopyToHostAsync(here, index, 1);
+            await blocks.CopyToHostAsync(above, index + 256, 1);
+            bool IsWater(ushort id) => id < _blockClasses.Length && (_blockClasses[id] & BlockClass.EmitWater) != 0;
+            CameraUnderwater = UnderwaterLook.IsUnder(IsWater(here[0]), IsWater(above[0]), eyeY);
+        }
+        catch (Exception)
+        {
+            CameraUnderwater = false;   // the column went while we asked
+        }
+        finally { _probing = false; }
     }
 
     /// <summary>The 16x16-tile block atlas (RGBA8, square), sliced into texture-array layers on the GPU.</summary>
@@ -630,6 +671,13 @@ public sealed class VoxelWorldRenderer : IDisposable
         float fovRad = camera.FovDegrees * MathF.PI / 180f;
         var frustum = FrustumCuller.ExtractPlanes(camera.GetVpMatrix(aspect)); // plane extraction wants the standard-Z matrix
 
+        // Under water everything fades into murk a few dozen blocks out, and the frame is cleared to it
+        ProbeCamera(camera.Position);
+        bool underwater = CameraUnderwater;
+        var fogColour = underwater ? UnderwaterLook.FogColor(light.SunStrength) : light.FogColor;
+        var fogStart = underwater ? UnderwaterLook.FogStart : FarWindow.FogStartBlocks(drawDistanceChunks);
+        var fogEnd = underwater ? UnderwaterLook.FogEnd : FarWindow.FogEndBlocks(drawDistanceChunks);
+
         _pipe.BeginFrame(new BlockFrameUniforms
         {
             ViewProjection = camera.GetViewMatrix() * ReversedZHelper.CreateInfinitePerspective(fovRad, aspect, camera.NearPlane),
@@ -637,8 +685,8 @@ public sealed class VoxelWorldRenderer : IDisposable
             SunDirection = new Vector4(light.SunDirection, 0f),
             SunColor = new Vector4(light.SunColor, light.SunStrength),
             Ambient = new Vector4(light.Ambient, FillLightStrength),
-            FogColor = new Vector4(light.FogColor, 1f),
-            FogRange = new Vector4(FarWindow.FogStartBlocks(drawDistanceChunks), FarWindow.FogEndBlocks(drawDistanceChunks), 0f, 0f),
+            FogColor = new Vector4(fogColour, 1f),
+            FogRange = new Vector4(fogStart, fogEnd, 0f, 0f),
             Time = (float)_clock.Elapsed.TotalSeconds,
         });
 
@@ -666,7 +714,7 @@ public sealed class VoxelWorldRenderer : IDisposable
         long visibleQuads = 0;
 
         // Cleared to the fog colour: what lies past the fog (not drawn) must look exactly like fogged terrain, at any hour
-        using var pass = _pipe.BeginRenderPass(encoder, colorView, _depthView!, light.FogColor);
+        using var pass = _pipe.BeginRenderPass(encoder, colorView, _depthView!, fogColour);
 
         foreach (var kind in CubePasses)
         {
