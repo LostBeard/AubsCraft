@@ -109,9 +109,12 @@ else
     internal static bool HudHiddenByLink(string uri)
         => System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["hud"] == "0";
 
-    /// <summary>True when the URL's query has renderer=voxel: the SpawnDev.VoxelEngine renderer instead of the original one.</summary>
+    /// <summary>
+    /// The SpawnDev.VoxelEngine renderer is the default (loads faster, better FPS: TJ 10-14); <c>/map?renderer=classic</c> brings back
+    /// the original mesh kernels until they are deleted (PLANS V7).
+    /// </summary>
     internal static bool VoxelRendererByLink(string uri)
-        => string.Equals(System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["renderer"], "voxel", StringComparison.OrdinalIgnoreCase);
+        => !string.Equals(System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["renderer"], "classic", StringComparison.OrdinalIgnoreCase);
 
     private void OnServerStatus(ServerStatusDto status)
     {

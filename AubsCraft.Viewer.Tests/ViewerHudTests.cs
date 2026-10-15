@@ -25,6 +25,7 @@ public class ViewerHudTests
     private readonly List<string> _consoleErrors = [];
     private readonly List<string> _console = [];
     private (Pixels.Region_ Panel, Pixels.Region_ Compass) _noHud;
+    private Bitmap? _control;
 
     // The stats panel sits top-left, 8 px in; the compass bar top-centre, 8 px down, 420 wide
     private static (Pixels.Region_ Panel, Pixels.Region_ Compass) Measure(Bitmap canvas) =>
@@ -51,6 +52,7 @@ public class ViewerHudTests
                 await controlPage.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = path });
                 using var bmp = new Bitmap(path);
                 _noHud = Measure(bmp);
+                _control = new Bitmap(bmp); // kept: the HUD frame is compared with it pixel by pixel
                 TestContext.Progress.WriteLine($"[hud] control (hud=0): panel corner {_noHud.Panel.Bright} bright px, compass band luma {_noHud.Compass.Luma:F0} spread {_noHud.Compass.LumaStdDev:F1}");
             }
             finally { await controlPage.CloseAsync(); }
@@ -63,6 +65,13 @@ public class ViewerHudTests
             // The page's own account of why it did not start: its console, and the server's
             string[] lines;
             lock (_console) lines = _console.Where(l => !l.Contains("[DIAG]")).TakeLast(60).ToArray();
+            // dotnet test hides TestContext.Progress by default: keep the evidence in a file too
+            try
+            {
+                lock (_console) File.WriteAllLines(Path.Combine(_outDir, "setup-failure-console.log"), _console);
+                File.WriteAllText(Path.Combine(_outDir, "setup-failure-server.log"), _rig.ServerLog);
+            }
+            catch { }
             TestContext.Progress.WriteLine("[hud] viewer did not start. Page console (last 60, [DIAG] lines dropped):\n" + string.Join("\n", lines));
             TestContext.Progress.WriteLine("[hud] server log (last 25 lines):\n" + string.Join("\n", _rig.ServerLog.Split('\n').TakeLast(25)));
             throw;
@@ -93,7 +102,10 @@ public class ViewerHudTests
             await Task.Delay(1000);
         }
         Assert.That(stats, Is.Not.Null.And.Property("TotalSections").GreaterThanOrEqualTo(150), $"The viewer at {path} started and streamed terrain");
-        await Task.Delay(3000);
+        // The control (hud=0) and the HUD frame are two page loads of a world that streams in: take both only once the terrain
+        // around the camera has settled, or the difference between them is the loading, not the HUD (the VoxelEngine renderer
+        // loads fast, so the old fixed 3 s caught different stages of it)
+        await Task.Delay(40_000);
         return page;
     }
 
@@ -126,7 +138,12 @@ public class ViewerHudTests
 
         // Compass: a dark bar over the control's brighter band, with marker text in it (spread: text on a bar vs a flat band)
         Assert.That(_noHud.Compass.Luma - compass.Luma, Is.GreaterThanOrEqualTo(25), "the compass bar darkens the band it sits on");
-        Assert.That(compass.LumaStdDev - _noHud.Compass.LumaStdDev, Is.GreaterThan(10), "and its markers are drawn on it");
+        // ... and its pixels are not the control's: the bar covers the band (a spread comparison cannot say this: a bar flattens busy terrain)
+        double bandChanged = Pixels.ChangedFraction(_control!, shot, shot.Width / 2 - 190, 12, 380, 20, 30);
+        Assert.That(bandChanged, Is.GreaterThan(0.5), "the compass bar changes most of the pixels in its band");
+        // The same scene everywhere else: the middle of the frame is the same terrain in both frames, so the differences above are the HUD
+        double worldChanged = Pixels.ChangedFraction(_control!, shot, shot.Width / 2 - 150, shot.Height / 2 - 100, 300, 200, 30);
+        Assert.That(worldChanged, Is.LessThan(0.1), "away from the HUD the two frames show the same world (a settled scene)");
 
         // The world is still there around the HUD: the middle of the frame is textured terrain, not a flat fill
         var world = Pixels.Region(shot, shot.Width / 2 - 150, shot.Height / 2 - 100, 300, 200);
@@ -219,6 +236,25 @@ public class ViewerHudTests
 internal static class Pixels
 {
     public readonly record struct Region_(double Luma, double R, double G, double B, int Bright, double LumaStdDev);
+
+    /// <summary>The fraction of pixels in the rectangle whose luma differs by more than <paramref name="threshold"/> between the two frames.</summary>
+    public static double ChangedFraction(Bitmap a, Bitmap b, int x, int y, int w, int h, int threshold)
+    {
+        w = Math.Min(w, Math.Min(a.Width, b.Width) - x);
+        h = Math.Min(h, Math.Min(a.Height, b.Height) - y);
+        int changed = 0, n = 0;
+        for (int j = y; j < y + h; j++)
+            for (int i = x; i < x + w; i++)
+            {
+                var ca = a.GetPixel(i, j);
+                var cb = b.GetPixel(i, j);
+                double la = 0.299 * ca.R + 0.587 * ca.G + 0.114 * ca.B;
+                double lb = 0.299 * cb.R + 0.587 * cb.G + 0.114 * cb.B;
+                if (Math.Abs(la - lb) > threshold) changed++;
+                n++;
+            }
+        return n == 0 ? 0 : (double)changed / n;
+    }
 
     /// <summary>Mean luma and colour over the rectangle, its luma spread, and how many pixels are brighter than <paramref name="brightLuma"/>.</summary>
     public static Region_ Region(Bitmap bmp, int x, int y, int w, int h, int brightLuma = 200)
