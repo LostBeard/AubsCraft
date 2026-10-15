@@ -16,6 +16,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\SpawnDev.Rcon\SpawnDev.Rcon.csproj" />
 		<ProjectReference Include="..\AubsCraft.Admin\AubsCraft.Admin.csproj" />
+		<ProjectReference Include="..\AubsCraft.Live.Model\AubsCraft.Live.Model.csproj" />
 	</ItemGroup>
 
 	<!-- Runtime state files - never publish (production data lives on the server) -->
@@ -33,6 +34,8 @@
 	<ItemGroup>
 		<!-- Our own proxy plugin (source + build script: ../ProxyGate). ProxyService installs it into the proxy. -->
 		<None Include="ProxyPlugins\aubscraft-gate.jar" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+		<!-- Our own live-activity plugin for the Paper servers (source + build script: ../LivePlugin). LivePluginService installs it into a server's plugins folder. -->
+		<None Include="ServerPlugins\aubscraft-live.jar" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 	</ItemGroup>
 
 </Project>

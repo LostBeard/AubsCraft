@@ -37,13 +37,15 @@ public class ServerHub : Hub<IServerHubClient>
     private readonly WhitelistAuditService _whitelistAudit;
     private readonly EmailNotificationService _email;
     private readonly IConfiguration _configuration;
+    private readonly LivePluginService _livePlugin;
+    private readonly LiveFeedService _liveFeed;
     private readonly ILogger<ServerHub> _logger;
 
     public ServerHub(ServerManager servers, NetworkModerationService moderation, HostCapacityService capacity,
         ProxyOperationsService proxyOps, ServerOperationsService serverOps, AutoBackupService autoBackup, ServerSettingsService settings, AddonManagerService addons, ServerSoftwareService software, ActivityLogService activityLog,
         ModrinthService modrinth, AuthService auth, InviteCodeService invites,
         WhitelistAuditService whitelistAudit, EmailNotificationService email,
-        IConfiguration configuration, ILogger<ServerHub> logger)
+        LivePluginService livePlugin, LiveFeedService liveFeed, IConfiguration configuration, ILogger<ServerHub> logger)
     {
         _servers = servers;
         _moderation = moderation;
@@ -61,6 +63,8 @@ public class ServerHub : Hub<IServerHubClient>
         _whitelistAudit = whitelistAudit;
         _email = email;
         _configuration = configuration;
+        _livePlugin = livePlugin;
+        _liveFeed = liveFeed;
         _logger = logger;
     }
 
@@ -439,6 +443,34 @@ public class ServerHub : Hub<IServerHubClient>
                 positions.Add(new PlayerPositionDto(pos.Name, pos.X, pos.Y, pos.Z));
         }
         return positions;
+    }
+
+    // -- Live activity (the AubsCraft Live plugin: animals, mobs and players for the 3D viewer) --
+
+    /// <summary>Where a server stands with the live plugin, and whether frames are arriving now.</summary>
+    public LivePluginState GetLivePluginState(string serverId) => _livePlugin.Inspect(Server(serverId).Definition);
+
+    /// <summary>Whether the live feed of every server is arriving (for the viewer's live layer).</summary>
+    public Dictionary<string, LiveFeedStatus> GetLiveStatus() => _servers.All.ToDictionary(i => i.Id, i => _liveFeed.StatusOf(i.Id));
+
+    /// <summary>
+    /// Put the live plugin and its config into the server's plugins folder. A server loads plugins when it starts: if anything changed, the
+    /// result says so and the server needs a restart (the caller chooses when).
+    /// </summary>
+    [Authorize(Roles = Roles.OwnerOrAdmin)]
+    public LivePluginInstallResult InstallLivePlugin(string serverId)
+    {
+        var result = _livePlugin.Install(Server(serverId).Definition);
+        _logger.LogInformation("{User} installed the live plugin on {Server}: {Message}", CurrentUsername, serverId, result.Message);
+        return result;
+    }
+
+    [Authorize(Roles = Roles.OwnerOrAdmin)]
+    public LivePluginInstallResult UninstallLivePlugin(string serverId)
+    {
+        var result = _livePlugin.Uninstall(Server(serverId).Definition);
+        _logger.LogInformation("{User} removed the live plugin from {Server}: {Message}", CurrentUsername, serverId, result.Message);
+        return result;
     }
 
     // -- Velocity proxy (owner only: it changes how every player connects) --

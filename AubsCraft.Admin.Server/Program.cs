@@ -11,6 +11,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<ActivityLogService>();
 builder.Services.AddSingleton<GlobalBlockRegistry>();
+// Live activity from the AubsCraft Live plugin (frames in, viewers out) and installing that plugin into a server
+builder.Services.AddSingleton<LiveFeedService>();
+builder.Services.AddSingleton<LivePluginService>();
 // The managed Minecraft servers (servers.json) and one ServerInstance per server: RCON, systemd control,
 // add-ons, stats, world data and log tailing all live on the instance.
 builder.Services.AddSingleton<ServerRegistry>();
@@ -307,6 +310,8 @@ api.MapGet("/servers/{id}/backups/{file}", (string id, string file, BackupServic
 
 // -- World Data API (for 3D viewer) --
 // Every world endpoint takes ?server=<id> (default: the primary server).
+app.MapLiveEndpoints();
+
 var world = app.MapGroup("/api/world").RequireAuthorization();
 
 world.MapGet("/regions", (string? server, ServerManager servers) =>
