@@ -366,7 +366,7 @@ public class RenderWorkerService : IRenderWorkerService
     private string VoxelNote()
     {
         var s = _renderer.LastVoxelStats;
-        return $"Voxel: {s.DrawCalls} draws, {s.BufferBinds} binds, record {s.RecordMs:F1} ms, frame {_renderer.LastVoxelFrameMs:F1} ms; far chunks {_voxel!.FarChunkCount}; "
+        return $"Voxel: {s.DrawCalls} draws, {s.BufferBinds} binds, record {s.RecordMs:F1} ms, frame {_renderer.LastVoxelFrameMs:F1} ms; far chunks {_voxel!.FarMeshedCount} meshed of {_voxel.FarChunkCount}; "
              + $"{_voxel.ArenaBlocks} quad buffers; loading {_ingest.TurnsPerFrame:F1} meshes/frame, {_ingest.Waiting} waiting, {_voxel.StaleCount} to re-mesh";
     }
 
@@ -396,6 +396,7 @@ public class RenderWorkerService : IRenderWorkerService
 
         // Trigger full 3D loading when camera moves to a new chunk
         var (camCX, camCZ) = CameraChunk();
+        _voxel?.UpdateFarWindow(camCX, camCZ, _renderer.DrawDistance);
         if (camCX != _lastStreamCX || camCZ != _lastStreamCZ) PostCameraToDataWorker();
         if (!_loadingFull && (_fullDirty || camCX != _lastFullCX || camCZ != _lastFullCZ))
         {

@@ -26,11 +26,12 @@ public class ViewerLoadTests
     private static readonly Regex Line = new(
         @"\[Voxel\] (?<fps>\d+) fps \| frame CPU (?<cpu>[\d.]+) ms \(record (?<rec>[\d.]+)\) \| (?<draws>\d+) draws, (?<binds>\d+) binds \| " +
         @"(?<vs>\d+)/(?<ts>\d+) sections \| (?<cols>\d+) columns\+far \| (?<vq>\d+)K/(?<tq>\d+)K quads" +
-        @"(?: \| (?<meshes>\d+) meshes \((?<re>\d+) re-meshes, (?<wait>\d+) waiting\) in (?<blocks>\d+) quad buffers)?",
+        @"(?: \| (?<meshes>\d+) meshes \((?<re>\d+) re-meshes, (?<wait>\d+) waiting\) in (?<blocks>\d+) quad buffers)?" +
+        @"(?: \| far (?<fm>\d+)/(?<ft>\d+) meshed)?",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     public sealed record Sample(double Seconds, int Fps, double FrameCpuMs, double RecordMs, int Draws, int Binds, int VisibleSections,
-        int TotalSections, int Columns, long VisibleQuads, long TotalQuads, int Meshes, int Remeshes, int Waiting, int QuadBuffers)
+        int TotalSections, int Columns, long VisibleQuads, long TotalQuads, int Meshes, int Remeshes, int Waiting, int QuadBuffers, int FarMeshed, int FarTotal)
     {
         public static Sample? TryParse(double seconds, string text)
         {
@@ -39,7 +40,7 @@ public class ViewerLoadTests
             int I(string g) => m.Groups[g].Success ? int.Parse(m.Groups[g].Value, CultureInfo.InvariantCulture) : -1;
             return new Sample(seconds, I("fps"), double.Parse(m.Groups["cpu"].Value, CultureInfo.InvariantCulture),
                 double.Parse(m.Groups["rec"].Value, CultureInfo.InvariantCulture), I("draws"), I("binds"), I("vs"), I("ts"), I("cols"),
-                I("vq") * 1000L, I("tq") * 1000L, I("meshes"), I("re"), I("wait"), I("blocks"));
+                I("vq") * 1000L, I("tq") * 1000L, I("meshes"), I("re"), I("wait"), I("blocks"), I("fm"), I("ft"));
         }
     }
 
@@ -96,10 +97,10 @@ public class ViewerLoadTests
             double loadSeconds = clock.Elapsed.TotalSeconds;
 
             var all = samples.ToArray();
-            var csv = new StringBuilder("seconds,fps,frame_cpu_ms,record_ms,draws,binds,visible_sections,total_sections,columns,visible_quads,total_quads,meshes,remeshes,waiting,quad_buffers\n");
+            var csv = new StringBuilder("seconds,fps,frame_cpu_ms,record_ms,draws,binds,visible_sections,total_sections,columns,visible_quads,total_quads,meshes,remeshes,waiting,quad_buffers,far_meshed,far_total\n");
             foreach (var s in all)
                 csv.AppendLine(string.Create(CultureInfo.InvariantCulture,
-                    $"{s.Seconds:F1},{s.Fps},{s.FrameCpuMs:F1},{s.RecordMs:F1},{s.Draws},{s.Binds},{s.VisibleSections},{s.TotalSections},{s.Columns},{s.VisibleQuads},{s.TotalQuads},{s.Meshes},{s.Remeshes},{s.Waiting},{s.QuadBuffers}"));
+                    $"{s.Seconds:F1},{s.Fps},{s.FrameCpuMs:F1},{s.RecordMs:F1},{s.Draws},{s.Binds},{s.VisibleSections},{s.TotalSections},{s.Columns},{s.VisibleQuads},{s.TotalQuads},{s.Meshes},{s.Remeshes},{s.Waiting},{s.QuadBuffers},{s.FarMeshed},{s.FarTotal}"));
             File.WriteAllText(Path.Combine(_outDir, "load.csv"), csv.ToString());
 
             Assert.That(all, Is.Not.Empty, "The render worker logged no [Voxel] line");
@@ -107,7 +108,7 @@ public class ViewerLoadTests
             var busiest = all.OrderByDescending(s => s.Draws).First();
             TestContext.Progress.WriteLine(string.Create(CultureInfo.InvariantCulture,
                 $"[load] sampled {window} s (page open {loadSeconds:F0} s); {all.Length} samples; final {last.Fps} fps, frame CPU {last.FrameCpuMs:F1} ms (record {last.RecordMs:F1}), " +
-                $"{last.Draws} draws, {last.Binds} binds, {last.Columns} columns+far, meshes {last.Meshes} (re-meshes {last.Remeshes}), {last.QuadBuffers} quad buffers; " +
+                $"{last.Draws} draws, {last.Binds} binds, {last.Columns} columns+far, meshes {last.Meshes} (re-meshes {last.Remeshes}), {last.QuadBuffers} quad buffers, far {last.FarMeshed}/{last.FarTotal} meshed; " +
                 $"slowest sample {all.Min(s => s.Fps)} fps / {all.Max(s => s.FrameCpuMs):F1} ms"));
 
             Assert.That(errors, Is.Empty, "The page logged errors");
@@ -117,6 +118,8 @@ public class ViewerLoadTests
             {
                 Assert.That(busiest.Binds * 10, Is.LessThanOrEqualTo(busiest.Draws), $"{busiest.Draws} draws should need a small fraction of that many buffer binds, got {busiest.Binds}");
                 Assert.That(last.QuadBuffers, Is.InRange(1, 6), "the whole world fits a few 16 MiB quad buffers");
+                // Only the far chunks within reach of the camera hold a mesh: a circle of (30 + 2) chunks is 3217 chunks, the rest are heightmaps
+                if (last.FarMeshed >= 0) Assert.That(last.FarMeshed, Is.LessThanOrEqualTo(3300), $"{last.FarMeshed} of {last.FarTotal} far chunks are meshed; those beyond the fog should not be");
                 Assert.That(last.Remeshes, Is.LessThan(last.Meshes), "re-meshes are a part of the meshing, not all of it");
             }
         }

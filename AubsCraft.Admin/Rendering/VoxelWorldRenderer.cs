@@ -156,21 +156,24 @@ public sealed class VoxelWorldRenderer : IDisposable
 
     /// <summary>
     /// Take a chunk's heightmap (the 3072 bytes of <c>HeightmapLayout</c>, global block ids) as a far-tier chunk: its surface, drawn
-    /// wherever no full column is loaded. Returns false when there is no room.
+    /// wherever no full column is loaded. The heightmap stays on the GPU; the chunk gets a MESH only while it is within reach of the
+    /// camera (<see cref="UpdateFarWindow"/>). Returns false when there is no room.
     /// </summary>
-    public async Task<bool> AddFarChunkAsync(int cx, int cz, Uint8Array heightmap)
+    public Task<bool> AddFarChunkAsync(int cx, int cz, Uint8Array heightmap)
     {
-        if (_disposed) return false;
+        if (_disposed) return Task.FromResult(false);
         if (_far.ContainsKey((cx, cz))) RemoveFarChunk(cx, cz);
 
         int slot = TakeSlot();
-        if (slot < 0) return false;
+        if (slot < 0) return Task.FromResult(false);
 
         var heights = _farMesher!.CreateHeightmapBufferFromJS(heightmap);
         var chunk = new Column { Cx = cx, Cz = cz, Slot = slot, Heights = heights };
         _far[(cx, cz)] = chunk;
-        await PlaceAndMeshAsync(chunk);
-        return true;
+        _pipe.SetSectionOrigin(chunk.Slot, new Vector3(chunk.Cx * 16, WorldMinY, chunk.Cz * 16));
+        MarkNeighboursStale(chunk);
+        _farWanted = true; // it may be inside the window: the next UpdateFarWindow decides
+        return Task.FromResult(true);
     }
 
     private int TakeSlot() => _freeSlots.Count > 0 ? _freeSlots.Pop() : (_nextSlot < _maxColumns ? _nextSlot++ : -1);
@@ -179,12 +182,16 @@ public sealed class VoxelWorldRenderer : IDisposable
     {
         _pipe.SetSectionOrigin(col.Slot, new Vector3(col.Cx * 16, WorldMinY, col.Cz * 16));
 
-        await PaceAsync(col.IsFar ? IngestPriority.Far : IngestPriority.Near);
+        await PaceAsync(IngestPriority.Near);
         await MeshAsync(col);
+        MarkNeighboursStale(col);
+    }
 
-        // A neighbour meshed before this one existed drew faces toward the gap: now they are interior (hidden by this column), so it
-        // should be meshed again - but not now. A column in the middle of a loading spiral gets two or three neighbours in a row, and a
-        // mesh per arrival was as much work as the first meshes; one background pass per column does it once.
+    // A neighbour meshed before col existed drew faces toward the gap: now they are interior (hidden by col), so it should be meshed
+    // again - but not now. A column in the middle of a loading spiral gets two or three neighbours in a row, and a mesh per arrival was as
+    // much work as the first meshes; one background pass per column does it once.
+    private void MarkNeighboursStale(Column col)
+    {
         foreach (var (n, facingMe) in NeighboursOf(col).ToList())
             if (n.Mesh != null && (n.MeshedWith & facingMe) == 0)
                 _stale.Add(n);
@@ -192,6 +199,119 @@ public sealed class VoxelWorldRenderer : IDisposable
         {
             _remeshRunning = true;
             _ = RemeshStaleAsync();
+        }
+    }
+
+    // ---- the far field is meshed where it can be seen ----
+
+    private int _winCX = int.MinValue, _winCZ = int.MinValue, _winDrawDistance = -1;
+    private int _freedCX = int.MinValue, _freedCZ = int.MinValue, _freedDrawDistance = -1;
+    private bool _farPumpRunning, _farRescan, _farWanted;
+
+    /// <summary>Far chunks that hold a mesh right now (the rest are heightmaps only).</summary>
+    public int FarMeshedCount { get; private set; }
+
+    /// <summary>
+    /// Tell the renderer where the camera is. Far chunks within reach (<see cref="FarWindow"/>) get a mesh, nearest first and paced; the ones
+    /// well beyond lose theirs and give the quad memory back. Their heightmaps stay, so flying back meshes them again without a fetch.
+    /// Call every frame: it does work only when the camera's chunk or the draw distance changed, or a chunk arrived.
+    /// </summary>
+    public void UpdateFarWindow(int camCX, int camCZ, int drawDistanceChunks)
+    {
+        if (_disposed) return;
+        bool moved = camCX != _winCX || camCZ != _winCZ || drawDistanceChunks != _winDrawDistance;
+        _winCX = camCX; _winCZ = camCZ; _winDrawDistance = drawDistanceChunks;
+        if (!moved && !_farWanted) return;
+        if (_farPumpRunning) { _farRescan = true; return; }
+        _farPumpRunning = true;
+        _ = FarPumpAsync();
+    }
+
+    private async Task FarPumpAsync()
+    {
+        try
+        {
+            do
+            {
+                _farRescan = false;
+                _farWanted = false;
+                int cx = _winCX, cz = _winCZ, dd = _winDrawDistance;
+                await FreeFarOutsideAsync(cx, cz, dd);
+                foreach (var chunk in FarCandidates(cx, cz, dd))
+                {
+                    if (_disposed) return;
+                    // The camera moved while this list was being worked: it is stale, rescan from the new position
+                    if (_winCX != cx || _winCZ != cz || _winDrawDistance != dd) break;
+                    if (chunk.Removed || chunk.Mesh != null) continue;
+                    // Under a meshed full column the far chunk is never drawn
+                    if (_columns.TryGetValue((chunk.Cx, chunk.Cz), out var over) && over.Mesh != null) continue;
+                    try
+                    {
+                        await PaceAsync(IngestPriority.Far);
+                        if (chunk.Removed || _disposed) continue;
+                        await MeshAsync(chunk);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Voxel] far chunk ({chunk.Cx},{chunk.Cz}) failed to mesh: {ex.Message}");
+                    }
+                }
+            } while (!_disposed && (_farRescan || _farWanted));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Voxel] far window failed: {ex.Message}");
+        }
+        finally
+        {
+            _farPumpRunning = false;
+        }
+    }
+
+    // Far chunks without a mesh that are within reach, nearest first
+    private List<Column> FarCandidates(int camCX, int camCZ, int drawDistance)
+    {
+        long limit = FarWindow.MeshRadiusSq(drawDistance);
+        var found = new List<(long d, Column chunk)>();
+        foreach (var chunk in _far.Values)
+        {
+            if (chunk.Mesh != null) continue;
+            long d = FarWindow.DistanceSq(chunk.Cx, chunk.Cz, camCX, camCZ);
+            if (d <= limit) found.Add((d, chunk));
+        }
+        found.Sort((a, b) => a.d.CompareTo(b.d));
+        return found.Select(f => f.chunk).ToList();
+    }
+
+    // Give up the meshes of far chunks well beyond the fog. Done once per camera chunk / draw distance, not per frame.
+    private async Task FreeFarOutsideAsync(int camCX, int camCZ, int drawDistance)
+    {
+        if (camCX == _freedCX && camCZ == _freedCZ && drawDistance == _freedDrawDistance) return;
+        _freedCX = camCX; _freedCZ = camCZ; _freedDrawDistance = drawDistance;
+        List<Column>? beyond = null;
+        foreach (var chunk in _far.Values)
+            if (chunk.Mesh != null && FarWindow.ShouldFree(chunk.Cx, chunk.Cz, camCX, camCZ, drawDistance))
+                (beyond ??= new()).Add(chunk);
+        if (beyond == null) return;
+
+        await _meshLock.WaitAsync(); // a mesh in flight may be about to replace one of these
+        try
+        {
+            foreach (var chunk in beyond)
+            {
+                if (chunk.Mesh == null || chunk.Removed) continue;
+                DisposeMesh(chunk.Mesh);
+                chunk.Mesh = null;
+                chunk.SectionsWithQuads = 0;
+                chunk.LowestSection = SectionsPerColumn;
+                chunk.HighestSection = -1;
+                chunk.MeshedWith = 0;
+                FarMeshedCount--;
+            }
+        }
+        finally
+        {
+            _meshLock.Release();
         }
     }
 
@@ -271,6 +391,7 @@ public sealed class VoxelWorldRenderer : IDisposable
                 return;
             }
             var old = col.Mesh;
+            if (col.IsFar && old == null) FarMeshedCount++;
             col.Mesh = mesh;
             col.MeshedWith = mask;
             MeshesDone++;
@@ -330,7 +451,11 @@ public sealed class VoxelWorldRenderer : IDisposable
         await _meshLock.WaitAsync();
         try
         {
-            if (col.Mesh != null) DisposeMesh(col.Mesh);
+            if (col.Mesh != null)
+            {
+                DisposeMesh(col.Mesh);
+                if (col.IsFar) FarMeshedCount--;
+            }
             col.Mesh = null;
             col.Blocks?.Dispose();
             col.Heights?.Dispose();
@@ -486,7 +611,8 @@ public sealed class VoxelWorldRenderer : IDisposable
 
         int camCX = (int)MathF.Floor(camera.Position.X / 16f);
         int camCZ = (int)MathF.Floor(camera.Position.Z / 16f);
-        long drawDistSq = (long)drawDistanceChunks * drawDistanceChunks;
+        // Never past the fog: terrain beyond it is the fog colour (the frame is cleared to it below) and only costs draws
+        long drawDistSq = (long)FarWindow.CullRadius(drawDistanceChunks) * FarWindow.CullRadius(drawDistanceChunks);
         int sectionsWithQuads = 0;
         long totalQuads = 0;
 
@@ -501,7 +627,8 @@ public sealed class VoxelWorldRenderer : IDisposable
         int visibleSections = 0;
         long visibleQuads = 0;
 
-        using var pass = _pipe.BeginRenderPass(encoder, colorView, _depthView!, SkyColor);
+        // Cleared to the fog colour: what lies past the fog (not drawn) must look exactly like fogged terrain, at any hour
+        using var pass = _pipe.BeginRenderPass(encoder, colorView, _depthView!, light.FogColor);
 
         foreach (var kind in CubePasses)
         {

@@ -114,6 +114,10 @@ else
     internal static bool HudDemoByLink(string uri)
         => string.Equals(System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["hudfeed"], "demo", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>"time=ticks" (Minecraft ticks: 0 sunrise, 6000 noon, 12000 sunset, 18000 midnight): the viewer shows that hour and ignores the server's clock. For the gate and for screenshots.</summary>
+    internal static int? TimeByLink(string uri)
+        => int.TryParse(System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["time"], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var ticks) ? ticks : null;
+
     /// <summary>True when the URL's query has hud=0.</summary>
     internal static bool HudHiddenByLink(string uri)
         => System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["hud"] == "0";
@@ -121,12 +125,14 @@ else
     // What SignalR delivers goes to the worker's GPU HUD (chat box, player list, notices) in batches; the worker has no connection of its own
     private readonly HudFeedBuffer _hudFeed = new();
     private bool _hudDemo;
+    // Set by a time= link: the hour is fixed, the server's clock is not followed
+    private int? _timeLinked;
 
     private bool IsForSelectedServer(string? serverId) => serverId == null || serverId == Hub.SelectedServerId;
 
     private void OnServerStatus(ServerStatusDto status)
     {
-        if (status.TimeTicks >= 0 && _renderService != null)
+        if (_timeLinked == null && status.TimeTicks >= 0 && _renderService != null)
             _ = _renderService.SetTimeOfDay(status.TimeTicks);
         if (status.Connected) _hudFeed.SetPlayers(status.Players);
     }
@@ -243,6 +249,11 @@ else
                     await _renderService.SetHudVisibleAsync(false);
 
                 await _renderService.StartAsync(serverId, camX, camY, camZ, pitch, yaw);
+                if (TimeByLink(Nav.Uri) is { } linkedTicks)
+                {
+                    _timeLinked = linkedTicks;
+                    await _renderService.SetTimeOfDay(linkedTicks);
+                }
                 WorkerHost.IsStarted = true;
                 WorkerHost.ServerId = serverId;
             }

@@ -25,6 +25,18 @@ public class ViewerLoadParseTests
     }
 
     [Test]
+    public void TheFarWindowLine_ParsesTheFarMeshCounts()
+    {
+        var s = ViewerLoadTests.Sample.TryParse(30,
+            "[Voxel] 60 fps | frame CPU 8.0 ms (record 7.5) | 1700 draws, 40 binds | 900/3000 sections | 5300 columns+far | 300K/900K quads | 6000 meshes (900 re-meshes, 4 waiting) in 2 quad buffers | far 2900/4500 meshed");
+        Assert.That(s, Is.Not.Null);
+        Assert.That((s!.FarMeshed, s.FarTotal, s.QuadBuffers), Is.EqualTo((2900, 4500, 2)));
+        var old = ViewerLoadTests.Sample.TryParse(1,
+            "[Voxel] 60 fps | frame CPU 8.0 ms (record 7.5) | 1700 draws, 40 binds | 900/3000 sections | 5300 columns+far | 300K/900K quads | 6000 meshes (900 re-meshes, 4 waiting) in 2 quad buffers");
+        Assert.That(old!.FarMeshed, Is.EqualTo(-1), "the previous build has no far counts");
+    }
+
+    [Test]
     public void OtherConsoleLines_AreNotSamples()
     {
         Assert.That(ViewerLoadTests.Sample.TryParse(1, "[RenderWorker] Atlas 1024x1024 sliced into the voxel texture array"), Is.Null);

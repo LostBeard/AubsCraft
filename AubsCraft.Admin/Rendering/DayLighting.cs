@@ -12,6 +12,13 @@ public readonly record struct DayLighting(Vector3 SunDirection, Vector3 Ambient,
     public const float FogStart = 250f;
     public const float FogEnd = 450f;
 
+    /// <summary>
+    /// Chunks from the camera's chunk to where terrain is fully fogged: ceil((FogEnd + 24) / 16). The 24 blocks are a chunk's half
+    /// diagonal (11.3) and the camera's offset inside its own chunk, rounded up, so a chunk whose nearest corner is still short of the fog
+    /// end is never dropped. Terrain beyond this many chunks is the fog colour and is not drawn.
+    /// </summary>
+    public const int FogEndChunks = 30;
+
     public static DayLighting At(float timeOfDay)
     {
         float angle = timeOfDay * MathF.Tau;
