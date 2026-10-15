@@ -362,7 +362,7 @@ world.MapGet("/chunk-ids/{x:int}/{z:int}", (int x, int z, string? server, Server
     return Results.Bytes(System.Runtime.InteropServices.MemoryMarshal.AsBytes<ushort>(ids).ToArray(), "application/octet-stream");
 });
 
-// atlas.rgba served as static file from wwwroot
+// The block textures (assets/mc-atlas.rgba) and what each block looks like (assets/mc-blocks.json) are static files generated at build time (AubsCraft.AssetTool)
 
 // Binary WebSocket endpoint for camera-prioritized chunk streaming.
 // ?format=ids sends each heightmap frame in global block ids with no palette (HeightmapWire); the default frame keeps the palette strings.

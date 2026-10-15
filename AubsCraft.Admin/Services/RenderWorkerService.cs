@@ -85,8 +85,9 @@ public class RenderWorkerService : IRenderWorkerService
         _renderer.StartRenderLoop();
         _loadTimer.Start();
 
-        // Load atlas in the worker - fetch directly, stays in JS
-        _ = LoadAtlasAsync();
+        // Load the block assets (textures, animations, what each block looks like) in the worker - fetched directly, the pixels stay in JS.
+        // The block names wait for them: a block's class and material come from them
+        _assetsLoad = LoadAssetsAsync();
 
         // Create JS data worker and connect via MessageChannel
         // Render worker creates and controls the data worker (clean hierarchy)
@@ -307,35 +308,49 @@ public class RenderWorkerService : IRenderWorkerService
         return Task.CompletedTask;
     }
 
-    private async Task LoadAtlasAsync()
+    private Task? _assetsLoad;
+
+    // mc-blocks.json + mc-atlas.rgba, generated at build time from the game's client jar (AubsCraft.AssetTool)
+    private async Task LoadAssetsAsync()
     {
         try
         {
             var origin = _js.DedicateWorkerThis?.Location.Origin
                 ?? _js.WindowThis?.Origin
                 ?? "";
-            var atlasUrl = $"{origin}/atlas.rgba";
-            Console.WriteLine($"[RenderWorker] Fetching atlas from: {atlasUrl}");
-
-            using var response = await _js.Fetch(atlasUrl, new FetchOptions { Credentials = "include" });
-            Console.WriteLine($"[RenderWorker] Atlas fetch status: {response.Status}");
-
-            if (!response.Ok)
+            using var jsonResponse = await _js.Fetch($"{origin}/assets/mc-blocks.json", new FetchOptions { Credentials = "include" });
+            if (!jsonResponse.Ok)
             {
-                Console.WriteLine($"[RenderWorker] Atlas fetch failed: {response.StatusText}");
+                Console.WriteLine($"[RenderWorker] Block assets HTTP {jsonResponse.Status}: every block will be its flat colour");
+                return;
+            }
+            var assets = System.Text.Json.JsonSerializer.Deserialize(await jsonResponse.Text(), AubsCraft.Assets.Model.BlockAssetsJson.Default.BlockAssets);
+            if (assets == null || assets.FormatVersion != AubsCraft.Assets.Model.BlockAssets.CurrentFormatVersion)
+            {
+                Console.WriteLine($"[RenderWorker] Block assets are format {assets?.FormatVersion}, expected {AubsCraft.Assets.Model.BlockAssets.CurrentFormatVersion}");
                 return;
             }
 
-            // The pixels go from the fetched ArrayBuffer to the GPU texture array without entering .NET
-            using var buffer = await response.ArrayBuffer();
+            using var atlasResponse = await _js.Fetch($"{origin}/assets/mc-atlas.rgba", new FetchOptions { Credentials = "include" });
+            if (!atlasResponse.Ok)
+            {
+                Console.WriteLine($"[RenderWorker] Block atlas HTTP {atlasResponse.Status}");
+                return;
+            }
+            // The pixels go from the fetched ArrayBuffer to the GPU texture without entering .NET
+            using var buffer = await atlasResponse.ArrayBuffer();
             using var pixels = new Uint8Array(buffer);
-            int atlasSize = (int)Math.Sqrt(pixels.Length / 4);
-            _voxel!.SetAtlas(pixels, atlasSize);
-            Console.WriteLine($"[RenderWorker] Atlas {atlasSize}x{atlasSize} sliced into the voxel texture array");
+            if (pixels.Length != assets.AtlasWidth * assets.AtlasHeight * 4)
+            {
+                Console.WriteLine($"[RenderWorker] Block atlas is {pixels.Length} bytes, the assets describe {assets.AtlasWidth}x{assets.AtlasHeight}");
+                return;
+            }
+            _voxel!.SetBlockAssets(assets, pixels);
+            Console.WriteLine($"[RenderWorker] Block assets for Minecraft {assets.GameVersion}: {assets.Blocks.Count} blocks, {assets.TileCount} tiles, {assets.Animations.Count} animated");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[RenderWorker] Atlas load error: {ex.Message}");
+            Console.WriteLine($"[RenderWorker] Block assets load error: {ex.Message}");
         }
     }
 
@@ -516,6 +531,7 @@ public class RenderWorkerService : IRenderWorkerService
     /// <summary>Fetch the block names (index = global id) and rebuild the class and material tables.</summary>
     private async Task RefreshVoxelBlockNamesAsync(int atLeast = 1)
     {
+        if (_assetsLoad != null) await _assetsLoad; // the tables need the assets
         await _voxelNamesLock.WaitAsync();
         try
         {

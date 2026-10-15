@@ -2,6 +2,7 @@ using System.Numerics;
 using ILGPU;
 using ILGPU.Runtime;
 using AubsCraft.Admin.Services;
+using AubsCraft.Assets.Model;
 using SpawnDev.ILGPU.WebGPU;
 using SpawnDev.SpawnJS.JSObjects;
 using SpawnDev.VoxelEngine.Meshing;
@@ -63,7 +64,12 @@ public sealed class VoxelWorldRenderer : IDisposable
     private bool _remeshRunning;
     private GPUQueue? _queue;
     private string _colorFormat = "bgra8unorm";
-    private BlockTextureArray? _textures;
+    private BlockTextureAtlas? _textures;
+    // What each block looks like (generated from the game's own assets); empty until SetBlockAssets, when every block is its flat colour
+    private BlockAssets _assets = new();
+    private IReadOnlyList<string>? _names;
+    // Animated textures play from this clock
+    private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
     private GPUTexture? _depth;
     private GPUTextureView? _depthView;
     private int _depthWidth, _depthHeight;
@@ -123,7 +129,8 @@ public sealed class VoxelWorldRenderer : IDisposable
     /// <summary>Use these block names (index = the server's global id): rebuilds the class and material tables.</summary>
     public void SetBlockNames(IReadOnlyList<string> names)
     {
-        var (classes, materials) = VoxelBlockTables.BuildWithSeabeds(names);
+        _names = names;
+        var (classes, materials) = VoxelBlockTables.BuildWithSeabeds(names, _assets);
         _mesher!.SetBlockClasses(classes);
         _farMesher!.SetBlockClasses(classes);
         _pipe.SetMaterials(materials);
@@ -131,12 +138,17 @@ public sealed class VoxelWorldRenderer : IDisposable
     }
 
     /// <summary>The 16x16-tile block atlas (RGBA8, square), sliced into texture-array layers on the GPU.</summary>
-    public void SetAtlas(Uint8Array rgba, int size)
+    public void SetBlockAssets(BlockAssets assets, Uint8Array atlasRgba)
     {
         var old = _textures;
-        _textures = BlockTextureArray.FromAtlas(Device!, _queue!, rgba, size, size, 16);
+        _textures = BlockTextureAtlas.FromRgba(Device!, _queue!, atlasRgba, assets.AtlasWidth, assets.AtlasHeight, assets.TileSize);
         _pipe.SetTextures(_textures);
+        _pipe.SetAnimations(assets.Animations.Select(a => new TextureAnimation(a.Tile, a.Timeline)).ToList());
         old?.Dispose();
+        _assets = assets;
+        // Names that arrived first are drawn with the flat colours until now: the caller loads the assets before the names, so there is
+        // nothing meshed under the old tables
+        if (_names != null) SetBlockNames(_names);
     }
 
     /// <summary>
@@ -533,6 +545,7 @@ public sealed class VoxelWorldRenderer : IDisposable
             Ambient = new Vector4(0.62f, 0.64f, 0.7f, 0f),   // the same at any hour: a map should stay readable at night
             FogColor = new Vector4(SkyColor, 1f),
             FogRange = new Vector4(1e9f, 2e9f, 0f, 0f),
+            Time = (float)_clock.Elapsed.TotalSeconds,
         });
 
         _visible.Clear();
@@ -620,6 +633,7 @@ public sealed class VoxelWorldRenderer : IDisposable
             Ambient = new Vector4(light.Ambient, FillLightStrength),
             FogColor = new Vector4(light.FogColor, 1f),
             FogRange = new Vector4(FarWindow.FogStartBlocks(drawDistanceChunks), FarWindow.FogEndBlocks(drawDistanceChunks), 0f, 0f),
+            Time = (float)_clock.Elapsed.TotalSeconds,
         });
 
         int camCX = (int)MathF.Floor(camera.Position.X / 16f);

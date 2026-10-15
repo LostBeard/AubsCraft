@@ -31,7 +31,7 @@
 		     compiling on 5.0.0-5.3.1) and the >8-argument launcher fix SpawnDev.VoxelEngine's ColumnMesher kernels need. -->
 		<PackageReference Include="SpawnDev.ILGPU" Version="5.3.7" />
 		<!-- The viewer's renderer: BlockRenderPipeline + ColumnMesher + HeightmapMesher (a release candidate: the library's other subsystems are still RC) -->
-		<PackageReference Include="SpawnDev.VoxelEngine" Version="0.2.0-rc.2" />
+		<PackageReference Include="SpawnDev.VoxelEngine" Version="0.2.0-rc.3" />
 		<!-- ADB over WebUSB for the /quest installer (the SpawnJS edition of BlazorJS.TangoADB) -->
 		<PackageReference Include="SpawnDev.SpawnJS.TangoADB" Version="1.0.0" />
 		<!-- GameUI without a DOM (Init + PushedInputProvider) for the worker HUD, plus the chat-feed options -->
@@ -47,6 +47,22 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\SpawnDev.Rcon\SpawnDev.Rcon.csproj" />
+		<ProjectReference Include="..\AubsCraft.Assets.Model\AubsCraft.Assets.Model.csproj" />
 	</ItemGroup>
+
+	<!-- The block textures, models and animations come from the game's own client jar, of the version the servers run: generated here at build
+	     time (a download from Mojang the first time, cached after) and never committed. The target runs before the build collects its static
+	     assets, and only when the output is missing or the generator or this file changed. -->
+	<PropertyGroup>
+		<McAssetVersion>1.21.5</McAssetVersion>
+		<McAssetsDir>$(MSBuildProjectDirectory)\wwwroot\assets</McAssetsDir>
+	</PropertyGroup>
+	<ItemGroup>
+		<McAssetInputs Include="$(MSBuildProjectDirectory)\..\AubsCraft.Assets\**\*.cs;$(MSBuildProjectDirectory)\..\AubsCraft.Assets.Model\**\*.cs;$(MSBuildProjectDirectory)\..\AubsCraft.AssetTool\**\*.cs;$(MSBuildProjectFullPath)" Exclude="**\obj\**;**\bin\**" />
+	</ItemGroup>
+	<Target Name="GenerateMinecraftAssets" BeforeTargets="Restore;BeforeBuild;ResolveStaticWebAssetsInputs" Inputs="@(McAssetInputs)" Outputs="$(McAssetsDir)\mc-blocks.json">
+		<Message Importance="high" Text="Generating the block assets for Minecraft $(McAssetVersion) into $(McAssetsDir)" />
+		<Exec Command="dotnet run --project &quot;$(MSBuildProjectDirectory)\..\AubsCraft.AssetTool\AubsCraft.AssetTool.csproj&quot; -c Release -- --version $(McAssetVersion) --out &quot;$(McAssetsDir)&quot;" />
+	</Target>
 
 </Project>
