@@ -49,6 +49,21 @@ public static class LiveEndpoints
         group.MapGet("/status", (ServerManager servers, LiveFeedService live) =>
             Results.Ok(servers.All.ToDictionary(i => i.Id, i => live.StatusOf(i.Id))));
 
+        // A player's skin (the plugin reports the texture server's address; the browser gets the PNG from the panel)
+        group.MapGet("/skin", async (string? url, SkinProxyService skins, HttpContext ctx) =>
+        {
+            var (result, png) = await skins.GetAsync(url, ctx.RequestAborted);
+            switch (result)
+            {
+                case SkinResult.Ok:
+                    ctx.Response.Headers.CacheControl = "private, max-age=86400";
+                    return Results.File(png!, "image/png");
+                case SkinResult.NotFound: return Results.NotFound();
+                case SkinResult.Refused: return Results.BadRequest();
+                default: return Results.StatusCode(StatusCodes.Status502BadGateway);
+            }
+        });
+
         group.MapGet("/ws", async (HttpContext ctx, string? server, ServerManager servers, LiveFeedService live) =>
         {
             if (!ctx.WebSockets.IsWebSocketRequest) { ctx.Response.StatusCode = 400; return; }

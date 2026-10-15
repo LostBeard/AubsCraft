@@ -14,6 +14,8 @@ builder.Services.AddSingleton<GlobalBlockRegistry>();
 // Live activity from the AubsCraft Live plugin (frames in, viewers out) and installing that plugin into a server
 builder.Services.AddSingleton<LiveFeedService>();
 builder.Services.AddSingleton<LivePluginService>();
+// Players' skins for the viewer, fetched from Mojang's texture server on its behalf (only that host, only a small PNG, cached)
+builder.Services.AddHttpClient<SkinProxyService>(c => { c.Timeout = TimeSpan.FromSeconds(10); c.DefaultRequestHeaders.UserAgent.ParseAdd("AubsCraft-panel"); });
 // The managed Minecraft servers (servers.json) and one ServerInstance per server: RCON, systemd control,
 // add-ons, stats, world data and log tailing all live on the instance.
 builder.Services.AddSingleton<ServerRegistry>();

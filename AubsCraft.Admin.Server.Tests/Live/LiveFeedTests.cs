@@ -391,5 +391,7 @@ public class LiveFeedTests
         Assert.That(status.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized), "the entity positions of a private server are not public");
         using var ws = await http.GetAsync($"api/live/ws?server={id}");
         Assert.That(ws.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+        using var skin = await http.GetAsync("api/live/skin?url=http://textures.minecraft.net/texture/0123456789abcdef0123456789abcdef");
+        Assert.That(skin.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized), "the panel does not fetch for the world");
     }
 }
