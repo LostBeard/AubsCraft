@@ -1,13 +1,50 @@
 using System.Numerics;
 using AubsCraft.Admin.Rendering;
+using AubsCraft.Assets.Model;
 using SpawnDev.VoxelEngine.Meshing;
 using SpawnDev.VoxelEngine.Rendering;
 
 namespace AubsCraft.Admin.Server.Tests;
 
-/// <summary>The client's per-block-type tables for the VoxelEngine renderer, built from the server's block names.</summary>
+/// <summary>The client's per-block-type tables for the VoxelEngine renderer, built from the server's block names and the generated block assets.</summary>
 public class VoxelBlockTablesTests
 {
+    private static BlockAsset Cube(int tile, string render = BlockRenders.Opaque) =>
+        new() { Kind = BlockKinds.Cube, Faces = Enumerable.Repeat(tile, 6).ToArray(), Render = render };
+
+    // A few blocks as the generator describes them
+    private static readonly BlockAssets Assets = new()
+    {
+        TileSize = 16, TilesPerRow = 8, TileCount = 64,
+        Blocks =
+        {
+            ["minecraft:air"] = new BlockAsset { Kind = BlockKinds.None },
+            ["minecraft:stone"] = Cube(2),
+            // top 11 tinted green at draw time, sides 10 (the fringe baked in), bottom 12 (dirt)
+            ["minecraft:grass_block"] = new BlockAsset
+            {
+                Kind = BlockKinds.Cube, Faces = new[] { 10, 10, 10, 10, 11, 12 }, TintFaces = 1 << 4, Tint = BlockTints.Grass, TintColor = new[] { 145, 189, 89 },
+            },
+            ["minecraft:water"] = new BlockAsset
+            {
+                Kind = BlockKinds.Water, Faces = Enumerable.Repeat(20, 6).ToArray(), TintFaces = 63, Tint = BlockTints.Water, TintColor = new[] { 63, 118, 228 },
+                Render = BlockRenders.Translucent,
+            },
+            ["minecraft:oak_leaves"] = new BlockAsset
+            {
+                Kind = BlockKinds.Cube, Faces = Enumerable.Repeat(30, 6).ToArray(), TintFaces = 63, Tint = BlockTints.Foliage, TintColor = new[] { 119, 171, 47 }, Render = BlockRenders.Cutout,
+            },
+            ["minecraft:glass"] = Cube(31, BlockRenders.Cutout),
+            ["minecraft:ice"] = Cube(32, BlockRenders.Translucent),
+            ["minecraft:oak_stairs"] = new BlockAsset { Kind = BlockKinds.Shape, Faces = Enumerable.Repeat(40, 6).ToArray() },
+            ["minecraft:short_grass"] = new BlockAsset
+            {
+                Kind = BlockKinds.Cross, Faces = Enumerable.Repeat(50, 6).ToArray(), TintFaces = 63, Tint = BlockTints.Grass, TintColor = new[] { 145, 189, 89 }, Render = BlockRenders.Cutout,
+            },
+            ["minecraft:poppy"] = new BlockAsset { Kind = BlockKinds.Cross, Faces = Enumerable.Repeat(51, 6).ToArray(), Render = BlockRenders.Cutout },
+        },
+    };
+
     private static ushort[] Faces(BlockMaterial m) =>
     [
         (ushort)(m.Layers01 & 0xFFFF), (ushort)(m.Layers01 >> 16),
@@ -15,79 +52,95 @@ public class VoxelBlockTablesTests
         (ushort)(m.Layers45 & 0xFFFF), (ushort)(m.Layers45 >> 16),
     ];
 
+    private static Vector3 Tint(BlockMaterial m) => new(m.TintR, m.TintG, m.TintB);
+
     [TestCase("minecraft:air", BlockClass.None)]
-    [TestCase("minecraft:cave_air", BlockClass.None)]
-    [TestCase("minecraft:void_air", BlockClass.None)]
     [TestCase("minecraft:stone", BlockClass.Opaque)]
-    [TestCase("minecraft:grass_block", BlockClass.Opaque)]   // contains "grass" but is a cube, not a plant
+    [TestCase("minecraft:grass_block", BlockClass.Opaque)]   // a cube with a tinted top, not a plant
     [TestCase("minecraft:water", BlockClass.Water)]
-    [TestCase("minecraft:flowing_water", BlockClass.Water)]
     [TestCase("minecraft:oak_leaves", BlockClass.Cutout)]
     [TestCase("minecraft:glass", BlockClass.Cutout)]
-    [TestCase("minecraft:tinted_glass", BlockClass.Cutout)]
+    [TestCase("minecraft:ice", BlockClass.Cutout)]           // partly transparent texels: shows what is behind it
+    [TestCase("minecraft:oak_stairs", BlockClass.Opaque)]    // a shape, drawn as a cube for now
     [TestCase("minecraft:short_grass", BlockClass.Cross)]
     [TestCase("minecraft:poppy", BlockClass.Cross)]
+    [TestCase("minecraft:cave_air", BlockClass.None)]        // not in the assets, but air is air
+    [TestCase("minecraft:void_air", BlockClass.None)]
+    [TestCase("somemod:strange_block", BlockClass.Opaque)]   // unknown: an opaque cube in its flat colour
     public void ClassOf_MatchesHowTheBlockMeshes(string name, int expected) =>
-        Assert.That(VoxelBlockTables.ClassOf(name), Is.EqualTo(expected));
+        Assert.That(VoxelBlockTables.ClassOf(name, Assets), Is.EqualTo(expected));
 
     [Test]
-    public void GrassBlock_TopSideBottomLayers_AndTinted()
+    public void GrassBlock_HasATileForEachFace_AndOnlyItsTopIsTinted()
     {
-        var m = VoxelBlockTables.MaterialOf("minecraft:grass_block");
-        // sides 84 (grass_side), top 0 (grass_top), bottom 1 (dirt): the atlas's per-face table.
-        Assert.That(Faces(m), Is.EqualTo(new ushort[] { 84, 84, 84, 84, 0, 1 }));
-        Assert.That(m.Flags & BlockMaterial.FlagTinted, Is.EqualTo(BlockMaterial.FlagTinted));
-        Assert.That(new Vector3(m.TintR, m.TintG, m.TintB), Is.EqualTo(new Vector3(0.30f, 0.65f, 0.20f)), "the biome colour");
+        var m = VoxelBlockTables.MaterialOf("minecraft:grass_block", Assets);
+        Assert.That(Faces(m), Is.EqualTo(new ushort[] { 10, 10, 10, 10, 11, 12 }));
+        Assert.That(m.Flags & BlockMaterial.FlagTinted, Is.Zero, "not tinted outright");
+        Assert.That(m.Flags, Is.EqualTo(BlockMaterial.TintFaces(1 << 4)), "the top only");
+        Assert.That(Tint(m), Is.EqualTo(new Vector3(145, 189, 89) / 255f), "the plains grass colour");
     }
 
     [Test]
     public void TexturedPlainBlock_ShowsItsTextureAsIs()
     {
-        var m = VoxelBlockTables.MaterialOf("minecraft:stone");
-        Assert.That(Faces(m), Is.EqualTo(new ushort[] { 2, 2, 2, 2, 2, 2 }));
-        Assert.That(m.Flags, Is.EqualTo(0u));
-        Assert.That(new Vector3(m.TintR, m.TintG, m.TintB), Is.EqualTo(Vector3.One), "white tint = the texture unchanged");
+        var m = VoxelBlockTables.MaterialOf("minecraft:stone", Assets);
+        Assert.That(Faces(m), Is.All.EqualTo((ushort)2));
+        Assert.That(m.Flags, Is.EqualTo(0u), "no tint: the texture is drawn unchanged");
     }
 
     [Test]
-    public void UntexturedBlock_IsItsColour()
+    public void LeavesAreTintedOnEveryFace()
     {
-        var m = VoxelBlockTables.MaterialOf("minecraft:beacon"); // a colour in BlockColorMap, no atlas tile
+        var m = VoxelBlockTables.MaterialOf("minecraft:oak_leaves", Assets);
+        Assert.That(m.Flags, Is.EqualTo(BlockMaterial.TintFaces(63)));
+        Assert.That(Tint(m), Is.EqualTo(new Vector3(119, 171, 47) / 255f));
+    }
+
+    [Test]
+    public void APlant_UsesItsFirstTile_AndItsTint()
+    {
+        var grass = VoxelBlockTables.MaterialOf("minecraft:short_grass", Assets);
+        Assert.That(Faces(grass)[0], Is.EqualTo((ushort)50));
+        Assert.That(grass.Flags & BlockMaterial.TintFaces(1), Is.Not.Zero, "face 0 is the one a plant uses: it must be in the mask");
+        Assert.That(VoxelBlockTables.MaterialOf("minecraft:poppy", Assets).Flags, Is.Zero);
+    }
+
+    [Test]
+    public void ABlockTheAssetsDoNotKnow_IsItsFlatColour()
+    {
+        var m = VoxelBlockTables.MaterialOf("minecraft:beacon", Assets); // a colour in BlockColorMap, no tile
         Assert.That(Faces(m), Is.All.EqualTo(BlockMaterial.NoTexture));
-        Assert.That(new Vector3(m.TintR, m.TintG, m.TintB), Is.EqualTo(new Vector3(0.50f, 0.85f, 0.85f)));
+        Assert.That(Tint(m), Is.EqualTo(new Vector3(0.50f, 0.85f, 0.85f)));
     }
 
     [Test]
-    public void Water_IsTranslucent_WithALoweredTopAndFlatShading()
+    public void Water_IsTranslucent_WithALoweredTopAndFlatShading_AndTinted()
     {
-        var m = VoxelBlockTables.MaterialOf("minecraft:water");
-        Assert.That(m.Alpha, Is.EqualTo(0.6f));
-        Assert.That(m.Flags, Is.EqualTo(BlockMaterial.FlagTinted | BlockMaterial.FlagLowerTop | BlockMaterial.FlagFlatShading));
-        Assert.That(Faces(m), Is.All.EqualTo((ushort)50));
-        Assert.That(VoxelBlockTables.MaterialOf("minecraft:stone").Alpha, Is.EqualTo(1f));
+        var m = VoxelBlockTables.MaterialOf("minecraft:water", Assets);
+        Assert.That(m.Alpha, Is.EqualTo(0.7f));
+        Assert.That(m.Flags, Is.EqualTo(BlockMaterial.FlagTinted | BlockMaterial.FlagLowerTop | BlockMaterial.FlagFlatShading | BlockMaterial.TintFaces(63)));
+        Assert.That(Faces(m), Is.All.EqualTo((ushort)20));
+        Assert.That(Tint(m), Is.EqualTo(new Vector3(63, 118, 228) / 255f));
+        Assert.That(VoxelBlockTables.MaterialOf("minecraft:stone", Assets).Alpha, Is.EqualTo(1f));
     }
 
     [Test]
-    public void Seabed_IsTheSameBlockDarker_AtTheOffsetSlot()
+    public void Seabed_IsTheSameBlockDarkened_AtTheOffsetSlot()
     {
         string[] names = ["minecraft:air", "minecraft:stone", "minecraft:grass_block", "minecraft:beacon"];
-        var (classes, all) = VoxelBlockTables.BuildWithSeabeds(names);
+        var (classes, all) = VoxelBlockTables.BuildWithSeabeds(names, Assets);
         Assert.That(classes, Has.Length.EqualTo(4));
         Assert.That(all, Has.Length.EqualTo(VoxelBlockTables.SeabedTypeOffset + 4));
 
-        // stone: untinted texture 2 -> the texture, tinted by 0.7 grey
-        var stone = all[VoxelBlockTables.SeabedTypeOffset + 1];
-        Assert.That(Faces(stone), Is.EqualTo(Faces(all[1])), "the same textures");
-        Assert.That(stone.Flags & BlockMaterial.FlagTinted, Is.EqualTo(BlockMaterial.FlagTinted), "the darkening is applied as a tint");
-        Assert.That(new Vector3(stone.TintR, stone.TintG, stone.TintB), Is.EqualTo(new Vector3(0.7f, 0.7f, 0.7f)));
-        // grass: already tinted green -> green x 0.7
-        var grass = all[VoxelBlockTables.SeabedTypeOffset + 2];
-        Assert.That(grass.TintG, Is.EqualTo(0.65f * 0.7f).Within(1e-6));
-        // an untextured block: its colour x 0.7
-        var beacon = all[VoxelBlockTables.SeabedTypeOffset + 3];
-        Assert.That(beacon.TintG, Is.EqualTo(0.85f * 0.7f).Within(1e-6));
-        // the plain entries are untouched, and the gap is the visible "missing" material
-        Assert.That(new Vector3(all[1].TintR, all[1].TintG, all[1].TintB), Is.EqualTo(Vector3.One));
+        foreach (int i in new[] { 1, 2, 3 })
+        {
+            var plain = all[i];
+            var seabed = all[VoxelBlockTables.SeabedTypeOffset + i];
+            Assert.That(Faces(seabed), Is.EqualTo(Faces(plain)), "the same textures");
+            Assert.That(seabed.Flags, Is.EqualTo(plain.Flags | BlockMaterial.FlagDarken), "the same flags, darkened");
+            Assert.That(Tint(seabed), Is.EqualTo(Tint(plain)), "the tint colour is untouched: the darkening is its own flag");
+            Assert.That(plain.Flags & BlockMaterial.FlagDarken, Is.Zero, "the plain entries are not darkened");
+        }
         Assert.That(all[100].TintG, Is.EqualTo(0f), "an unregistered type is magenta");
     }
 
@@ -95,17 +148,27 @@ public class VoxelBlockTablesTests
     public void TooManyNames_DoNotFitBelowTheSeabedOffset()
     {
         var names = Enumerable.Range(0, VoxelBlockTables.SeabedTypeOffset + 1).Select(i => "x:b" + i).ToArray();
-        Assert.Throws<InvalidOperationException>(() => VoxelBlockTables.BuildWithSeabeds(names));
+        Assert.Throws<InvalidOperationException>(() => VoxelBlockTables.BuildWithSeabeds(names, Assets));
     }
 
     [Test]
     public void Build_IndexIsTheGlobalId()
     {
         string[] names = ["minecraft:air", "minecraft:stone", "minecraft:water", "minecraft:short_grass"];
-        var (classes, materials) = VoxelBlockTables.Build(names);
+        var (classes, materials) = VoxelBlockTables.Build(names, Assets);
         Assert.That(classes, Is.EqualTo(new[] { BlockClass.None, BlockClass.Opaque, BlockClass.Water, BlockClass.Cross }));
         Assert.That(materials, Has.Length.EqualTo(4));
         Assert.That(Faces(materials[1])[0], Is.EqualTo((ushort)2));
-        Assert.That(materials[2].Alpha, Is.EqualTo(0.6f));
+        Assert.That(materials[2].Alpha, Is.EqualTo(0.7f));
+    }
+
+    [Test]
+    public void WithoutAssets_EveryBlockIsItsFlatColour_AndTheViewerStillWorks()
+    {
+        var empty = new BlockAssets();
+        var (classes, materials) = VoxelBlockTables.Build(["minecraft:air", "minecraft:stone", "minecraft:water"], empty);
+        Assert.That(classes[0], Is.EqualTo(BlockClass.None));
+        Assert.That(classes[1], Is.EqualTo(BlockClass.Opaque));
+        Assert.That(Faces(materials[1]), Is.All.EqualTo(BlockMaterial.NoTexture));
     }
 }

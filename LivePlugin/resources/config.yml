@@ -1,0 +1,12 @@
+# AubsCraft Live. The AubsCraft panel writes this file when it installs the plugin: do not edit the secret by hand.
+# Where the panel listens (the same machine: loopback), and which of the panel's servers this one is.
+panel-url: "http://127.0.0.1:5080"
+server-id: "aubscraft"
+# Shared with the panel; empty = the plugin does nothing.
+secret: ""
+# How often the world is sampled, in ticks (4 = 5 times a second).
+interval-ticks: 4
+# The most entities in one frame, across all worlds.
+max-entities: 3000
+# Dropped items (there can be a great many).
+include-items: false

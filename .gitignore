@@ -25,3 +25,7 @@ node_modules/
 ProxyGate/build/
 block-registry.json
 block-registry.json.tmp
+
+# Generated at build time from the Minecraft client jar (AubsCraft.AssetTool): never committed
+AubsCraft.Admin/wwwroot/assets/
+LivePlugin/build/

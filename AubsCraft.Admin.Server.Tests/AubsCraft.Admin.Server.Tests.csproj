@@ -26,6 +26,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\AubsCraft.Admin.Server\AubsCraft.Admin.Server.csproj" />
 		<ProjectReference Include="..\AubsCraft.Assets\AubsCraft.Assets.csproj" />
+		<ProjectReference Include="..\AubsCraft.Live.Model\AubsCraft.Live.Model.csproj" />
 	</ItemGroup>
 
 </Project>

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<!-- The live activity frame the AubsCraft Live plugin sends (LivePlugin/FORMAT.md): the model, a bounds-checked parser and an encoder.
+	     No dependencies: the panel's server, the browser client (trimmed, AOT) and the tests all use it. -->
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<IsPackable>false</IsPackable>
+		<IsTrimmable>true</IsTrimmable>
+	</PropertyGroup>
+
+</Project>

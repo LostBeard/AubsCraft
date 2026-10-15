@@ -3,6 +3,7 @@
   <Project Path="AubsCraft.Admin/AubsCraft.Admin.csproj" />
   <Project Path="AubsCraft.Assets.Model/AubsCraft.Assets.Model.csproj" />
   <Project Path="AubsCraft.Assets/AubsCraft.Assets.csproj" />
+  <Project Path="AubsCraft.Live.Model/AubsCraft.Live.Model.csproj" />
   <Project Path="AubsCraft.AssetTool/AubsCraft.AssetTool.csproj" />
   <Project Path="AubsCraft.Admin.Server.Tests/AubsCraft.Admin.Server.Tests.csproj" />
   <Project Path="AubsCraft.Viewer.Tests/AubsCraft.Viewer.Tests.csproj" />
