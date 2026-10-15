@@ -41,6 +41,11 @@ public sealed class BlockAsset
     public int[] TintColor { get; set; } = new int[3] { 255, 255, 255 };
     /// <summary>"opaque", "cutout" (some texels fully transparent: leaves, plants) or "translucent" (some texels partly transparent: glass, ice).</summary>
     public string Render { get; set; } = BlockRenders.Opaque;
+    /// <summary>
+    /// 1..6 for a shape whose model lies within that many sixteenths of the floor (a carpet, rail, pressure plate, snow layer, closed trapdoor): the viewer draws it
+    /// as a cube squashed to that height. 0 for everything else (slabs, 8/16, are left as cubes: whether one is the bottom, the top or a double is a block state the registry does not carry yet).
+    /// </summary>
+    public int Thickness { get; set; }
 }
 
 /// <summary>A tile that shows <c>Timeline[tick % Timeline.Length]</c>, 20 ticks a second, where it is used.</summary>

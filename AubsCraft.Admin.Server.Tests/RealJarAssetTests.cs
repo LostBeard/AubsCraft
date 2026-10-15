@@ -111,4 +111,18 @@ public class RealJarAssetTests
         Assert.That(second.AtlasRgba, Is.EqualTo(first.AtlasRgba));
         Assert.That(second.Report, Is.EqualTo(first.Report));
     }
+
+    [Test]
+    public async Task TheThinBlocksOfTheRealGame_AreFound_AndNoTallOneIs()
+    {
+        var (r, _) = await BuildOnceAsync();
+        var thin = r.Assets.Blocks.Where(b => b.Value.Thickness > 0).ToDictionary(b => b.Key, b => b.Value.Thickness);
+        TestContext.Progress.WriteLine($"[assets] {thin.Count} thin blocks: " + string.Join(", ", thin.Select(t => $"{t.Key.Replace("minecraft:", "")}={t.Value}").Take(80)));
+        foreach (var name in new[] { "minecraft:rail", "minecraft:powered_rail", "minecraft:detector_rail", "minecraft:activator_rail", "minecraft:white_carpet", "minecraft:moss_carpet",
+                     "minecraft:stone_pressure_plate", "minecraft:oak_pressure_plate", "minecraft:snow", "minecraft:lily_pad" })
+            Assert.That(thin.ContainsKey(name), Is.True, name + " is a thin block");
+        foreach (var name in new[] { "minecraft:oak_slab", "minecraft:oak_stairs", "minecraft:oak_fence", "minecraft:ladder", "minecraft:torch", "minecraft:glass_pane", "minecraft:oak_door", "minecraft:chest" })
+            Assert.That(thin.ContainsKey(name), Is.False, name + " is not a layer on the floor");
+        foreach (var (name, t) in thin) Assert.That(t, Is.InRange(1, 6), name);
+    }
 }

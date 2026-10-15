@@ -41,6 +41,10 @@ public class VoxelBlockTablesTests
             {
                 Kind = BlockKinds.Cross, Faces = Enumerable.Repeat(50, 6).ToArray(), TintFaces = 63, Tint = BlockTints.Grass, TintColor = new[] { 145, 189, 89 }, Render = BlockRenders.Cutout,
             },
+            ["minecraft:white_carpet"] = new BlockAsset { Kind = BlockKinds.Shape, Faces = Enumerable.Repeat(60, 6).ToArray(), Thickness = 1 },
+            ["minecraft:rail"] = new BlockAsset { Kind = BlockKinds.Shape, Faces = Enumerable.Repeat(61, 6).ToArray(), Render = BlockRenders.Cutout, Thickness = 1 },
+            ["minecraft:snow"] = new BlockAsset { Kind = BlockKinds.Shape, Faces = Enumerable.Repeat(62, 6).ToArray(), Thickness = 2 },
+            ["minecraft:seagrass"] = new BlockAsset { Kind = BlockKinds.Cross, Faces = Enumerable.Repeat(63, 6).ToArray(), Render = BlockRenders.Cutout },
             ["minecraft:poppy"] = new BlockAsset { Kind = BlockKinds.Cross, Faces = Enumerable.Repeat(51, 6).ToArray(), Render = BlockRenders.Cutout },
         },
     };
@@ -170,5 +174,42 @@ public class VoxelBlockTablesTests
         Assert.That(classes[0], Is.EqualTo(BlockClass.None));
         Assert.That(classes[1], Is.EqualTo(BlockClass.Opaque));
         Assert.That(Faces(materials[1]), Is.All.EqualTo(BlockMaterial.NoTexture));
+    }
+
+    [Test]
+    public void AThinShape_HidesNothing_AndIsSquashedToItsThickness()
+    {
+        foreach (var (name, thickness) in new[] { ("minecraft:white_carpet", 1), ("minecraft:rail", 1), ("minecraft:snow", 2) })
+        {
+            Assert.That(VoxelBlockTables.ClassOf(name, Assets), Is.EqualTo(BlockClass.Cutout), name + ": a layer hides neither the block beside it nor the one below");
+            Assert.That(VoxelBlockTables.MaterialOf(name, Assets).Flags & ~(63u << 16), Is.EqualTo(BlockMaterial.Thickness(thickness)), name);
+        }
+        // A shape with no thickness stays a plain cube material, a full block
+        Assert.That(VoxelBlockTables.MaterialOf("minecraft:oak_stairs", Assets).Flags & ~(63u << 16), Is.EqualTo(0u));
+        Assert.That(VoxelBlockTables.ClassOf("minecraft:oak_stairs", Assets), Is.EqualTo(BlockClass.Opaque));
+    }
+
+    [Test]
+    public void SeagrassAndKelp_AreWaterWithAPlantInIt()
+    {
+        foreach (var name in new[] { "minecraft:seagrass", "minecraft:tall_seagrass", "minecraft:kelp", "minecraft:kelp_plant" })
+        {
+            Assert.That(VoxelBlockTables.IsAquaticPlant(name), Is.True, name);
+            var cls = VoxelBlockTables.ClassOf(name, Assets);
+            Assert.That(cls & BlockClass.Plant, Is.Not.EqualTo(0), name + " is a plant");
+            Assert.That(cls & BlockClass.EmitWater, Is.Not.EqualTo(0), name + " draws water");
+            Assert.That(cls & BlockClass.EmitOpaque, Is.EqualTo(0), name + " has no cube faces of its own");
+            Assert.That(cls & BlockClass.OccludeWater, Is.Not.EqualTo(0), name + " hides the water faces between it and other water");
+        }
+        var m = VoxelBlockTables.MaterialOf("minecraft:seagrass", Assets);
+        Assert.That(Faces(m), Is.EqualTo(new ushort[] { 20, 20, 20, 20, 20, 63 }), "water on the cube faces, the plant on face 5");
+        Assert.That(m.Flags & BlockMaterial.FlagPlantFromBottom, Is.Not.EqualTo(0u));
+        Assert.That(m.Flags & BlockMaterial.FlagLowerTop, Is.Not.EqualTo(0u), "the surface sits a tenth low like the rest of the water");
+        Assert.That((m.Flags >> 16) & 63, Is.EqualTo(0b011111u), "the water faces are tinted, the plant (face 5) is not");
+        Assert.That(Tint(m), Is.EqualTo(new Vector3(63, 118, 228) / 255f));
+        Assert.That(m.Alpha, Is.EqualTo(VoxelBlockTables.WaterAlpha));
+        // A plant that is not aquatic is unchanged
+        Assert.That(VoxelBlockTables.IsAquaticPlant("minecraft:poppy"), Is.False);
+        Assert.That(VoxelBlockTables.ClassOf("minecraft:poppy", Assets), Is.EqualTo(BlockClass.Cross));
     }
 }

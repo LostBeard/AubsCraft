@@ -323,6 +323,32 @@ public class AssetGeneratorTests
         Assert.That(PixelOf(Tile(r, slab.Faces[0]), 16, 2, 2).r, Is.EqualTo(160));
     }
 
+    private static BlockAsset ShapeWithElements(params (double y0, double y1)[] elements)
+    {
+        var jar = new FakeJar().WithStandardParents();
+        jar.Solid("block/t", 100, 100, 100);
+        var els = string.Join(",", elements.Select(e => $$"""{ "from": [0,{{e.y0}},0], "to": [16,{{e.y1}},16], "faces": { "up": { "texture": "#t" }, "north": { "texture": "#t" } } }"""));
+        jar.Model("block/m", $$"""{ "textures": { "t": "block/t" }, "elements": [ {{els}} ] }""");
+        jar.State("thing", """{ "variants": { "": { "model": "block/m" } } }""");
+        return Build(jar).Assets.Blocks["minecraft:thing"];
+    }
+
+    [Test]
+    public void AFlatShape_HasItsThickness_AndATallOrHalfHighOneHasNone()
+    {
+        Assert.That(ShapeWithElements((0, 1)).Thickness, Is.EqualTo(1), "a carpet");
+        Assert.That(ShapeWithElements((0, 0)).Thickness, Is.EqualTo(1), "a rail is a plane at the floor: one layer");
+        Assert.That(ShapeWithElements((0, 2)).Thickness, Is.EqualTo(2), "a snow layer");
+        Assert.That(ShapeWithElements((0, 2.5)).Thickness, Is.EqualTo(3), "rounded up: never thinner than the model");
+        Assert.That(ShapeWithElements((0, 6)).Thickness, Is.EqualTo(6), "a daylight sensor");
+        Assert.That(ShapeWithElements((0, 1), (0, 3)).Thickness, Is.EqualTo(3), "the highest element decides");
+        Assert.That(ShapeWithElements((0, 8)).Thickness, Is.EqualTo(0), "a slab is half a block: left a cube until the registry knows its state");
+        Assert.That(ShapeWithElements((0, 16)).Thickness, Is.EqualTo(0), "stairs and fences reach the top");
+        Assert.That(ShapeWithElements((0, 1), (0, 16)).Thickness, Is.EqualTo(0), "one tall element makes it tall");
+        Assert.That(ShapeWithElements((14, 16)).Thickness, Is.EqualTo(0), "something hanging at the top is not a layer on the floor");
+        Assert.That(ShapeWithElements((3, 5)).Thickness, Is.EqualTo(0), "a floating piece is not a layer on the floor either");
+    }
+
     [Test]
     public void Water_IsAnAnimatedTintedFluid_AndAirIsNothing()
     {

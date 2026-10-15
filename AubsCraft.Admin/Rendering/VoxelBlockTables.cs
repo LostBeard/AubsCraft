@@ -18,11 +18,17 @@ public static class VoxelBlockTables
 
     private static bool IsAir(string name) => name is "minecraft:air" or "minecraft:cave_air" or "minecraft:void_air";
 
+    /// <summary>Plants that stand in a cell of water: the cell is water, with the plant in it (the registry carries no waterlogged state, and these are never anywhere else).</summary>
+    public static bool IsAquaticPlant(string name) => name is "minecraft:seagrass" or "minecraft:tall_seagrass" or "minecraft:kelp" or "minecraft:kelp_plant";
+
     /// <summary>The mesh class of a block name.</summary>
     public static int ClassOf(string name, BlockAssets assets)
     {
+        if (IsAquaticPlant(name)) return BlockClass.Plant | BlockClass.Water;
         if (assets.Blocks.TryGetValue(name, out var block))
         {
+            // A thin block (carpet, rail, plate, snow layer) is a layer on the block below: it hides nothing beside or under it
+            if (block.Kind == BlockKinds.Shape && block.Thickness > 0) return BlockClass.Cutout;
             return block.Kind switch
             {
                 BlockKinds.None => BlockClass.None,
@@ -46,6 +52,15 @@ public static class VoxelBlockTables
         }
 
         ushort Tile(int i) => block.Faces[i] < 0 ? BlockMaterial.NoTexture : (ushort)block.Faces[i];
+
+        // Seagrass and kelp: water on the cube faces (the surface, the sides where it meets air or other blocks) and the plant on face 5, which the plant planes read
+        if (IsAquaticPlant(name) && assets.Blocks.TryGetValue("minecraft:water", out var water))
+        {
+            ushort w = water.Faces[0] < 0 ? BlockMaterial.NoTexture : (ushort)water.Faces[0];
+            var waterTint = new Vector3(water.TintColor[0], water.TintColor[1], water.TintColor[2]) / 255f;
+            return BlockMaterial.Create(w, w, w, w, w, Tile(0), waterTint,
+                BlockMaterial.TintFaces(0b011111) | BlockMaterial.FlagLowerTop | BlockMaterial.FlagFlatShading | BlockMaterial.FlagPlantFromBottom, WaterAlpha);
+        }
         // The colour a tinted face is multiplied by (the biome colour: the plains one until a biome says otherwise), or, with no tint, the
         // flat colour of a face that has no texture
         Vector3 colour;
@@ -57,6 +72,7 @@ public static class VoxelBlockTables
         }
 
         uint flags = BlockMaterial.TintFaces(block.TintFaces);
+        if (block.Kind == BlockKinds.Shape) flags |= BlockMaterial.Thickness(block.Thickness);
         float alpha = 1f;
         if (block.Kind == BlockKinds.Water)
         {

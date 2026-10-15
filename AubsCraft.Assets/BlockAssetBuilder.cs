@@ -219,8 +219,23 @@ public sealed class BlockAssetBuilder
         int tile = texture == null ? -1 : _tiles.GetTexture(texture);
         var asset = new BlockAsset { Kind = BlockKinds.Shape, Faces = Enumerable.Repeat(tile, 6).ToArray() };
         asset.Render = RenderOf(name, asset.Faces);
+        asset.Thickness = ThicknessOf(model);
         if (tintIndex >= 0) ApplyTint(name, asset, 0b111111);
         return asset;
+    }
+
+    /// <summary>How many sixteenths of the floor a model reaches, when it is flat enough to draw as a squashed cube (at most 6); 0 otherwise.</summary>
+    internal static int ThicknessOf(ResolvedModel model)
+    {
+        if (model.Elements.Count == 0) return 0;
+        double minY = double.MaxValue, maxY = double.MinValue;
+        foreach (var e in model.Elements)
+        {
+            minY = Math.Min(minY, Math.Min(e.From[1], e.To[1]));
+            maxY = Math.Max(maxY, Math.Max(e.From[1], e.To[1]));
+        }
+        if (minY > 1.0 || maxY > 6.0) return 0;
+        return Math.Clamp((int)Math.Ceiling(maxY), 1, 6);   // a plane at the floor (a rail) is still a layer of one
     }
 
     // opaque unless some of its texels are transparent (cutout: fully, translucent: partly); leaves are always at least cutout

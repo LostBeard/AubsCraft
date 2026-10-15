@@ -45,7 +45,7 @@ public sealed class BlockStateFile
     // the state to draw is the plainest one.
     private static readonly HashSet<string> PlainValues = new(StringComparer.Ordinal)
     {
-        "false", "0", "north", "bottom", "y", "lower", "floor", "normal", "none", "straight", "single", "low",
+        "false", "0", "north", "bottom", "y", "lower", "floor", "normal", "none", "straight", "single", "low", "north_south",
     };
 
     /// <summary>The state the viewer draws for a block name: the variant with no properties, else the one with the fewest non-plain property values (the first on a tie), else the first part.</summary>
