@@ -11,7 +11,8 @@ using FarMesher = SpawnDev.VoxelEngine.Meshing.HeightmapMesher;
 namespace AubsCraft.Admin.Rendering;
 
 /// <summary>What one voxel frame drew.</summary>
-public readonly record struct VoxelFrameStats(int Columns, int SectionsWithQuads, int VisibleSections, long TotalQuads, long VisibleQuads);
+public readonly record struct VoxelFrameStats(int Columns, int SectionsWithQuads, int VisibleSections, long TotalQuads, long VisibleQuads,
+    int DrawCalls, int BufferBinds, double RecordMs);
 
 /// <summary>
 /// The viewer's world, drawn by SpawnDev.VoxelEngine: block columns arrive as the server's global-id ushort arrays (straight from a
@@ -39,6 +40,8 @@ public sealed class VoxelWorldRenderer : IDisposable
         public MemoryBuffer1D<int, Stride1D.Dense>? Heights;
         public bool IsFar => Heights != null;
         public ColumnMesh? Mesh;
+        /// <summary>Sections that hold quads, and the lowest and highest of them: set when the mesh is made, for the frame's culling and stats.</summary>
+        public int SectionsWithQuads, LowestSection, HighestSection;
         /// <summary>Which neighbours existed when the mesh was made: bit 0 -X, 1 +X, 2 -Z, 3 +Z.</summary>
         public int MeshedWith;
         public bool Removed;
@@ -52,6 +55,7 @@ public sealed class VoxelWorldRenderer : IDisposable
     private ColumnMesher? _mesher;
     private FarMesher? _farMesher;
     private GPUQueue? _queue;
+    private string _colorFormat = "bgra8unorm";
     private BlockTextureArray? _textures;
     private GPUTexture? _depth;
     private GPUTextureView? _depthView;
@@ -63,7 +67,6 @@ public sealed class VoxelWorldRenderer : IDisposable
     // Per-frame scratch, reused
     private readonly List<Column> _visible = new(512);
     private readonly List<(float dist, Column col)> _waterOrder = new(512);
-    private readonly int[] _sectionOrder = new int[SectionsPerColumn];
 
     public int ColumnCount => _columns.Count;
     public int NamesKnown { get; private set; }
@@ -72,11 +75,13 @@ public sealed class VoxelWorldRenderer : IDisposable
     {
         Device = device;
         _queue = queue;
-        // A section slot per 16-high section of every column and far chunk (24 each); the origin table is 16 bytes a slot
-        _pipe.Init(device, queue, colorFormat, maxSections: 1 << 18);
-        _maxColumns = _pipe.MaxSections / SectionsPerColumn;
-        _mesher = new ColumnMesher(accelerator, SectionsPerColumn) { MissingNeighborsAreSolid = false };
-        _farMesher = new FarMesher(accelerator, SectionsPerColumn) { SeabedTypeOffset = VoxelBlockTables.SeabedTypeOffset };
+        _colorFormat = colorFormat;
+        // One slot per column or far chunk: its quads carry their section (EmbedSectionIndex), so a column is ONE draw placed by ONE
+        // origin (16 bytes a slot)
+        _pipe.Init(device, queue, colorFormat, maxSections: 1 << 15);
+        _maxColumns = _pipe.MaxSections;
+        _mesher = new ColumnMesher(accelerator, SectionsPerColumn) { MissingNeighborsAreSolid = false, EmbedSectionIndex = true };
+        _farMesher = new FarMesher(accelerator, SectionsPerColumn) { SeabedTypeOffset = VoxelBlockTables.SeabedTypeOffset, EmbedSectionIndex = true };
     }
 
     public GPUDevice? Device { get; private set; }
@@ -146,10 +151,7 @@ public sealed class VoxelWorldRenderer : IDisposable
 
     private async Task PlaceAndMeshAsync(Column col)
     {
-        var origins = new Vector3[SectionsPerColumn];
-        for (int sy = 0; sy < SectionsPerColumn; sy++)
-            origins[sy] = new Vector3(col.Cx * 16, WorldMinY + sy * 16, col.Cz * 16);
-        _pipe.SetSectionOrigins(col.Slot * SectionsPerColumn, origins);
+        _pipe.SetSectionOrigin(col.Slot, new Vector3(col.Cx * 16, WorldMinY, col.Cz * 16));
 
         await MeshAsync(col);
 
@@ -197,6 +199,16 @@ public sealed class VoxelWorldRenderer : IDisposable
             var old = col.Mesh;
             col.Mesh = mesh;
             col.MeshedWith = mask;
+            col.SectionsWithQuads = 0;
+            col.LowestSection = SectionsPerColumn;
+            col.HighestSection = -1;
+            for (int sy = 0; sy < SectionsPerColumn; sy++)
+            {
+                if (mesh.Opaque.QuadsIn(sy) + mesh.Plants.QuadsIn(sy) + mesh.Water.QuadsIn(sy) == 0) continue;
+                col.SectionsWithQuads++;
+                col.LowestSection = Math.Min(col.LowestSection, sy);
+                col.HighestSection = sy;
+            }
             if (old != null) DisposeMesh(old);
         }
         finally
@@ -256,6 +268,100 @@ public sealed class VoxelWorldRenderer : IDisposable
     /// <summary>The columns' (cx, cz), for the caller's eviction decisions.</summary>
     public IEnumerable<(int cx, int cz)> ColumnKeys => _columns.Keys;
 
+    // ---- minimap: the loaded world seen from straight above, heading up, in a small texture the HUD shows ----
+
+    /// <summary>Side of the minimap texture in pixels.</summary>
+    public const int MinimapSize = 192;
+    private GPUTexture? _miniTexture, _miniDepth;
+    private GPUTextureView? _miniView, _miniDepthView;
+
+    /// <summary>The minimap texture (null until the first <see cref="RenderMinimap"/>).</summary>
+    public GPUTextureView? MinimapView => _miniView;
+
+    /// <summary>
+    /// Draw the world within <paramref name="extent"/> blocks of (centerX, centerZ) into the minimap texture: straight down, the camera's
+    /// heading (yaw degrees) at the top. It submits its own commands first, so the frame's uniforms written afterwards (<see cref="Render"/>)
+    /// are not seen by this pass: queue writes and submits are ordered.
+    /// </summary>
+    public void RenderMinimap(float centerX, float centerZ, float yawDegrees, float extent)
+    {
+        if (_disposed || Device == null || _queue == null) return;
+        if (_miniTexture == null)
+        {
+            _miniTexture = Device.CreateTexture(new GPUTextureDescriptor
+            {
+                Size = new[] { MinimapSize, MinimapSize },
+                Format = _colorFormat,
+                Usage = GPUTextureUsage.RenderAttachment | GPUTextureUsage.TextureBinding,
+            });
+            _miniView = _miniTexture.CreateView();
+            _miniDepth = Device.CreateTexture(new GPUTextureDescriptor
+            {
+                Size = new[] { MinimapSize, MinimapSize },
+                Format = ReversedZHelper.DepthFormat,
+                Usage = GPUTextureUsage.RenderAttachment,
+            });
+            _miniDepthView = _miniDepth.CreateView();
+        }
+
+        float yaw = yawDegrees * MathF.PI / 180f;
+        var heading = new Vector3(MathF.Cos(yaw), 0f, MathF.Sin(yaw)); // screen up = where the camera looks
+        var eye = new Vector3(centerX, 500f, centerZ);
+        var view = Matrix4x4.CreateLookAt(eye, new Vector3(centerX, 0f, centerZ), heading);
+        var proj = ReversedZHelper.CreateReversedOrthographic(2f * extent, 2f * extent, 1f, 1000f);
+        _pipe.BeginFrame(new BlockFrameUniforms
+        {
+            ViewProjection = view * proj,
+            CameraPosition = new Vector4(eye, 1f),
+            SunDirection = new Vector4(Vector3.Normalize(new Vector3(0.35f, 0.9f, 0.25f)), 0f),
+            SunColor = new Vector4(1f, 0.96f, 0.88f, 0.45f),
+            Ambient = new Vector4(0.62f, 0.64f, 0.7f, 0f),   // the same at any hour: a map should stay readable at night
+            FogColor = new Vector4(SkyColor, 1f),
+            FogRange = new Vector4(1e9f, 2e9f, 0f, 0f),
+        });
+
+        _visible.Clear();
+        _waterOrder.Clear();
+        float reach = extent + 24f; // a chunk's half-diagonal beyond the edge still shows a corner
+        foreach (var col in _columns.Values) AddToMinimap(col, null, centerX, centerZ, reach);
+        foreach (var chunk in _far.Values) AddToMinimap(chunk, _columns, centerX, centerZ, reach);
+
+        using var encoder = Device.CreateCommandEncoder();
+        using (var pass = _pipe.BeginRenderPass(encoder, _miniView!, _miniDepthView!, SkyColor * 0.6f))
+        {
+            foreach (var kind in CubePasses)
+                foreach (var col in _visible)
+                {
+                    var list = kind == BlockRenderPipeline.Pass.Opaque ? col.Mesh!.Opaque : col.Mesh!.Plants;
+                    if (list.Count == 0 || list.Buffer?.GetGPUBuffer() is not { } gpu) continue;
+                    _pipe.BindPass(pass, kind, gpu);
+                    _pipe.Draw(pass, 0, list.Count, col.Slot);
+                }
+            _waterOrder.Sort((a, b) => b.dist.CompareTo(a.dist));
+            foreach (var (_, col) in _waterOrder)
+            {
+                if (col.Mesh!.Water.Buffer?.GetGPUBuffer() is not { } gpu) continue;
+                _pipe.BindPass(pass, BlockRenderPipeline.Pass.Water, gpu);
+                _pipe.Draw(pass, 0, col.Mesh.Water.Count, col.Slot);
+            }
+            pass.End();
+        }
+        using var commands = encoder.Finish();
+        _queue.Submit(new[] { commands });
+    }
+
+    private void AddToMinimap(Column col, Dictionary<(int cx, int cz), Column>? covered, float centerX, float centerZ, float reach)
+    {
+        var mesh = col.Mesh;
+        if (mesh == null || col.HighestSection < 0) return;
+        if (covered != null && covered.TryGetValue((col.Cx, col.Cz), out var over) && over.Mesh != null) return;
+        float dx = col.Cx * 16 + 8 - centerX, dz = col.Cz * 16 + 8 - centerZ;
+        // A rotated square view reaches farthest along its diagonal
+        if (MathF.Abs(dx) > reach * 1.42f || MathF.Abs(dz) > reach * 1.42f) return;
+        _visible.Add(col);
+        if (mesh.Water.Count > 0) _waterOrder.Add((dx * dx + dz * dz, col));
+    }
+
     private void EnsureDepth(int width, int height)
     {
         if (_depth != null && _depthWidth == width && _depthHeight == height) return;
@@ -280,6 +386,8 @@ public sealed class VoxelWorldRenderer : IDisposable
     public VoxelFrameStats Render(GPUCommandEncoder encoder, GPUTextureView colorView, int width, int height,
         FpsCamera camera, in DayLighting light, int drawDistanceChunks)
     {
+        var recordTimer = System.Diagnostics.Stopwatch.StartNew();
+        int drawCalls = 0, binds = 0;
         EnsureDepth(width, height);
         float aspect = (float)width / Math.Max(height, 1);
         float fovRad = camera.FovDegrees * MathF.PI / 180f;
@@ -310,10 +418,6 @@ public sealed class VoxelWorldRenderer : IDisposable
         foreach (var chunk in _far.Values)
             GatherVisible(chunk, _columns, in frustum, camCX, camCZ, drawDistSq, ref sectionsWithQuads, ref totalQuads);
 
-        // Water sections within a column: farthest from the camera's section first
-        int camSy = Math.Clamp((int)MathF.Floor((camera.Position.Y - WorldMinY) / 16f), 0, SectionsPerColumn - 1);
-        for (int i = 0; i < SectionsPerColumn; i++) _sectionOrder[i] = i;
-        System.Array.Sort(_sectionOrder, (a, b) => Math.Abs(b - camSy).CompareTo(Math.Abs(a - camSy)));
         int visibleSections = 0;
         long visibleQuads = 0;
 
@@ -326,14 +430,12 @@ public sealed class VoxelWorldRenderer : IDisposable
                 var list = kind == BlockRenderPipeline.Pass.Opaque ? col.Mesh!.Opaque : col.Mesh!.Plants;
                 if (list.Count == 0 || list.Buffer?.GetGPUBuffer() is not { } gpu) continue;
                 _pipe.BindPass(pass, kind, gpu);
-                for (int sy = 0; sy < SectionsPerColumn; sy++)
-                {
-                    int n = list.QuadsIn(sy);
-                    if (n == 0 || !SectionVisible(in frustum, col, sy)) continue;
-                    _pipe.Draw(pass, list.SectionStart[sy], n, col.Slot * SectionsPerColumn + sy);
-                    if (kind == BlockRenderPipeline.Pass.Opaque) visibleSections++;
-                    visibleQuads += n;
-                }
+                binds++;
+                // The whole column in one draw: every quad knows its section
+                _pipe.Draw(pass, 0, list.Count, col.Slot);
+                drawCalls++;
+                if (kind == BlockRenderPipeline.Pass.Opaque) visibleSections += col.SectionsWithQuads;
+                visibleQuads += list.Count;
             }
         }
 
@@ -344,17 +446,15 @@ public sealed class VoxelWorldRenderer : IDisposable
             var list = col.Mesh!.Water;
             if (list.Buffer?.GetGPUBuffer() is not { } gpu) continue;
             _pipe.BindPass(pass, BlockRenderPipeline.Pass.Water, gpu);
-            foreach (int sy in _sectionOrder)
-            {
-                int n = list.QuadsIn(sy);
-                if (n == 0 || !SectionVisible(in frustum, col, sy)) continue;
-                _pipe.Draw(pass, list.SectionStart[sy], n, col.Slot * SectionsPerColumn + sy);
-                visibleQuads += n;
-            }
+            binds++;
+            _pipe.Draw(pass, 0, list.Count, col.Slot);
+            drawCalls++;
+            visibleQuads += list.Count;
         }
         pass.End();
 
-        return new VoxelFrameStats(_columns.Count + _far.Count, sectionsWithQuads, visibleSections, totalQuads, visibleQuads);
+        return new VoxelFrameStats(_columns.Count + _far.Count, sectionsWithQuads, visibleSections, totalQuads, visibleQuads,
+            drawCalls, binds, recordTimer.Elapsed.TotalMilliseconds);
     }
 
     // Adds col to the frame's draw lists when it is meshed, in range and in view; counts its quads and sections either way.
@@ -366,22 +466,16 @@ public sealed class VoxelWorldRenderer : IDisposable
         if (mesh == null) return;
         if (covered != null && covered.TryGetValue((col.Cx, col.Cz), out var over) && over.Mesh != null) return;
         totalQuads += mesh.Opaque.Count + mesh.Plants.Count + mesh.Water.Count;
-        for (int sy = 0; sy < SectionsPerColumn; sy++)
-            if (mesh.Opaque.QuadsIn(sy) + mesh.Plants.QuadsIn(sy) + mesh.Water.QuadsIn(sy) > 0) sectionsWithQuads++;
+        sectionsWithQuads += col.SectionsWithQuads;
+        if (col.HighestSection < 0) return; // nothing to draw
         long dx = col.Cx - camCX, dz = col.Cz - camCZ;
         if (dx * dx + dz * dz > drawDistSq) return;
-        var min = new Vector3(col.Cx * 16, WorldMinY, col.Cz * 16);
-        var max = new Vector3(col.Cx * 16 + 16, WorldMinY + SectionsPerColumn * 16, col.Cz * 16 + 16);
+        // The box of the sections that hold quads, not the whole 384 blocks
+        var min = new Vector3(col.Cx * 16, WorldMinY + col.LowestSection * 16, col.Cz * 16);
+        var max = new Vector3(col.Cx * 16 + 16, WorldMinY + (col.HighestSection + 1) * 16, col.Cz * 16 + 16);
         if (!FrustumCuller.IsBoxVisible(in frustum, min, max)) return;
         _visible.Add(col);
         if (mesh.Water.Count > 0) _waterOrder.Add((dx * dx + dz * dz, col));
-    }
-
-    private static bool SectionVisible(in FrustumCuller.Frustum frustum, Column col, int sy)
-    {
-        float y0 = WorldMinY + sy * 16;
-        return FrustumCuller.IsBoxVisible(in frustum,
-            new Vector3(col.Cx * 16, y0, col.Cz * 16), new Vector3(col.Cx * 16 + 16, y0 + 16, col.Cz * 16 + 16));
     }
 
     public void Dispose()
@@ -408,6 +502,12 @@ public sealed class VoxelWorldRenderer : IDisposable
         _depthView?.Dispose();
         _depth?.Destroy();
         _depth?.Dispose();
+        _miniView?.Dispose();
+        _miniTexture?.Destroy();
+        _miniTexture?.Dispose();
+        _miniDepthView?.Dispose();
+        _miniDepth?.Destroy();
+        _miniDepth?.Dispose();
         _pipe.Dispose();
         _meshLock.Dispose();
     }

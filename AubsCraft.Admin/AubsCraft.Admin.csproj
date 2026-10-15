@@ -32,14 +32,14 @@
 		<!-- 5.3.7 (released): includes the WGSL/GLSL early-return structurizer fix that 5.3.2-local.6 carried (MinecraftLODKernel hung
 		     compiling on 5.0.0-5.3.1) and the >8-argument launcher fix SpawnDev.VoxelEngine's ColumnMesher kernels need. -->
 		<PackageReference Include="SpawnDev.ILGPU" Version="5.3.7" />
-		<!-- 0.2.0-local.3 (local SpawnDevPackages feed): BlockRenderPipeline + ColumnMesher, the viewer's new renderer (Phase V).
+		<!-- 0.2.0-local.4 (local SpawnDevPackages feed): BlockRenderPipeline + ColumnMesher, the viewer's new renderer (Phase V).
 		     Swap to the stable version once it is released. -->
-		<PackageReference Include="SpawnDev.VoxelEngine" Version="0.2.0-local.3" />
+		<PackageReference Include="SpawnDev.VoxelEngine" Version="0.2.0-local.4" />
 		<!-- 1.0.0-local.1 (local SpawnDevPackages feed); swap to the stable version once it is on nuget.org -->
 		<PackageReference Include="SpawnDev.SpawnJS.TangoADB" Version="1.0.0-local.1" />
-		<!-- 1.1.0-local.1 (local SpawnDevPackages feed): GameUI without a DOM (Init + PushedInputProvider) for the worker HUD.
+		<!-- 1.1.0-local.3 (local SpawnDevPackages feed): GameUI without a DOM + the chat-feed options (Init + PushedInputProvider) for the worker HUD.
 		     Swap to the stable version once it is released. -->
-		<PackageReference Include="SpawnDev.GameUI" Version="1.1.0-local.1" />
+		<PackageReference Include="SpawnDev.GameUI" Version="1.1.0-local.3" />
 	</ItemGroup>
 
 	<ItemGroup>

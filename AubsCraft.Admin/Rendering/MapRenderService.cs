@@ -973,8 +973,15 @@ public sealed class MapRenderService : IDisposable
     /// </summary>
     public VoxelWorldRenderer? Voxel { get; set; }
 
+    /// <summary>The last voxel frame's numbers (for the HUD's debug overlay).</summary>
+    public VoxelFrameStats LastVoxelStats { get; private set; }
+    /// <summary>CPU milliseconds the last voxel frame took end to end: record, overlay, finish, submit.</summary>
+    public double LastVoxelFrameMs { get; private set; }
+    private double _voxelLogTimer;
+
     private void RenderVoxelFrame(VoxelWorldRenderer voxel)
     {
+        var frameTimer = System.Diagnostics.Stopwatch.StartNew();
         using var colorTexture = _context!.GetCurrentTexture();
         using var colorView = colorTexture.CreateView();
         using var encoder = _device!.CreateCommandEncoder();
@@ -990,6 +997,16 @@ public sealed class MapRenderService : IDisposable
         using var commandBuffer = encoder.Finish();
         _submitArray[0] = commandBuffer;
         _queue!.Submit(_submitArray);
+
+        LastVoxelStats = stats;
+        LastVoxelFrameMs = frameTimer.Elapsed.TotalMilliseconds;
+        _voxelLogTimer += _lastDt;
+        if (_voxelLogTimer >= 5.0)
+        {
+            _voxelLogTimer = 0;
+            Console.WriteLine($"[Voxel] {Fps:F0} fps | frame CPU {LastVoxelFrameMs:F1} ms (record {stats.RecordMs:F1}) | {stats.DrawCalls} draws, {stats.BufferBinds} binds | " +
+                $"{stats.VisibleSections}/{stats.SectionsWithQuads} sections | {stats.Columns} columns+far | {stats.VisibleQuads / 1000}K/{stats.TotalQuads / 1000}K quads");
+        }
     }
 
     private int _diagFrameCount;

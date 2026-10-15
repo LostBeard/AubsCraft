@@ -78,6 +78,28 @@ public class GlobalBlockRegistryTests
     }
 
     [Test]
+    public void AFailedSave_NeverFailsTheRegistration_AndTheNextNewNamePersistsEverything()
+    {
+        // The folder does not exist: every save fails (as it would while a scanner holds the file, or on a full disk)
+        var dir = Path.Combine(TestUtil.NewTempDir(), "not-yet");
+        var reg = new GlobalBlockRegistry(TestUtil.Config(("BlockRegistry:FilePath", Path.Combine(dir, "block-registry.json"))),
+            TestUtil.Log<GlobalBlockRegistry>());
+
+        ushort stone = 0;
+        Assert.DoesNotThrow(() => stone = reg.GetOrAdd("minecraft:stone"), "an id is handed out even when it cannot be saved yet");
+        Assert.That(stone, Is.EqualTo((ushort)1));
+        Assert.That(reg.HasUnsavedNames, Is.True);
+        Assert.That(reg.GetOrAdd("minecraft:stone"), Is.EqualTo((ushort)1), "a known name still resolves");
+
+        Directory.CreateDirectory(dir);
+        reg.GetOrAdd("minecraft:dirt"); // a new name saves the whole registry, the earlier unsaved one too
+        Assert.That(reg.HasUnsavedNames, Is.False);
+        var reloaded = new GlobalBlockRegistry(TestUtil.Config(("BlockRegistry:FilePath", Path.Combine(dir, "block-registry.json"))),
+            TestUtil.Log<GlobalBlockRegistry>());
+        Assert.That(reloaded.Snapshot(), Is.EqualTo(new[] { "minecraft:air", "minecraft:stone", "minecraft:dirt" }));
+    }
+
+    [Test]
     public void CorruptRegistryFile_StopsLoudly()
     {
         var dir = TestUtil.NewTempDir();

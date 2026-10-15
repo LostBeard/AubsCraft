@@ -84,6 +84,8 @@ else
     {
         await Hub.ConnectAsync();
         Hub.OnServerStatusReceived += OnServerStatus;
+        Hub.OnChatMessageReceived += OnHubChat;
+        Hub.OnActivityEventReceived += OnHubActivity;
         var config = await Hub.GetBlueMapConfigAsync();
         if (config.Enabled && !string.IsNullOrEmpty(config.Url))
             _blueMapUrl = config.Url;
@@ -105,6 +107,13 @@ else
         return true;
     }
 
+    /// <summary>
+    /// True when the URL's query has hudfeed=demo: the HUD is fed sample chat and players instead of the server's, a typed line is echoed
+    /// back as chat instead of being sent, and F9 raises a notice. For the viewer gate and for screenshots (nothing goes to the server).
+    /// </summary>
+    internal static bool HudDemoByLink(string uri)
+        => string.Equals(System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["hudfeed"], "demo", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>True when the URL's query has hud=0.</summary>
     internal static bool HudHiddenByLink(string uri)
         => System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["hud"] == "0";
@@ -116,10 +125,27 @@ else
     internal static bool VoxelRendererByLink(string uri)
         => !string.Equals(System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["renderer"], "classic", StringComparison.OrdinalIgnoreCase);
 
+    // What SignalR delivers goes to the worker's GPU HUD (chat box, player list, notices) in batches; the worker has no connection of its own
+    private readonly HudFeedBuffer _hudFeed = new();
+    private bool _hudDemo;
+
+    private bool IsForSelectedServer(string? serverId) => serverId == null || serverId == Hub.SelectedServerId;
+
     private void OnServerStatus(ServerStatusDto status)
     {
         if (status.TimeTicks >= 0 && _renderService != null)
             _ = _renderService.SetTimeOfDay(status.TimeTicks);
+        if (status.Connected) _hudFeed.SetPlayers(status.Players);
+    }
+
+    private void OnHubChat(ChatMessageDto msg)
+    {
+        if (IsForSelectedServer(msg.ServerId)) _hudFeed.AddChat(msg.PlayerName, msg.Message);
+    }
+
+    private void OnHubActivity(ActivityEventDto evt)
+    {
+        if (IsForSelectedServer(evt.ServerId)) _hudFeed.AddActivity(evt);
     }
 
     private void OnPointerLockChange()
@@ -210,6 +236,15 @@ else
                     System.Console.WriteLine($"[Map] Camera from link: ({camX:F0}, {camY:F0}, {camZ:F0}) pitch={pitch:F0} yaw={yaw:F0}");
                 }
 
+                // Deep link /map?hudfeed=demo: sample chat and players for the gate and screenshots (see HudDemoByLink)
+                if (HudDemoByLink(Nav.Uri))
+                {
+                    _hudDemo = true;
+                    _hudFeed.AddChat("Aubs", "welcome to AubsCraft!");
+                    _hudFeed.AddChat("SpudArt", "a long line that has to wrap around because it is wider than the chat box allows it to be, with plenty of words in it");
+                    _hudFeed.SetPlayers(["Aubs", "SpudArt", "Nikki", "Dad"]);
+                }
+
                 // Deep link /map?hud=0 hides the GPU HUD: a clean frame for streaming and capture (first visit only, like cam=)
                 if (HudHiddenByLink(Nav.Uri))
                     await _renderService.SetHudVisibleAsync(false);
@@ -256,13 +291,38 @@ else
     private async Task InputAndStatsLoop()
     {
         int cameraSaveCounter = 0;
+        int feedCounter = 0;
+        int chatPollTicks = 0; // ticks left in which to look for a line the player just sent from the HUD chat
         while (_viewMode == ViewMode.Viewer3D && _renderService != null)
         {
             await Task.Delay(16);
 
             // Canvas input for the worker's GPU HUD (mouse position/buttons/wheel, keys, blur)
             if (Input.TakeUiEvents() is { } uiEvents)
+            {
                 await _renderService.PushUiInputAsync(uiEvents);
+                // Enter may have submitted a chat line: the worker queues it on its next frame, so look for a short while
+                if (uiEvents.Any(e => e.Kind == UiInputEvent.KeyDown && e.Code is "Enter" or "NumpadEnter")) chatPollTicks = 40;
+                if (_hudDemo && uiEvents.Any(e => e.Kind == UiInputEvent.KeyDown && e.Code == "F9"))
+                    _hudFeed.AddActivity(new ActivityEventDto(DateTime.UtcNow, ActivityEventType.Advancement, "Aubs", "Aubs has made the advancement [Stone Age]"));
+            }
+
+            if (chatPollTicks > 0)
+            {
+                chatPollTicks--;
+                foreach (var line in await _renderService.TakeOutgoingChatAsync())
+                {
+                    if (_hudDemo) _hudFeed.AddChat("You", line);
+                    else _ = Hub.SayAsync(line);
+                }
+            }
+
+            // Chat, players and notices for the HUD, at most ~10 times a second
+            if (++feedCounter >= 6)
+            {
+                feedCounter = 0;
+                if (_hudFeed.HasPending) await _renderService.PushHudFeedAsync(_hudFeed.Take());
+            }
 
             if (_isPointerLocked)
             {
@@ -330,6 +390,8 @@ else
     public void Dispose()
     {
         Hub.OnServerStatusReceived -= OnServerStatus;
+        Hub.OnChatMessageReceived -= OnHubChat;
+        Hub.OnActivityEventReceived -= OnHubActivity;
         if (_document != null)
         {
             _document.OnPointerLockChange -= OnPointerLockChange;

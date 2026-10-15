@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Globalization;
 using AubsCraft.Admin.Services;
 using SpawnDev.GameUI;
@@ -10,7 +11,7 @@ namespace AubsCraft.Admin.Rendering;
 public readonly record struct HudData(
     float Fps, float CamX, float CamY, float CamZ, float YawDegrees,
     int VisibleSections, int TotalSections, int VisibleVertices, int TotalVertices, int DrawDistance,
-    int LoadedColumns, float ColumnsPerSecond, float TimeOfDay, string Backend);
+    int LoadedColumns, float ColumnsPerSecond, float TimeOfDay, string Backend, string RenderNote = "");
 
 /// <summary>
 /// The viewer's HUD, drawn by SpawnDev.GameUI on the GPU, in the render worker, in the same command encoder as the world:
@@ -32,6 +33,17 @@ public sealed class ViewerHud
     private UICompass _compass = null!;
     private UICrosshair _crosshair = null!;
     private UILabel _hint = null!;
+    private UIChatBox _chat = null!;
+    private UIPanel _playersPanel = null!;
+    private UILabel _playersTitle = null!;
+    private UIList _playerList = null!;
+    private UINotificationStack _toasts = null!;
+    private UIMinimapFrame _minimap = null!;
+    private int _minimapZoom = 1;
+    // Lines the player typed into the chat, waiting for the page to take them to the server
+    private readonly List<string> _outgoingChat = new();
+    // Seconds since the last chat line arrived: the chat has a backdrop while it is fresh or open, and none when idle
+    private float _chatAge = 1000f;
     private float _textTimer = TextRefreshSeconds; // fills the first frame
     private bool _pointerLocked;
 
@@ -80,9 +92,17 @@ public sealed class ViewerHud
         _crosshair = new UICrosshair { Visible = false };
         _root.AddAnchored(_crosshair, Anchor.Center);
 
+        _minimap = new UIMinimapFrame { Size = MinimapSize, MaxZoom = MaxMinimapZoom, ZoomLevel = 1 };
+        _root.AddAnchored(_minimap, Anchor.TopRight, -8, 8);
+        BuildChat(theme);
+        BuildPlayers(theme);
+
+        _toasts = new UINotificationStack { Width = 300, MaxVisible = 4, DefaultDuration = 5f };
+        _root.AddAnchored(_toasts, Anchor.TopCenter, 0, 44);
+
         _hint = new UILabel
         {
-            Text = "Click the view to fly   WASD move   Space / Shift up / down   Esc release   F3 debug",
+            Text = "Click the view to fly   WASD move   Space / Shift up / down   Esc release   Enter chat   M map zoom   F3 debug",
             FontSize = FontSize.Caption,
             Color = theme.TextPrimary,
             OutlineWidth = 0.12f,
@@ -90,6 +110,113 @@ public sealed class ViewerHud
         _root.AddAnchored(_hint, Anchor.BottomCenter, 0, -10);
 
         _ui.Screens.Register(ScreenName, _root);
+    }
+
+    private const float ChatWidth = 380f, ChatHeight = 170f;
+    private const float ChatFadeSeconds = 14f; // = the chat box's FadeStart
+
+    private void BuildChat(UITheme theme)
+    {
+        // A feed that fades (messages vanish after a while), until the player opens it with Enter: then the whole history and an input
+        _chat = new UIChatBox
+        {
+            Width = ChatWidth,
+            Height = ChatHeight,
+            ShowChannelTabs = false,
+            InputOnlyWhenFocused = true,
+            BottomAlign = true,
+            MessageLineHeight = 16f,
+            InputHeight = 24f,
+            FadeStart = ChatFadeSeconds,
+            FadeDuration = 4f,
+            MaxMessages = 200,
+        };
+        _chat.OnSend = text => _outgoingChat.Add(text);
+        _root.AddAnchored(_chat, Anchor.BottomLeft, 8, -34);
+    }
+
+    private const float PlayersWidth = 190f, PlayerRow = 18f, PlayersPad = 8f, MaxPlayerRows = 10;
+
+    private void BuildPlayers(UITheme theme)
+    {
+        _playersPanel = new UIPanel { Width = PlayersWidth, Height = 40 };
+        _playersTitle = new UILabel { FontSize = FontSize.Caption, Color = theme.TextPrimary, X = PlayersPad, Y = 6, Text = "Players" };
+        _playersPanel.AddChild(_playersTitle);
+        _playerList = new UIList
+        {
+            ItemHeight = PlayerRow,
+            ItemFontSize = FontSize.Caption,
+            Padding = 2,
+            X = PlayersPad - 2,
+            Y = 6 + _ui.Renderer.GetLineHeight(FontSize.Caption) + 4,
+            Width = PlayersWidth - 2 * (PlayersPad - 2),
+            Height = PlayerRow,
+        };
+        _playersPanel.AddChild(_playerList);
+        _root.AddAnchored(_playersPanel, Anchor.TopRight, -8, MinimapReserve);
+        SetPlayers([]);
+    }
+
+    private const float MinimapSize = 176f;
+    private const int MaxMinimapZoom = 3;
+    /// <summary>The top-right corner below the minimap (8 above it, its compass bar and coordinate bar, 8 gap).</summary>
+    private const float MinimapReserve = 8f + MinimapSize + 18f + 16f + 8f;
+
+    /// <summary>How many blocks from the camera the minimap shows (to each edge): M cycles 64, 128, 256.</summary>
+    public float MinimapExtent => 64f * (1 << (_minimapZoom - 1));
+
+    /// <summary>The world texture the minimap shows (the renderer draws it); null until there is one.</summary>
+    public void SetMinimapTexture(GPUTextureView? view) => _minimap.MapTexture = view;
+
+    private void SetPlayers(string[] names)
+    {
+        _playersTitle.Text = string.Create(CultureInfo.InvariantCulture, $"Players online ({names.Length})");
+        _playerList.ClearItems();
+        foreach (var n in names) _playerList.AddItem(n);
+        int rows = (int)Math.Clamp(names.Length, 1, MaxPlayerRows);
+        _playerList.Height = rows * PlayerRow + 2 * _playerList.Padding; // the viewport is the height minus the list's own padding
+        _playersPanel.Height = 6 + _ui.Renderer.GetLineHeight(FontSize.Caption) + 4 + _playerList.Height + 6;
+    }
+
+    /// <summary>Chat lines, players and notices the page saw (SignalR lives on the page; the worker has no connection).</summary>
+    public void Feed(HudFeed feed)
+    {
+        if (!_ui.IsInitialized) return;
+        for (int i = 0; i < feed.ChatTexts.Length; i++)
+            AddChatLine(feed.ChatSenders[i], feed.ChatTexts[i]);
+        if (feed.ChatTexts.Length > 0) _chatAge = 0f;
+        if (feed.PlayersChanged) SetPlayers(feed.Players);
+        for (int i = 0; i < feed.ToastTexts.Length; i++)
+            _toasts.Push(feed.ToastTexts[i], ToNotificationType(feed.ToastKinds[i]));
+    }
+
+    private static NotificationType ToNotificationType(int kind) => kind switch
+    {
+        HudToastKind.Success => NotificationType.Success,
+        HudToastKind.Warning => NotificationType.Warning,
+        HudToastKind.Danger => NotificationType.Damage,
+        HudToastKind.Achievement => NotificationType.Achievement,
+        _ => NotificationType.Info,
+    };
+
+    // GameUI draws a message on one line: a long one is wrapped here (the sender only in front of the first line)
+    private void AddChatLine(string sender, string text)
+    {
+        float width = ChatWidth - 2 * _chat.Padding - 6;
+        string prefix = string.IsNullOrEmpty(sender) ? "" : sender + ": ";
+        float first = width - _ui.Renderer.MeasureText(prefix, FontSize.Caption);
+        var lines = TextWrap.Wrap(text, first, width, s => _ui.Renderer.MeasureText(s, FontSize.Caption));
+        for (int i = 0; i < lines.Count; i++)
+            _chat.AddMessage(i == 0 && prefix.Length > 0 ? sender : null, lines[i]);
+    }
+
+    /// <summary>The lines the player typed into the chat since the last call.</summary>
+    public string[] TakeOutgoingChat()
+    {
+        if (_outgoingChat.Count == 0) return [];
+        var lines = _outgoingChat.ToArray();
+        _outgoingChat.Clear();
+        return lines;
     }
 
     /// <summary>The camera took or gave back the pointer.</summary>
@@ -114,7 +241,13 @@ public sealed class ViewerHud
             case UiInputEvent.MouseDown: input.MouseDown((int)e.X); break;
             case UiInputEvent.MouseUp: input.MouseUp((int)e.X); break;
             case UiInputEvent.Wheel: input.Wheel(e.Y); break;
-            case UiInputEvent.KeyDown: if (e.Code != null) input.KeyDown(e.Code, e.Text); break;
+            case UiInputEvent.KeyDown:
+                // Enter opens the chat (when the mouse is free and nothing is being typed); the same press then submits an empty line, which is ignored
+                if (e.Code is "Enter" or "NumpadEnter" && !_pointerLocked && !_chat.IsInputFocused) _chat.FocusInput();
+                // M cycles the minimap zoom (not while typing: the letter belongs to the chat then)
+                if (e.Code == "KeyM" && !_chat.IsInputFocused) _minimapZoom = _minimapZoom % MaxMinimapZoom + 1;
+                if (e.Code != null) input.KeyDown(e.Code, e.Text);
+                break;
             case UiInputEvent.KeyUp: if (e.Code != null) input.KeyUp(e.Code); break;
             case UiInputEvent.ReleaseAll: input.ReleaseAll(); break;
         }
@@ -127,6 +260,13 @@ public sealed class ViewerHud
 
         // GameUI's compass: 0 = north. The camera's yaw -90 looks down -Z, which is north.
         _compass.Bearing = d.YawDegrees + 90f;
+        // The chat: a faint backdrop while its lines are fresh, a solid one while it is open, nothing when it is idle
+        _chatAge += dt;
+        _chat.BackgroundColor = _chat.IsInputFocused ? Color.FromArgb(170, 12, 14, 24)
+            : _chatAge < ChatFadeSeconds ? Color.FromArgb(90, 12, 14, 24) : Color.Transparent;
+        _minimap.Bearing = d.YawDegrees + 90f;
+        _minimap.Coordinates = string.Create(CultureInfo.InvariantCulture, $"{d.CamX:F0}, {d.CamZ:F0}");
+        _minimap.ZoomLevel = _minimapZoom;
         _crosshair.Visible = _pointerLocked;
         _hint.Visible = !_pointerLocked;
 
@@ -148,6 +288,7 @@ public sealed class ViewerHud
                 $"Vertices: {d.VisibleVertices:N0} drawn / {d.TotalVertices:N0} resident"));
             UIDebugOverlay.Text(string.Create(CultureInfo.InvariantCulture,
                 $"Columns streamed: {d.LoadedColumns} ({d.ColumnsPerSecond:F1}/s)"));
+            if (d.RenderNote.Length > 0) UIDebugOverlay.Text(d.RenderNote);
             UIDebugOverlay.Text($"Pointer: {(_pointerLocked ? "locked to the camera" : "on the HUD")}");
         }
     }

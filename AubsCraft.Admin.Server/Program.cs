@@ -454,7 +454,15 @@ world.MapGet("/ws", async (HttpContext ctx, string? server, string? format, Serv
         }
         if (next == null) break;
 
-        var hm = worldData.GetHeightmap(next.X, next.Z);
+        HeightmapResult? hm;
+        try { hm = worldData.GetHeightmap(next.X, next.Z); }
+        catch (Exception ex)
+        {
+            // One unreadable chunk must not take the whole stream down (an exception here aborts the socket: the client sees 1006)
+            ctx.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("WorldSocket")
+                .LogError(ex, "Heightmap ({X},{Z}) failed; skipped", next.X, next.Z);
+            hm = null;
+        }
         if (hm == null)
         {
             lock (sendQueue) sent.Add((next.X, next.Z)); // the receive loop reads `sent` under this lock
@@ -465,7 +473,14 @@ world.MapGet("/ws", async (HttpContext ctx, string? server, string? format, Serv
         ArraySegment<byte> frame;
         if (format == "ids")
         {
-            frame = HeightmapWire.BuildIdsFrame(next.X, next.Z, hm, registry);
+            try { frame = HeightmapWire.BuildIdsFrame(next.X, next.Z, hm, registry); }
+            catch (Exception ex)
+            {
+                ctx.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("WorldSocket")
+                    .LogError(ex, "Heightmap frame ({X},{Z}) failed; skipped", next.X, next.Z);
+                lock (sendQueue) sent.Add((next.X, next.Z));
+                continue;
+            }
         }
         else
         {

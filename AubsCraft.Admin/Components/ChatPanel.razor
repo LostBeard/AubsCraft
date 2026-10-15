@@ -1,6 +1,10 @@
 @inject ServerHubClient Hub
+@inject NavigationManager Nav
 @implements IDisposable
 
+@* The 3D viewer (/map) has its own chat on the GPU HUD (Enter opens it): no HTML button over the canvas there *@
+@if (!OnMap)
+{
 <div class="card @(_isOpen ? "" : "d-none") position-fixed bottom-0 end-0 m-3 shadow" style="width: 380px; max-width: 90vw; z-index: 1050;">
     <div class="card-header d-flex justify-content-between align-items-center py-2">
         <strong>Chat</strong>
@@ -46,6 +50,7 @@
         Chat @(_unread > 0 ? $"({_unread})" : "")
     </button>
 }
+}
 
 @code {
     private List<ChatMessageDto> _messages = [];
@@ -53,10 +58,16 @@
     private bool _isOpen;
     private int _unread;
 
+    private bool OnMap => Nav.ToBaseRelativePath(Nav.Uri).StartsWith("map", StringComparison.OrdinalIgnoreCase);
+
     protected override void OnInitialized()
     {
         Hub.OnChatMessageReceived += OnChat;
+        Nav.LocationChanged += OnLocationChanged;
     }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+        => InvokeAsync(StateHasChanged);
 
     private void OnChat(ChatMessageDto msg)
     {
@@ -94,5 +105,6 @@
     public void Dispose()
     {
         Hub.OnChatMessageReceived -= OnChat;
+        Nav.LocationChanged -= OnLocationChanged;
     }
 }

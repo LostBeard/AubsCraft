@@ -46,7 +46,11 @@ public sealed class GlobalBlockRegistry
     {
         lock (_lock)
         {
-            if (_ids.TryGetValue(name, out var id)) return id;
+            if (_ids.TryGetValue(name, out var id))
+            {
+                if (_dirty && DateTime.UtcNow - _lastSaveFailure > RetryAfter) Save();
+                return id;
+            }
             if (_names.Count >= MaxBlocks)
                 throw new InvalidOperationException($"Block registry is full ({MaxBlocks}); cannot register '{name}'.");
             id = (ushort)_names.Count;
@@ -96,11 +100,45 @@ public sealed class GlobalBlockRegistry
         }
     }
 
+    /// <summary>True while the in-memory registry has names the file does not (a save failed and has not been retried successfully yet).</summary>
+    public bool HasUnsavedNames
+    {
+        get { lock (_lock) return _dirty; }
+    }
+
+    private bool _dirty;
+    private DateTime _lastSaveFailure;
+    private static readonly TimeSpan RetryAfter = TimeSpan.FromSeconds(5);
+
     // Caller holds _lock. Write-then-move so a crash mid-write never leaves a truncated registry.
+    // A save that fails (a file another process holds for a moment - a scanner, an indexer - or a full disk) must NOT fail the request that
+    // registered the name: the in-memory registry is the truth, the ids are already handed out, and the next registration retries.
     private void Save()
     {
-        var tmp = _filePath + ".tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(_names));
-        File.Move(tmp, _filePath, overwrite: true);
+        var json = JsonSerializer.Serialize(_names);
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                var tmp = _filePath + ".tmp";
+                File.WriteAllText(tmp, json);
+                File.Move(tmp, _filePath, overwrite: true);
+                _dirty = false;
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (attempt < 4)
+                {
+                    Thread.Sleep(20 * attempt);
+                    continue;
+                }
+                _dirty = true;
+                _lastSaveFailure = DateTime.UtcNow;
+                _logger.LogError(ex, "Could not save the block registry to {Path} after {Attempts} attempts; {Count} names are in memory only until the next save",
+                    _filePath, attempt, _names.Count);
+                return;
+            }
+        }
     }
 }

@@ -22,6 +22,10 @@ public interface IRenderWorkerService : IAsyncDisposable
     Task SetPointerLockedAsync(bool locked);
     /// <summary>Shows or hides the GPU HUD (<c>/map?hud=0</c> hides it: a clean frame for streaming or capture).</summary>
     Task SetHudVisibleAsync(bool visible);
+    /// <summary>Chat, the player list and notices from the page's SignalR connection, for the worker's HUD.</summary>
+    Task PushHudFeedAsync(HudFeed feed);
+    /// <summary>The lines the player typed into the HUD's chat since the last call (the page sends them to the server).</summary>
+    Task<string[]> TakeOutgoingChatAsync();
     Task ResizeAsync(int width, int height);
     Task<RenderStats> GetStatsAsync();
     Task SetTimeOfDay(int ticks);

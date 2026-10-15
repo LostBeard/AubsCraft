@@ -65,12 +65,18 @@ function sendNextChunk() {
 }
 
 // ---- WebSocket connection ----
+let wsUrl = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECTS = 6;
+
 function connectWebSocket(url) {
+    wsUrl = url;
     ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
 
     ws.onopen = () => {
         console.log('[DataWorker] WebSocket connected');
+        reconnectAttempts = 0;
         // Send initial camera position
         ws.send(JSON.stringify({ x: cameraChunkX * 16, z: cameraChunkZ * 16 }));
     };
@@ -114,6 +120,14 @@ function connectWebSocket(url) {
         // Final sort and flush
         resortQueue();
         sendNextChunk();
+        // A normal close (1000) means the server finished sending. Anything else (1006: the connection broke or the server aborted
+        // it) leaves the world half streamed: connect again. The server resends from the start; chunks already sent are skipped above.
+        if (e.code !== 1000 && reconnectAttempts < MAX_RECONNECTS) {
+            reconnectAttempts++;
+            const delay = 1000 * reconnectAttempts;
+            console.log(`[DataWorker] Reconnecting in ${delay} ms (attempt ${reconnectAttempts}/${MAX_RECONNECTS})`);
+            setTimeout(() => connectWebSocket(wsUrl), delay);
+        }
     };
 
     ws.onerror = () => {

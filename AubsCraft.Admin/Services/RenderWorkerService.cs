@@ -154,6 +154,14 @@ public class RenderWorkerService : IRenderWorkerService
         return Task.CompletedTask;
     }
 
+    public Task PushHudFeedAsync(HudFeed feed)
+    {
+        if (_initialized) _hud.Feed(feed);
+        return Task.CompletedTask;
+    }
+
+    public Task<string[]> TakeOutgoingChatAsync() => Task.FromResult(_hud.TakeOutgoingChat());
+
     public Task SetPointerLockedAsync(bool locked)
     {
         if (_initialized) _hud.SetPointerLocked(locked);
@@ -604,14 +612,36 @@ public class RenderWorkerService : IRenderWorkerService
         _dataWorker.PostMessage(new { type = "camera", x = _renderer.Camera.Position.X, z = _renderer.Camera.Position.Z });
     }
 
+    private float _minimapTimer;
+
+    // The voxel renderer's own numbers for the F3 overlay: where a frame's CPU time goes (browser calls, not the GPU)
+    private string VoxelNote()
+    {
+        var s = _renderer.LastVoxelStats;
+        return $"Voxel: {s.DrawCalls} draws, {s.BufferBinds} binds, record {s.RecordMs:F1} ms, frame {_renderer.LastVoxelFrameMs:F1} ms; far chunks {_voxel!.FarChunkCount}";
+    }
+
     private void OnRenderFrame(float dt)
     {
+        // The minimap is drawn into its own texture before the frame (a few times a second: it is a map, not a view)
+        if (_voxel != null && _hud.Visible)
+        {
+            _minimapTimer += dt;
+            if (_minimapTimer >= 0.25f || _voxel.MinimapView == null)
+            {
+                _minimapTimer = 0;
+                _voxel.RenderMinimap(_renderer.Camera.Position.X, _renderer.Camera.Position.Z, _renderer.Camera.Yaw, _hud.MinimapExtent);
+            }
+            _hud.SetMinimapTexture(_voxel.MinimapView);
+        }
+
         // HUD state first: it is drawn later in this same frame, after the world pass (MapRenderService.OnOverlay)
         _hud.Update(dt, new HudData(
             _renderer.Fps, _renderer.Camera.Position.X, _renderer.Camera.Position.Y, _renderer.Camera.Position.Z,
             _renderer.Camera.Yaw,
             _renderer.VisibleChunkCount, _renderer.TotalChunkCount, _renderer.VisibleVertices, _renderer.TotalVertices,
-            _renderer.DrawDistance, LoadedCount, _chunksPerSecond, _renderer.TimeOfDay, _engine.BackendName ?? "?"));
+            _renderer.DrawDistance, LoadedCount, _chunksPerSecond, _renderer.TimeOfDay, _engine.BackendName ?? "?",
+            _voxel == null ? "" : VoxelNote()));
 
         // Trigger full 3D loading when camera moves to a new chunk
         var (camCX, camCZ) = CameraChunk();

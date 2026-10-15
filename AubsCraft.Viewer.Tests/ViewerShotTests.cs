@@ -46,6 +46,8 @@ public class ViewerShotTests
     {
         File.WriteAllText(Path.Combine(_outDir, "shots.json"),
             JsonSerializer.Serialize(_records, new JsonSerializerOptions { WriteIndented = true }));
+        // The server's own account of the run, beside the shots (a WebSocket that closes with 1006 is only explained here)
+        if (_rig != null) try { File.WriteAllText(Path.Combine(_outDir, "server.log"), _rig.ServerLog); } catch { }
         if (_rig != null) await _rig.DisposeAsync();
     }
 
