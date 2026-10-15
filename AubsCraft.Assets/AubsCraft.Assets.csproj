@@ -16,6 +16,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\AubsCraft.Assets.Model\AubsCraft.Assets.Model.csproj" />
+		<ProjectReference Include="..\AubsCraft.Live.Model\AubsCraft.Live.Model.csproj" />
 	</ItemGroup>
 
 </Project>

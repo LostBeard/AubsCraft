@@ -48,6 +48,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\SpawnDev.Rcon\SpawnDev.Rcon.csproj" />
 		<ProjectReference Include="..\AubsCraft.Assets.Model\AubsCraft.Assets.Model.csproj" />
+		<ProjectReference Include="..\AubsCraft.Live.Model\AubsCraft.Live.Model.csproj" />
 	</ItemGroup>
 
 	<!-- The block textures, models and animations come from the game's own client jar, of the version the servers run: generated here at build
@@ -58,9 +59,9 @@
 		<McAssetsDir>$(MSBuildProjectDirectory)\wwwroot\assets</McAssetsDir>
 	</PropertyGroup>
 	<ItemGroup>
-		<McAssetInputs Include="$(MSBuildProjectDirectory)\..\AubsCraft.Assets\**\*.cs;$(MSBuildProjectDirectory)\..\AubsCraft.Assets.Model\**\*.cs;$(MSBuildProjectDirectory)\..\AubsCraft.AssetTool\**\*.cs;$(MSBuildProjectFullPath)" Exclude="**\obj\**;**\bin\**" />
+		<McAssetInputs Include="$(MSBuildProjectDirectory)\..\AubsCraft.Assets\**\*.cs;$(MSBuildProjectDirectory)\..\AubsCraft.Assets.Model\**\*.cs;$(MSBuildProjectDirectory)\..\AubsCraft.AssetTool\**\*.cs;$(MSBuildProjectDirectory)\..\AubsCraft.Live.Model\Entities\**\*.cs;$(MSBuildProjectFullPath)" Exclude="**\obj\**;**\bin\**" />
 	</ItemGroup>
-	<Target Name="GenerateMinecraftAssets" BeforeTargets="Restore;BeforeBuild;ResolveStaticWebAssetsInputs" Inputs="@(McAssetInputs)" Outputs="$(McAssetsDir)\mc-blocks.json">
+	<Target Name="GenerateMinecraftAssets" BeforeTargets="Restore;BeforeBuild;ResolveStaticWebAssetsInputs" Inputs="@(McAssetInputs)" Outputs="$(McAssetsDir)\mc-blocks.json;$(McAssetsDir)\mc-entities.json;$(McAssetsDir)\mc-entity-atlas.rgba">
 		<Message Importance="high" Text="Generating the block assets for Minecraft $(McAssetVersion) into $(McAssetsDir)" />
 		<Exec Command="dotnet run --project &quot;$(MSBuildProjectDirectory)\..\AubsCraft.AssetTool\AubsCraft.AssetTool.csproj&quot; -c Release -- --version $(McAssetVersion) --out &quot;$(McAssetsDir)&quot;" />
 	</Target>

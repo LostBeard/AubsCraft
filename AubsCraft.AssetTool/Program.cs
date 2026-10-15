@@ -39,8 +39,13 @@ try
     Write("mc-blocks.json", JsonSerializer.SerializeToUtf8Bytes(result.Assets, BlockAssetsJson.Default.BlockAssets));
     Write("mc-atlas.rgba", result.AtlasRgba);
     Write("mc-atlas.png", TileSet.EncodePng(result.AtlasRgba, result.AtlasWidth, result.AtlasHeight));
-    Write("mc-assets-report.txt", System.Text.Encoding.UTF8.GetBytes(result.Report));
+    // The creatures' textures (the skin slots below them are filled by the viewer): a missing texture is reported, not fatal
+    var entities = new EntityAtlasBuilder(client, version).Build(AubsCraft.Live.Model.Entities.EntityModels.TextureNames());
+    Write("mc-entities.json", JsonSerializer.SerializeToUtf8Bytes(entities.Assets, EntityAssetsJson.Default.EntityAssets));
+    Write("mc-entity-atlas.rgba", entities.StaticRgba);
+    Write("mc-assets-report.txt", System.Text.Encoding.UTF8.GetBytes(result.Report + "\n" + entities.Report));
     Console.WriteLine("[assets] " + result.Report.Split('\n')[1].Trim());
+    Console.WriteLine("[assets] " + entities.Report.Split('\n')[1].Trim());
     return 0;
 }
 catch (Exception ex)

@@ -19,6 +19,32 @@ public static class EntityModels
         return model;
     }
 
+    /// <summary>The nine skins the game gives a player who has none of their own, each in a wide (Steve) and a slim (Alex) build.</summary>
+    public static readonly string[] DefaultSkinNames = ["steve", "alex", "ari", "efe", "kai", "makena", "noor", "sunny", "zuri"];
+
+    /// <summary>The texture of the default skin the game would give this player (by UUID, as it does), in the build they use.</summary>
+    public static string DefaultSkinFor(string uuid, bool slim)
+    {
+        // A stable hash of the UUID's hex digits (the game uses the UUID's own hash; any even spread does the same job)
+        int hash = 17;
+        foreach (char c in uuid) if (c != '-') hash = unchecked(hash * 31 + c);
+        int index = ((hash % DefaultSkinNames.Length) + DefaultSkinNames.Length) % DefaultSkinNames.Length;
+        return $"player/{(slim ? "slim" : "wide")}/{DefaultSkinNames[index]}";
+    }
+
+    /// <summary>Every texture the models and the default skins name (paths under textures/entity, no extension), for the asset tool to pack. "white" is the plain tile of the box drawn when there is no model.</summary>
+    public static IEnumerable<string> TextureNames()
+    {
+        var names = new SortedSet<string>(StringComparer.Ordinal) { "white" };
+        foreach (var model in Models.Values)
+        {
+            if (model.Texture != "player") names.Add(model.Texture);
+            foreach (var part in model.Parts) if (part.Texture != null) names.Add(part.Texture);
+        }
+        foreach (var skin in DefaultSkinNames) { names.Add($"player/wide/{skin}"); names.Add($"player/slim/{skin}"); }
+        return names;
+    }
+
     /// <summary>"minecraft:cow" and "cow" are the same type.</summary>
     public static string Normalise(string type) => type.StartsWith("minecraft:", StringComparison.Ordinal) ? type[10..] : type;
 
