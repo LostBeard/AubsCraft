@@ -157,7 +157,17 @@ public sealed class EntityLayer : IDisposable
         // Only what the camera can see is posed: the server may have hundreds of creatures around and a view takes in a fraction of them
         var frustum = FrustumCuller.ExtractPlanes(viewProj);
         _inRange.Clear();
-        foreach (var v in _state.Sample(world, now))
+        // The cheap tests (distance, view) run on each creature's newest known place BEFORE it is interpolated: a creature that is not wanted costs nothing.
+        // A creature walks at most a few blocks between frames and is shown 0.3 s in the past, so the margin covers where it may be drawn.
+        const float margin = 4f;
+        bool Wanted(float x, float y, float z)
+        {
+            float dx = x - camera.X, dy = y - camera.Y, dz = z - camera.Z;
+            float reach = maxDistance + margin;
+            if (dx * dx + dy * dy + dz * dz > reach * reach) return false;
+            return FrustumCuller.IsBoxVisible(in frustum, new Vector3(x - 3f - margin, y - 1f - margin, z - 3f - margin), new Vector3(x + 3f + margin, y + 4f + margin, z + 3f + margin));
+        }
+        foreach (var v in _state.Sample(world, now, Wanted))
         {
             if ((v.Flags & LiveFlags.Invisible) != 0 || EntityModels.IsNotACreature(v.Type)) continue;
             float dx = v.X - camera.X, dy = v.Y - camera.Y, dz = v.Z - camera.Z;

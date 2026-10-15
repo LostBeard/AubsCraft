@@ -203,6 +203,20 @@ public class LiveWorldStateTests
     }
 
     [Test]
+    public void AnEntityTheCallerDoesNotWant_IsNotInterpolated_AndTheRestAreUnchanged()
+    {
+        var s = new LiveWorldState();
+        for (int i = 0; i < 6; i++) s.Apply(Frame(i * 4, Cow(1, i, 0), Cow(2, 500, 500)), 100 + i * 0.2);
+        var asked = new List<(float, float, float)>();
+        var wanted = s.Sample("world", 100.9, (x, y, z) => { asked.Add((x, y, z)); return x < 100; });
+        Assert.That(wanted.Select(v => v.Id), Is.EqualTo(new[] { 1 }));
+        Assert.That(asked.Count, Is.EqualTo(2), "asked once per entity");
+        Assert.That(asked, Does.Contain((5f, 64f, 0f)).And.Contain((500f, 64f, 500f)), "with the newest known place");
+        // What is wanted is exactly what an unfiltered sample gives for it
+        Assert.That(wanted.Single(), Is.EqualTo(s.Sample("world", 100.9).Single(v => v.Id == 1)));
+    }
+
+    [Test]
     public void Players_AreLookedUpByEntityId()
     {
         var s = new LiveWorldState();

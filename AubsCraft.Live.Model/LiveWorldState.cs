@@ -130,7 +130,8 @@ public sealed class LiveWorldState
     public LivePlayer? PlayerOf(string world, int entityId) => _players.TryGetValue((world, entityId), out var p) ? p : null;
 
     /// <summary>Every entity of a world as it should be drawn at <paramref name="localNow"/>.</summary>
-    public List<LiveEntityView> Sample(string world, double localNow)
+    /// <param name="mayBeWanted">Asked with an entity's NEWEST known place before it is interpolated; false skips it (a view that cannot see it has no use for its smooth position). Null keeps all.</param>
+    public List<LiveEntityView> Sample(string world, double localNow, Func<float, float, float, bool>? mayBeWanted = null)
     {
         var result = new List<LiveEntityView>();
         if (!_haveOffset) return result;
@@ -140,6 +141,8 @@ public sealed class LiveWorldState
         {
             if (w != world || track.Snapshots.Count == 0) continue;
             var snaps = track.Snapshots;
+            var newest = snaps[^1].Entity;
+            if (mayBeWanted != null && !mayBeWanted(newest.X, newest.Y, newest.Z)) continue;
             if (t < snaps[0].Time) continue;                         // not yet: it appears when the moment reaches its first snapshot
             if (!double.IsNaN(track.MissingSince) && t > track.MissingSince + 0.2) continue; // it has left the frames and the moment has passed
 
