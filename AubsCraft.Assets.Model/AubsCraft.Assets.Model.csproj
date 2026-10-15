@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<!-- What the generated block assets look like (mc-blocks.json). Plain data with source-generated JSON, so the browser client (trimmed, AOT) and the generator share it. -->
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<IsPackable>false</IsPackable>
+		<IsTrimmable>true</IsTrimmable>
+	</PropertyGroup>
+
+</Project>

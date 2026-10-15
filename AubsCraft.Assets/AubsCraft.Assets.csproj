@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<!-- Reads a Minecraft client jar (blockstates, models, textures, animation metadata) and writes the viewer's block assets: a texture atlas and
+	     mc-blocks.json. Used by AubsCraft.AssetTool at build/deploy time; Mojang's assets are never committed. -->
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<IsPackable>false</IsPackable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="StbImageSharp" Version="2.30.15" />
+		<PackageReference Include="StbImageWriteSharp" Version="1.16.7" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\AubsCraft.Assets.Model\AubsCraft.Assets.Model.csproj" />
+	</ItemGroup>
+
+</Project>
