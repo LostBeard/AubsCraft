@@ -258,7 +258,7 @@ public class ViewerShotTests
         }
     }
 
-    private static async Task<(ViewerStats Stats, bool Settled)> WaitForSettledAsync(IPage page, int minSections, int quietSeconds, int maxSeconds)
+    internal static async Task<(ViewerStats Stats, bool Settled)> WaitForSettledAsync(IPage page, int minSections, int quietSeconds, int maxSeconds)
     {
         var started = DateTime.UtcNow;
         ViewerStats? last = null;

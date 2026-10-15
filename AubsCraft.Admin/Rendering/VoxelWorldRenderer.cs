@@ -1,6 +1,7 @@
 using System.Numerics;
 using ILGPU;
 using ILGPU.Runtime;
+using AubsCraft.Admin.Services;
 using SpawnDev.ILGPU.WebGPU;
 using SpawnDev.SpawnJS.JSObjects;
 using SpawnDev.VoxelEngine.Meshing;
@@ -54,6 +55,12 @@ public sealed class VoxelWorldRenderer : IDisposable
     private readonly SemaphoreSlim _meshLock = new(1, 1);
     private ColumnMesher? _mesher;
     private FarMesher? _farMesher;
+    /// <summary>Every column's and far chunk's quads live in a few large buffers: a pass binds one buffer for hundreds of columns.</summary>
+    private QuadArena? _arena;
+    // Columns whose mesh has faces toward a neighbour that has since arrived (hidden now, but still drawn): re-meshed in the background,
+    // each once however many neighbours arrived meanwhile
+    private readonly HashSet<Column> _stale = new();
+    private bool _remeshRunning;
     private GPUQueue? _queue;
     private string _colorFormat = "bgra8unorm";
     private BlockTextureArray? _textures;
@@ -71,6 +78,21 @@ public sealed class VoxelWorldRenderer : IDisposable
     public int ColumnCount => _columns.Count;
     public int NamesKnown { get; private set; }
 
+    /// <summary>
+    /// Awaited before each mesh starts: lets the host spread the cost of loading over the frames (see <see cref="IngestGovernor"/>). Null: no
+    /// waiting.
+    /// </summary>
+    public Func<IngestPriority, Task>? Pace { get; set; }
+
+    /// <summary>Meshes made so far, first meshes and re-meshes together, and how many of them were re-meshes (a neighbour arrived).</summary>
+    public long MeshesDone { get; private set; }
+    public long RemeshesDone { get; private set; }
+    /// <summary>Columns waiting for a re-mesh.</summary>
+    public int StaleCount => _stale.Count;
+    /// <summary>Quad buffers the arena has allocated, and the quads in use in them.</summary>
+    public int ArenaBlocks => _arena?.BlockCount ?? 0;
+    public long ArenaUsedQuads => _arena?.UsedQuads ?? 0;
+
     public void Init(GPUDevice device, GPUQueue queue, string colorFormat, Accelerator accelerator)
     {
         Device = device;
@@ -80,8 +102,12 @@ public sealed class VoxelWorldRenderer : IDisposable
         // origin (16 bytes a slot)
         _pipe.Init(device, queue, colorFormat, maxSections: 1 << 15);
         _maxColumns = _pipe.MaxSections;
-        _mesher = new ColumnMesher(accelerator, SectionsPerColumn) { MissingNeighborsAreSolid = false, EmbedSectionIndex = true };
-        _farMesher = new FarMesher(accelerator, SectionsPerColumn) { SeabedTypeOffset = VoxelBlockTables.SeabedTypeOffset, EmbedSectionIndex = true };
+        _arena = new QuadArena(accelerator);
+        _mesher = new ColumnMesher(accelerator, SectionsPerColumn) { MissingNeighborsAreSolid = false, EmbedSectionIndex = true, Arena = _arena };
+        _farMesher = new FarMesher(accelerator, SectionsPerColumn)
+        {
+            SeabedTypeOffset = VoxelBlockTables.SeabedTypeOffset, EmbedSectionIndex = true, Arena = _arena,
+        };
     }
 
     public GPUDevice? Device { get; private set; }
@@ -153,12 +179,60 @@ public sealed class VoxelWorldRenderer : IDisposable
     {
         _pipe.SetSectionOrigin(col.Slot, new Vector3(col.Cx * 16, WorldMinY, col.Cz * 16));
 
+        await PaceAsync(col.IsFar ? IngestPriority.Far : IngestPriority.Near);
         await MeshAsync(col);
 
-        // A neighbour meshed before this one existed drew faces toward the gap: now they are interior, so mesh it again.
+        // A neighbour meshed before this one existed drew faces toward the gap: now they are interior (hidden by this column), so it
+        // should be meshed again - but not now. A column in the middle of a loading spiral gets two or three neighbours in a row, and a
+        // mesh per arrival was as much work as the first meshes; one background pass per column does it once.
         foreach (var (n, facingMe) in NeighboursOf(col).ToList())
             if (n.Mesh != null && (n.MeshedWith & facingMe) == 0)
-                await MeshAsync(n);
+                _stale.Add(n);
+        if (_stale.Count > 0 && !_remeshRunning)
+        {
+            _remeshRunning = true;
+            _ = RemeshStaleAsync();
+        }
+    }
+
+    private Task PaceAsync(IngestPriority priority) => Pace?.Invoke(priority) ?? Task.CompletedTask;
+
+    // Mesh the stale columns again, last in line behind new columns. A column that has been removed, or whose neighbours now match what it
+    // was meshed with (an earlier pass got there), is skipped.
+    private async Task RemeshStaleAsync()
+    {
+        try
+        {
+            while (!_disposed && _stale.Count > 0)
+            {
+                var col = _stale.First();
+                _stale.Remove(col);
+                if (col.Removed || col.Mesh == null || col.MeshedWith == NeighbourMask(col)) continue;
+                try
+                {
+                    await PaceAsync(IngestPriority.Remesh);
+                    if (col.Removed || _disposed) continue;
+                    await MeshAsync(col);
+                    RemeshesDone++;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Voxel] re-mesh of ({col.Cx},{col.Cz}) failed: {ex.Message}");
+                }
+            }
+        }
+        finally
+        {
+            _remeshRunning = false;
+        }
+    }
+
+    // Which neighbours (of the same kind) exist now: bit 0 -X, 1 +X, 2 -Z, 3 +Z - the form of Column.MeshedWith
+    private int NeighbourMask(Column col)
+    {
+        var set = SetOf(col);
+        return (set.ContainsKey((col.Cx - 1, col.Cz)) ? 1 : 0) | (set.ContainsKey((col.Cx + 1, col.Cz)) ? 2 : 0)
+             | (set.ContainsKey((col.Cx, col.Cz - 1)) ? 4 : 0) | (set.ContainsKey((col.Cx, col.Cz + 1)) ? 8 : 0);
     }
 
     private Dictionary<(int cx, int cz), Column> SetOf(Column col) => col.IsFar ? _far : _columns;
@@ -199,6 +273,7 @@ public sealed class VoxelWorldRenderer : IDisposable
             var old = col.Mesh;
             col.Mesh = mesh;
             col.MeshedWith = mask;
+            MeshesDone++;
             col.SectionsWithQuads = 0;
             col.LowestSection = SectionsPerColumn;
             col.HighestSection = -1;
@@ -228,8 +303,10 @@ public sealed class VoxelWorldRenderer : IDisposable
 
     private void DisposeMesh(ColumnMesh mesh)
     {
+        // A pooled list sits in an arena block that lives (and keeps its cached bind group) until the renderer is disposed;
+        // only a buffer of a list's own is going away
         foreach (var list in new[] { mesh.Opaque, mesh.Plants, mesh.Water })
-            if (list.Buffer?.GetGPUBuffer() is { } gpu) _pipe.ReleaseQuadBuffer(gpu);
+            if (!list.IsPooled && list.Buffer?.GetGPUBuffer() is { } gpu) _pipe.ReleaseQuadBuffer(gpu);
         mesh.Dispose();
     }
 
@@ -335,14 +412,15 @@ public sealed class VoxelWorldRenderer : IDisposable
                     var list = kind == BlockRenderPipeline.Pass.Opaque ? col.Mesh!.Opaque : col.Mesh!.Plants;
                     if (list.Count == 0 || list.Buffer?.GetGPUBuffer() is not { } gpu) continue;
                     _pipe.BindPass(pass, kind, gpu);
-                    _pipe.Draw(pass, 0, list.Count, col.Slot);
+                    _pipe.Draw(pass, list.FirstQuad, list.Count, col.Slot);
                 }
             _waterOrder.Sort((a, b) => b.dist.CompareTo(a.dist));
             foreach (var (_, col) in _waterOrder)
             {
-                if (col.Mesh!.Water.Buffer?.GetGPUBuffer() is not { } gpu) continue;
+                var water = col.Mesh!.Water;
+                if (water.Buffer?.GetGPUBuffer() is not { } gpu) continue;
                 _pipe.BindPass(pass, BlockRenderPipeline.Pass.Water, gpu);
-                _pipe.Draw(pass, 0, col.Mesh.Water.Count, col.Slot);
+                _pipe.Draw(pass, water.FirstQuad, water.Count, col.Slot);
             }
             pass.End();
         }
@@ -387,7 +465,9 @@ public sealed class VoxelWorldRenderer : IDisposable
         FpsCamera camera, in DayLighting light, int drawDistanceChunks)
     {
         var recordTimer = System.Diagnostics.Stopwatch.StartNew();
-        int drawCalls = 0, binds = 0;
+        int drawCalls = 0;
+        // The calls the pipeline really made (BindPass skips repeats): buffer binds and pipeline switches since this frame began
+        long bindsBefore = _pipe.QuadBufferBinds + _pipe.PipelineSwitches;
         EnsureDepth(width, height);
         float aspect = (float)width / Math.Max(height, 1);
         float fovRad = camera.FovDegrees * MathF.PI / 180f;
@@ -430,9 +510,8 @@ public sealed class VoxelWorldRenderer : IDisposable
                 var list = kind == BlockRenderPipeline.Pass.Opaque ? col.Mesh!.Opaque : col.Mesh!.Plants;
                 if (list.Count == 0 || list.Buffer?.GetGPUBuffer() is not { } gpu) continue;
                 _pipe.BindPass(pass, kind, gpu);
-                binds++;
                 // The whole column in one draw: every quad knows its section
-                _pipe.Draw(pass, 0, list.Count, col.Slot);
+                _pipe.Draw(pass, list.FirstQuad, list.Count, col.Slot);
                 drawCalls++;
                 if (kind == BlockRenderPipeline.Pass.Opaque) visibleSections += col.SectionsWithQuads;
                 visibleQuads += list.Count;
@@ -446,15 +525,14 @@ public sealed class VoxelWorldRenderer : IDisposable
             var list = col.Mesh!.Water;
             if (list.Buffer?.GetGPUBuffer() is not { } gpu) continue;
             _pipe.BindPass(pass, BlockRenderPipeline.Pass.Water, gpu);
-            binds++;
-            _pipe.Draw(pass, 0, list.Count, col.Slot);
+            _pipe.Draw(pass, list.FirstQuad, list.Count, col.Slot);
             drawCalls++;
             visibleQuads += list.Count;
         }
         pass.End();
 
         return new VoxelFrameStats(_columns.Count + _far.Count, sectionsWithQuads, visibleSections, totalQuads, visibleQuads,
-            drawCalls, binds, recordTimer.Elapsed.TotalMilliseconds);
+            drawCalls, (int)(_pipe.QuadBufferBinds + _pipe.PipelineSwitches - bindsBefore), recordTimer.Elapsed.TotalMilliseconds);
     }
 
     // Adds col to the frame's draw lists when it is meshed, in range and in view; counts its quads and sections either way.
@@ -496,8 +574,12 @@ public sealed class VoxelWorldRenderer : IDisposable
             chunk.Heights?.Dispose();
         }
         _far.Clear();
+        _stale.Clear();
         _mesher?.Dispose();
         _farMesher?.Dispose();
+        // The bind groups of the arena's blocks go before the blocks do
+        _pipe.InvalidateQuadBuffers();
+        _arena?.Dispose();
         _textures?.Dispose();
         _depthView?.Dispose();
         _depth?.Destroy();

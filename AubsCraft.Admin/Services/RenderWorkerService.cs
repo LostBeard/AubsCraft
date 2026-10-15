@@ -21,6 +21,8 @@ public class RenderWorkerService : IRenderWorkerService
     private OffscreenCanvas? _canvas;
     /// <summary>Draws the world with SpawnDev.VoxelEngine (created once the GPU is up).</summary>
     private VoxelWorldRenderer? _voxel;
+    /// <summary>Spreads the meshing of arriving columns over the frames, by how the frames are doing.</summary>
+    private readonly IngestGovernor _ingest = new();
     private bool _initialized;
     private bool _disposed;
     public int LoadedCount { get; private set; }
@@ -62,6 +64,7 @@ public class RenderWorkerService : IRenderWorkerService
         _renderer.InitOffscreen(_canvas!, _gpu.Accelerator!);
         _voxel = new VoxelWorldRenderer();
         _voxel.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _gpu.Accelerator!);
+        _voxel.Pace = _ingest.WaitTurnAsync; // every mesh waits for its turn: loading must not take the frame rate with it
         _renderer.Voxel = _voxel;
         // The HUD (GameUI) draws with the world's own device, into the same encoder, after the world pass.
         _hud.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _canvas!.Width, _canvas.Height);
@@ -363,11 +366,14 @@ public class RenderWorkerService : IRenderWorkerService
     private string VoxelNote()
     {
         var s = _renderer.LastVoxelStats;
-        return $"Voxel: {s.DrawCalls} draws, {s.BufferBinds} binds, record {s.RecordMs:F1} ms, frame {_renderer.LastVoxelFrameMs:F1} ms; far chunks {_voxel!.FarChunkCount}";
+        return $"Voxel: {s.DrawCalls} draws, {s.BufferBinds} binds, record {s.RecordMs:F1} ms, frame {_renderer.LastVoxelFrameMs:F1} ms; far chunks {_voxel!.FarChunkCount}; "
+             + $"{_voxel.ArenaBlocks} quad buffers; loading {_ingest.TurnsPerFrame:F1} meshes/frame, {_ingest.Waiting} waiting, {_voxel.StaleCount} to re-mesh";
     }
 
     private void OnRenderFrame(float dt)
     {
+        _ingest.OnFrame(dt * 1000.0);
+
         // The minimap is drawn into its own texture before the frame (a few times a second: it is a map, not a view)
         if (_voxel != null && _hud.Visible)
         {
