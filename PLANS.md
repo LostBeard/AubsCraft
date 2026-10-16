@@ -252,6 +252,30 @@ Order: WT1 + WA1 first (biggest visible change, client only), then WL1 stepping 
 - [ ] L9. **Submission queue** - Changes queue and apply when player is online (or immediately for admin)
 - [ ] L10. **Rate limiting** - Max N blocks per submission for safety
 
+## Phase WE: World editing, blueprints, admin control, voice (TJ 10-16; supersedes Phase L)
+
+TJ's vision (10-16): admins edit the LIVE world from the web viewer like creative mode; select built things and save them as NAMED BLUEPRINTS (Fallout 76 camp style) that are placed from a menu; full control of the world and the players for admins; voice AND text chat; all of it in a normal browser, in VR and in AR ("a tabletop world, edited live, in AR"); hand tracking in the headset. Every milestone must work in all three modes before it is called done (desktop first, then the XR panel/controller path).
+
+Design decisions (so each step stands on the last):
+- **Live blocks first.** The viewer reads region FILES, which lag the running server by minutes. The plugin reports which chunks changed (block events + our own edits), the panel serves the fresh chunk (plugin snapshot: block-state palette + indices) instead of the file, pushes "chunk changed" over the live socket, and the viewer re-fetches + re-meshes that column through the path it already has. Other players' building then shows live too.
+- **Edits go panel -> plugin over a command channel** (the plugin long-polls `/api/live/commands`, loopback + secret like the ingest; results and undo ids come back by POST). Block states travel as vanilla strings (`minecraft:oak_stairs[facing=north]`); the plugin applies them on the main thread under a per-tick time budget, records the OLD blocks in an undo journal, marks chunks dirty. Admin only (role check on the panel), every op written to the activity log, size limits per op, CoreProtect-compatible logging when present. Fabric mod gets the same later.
+- **Picking on the GPU** (no block data in .NET): VoxelEngine's `VoxelRaycast` / a depth pick gives the block + face under the cursor / controller ray; only the hit comes back.
+- **Blueprints are Sponge `.schem` / vanilla structure files** (WorldEdit-compatible, portable), stored per server on the panel with a thumbnail; the viewer draws a ghost of the blueprint while placing (rotate, nudge, confirm).
+- **Voice**: the server already runs Simple Voice Chat. The plugin side uses its API to create a locational audio channel at the web user's position (mic Opus frames in) and forwards nearby players' mic packets out, so a browser user is heard in-game and hears proximity voice, in 3D (WebAudio panner). Text chat from the viewer exists; in a headset chat uses speech-to-text (SpawnDev.AI Parakeet) because there is no keyboard.
+
+- [ ] WE0. **Plan + research** (this section). Check: VoxelRaycast usable on the GPU column buffers; Paper main-thread edit budget; Simple Voice Chat API (`de.maxhenkel.voicechat:voicechat-api`).
+- [x] WE1. (DONE 10-16, committed, NOT deployed; gates: LiveChunkTests, LiveChunksEndToEndTests on a real Paper, ViewerLiveChunkTests; the Fabric mod has no chunk updates yet; read cost per chunk on a real tall world still to measure) **Live chunks**: plugin dirty-chunk tracking (BlockPlace/Break/Burn/Fade/Form/Spread/Explode/Piston/EntityChangeBlock/LeavesDecay/Fluid + our own edits) -> snapshot post -> panel overlay cache (`/api/world/chunk-ids` + `chunk-light` serve it) -> `chunk-changed` on `/api/live/ws` -> viewer re-fetches the column. Gate: break a block with the server's console, see the viewer change within 2 s.
+- [ ] WE2. **Edit channel + undo**: `/api/live/commands` long-poll, ops `set` / `fill` / `replace` / `clone` / `paste` / `undo` / `redo`, per-op limits, admin role, audit. Unit tests on the op model + real Paper test (scene server) for apply + undo.
+- [ ] WE3. **Edit mode, desktop**: toggle, block palette (the atlas icons), pick (raycast) with a wireframe highlight, left remove / right place, brush sizes, undo/redo keys, ghost of the next block.
+- [ ] WE4. **Selection + clipboard**: box select (two corners, drag handles), move/copy/paste/rotate/mirror, fill/replace, "select connected structure" (flood by non-air within a bound).
+- [ ] WE5. **Blueprints**: save the selection as a named `.schem` (plugin reads blocks + block entities), panel store + list + thumbnail, blueprint menu in the HUD, place with ghost + rotate + confirm, delete/rename. Share per server.
+- [ ] WE6. **Admin control of players and the world** in the viewer: right-click a player/entity -> kick, ban, mute, tp to me / me to them, gamemode, heal/feed, give item, inventory view, remove entity, summon; world: time, weather, gamerules, save, difficulty. Uses RCON/plugin commands the panel already has, surfaced as HUD menus (all three modes).
+- [ ] WE7. **Text chat everywhere**: viewer chat send exists; add VR/AR dictation (speech-to-text) and quick phrases; chat history in the XR panel.
+- [ ] WE8. **Voice chat**: Simple Voice Chat bridge (web mic -> locational channel; nearby player audio -> web, spatialised); push-to-talk / open mic; mute per player; works in headset (Quest mic) and AR.
+- [ ] WE9. **VR/AR editing**: controller ray picks blocks; place/remove with the trigger, grip to grab a selection / blueprint ghost and move it with the hand, thumbstick rotate; HUD panel holds the palette + blueprint menu (the XR panel from WV).
+- [ ] WE10. **Hand tracking** (Quest): request `hand-tracking`, pinch = trigger (select events / hand joints), pinch-drag to move ghosts, wrist menu (the HUD panel attached to the off hand), two-hand scale in AR.
+- [ ] WE11. **AR tabletop**: the world (or a chosen region / blueprint) as a miniature on a real surface (AR hit-test / anchors), pinch-resize, walk around it, edit it live; the miniature is the same columns drawn at scale (model matrix on the view), picking maps through the inverse.
+
 ## Phase M: Public Player Profiles
 
 - [ ] M1. **Profile pages** - `map.spawndev.com:44365/player/<name>`

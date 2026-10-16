@@ -87,6 +87,7 @@ public sealed class WorldDataService
     /// </summary>
     public byte[]? GetChunkLight(int chunkX, int chunkZ)
     {
+        if (_liveLight.TryGetValue((chunkX, chunkZ), out var live)) return live.Light;
         var regionPath = Path.Combine(_worldPath, "region", $"r.{chunkX >> 5}.{chunkZ >> 5}.mca");
         if (!File.Exists(regionPath)) return null;
         try { return RegionReader.ReadChunkLight(regionPath, chunkX & 31, chunkZ & 31); }
@@ -96,6 +97,29 @@ public sealed class WorldDataService
             return null;
         }
     }
+
+    // ---- chunks the running server has sent (they are newer than the files) ----
+
+    /// <summary>The most live chunks kept: a chunk is 300 KB with its light. The oldest go back to being read from the file, which the server has saved by then.</summary>
+    public const int MaxLiveChunks = 256;
+    private sealed record LiveChunk(byte[] Light, DateTime At);
+    private readonly ConcurrentDictionary<(int, int), LiveChunk> _liveLight = new();
+
+    /// <summary>A chunk as the running server has it now: served instead of the region file's until it is dropped.</summary>
+    public void SetLiveChunk(int chunkX, int chunkZ, ChunkResult chunk, byte[] light)
+    {
+        _chunkCache[(chunkX, chunkZ)] = chunk;
+        _liveLight[(chunkX, chunkZ)] = new LiveChunk(light, DateTime.UtcNow);
+        while (_liveLight.Count > MaxLiveChunks)
+        {
+            var oldest = _liveLight.MinBy(kv => kv.Value.At).Key;
+            if (!_liveLight.TryRemove(oldest, out _)) break;
+            _chunkCache.TryRemove(oldest, out _);   // the next read parses the file
+        }
+    }
+
+    /// <summary>How many chunks the running server has sent that are held now.</summary>
+    public int LiveChunkCount => _liveLight.Count;
 
     /// <summary>
     /// Lists all populated chunk coordinates across all regions.

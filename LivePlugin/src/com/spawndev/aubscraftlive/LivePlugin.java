@@ -61,6 +61,7 @@ public final class LivePlugin extends JavaPlugin {
     private static final java.util.concurrent.ConcurrentHashMap<Integer, Long> SWING_UNTIL = new java.util.concurrent.ConcurrentHashMap<>();
     private int maxItems;
     private BukkitTask task;
+    private ChunkWatcher chunks;
     private final AtomicBoolean inFlight = new AtomicBoolean();
     private long sent, dropped, failed;
     private long lastReport;
@@ -91,6 +92,11 @@ public final class LivePlugin extends JavaPlugin {
         }, this);
         // Entities may only be touched from the main thread: a synchronous repeating task, never an async one
         task = getServer().getScheduler().runTaskTimer(this, this::sample, 40L, interval);
+        // The blocks: the panel reads region files, which lag the running world; chunks that change are sent as they settle
+        if (getConfig().getBoolean("chunk-updates", true)) {
+            chunks = new ChunkWatcher(this, http, URI.create(panel.replaceAll("/+$", "") + "/api/live/chunk/" + serverId), secret);
+            chunks.start();
+        }
         getLogger().info("Sending the world's activity to " + endpoint + " every " + interval + " ticks");
     }
 

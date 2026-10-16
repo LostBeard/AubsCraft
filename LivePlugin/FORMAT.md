@@ -40,3 +40,21 @@ LivePlugin/make-fixture.sh "<jdk 21 bin>"                      # -> AubsCraft.Ad
 
 `build.sh` compiles against the Paper API inside the server's own `server.jar` bundle (`META-INF/libraries`), so the plugin always matches
 the version it will run on.
+
+## Chunk updates (`POST /api/live/chunk/{serverId}?cx=&cz=`)
+
+The panel reads the world from region files, which the server writes minutes after a change. `ChunkWatcher` notices which chunks of the MAIN world changed (block events, commands that edit blocks without one, and the panel's own edits) and, once a chunk has been quiet for 8 ticks (or has changed for 40), posts it. Same gate as the frames: loopback, `X-Live-Secret`. At most 2 chunks are read per 4 ticks, within 12 ms. The panel keeps up to 256 of them in front of the files, serves them from `/api/world/chunk-ids` and `/api/world/chunk-light`, and sends the viewers `ACHG` (below). All numbers little-endian.
+
+```
+u8   version (1)
+u8   border mask: which neighbours the change touches (1 -X, 2 +X, 4 -Z, 8 +Z)
+u16  top: layers sent, counted from the world's bottom (y -64); everything above is air under open sky
+u16  palette count; each entry: u16 length, UTF-8 block data string ("minecraft:oak_stairs[facing=north,half=bottom,...]")
+u16  blocks[256 * top]: palette indices, x + z*16 + y*256
+u8   light[256 * top]: sky light << 4 | block light, same order
+u16  rain[256]: where rain stops, per column (x + z*16): the top of the highest MOTION_BLOCKING block, counted up from the world bottom (so the world y is the value minus 64)
+u16  sign count; each: u8 x, i16 y, u8 z, 4 x string (the front's lines, plain text), string dye ("black"), u8 glowing
+u16  banner count; each: u8 x, i16 y, u8 z, u8 layers, (string pattern ("stripe_top"), string dye)...
+```
+
+The viewers' socket (`/api/live/ws`) carries these frames as well as the creature frames; a message starting `ACHG` is: `u16 count`, then for each chunk `i32 cx, i32 cz, u8 border mask`. A viewer that has the column loaded fetches it again, swaps its mesh when the new one is ready, and meshes the bordering neighbours again for the sides in the mask. A column that is not loaded is fetched fresh when it is wanted.

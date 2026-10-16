@@ -157,7 +157,7 @@ public class RenderWorkerService : IRenderWorkerService
         var wsUrl = $"{protocol}//{host}/api/world/ws?{_serverQuery}&format=ids";
 
         // The live feed (what the AubsCraft Live plugin on the Minecraft server sees: every animal, monster, player). Quiet when the server has no plugin.
-        _liveFeed = new LiveFeedClient($"{protocol}//{host}/api/live/ws?{_serverQuery}", _entities.OnFrame, m => Console.WriteLine("[Live] " + m));
+        _liveFeed = new LiveFeedClient($"{protocol}//{host}/api/live/ws?{_serverQuery}", OnLiveMessage, m => Console.WriteLine("[Live] " + m));
         _liveFeed.Start();
 
         // Use absolute URL for worker script (relative paths may not resolve in nested worker context)
@@ -798,7 +798,55 @@ public class RenderWorkerService : IRenderWorkerService
         }
     }
 
-    private async Task LoadVoxelColumnAsync(int cx, int cz)
+    // What the live socket brings: the plugin's frames of creatures (starting "ACL1") and the panel's notes that chunks changed in the running world ("ACHG")
+    private void OnLiveMessage(byte[] message)
+    {
+        if (message.Length >= 6 && message[0] == (byte)'A' && message[1] == (byte)'C' && message[2] == (byte)'H' && message[3] == (byte)'G')
+        {
+            OnChunksChanged(message);
+            return;
+        }
+        _entities?.OnFrame(message);
+    }
+
+    // Columns being fetched again, and those that changed once more meanwhile (the fetch in flight may have missed it): each is fetched again after
+    private readonly HashSet<(int, int)> _refreshing = new();
+    private readonly Dictionary<(int, int), int> _refreshAgain = new();
+
+    private void OnChunksChanged(byte[] message)
+    {
+        if (_voxel == null) return;
+        int count = BitConverter.ToUInt16(message, 4);
+        for (int i = 0; i < count && 6 + i * 9 + 9 <= message.Length; i++)
+        {
+            int at = 6 + i * 9;
+            int cx = BitConverter.ToInt32(message, at), cz = BitConverter.ToInt32(message, at + 4), border = message[at + 8];
+            // A column that is not loaded is fetched fresh when it is wanted
+            if (!_voxel.HasColumn(cx, cz)) continue;
+            if (!_refreshing.Add((cx, cz)))
+            {
+                _refreshAgain[(cx, cz)] = _refreshAgain.GetValueOrDefault((cx, cz)) | border;
+                continue;
+            }
+            _ = RefreshColumnAsync(cx, cz, border);
+        }
+    }
+
+    private async Task RefreshColumnAsync(int cx, int cz, int border)
+    {
+        try
+        {
+            while (true)
+            {
+                _light?.Refresh(cx, cz);
+                await LoadVoxelColumnAsync(cx, cz, replace: true, border);
+                if (!_refreshAgain.Remove((cx, cz), out border)) break;
+            }
+        }
+        finally { _refreshing.Remove((cx, cz)); }
+    }
+
+    private async Task LoadVoxelColumnAsync(int cx, int cz, bool replace = false, int borderMask = 0)
     {
         try
         {
@@ -827,7 +875,7 @@ public class RenderWorkerService : IRenderWorkerService
 
             using var buffer = await response.ArrayBuffer();
             using var ids = new Uint8Array(buffer);
-            if (!await _voxel.AddColumnAsync(cx, cz, ids))
+            if (!(replace ? await _voxel.ReplaceColumnAsync(cx, cz, ids, borderMask) : await _voxel.AddColumnAsync(cx, cz, ids)))
                 Console.WriteLine($"[RenderWorker] Column ({cx},{cz}) dropped: no free section slots");
             else
             {

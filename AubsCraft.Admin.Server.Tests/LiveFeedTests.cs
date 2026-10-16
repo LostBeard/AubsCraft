@@ -157,13 +157,13 @@ public class LiveFeedTests
     {
         var feed = Feed();
         using var slow = feed.Subscribe("s1");
-        for (int i = 0; i < 30; i++) feed.Ingest("s1", FrameBytes(1000 + i)); // never read
+        for (int i = 0; i < 60; i++) feed.Ingest("s1", FrameBytes(1000 + i)); // never read
         var seen = new List<long>();
         while (slow.Frames.TryRead(out var f)) seen.Add(LiveFrameCodec.Parse(f).FullTime);
-        Assert.That(seen.Count, Is.LessThanOrEqualTo(8), "bounded: a stuck browser does not grow the panel");
-        Assert.That(seen[^1], Is.EqualTo(1029), "the newest survived");
+        Assert.That(seen.Count, Is.LessThanOrEqualTo(32), "bounded: a stuck browser does not grow the panel");
+        Assert.That(seen[^1], Is.EqualTo(1059), "the newest survived");
         Assert.That(seen, Is.Ordered);
-        Assert.That(feed.StatusOf("s1").Frames, Is.EqualTo(30), "the feed itself took every frame");
+        Assert.That(feed.StatusOf("s1").Frames, Is.EqualTo(60), "the feed itself took every frame");
     }
 
     // ---- the plugin installer ----

@@ -196,6 +196,16 @@ public sealed class ViewerRig : IAsyncDisposable
         return (int)resp.StatusCode;
     }
 
+    /// <summary>Send one changed chunk to the panel as the Minecraft plugin does (loopback, shared secret): the panel serves it instead of the file's and tells the viewers.</summary>
+    public async Task<int> PostLiveChunkAsync(int cx, int cz, byte[] body, string serverId = "aubscraft")
+    {
+        using var http = new HttpClient { BaseAddress = new Uri(BaseUrl) };
+        using var req = new HttpRequestMessage(HttpMethod.Post, $"/api/live/chunk/{serverId}?cx={cx}&cz={cz}") { Content = new ByteArrayContent(body) };
+        req.Headers.Add("X-Live-Secret", LiveSecret);
+        using var resp = await http.SendAsync(req);
+        return (int)resp.StatusCode;
+    }
+
     /// <summary>A world chunk column exactly as the viewer's full-3D path receives it.</summary>
     public async Task<ChunkColumn> GetChunkAsync(int cx, int cz)
     {

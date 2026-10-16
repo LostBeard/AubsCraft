@@ -257,6 +257,41 @@ public sealed class VoxelWorldRenderer : IDisposable
     }
 
     /// <summary>
+    /// A loaded column changed (the running world is ahead of what was fetched): take its new blocks and mesh them, the old mesh staying on screen until the new one is ready.
+    /// <paramref name="borderMask"/> says which neighbours the change touches (1 -X, 2 +X, 4 -Z, 8 +Z): they are meshed again too, as their faces toward this column may differ. A column that is
+    /// not loaded is added.
+    /// </summary>
+    public async Task<bool> ReplaceColumnAsync(int cx, int cz, Uint8Array blockIds, int borderMask = 0)
+    {
+        if (_disposed) return false;
+        if (!_columns.TryGetValue((cx, cz), out var col)) return await AddColumnAsync(cx, cz, blockIds);
+
+        var fresh = _mesher!.CreateColumnBufferFromJS(blockIds);
+        await _meshLock.WaitAsync();
+        try
+        {
+            if (col.Removed || _disposed) { fresh.Dispose(); return false; }
+            // Anything meshing holds the lock, so nothing reads the old buffer once it is swapped out
+            col.Blocks?.Dispose();
+            col.Blocks = fresh;
+        }
+        finally { _meshLock.Release(); }
+
+        await PaceAsync(IngestPriority.Near);
+        await MeshAsync(col);
+        MarkNeighboursStale(col);
+        foreach (var (n, bit) in NeighboursOf(col).ToList())
+        {
+            // bit is the flag of this column in the neighbour; the border mask is the neighbour's direction from this column (1 -X is the neighbour whose +X bit is 2)
+            int direction = bit switch { 2 => 1, 1 => 2, 8 => 4, _ => 8 };
+            if ((borderMask & direction) == 0 || n.Mesh == null) continue;
+            await PaceAsync(IngestPriority.Remesh);
+            if (!n.Removed) await MeshAsync(n);
+        }
+        return true;
+    }
+
+    /// <summary>
     /// Take a chunk's heightmap (the 3072 bytes of <c>HeightmapLayout</c>, global block ids) as a far-tier chunk: its surface, drawn
     /// wherever no full column is loaded. The heightmap stays on the GPU; the chunk gets a MESH only while it is within reach of the
     /// camera (<see cref="UpdateFarWindow"/>). Returns false when there is no room.

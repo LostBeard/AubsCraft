@@ -87,6 +87,13 @@ public sealed class LightField : IDisposable
         }
     }
 
+    /// <summary>A column changed in the running world: fetch its light again and write it over the old (the old shows meanwhile). Nothing for a column that has no light yet.</summary>
+    public void Refresh(int cx, int cz)
+    {
+        if (_disposed || !Enabled || !_present.Contains((cx, cz)) || !_inFlight.Add((cx, cz))) return;
+        _ = FetchAsync(cx, cz);
+    }
+
     /// <summary>A column is gone from the world: its light goes with it.</summary>
     public void RemoveColumn(int cx, int cz)
     {

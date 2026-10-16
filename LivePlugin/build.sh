@@ -28,7 +28,8 @@ else
 fi
 [ -n "$CP" ] || { echo "No libraries found in $BUNDLE_JAR (is it the Paper bundle?)"; exit 1; }
 
-"$JDK_BIN/javac" --release 21 -cp "$CP" -d "$CLASSES" "$SRC" "$SRC2"
+SRCS="$(find "$HERE/src" -name "*.java" | while read -r f; do if command -v cygpath >/dev/null 2>&1; then cygpath -m "$f"; else echo "$f"; fi; done)"
+"$JDK_BIN/javac" --release 21 -cp "$CP" -d "$CLASSES" $SRCS
 cp "$HERE/resources/plugin.yml" "$HERE/resources/config.yml" "$OUT/classes/"
 mkdir -p "$HERE/../AubsCraft.Admin.Server/ServerPlugins"
 (cd "$OUT/classes" && "$JDK_BIN/jar" --create --file "$HERE/../AubsCraft.Admin.Server/ServerPlugins/aubscraft-live.jar" --date=2026-10-15T00:00:00Z .)

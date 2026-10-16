@@ -43,6 +43,33 @@ public static class LiveEndpoints
             return error == null ? Results.NoContent() : Results.BadRequest(error);
         });
 
+        // A chunk that has changed in the running world (from the plugin, same gate): served instead of the region file's copy from now on, and the viewers are told to fetch it again
+        app.MapPost("/api/live/chunk/{serverId}", async (string serverId, int cx, int cz, HttpContext ctx, LiveFeedService live, ServerManager servers) =>
+        {
+            if (!CameFromThisMachine(ctx.Connection.RemoteIpAddress, ctx.Request.Headers))
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+            if (!live.VerifySecret(ctx.Request.Headers["X-Live-Secret"].ToString()))
+                return Results.Unauthorized();
+            if (servers.Get(serverId) is not { } instance) return Results.NotFound();
+            if (ctx.Request.ContentLength is > LiveChunkReader.MaxBytes) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+
+            using var ms = new MemoryStream();
+            var buffer = new byte[64 * 1024];
+            int n;
+            while ((n = await ctx.Request.Body.ReadAsync(buffer, ctx.RequestAborted)) > 0)
+            {
+                ms.Write(buffer, 0, n);
+                if (ms.Length > LiveChunkReader.MaxBytes) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+            }
+            LiveChunkReader.Parsed parsed;
+            try { parsed = LiveChunkReader.Parse(ms.ToArray(), instance.World.GetChunk(cx, cz)); }
+            catch (InvalidDataException ex) { return Results.BadRequest(ex.Message); }
+
+            instance.World.SetLiveChunk(cx, cz, parsed.Chunk, parsed.Light);
+            live.Broadcast(instance.Id, LiveChunkReader.ChangeMessage([(cx, cz, parsed.BorderMask)]));
+            return Results.NoContent();
+        });
+
         var group = app.MapGroup("/api/live").RequireAuthorization();
 
         // Which servers have a live feed right now (the viewer shows its live layer only where there is one)

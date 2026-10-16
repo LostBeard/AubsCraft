@@ -90,6 +90,14 @@ public sealed class LiveFeedService
         return null;
     }
 
+    /// <summary>A message to every viewer of a server that is not a frame (chunks changed): it is not kept as the latest, so a viewer that opens later does not get it.</summary>
+    public void Broadcast(string serverId, byte[] message)
+    {
+        if (!_feeds.TryGetValue(serverId, out var feed)) return;
+        lock (feed.Lock)
+            foreach (var s in feed.Subscribers) s.Writer.TryWrite(message);
+    }
+
     /// <summary>
     /// Subscribe to a server's frames: the latest one first (a viewer that opens mid-session sees the world at once), then every new one. Dispose
     /// the result to unsubscribe.
@@ -97,7 +105,7 @@ public sealed class LiveFeedService
     public Subscription Subscribe(string serverId)
     {
         var feed = _feeds.GetOrAdd(serverId, _ => new Feed());
-        var channel = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(8) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
+        var channel = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(32) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
         lock (feed.Lock)
         {
             if (feed.Latest != null) channel.Writer.TryWrite(feed.Latest);
