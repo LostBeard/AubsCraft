@@ -27,6 +27,7 @@ public class RenderWorkerService : IRenderWorkerService
     /// <summary>The creatures of the live feed and the socket that feeds them.</summary>
     private EntityLayer? _entities;
     private ParticleLayer? _particles;
+    private BlockEntityLayer? _blockEntities;
     private LiveFeedClient? _liveFeed;
     /// <summary>Spreads the meshing of arriving columns over the frames, by how the frames are doing.</summary>
     private readonly IngestGovernor _ingest = new();
@@ -88,6 +89,9 @@ public class RenderWorkerService : IRenderWorkerService
         _particles = new ParticleLayer(_js);
         _particles.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _voxel.FrameBuffer, pageOrigin);
         _voxel.Particles = _particles;
+        // Chests, beds, signs, banners, shulker boxes: models, drawn with the creatures
+        _blockEntities = new BlockEntityLayer();
+        _entities.BlockEntities = _blockEntities;
         // The HUD (GameUI) draws with the world's own device, into the same encoder, after the world pass.
         _hud.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _canvas!.Width, _canvas.Height);
         _hud.OnPlayerAction = OnPlayerAction;
@@ -714,7 +718,7 @@ public class RenderWorkerService : IRenderWorkerService
         foreach (var (cx, cz) in _voxel!.ColumnKeys.ToArray())
         {
             int dx = cx - camCX, dz = cz - camCZ;
-            if (dx * dx + dz * dz > limit) { _voxel.RemoveColumn(cx, cz); _particles?.RemoveColumn(cx, cz); }
+            if (dx * dx + dz * dz > limit) { _voxel.RemoveColumn(cx, cz); _particles?.RemoveColumn(cx, cz); _blockEntities?.RemoveColumn(cx, cz); }
         }
     }
 
@@ -732,12 +736,13 @@ public class RenderWorkerService : IRenderWorkerService
 
             // The server says how many block names it knows; a column can use ids we have no name for yet
             int registryCount = 0;
-            string? emitterHeader, biomeHeader;
+            string? emitterHeader, biomeHeader, blockEntityHeader;
             using (var headers = response.Headers)
             {
                 int.TryParse(headers.Get("X-Block-Registry-Count"), out registryCount);
                 emitterHeader = headers.Get("X-Emitters");   // the blocks of this column that give off smoke and flames
                 biomeHeader = headers.Get("X-Biomes");       // the biome of each 4 x 4 block cell: the colour of its grass, leaves and water
+                blockEntityHeader = headers.Get("X-BlockEntities");   // the chests, beds, signs, banners and shulker boxes of this column
             }
             if (registryCount > _voxel!.NamesKnown) await RefreshVoxelBlockNamesAsync(registryCount);
 
@@ -748,6 +753,7 @@ public class RenderWorkerService : IRenderWorkerService
             else
             {
                 _particles?.SetColumn(cx, cz, AubsCraft.Live.Model.Particles.EmitterCodec.Decode(emitterHeader));
+                _blockEntities?.SetColumn(cx, cz, AubsCraft.Live.Model.BlockEntities.BlockEntityCodec.Decode(blockEntityHeader));
                 if (!string.IsNullOrEmpty(biomeHeader))
                 {
                     try { _voxel.SetBiomeCells(cx, cz, Convert.FromBase64String(biomeHeader)); }

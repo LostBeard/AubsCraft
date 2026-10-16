@@ -152,6 +152,9 @@ public sealed class EntityLayer : IDisposable
 
     private readonly List<MinimapMarker> _minimapMarkers = new();
 
+    /// <summary>The chests, beds, signs and banners of the world (the layer the worker feeds from each column's response): drawn here, with the creatures.</summary>
+    public BlockEntityLayer? BlockEntities { get; set; }
+
     /// <summary>The dots of the minimap (players, hostile, neutral, passive creatures, villagers) around the camera as they are shown right now; see <see cref="MinimapMarkers"/>.</summary>
     public IReadOnlyList<MinimapMarker> MinimapMarkersAround(float cameraX, float cameraZ, float yawDegrees, float extent)
     {
@@ -173,7 +176,7 @@ public sealed class EntityLayer : IDisposable
         _width = width;
         _height = height;
         var world = _state.PrimaryWorld;
-        if (_atlas == null || _assets == null || world == null)
+        if (_atlas == null || _assets == null)
         {
             if (_pipe.PartCount != 0) _pipe.SetParts(ReadOnlySpan<EntityPartInstance>.Empty);
             return;
@@ -186,6 +189,10 @@ public sealed class EntityLayer : IDisposable
         // Only what the camera can see is posed: the server may have hundreds of creatures around and a view takes in a fraction of them
         var frustum = FrustumCuller.ExtractPlanes(viewProj);
         _inRange.Clear();
+        _draws.Clear();
+        // The world's chests, beds, signs and banners need no live feed: they are in the world
+        BlockEntities?.Collect(camera, in frustum, _draws);
+        if (world == null) { UploadDraws(); return; }
         // The cheap tests (distance, view) run on each creature's newest known place BEFORE it is interpolated: a creature that is not wanted costs nothing.
         // A creature walks at most a few blocks between frames and is shown 0.3 s in the past, so the margin covers where it may be drawn.
         const float margin = 4f;
@@ -212,10 +219,21 @@ public sealed class EntityLayer : IDisposable
             _inRange.RemoveRange(MaxEntitiesDrawn, _inRange.Count - MaxEntitiesDrawn);
         }
 
-        _draws.Clear();
         foreach (var (d2, v) in _inRange) PoseOne(world, v, ageTicks, now, d2);
         EntityCount = _inRange.Count;
+        int n = UploadDraws();
 
+        // A line every few seconds while there is anything to draw (the gate reads it; so does anyone wondering why a creature is missing)
+        if (now - _lastLog >= 3.0 && Known > 0 && EntityCount > 0)
+        {
+            _lastLog = now;
+            Console.WriteLine($"[Live] creatures {EntityCount} drawn of {Known} ({n} parts, {_state.PlayerCount} players, {_frames} frames, {Tags.Count} name tags)");
+        }
+    }
+
+    // The boxes posed this frame to the GPU: the texture's place in the atlas for each; returns how many were uploaded
+    private int UploadDraws()
+    {
         if (_parts.Length < _draws.Count) _parts = new EntityPartInstance[Math.Max(_draws.Count, _parts.Length * 2)];
         int n = 0;
         foreach (var d in _draws)
@@ -231,13 +249,7 @@ public sealed class EntityLayer : IDisposable
             };
         }
         _pipe.SetParts(_parts.AsSpan(0, n));
-
-        // A line every few seconds while there is anything to draw (the gate reads it; so does anyone wondering why a creature is missing)
-        if (now - _lastLog >= 3.0 && Known > 0 && EntityCount > 0)
-        {
-            _lastLog = now;
-            Console.WriteLine($"[Live] creatures {EntityCount} drawn of {Known} ({n} parts, {_state.PlayerCount} players, {_frames} frames, {Tags.Count} name tags)");
-        }
+        return n;
     }
 
     private void PoseOne(string world, in LiveEntityView v, float ageTicks, double now, float distSq)

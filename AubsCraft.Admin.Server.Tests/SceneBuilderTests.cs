@@ -255,6 +255,67 @@ public class SceneBuilderTests
         await Set(smokeX + 26, y, smokeZ, "minecraft:soul_torch");
         Item("smoke-fire", smokeX + 18, y, smokeZ);
 
+        // ---- blocks the game draws with models: chests, beds, shulker boxes, signs, banners (a second slab of floor south of the rest) ----
+        await Cmd("forceload add -4 61 60 90");   // the chunks out there are not loaded by the spawn
+        await Task.Delay(4000);
+        await Cmd($"fill -4 {FloorY - 1} 61 60 {FloorY - 1} 84 minecraft:stone_bricks");
+        await Cmd($"fill -4 {FloorY} 61 60 {FloorY + 8} 84 minecraft:air");
+        int modelZ = 70;
+        string[] fourWays = ["south", "west", "north", "east"];
+        for (int i = 0; i < 4; i++)
+        {
+            await Set(2 + i * 2, y, modelZ, $"minecraft:chest[facing={fourWays[i]}]");
+            await Set(2 + i * 2, y, modelZ + 3, $"minecraft:trapped_chest[facing={fourWays[i]}]");
+            await Set(2 + i * 2, y, modelZ + 6, $"minecraft:ender_chest[facing={fourWays[i]}]");
+        }
+        // a double chest facing north: left and right halves side by side (x grows to the east: seen from the north the left half is on the east)
+        await Set(12, y, modelZ, "minecraft:chest[facing=north,type=right]"); await Set(13, y, modelZ, "minecraft:chest[facing=north,type=left]");
+        await Set(12, y, modelZ + 3, "minecraft:chest[facing=south,type=left]"); await Set(13, y, modelZ + 3, "minecraft:chest[facing=south,type=right]");
+        Item("be-chests", 7, y, modelZ + 3);
+        for (int i = 0; i < 4; i++)
+        {
+            // foot then head, the head toward the way it faces
+            int hx = 22 + i * 4, hz = modelZ + 1;
+            (int dx, int dz)[] toward = [(0, 1), (-1, 0), (0, -1), (1, 0)];
+            await Set(hx, y, modelZ, $"minecraft:red_bed[facing={fourWays[i]},part=foot]");
+            await Set(hx + toward[i].dx, y, modelZ + toward[i].dz, $"minecraft:red_bed[facing={fourWays[i]},part=head]");
+        }
+        await Set(22, y, modelZ + 6, "minecraft:blue_bed[facing=east,part=foot]"); await Set(23, y, modelZ + 6, "minecraft:blue_bed[facing=east,part=head]");
+        Item("be-beds", 26, y, modelZ + 1);
+        string[] boxKinds = ["shulker_box", "purple_shulker_box", "red_shulker_box", "lime_shulker_box", "white_shulker_box"];
+        for (int i = 0; i < boxKinds.Length; i++) await Set(40 + i * 2, y, modelZ, $"minecraft:{boxKinds[i]}[facing=up]");
+        await Set(40, y, modelZ + 3, "minecraft:shulker_box[facing=north]"); await Set(42, y, modelZ + 3, "minecraft:purple_shulker_box[facing=east]");
+        await Set(44, y, modelZ + 3, "minecraft:red_shulker_box[facing=down]"); await Set(46, y, modelZ + 3, "minecraft:lime_shulker_box[facing=south]");
+        Item("be-shulkers", 44, y, modelZ + 1);
+        for (int i = 0; i < 4; i++) await Set(2 + i * 3, y, modelZ + 12, $"minecraft:oak_sign[rotation={i * 4}]");
+        await Set(14, y, modelZ + 12, "minecraft:spruce_sign[rotation=2]"); await Set(16, y, modelZ + 12, "minecraft:birch_sign[rotation=6]");
+        for (int i = 0; i < 4; i++)
+        {
+            (int dx, int dz)[] behind = [(0, -1), (1, 0), (0, 1), (-1, 0)];   // the wall is behind the sign: a sign facing south is on a north wall
+            await Set(2 + i * 3 + behind[i].dx, y, modelZ + 16 + behind[i].dz, "minecraft:stone_bricks");
+            await Set(2 + i * 3, y, modelZ + 16, $"minecraft:oak_wall_sign[facing={fourWays[i]}]");
+        }
+        Item("be-signs", 6, y, modelZ + 13);
+        for (int i = 0; i < 4; i++) await Set(24 + i * 3, y, modelZ + 12, $"minecraft:red_banner[rotation={i * 4}]");
+        await Set(36, y, modelZ + 12, "minecraft:white_banner[rotation=0]"); await Set(38, y, modelZ + 12, "minecraft:blue_banner[rotation=8]");
+        for (int i = 0; i < 4; i++)
+        {
+            (int dx, int dz)[] behind = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+            await Set(24 + i * 3 + behind[i].dx, y, modelZ + 16 + behind[i].dz, "minecraft:stone_bricks");
+            await Set(24 + i * 3, y, modelZ + 16, $"minecraft:green_wall_banner[facing={fourWays[i]}]");
+        }
+        Item("be-banners", 28, y, modelZ + 13);
+        // heads: skeleton, wither skeleton, zombie, creeper, player; floor ones turned a quarter each, and four on walls
+        string[] heads = ["skeleton_skull", "wither_skeleton_skull", "zombie_head", "creeper_head", "player_head"];
+        for (int i = 0; i < heads.Length; i++) await Set(44 + i * 2, y, modelZ + 12, $"minecraft:{heads[i]}[rotation={i * 3}]");
+        for (int i = 0; i < 4; i++)
+        {
+            (int dx, int dz)[] behind = [(0, -1), (1, 0), (0, 1), (-1, 0)];
+            await Set(44 + i * 3 + behind[i].dx, y, modelZ + 16 + behind[i].dz, "minecraft:stone_bricks");
+            await Set(44 + i * 3, y, modelZ + 16, $"minecraft:{heads[i]}".Replace("_skull", "_wall_skull").Replace("_head", "_wall_head") + $"[facing={fourWays[i]}]");
+        }
+        Item("be-skulls", 48, y, modelZ + 13);
+
         await rcon.SendCommandAsync("save-all flush");
         await Task.Delay(3000);
         File.WriteAllLines(Path.Combine(Path.GetDirectoryName(outDir.TrimEnd('/'))!, "scene-items.txt"), items);

@@ -152,14 +152,23 @@ public class ModelDumpObf {
             for (Method m : methods) {
                 if (!Modifier.isStatic(m.getModifiers()) || m.getReturnType() != layerClass) continue;
                 Class<?>[] pt = m.getParameterTypes();
-                int booleans = 0;
-                for (Class<?> t : pt) if (t == boolean.class) booleans++;
-                for (int combo = 0; combo < (1 << booleans); combo++) {
+                // Every combination of the values a parameter can take: a boolean (false, true) or an enum (each constant); the first combination keeps the plain key, the others add #n
+                int[] options = new int[pt.length];
+                int combos = 1;
+                for (int i = 0; i < pt.length; i++)
+                {
+                    options[i] = pt[i] == boolean.class ? 2 : pt[i].isEnum() ? pt[i].getEnumConstants().length : 1;
+                    combos *= options[i];
+                }
+                for (int combo = 0; combo < combos; combo++) {
                 Object[] a = new Object[pt.length];
                 boolean ok = true;
-                int boolIndex = 0;
+                int rest = combo;
                 for (int i = 0; i < pt.length; i++) {
-                    if (pt[i] == boolean.class) a[i] = ((combo >> boolIndex++) & 1) != 0;
+                    int pick = rest % options[i];
+                    rest /= options[i];
+                    if (pt[i] == boolean.class) a[i] = pick != 0;
+                    else if (pt[i].isEnum()) a[i] = pt[i].getEnumConstants()[pick];
                     else if (pt[i] == cubeDeformation) a[i] = cubeDeformation.getConstructor(float.class).newInstance(0f);
                     else if (pt[i] == float.class) a[i] = 0f;
                     else if (pt[i] == int.class) a[i] = 0;

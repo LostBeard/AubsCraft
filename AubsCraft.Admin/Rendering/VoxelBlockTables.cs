@@ -35,6 +35,8 @@ public static class VoxelBlockTables
     /// <summary>The mesh class of a block name.</summary>
     public static int ClassOf(string name, BlockAssets assets)
     {
+        // Chests, beds, signs, banners, heads, shulker boxes: the game draws them with a model (BlockEntityLayer draws them here too), not with cube faces
+        if (AubsCraft.Live.Model.BlockEntities.BlockEntityKinds.IsBlockEntityBlock(BaseName(name))) return BlockClass.None;
         if (IsAquaticPlant(name)) return BlockClass.Plant | BlockClass.Water;
         if (TryAsset(name, assets, out var block))
         {
@@ -178,6 +180,7 @@ public static class VoxelBlockTables
     public static List<ShapeBox>? ShapeBoxesOf(string name, BlockAssets assets)
     {
         string baseName = BaseName(name);
+        if (AubsCraft.Live.Model.BlockEntities.BlockEntityKinds.IsBlockEntityBlock(baseName)) return null;
         if (!assets.Shapes.ContainsKey(baseName)) return null;
         var resolved = ShapeResolver.Resolve(assets, baseName, StateProps(name));
         if (resolved == null || resolved.Count == 0 || resolved.Count > ShapeTable.MaxBoxes) return null;

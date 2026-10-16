@@ -1,4 +1,5 @@
 using AubsCraft.Live.Model.Biomes;
+using AubsCraft.Live.Model.BlockEntities;
 
 namespace AubsCraft.Admin.Server.Services;
 
@@ -95,6 +96,9 @@ public sealed class RegionReader
         // The biomes of the column's surface: those of the highest section that holds any block (see BiomeCells)
         int topYOffset = -1;
         byte[]? biomes = null;
+        // The blocks the game draws with a model (chests, beds, signs, banners, heads, shulker boxes): where they are and how they face, read from the raw properties
+        // (the palette's names do not keep them), so the viewer can draw them
+        List<BlockEntitySpot>? blockEntities = null;
 
         for (int i = 0; i < sections.Count; i++)
         {
@@ -116,9 +120,15 @@ public sealed class RegionReader
 
             // Map section palette indices to global palette indices
             var paletteMap = new ushort[sectionPalette.Count];
+            BlockEntitySpot?[]? entityOf = null;
             for (int p = 0; p < sectionPalette.Count; p++)
             {
                 var entry = sectionPalette.GetCompound(p);
+                if (BlockEntityKinds.Classify(entry.GetString("Name"), entry.ContainsKey("Properties") ? entry.GetCompound("Properties") : null) is { } entitySpot)
+                {
+                    entityOf ??= new BlockEntitySpot?[sectionPalette.Count];
+                    entityOf[p] = entitySpot;
+                }
                 // The block as the viewer tells it apart: its name and the properties that change its look (a log lying down is not an upright one)
                 var blockName = BlockStateNamer.Current.Key(entry.GetString("Name"), entry.ContainsKey("Properties") ? entry.GetCompound("Properties") : null);
                 var globalIndex = palette.IndexOf(blockName);
@@ -136,6 +146,11 @@ public sealed class RegionReader
                 var blockId = paletteMap[0];
                 if (blockId == 0) continue; // All air, skip
                 NoteBiomes(section, yOffset, ref topYOffset, ref biomes);
+                if (entityOf?[0] is { } whole)
+                    for (int y = 0; y < SectionHeight && (blockEntities?.Count ?? 0) < BlockEntityCodec.MaxPerColumn; y++)
+                        for (int z = 0; z < ChunkWidth; z++)
+                            for (int x = 0; x < ChunkWidth; x++)
+                                (blockEntities ??= new()).Add(whole with { X = x, Y = yOffset + y - 64, Z = z });
                 for (int y = 0; y < SectionHeight; y++)
                     for (int z = 0; z < ChunkWidth; z++)
                         for (int x = 0; x < ChunkWidth; x++)
@@ -172,6 +187,8 @@ public sealed class RegionReader
                         var idx = localX + localZ * ChunkWidth + (yOffset + localY) * ChunkWidth * ChunkWidth;
                         if (idx >= 0 && idx < blocks.Length)
                             blocks[idx] = paletteMap[paletteIndex];
+                        if (entityOf?[paletteIndex] is { } found && (blockEntities?.Count ?? 0) < BlockEntityCodec.MaxPerColumn)
+                            (blockEntities ??= new()).Add(found with { X = localX, Y = yOffset + localY - 64, Z = localZ });
                     }
                     blockIndex++;
                 }
@@ -180,7 +197,7 @@ public sealed class RegionReader
             catch { } // Skip malformed sections
         }
 
-        return new ChunkResult(blocks, palette, biomes);
+        return new ChunkResult(blocks, palette, biomes, blockEntities);
     }
 
     // A section with blocks that is higher than any seen so far: its biomes are the column's
@@ -233,7 +250,7 @@ public sealed class RegionReader
 /// Result of reading a chunk column: block IDs and the chunk's palette. A palette entry is a block's name, with the properties that change its look when it has
 /// any (<see cref="BlockStateNamer"/>): <c>minecraft:oak_log[axis=x]</c>. Code that wants the plain name uses <see cref="BlockStateNamer.NameOf"/>.
 /// </summary>
-public record ChunkResult(ushort[] Blocks, List<string> Palette, byte[]? Biomes = null);
+public record ChunkResult(ushort[] Blocks, List<string> Palette, byte[]? Biomes = null, List<BlockEntitySpot>? BlockEntities = null);
 
 internal static class BinaryReaderExtensions
 {
