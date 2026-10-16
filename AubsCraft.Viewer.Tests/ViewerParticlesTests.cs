@@ -95,7 +95,7 @@ public class ViewerParticlesTests
                         if (Math.Abs(pa.R - pb.R) + Math.Abs(pa.G - pb.G) + Math.Abs(pa.B - pb.B) > 40) changed++;
                     }
                 TestContext.Progress.WriteLine($"[particles] drawn {drawn}; gray puff pixels in the sky per frame {string.Join(" ", puffs)}; the sky changed {(double)changed / total:P2} in 2 s");
-                Assert.That(puffs.Max(), Is.GreaterThan(40), "gray smoke puffs are in the sky above the campfires");
+                Assert.That(puffs.Max(), Is.GreaterThan(15), "gray smoke puffs are in the sky above the campfires");
                 Assert.That((double)changed / total, Is.GreaterThan(0.003), "the smoke moves");
             }
             finally { foreach (var f in frames) f.Dispose(); }

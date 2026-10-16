@@ -19,6 +19,9 @@ public class ViewerXrTests
     private ViewerRig _rig = null!;
     private string _outDir = null!;
 
+    // Where the head starts, facing +X: 120 up over the real world's spawn; AUBS_XR_CAM = x,y,z,pitch,yaw places it over some other world (the scene world's platform: -10,-52,30,-20,0)
+    private static string Cam => Environment.GetEnvironmentVariable("AUBS_XR_CAM") ?? "0,120,0,-15,0";
+
     // A WebXR device: isSessionSupported, requestSession (immersive-vr / immersive-ar), XRWebGLLayer, frames at ~60 Hz with a head at (0, 1.7, 0) and eyes 64 mm apart.
     // window.__xr.left / .right / .exit steer the controllers; window.__xr.frames counts frames. Each frame is mirrored onto #xr-mirror after the page drew it.
     private const string MockXr = """
@@ -133,7 +136,7 @@ public class ViewerXrTests
         await page.AddInitScriptAsync(MockXr);
         try
         {
-            await page.GotoAsync(_rig.BaseUrl + "/map?hud=0&time=6000&cam=0,120,0,-15,0", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await page.GotoAsync(_rig.BaseUrl + "/map?hud=0&time=6000&cam=" + Cam, new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
             await ViewerShotTests.WaitForSettledAsync(page, minSections: 100, quietSeconds: 5, maxSeconds: 90);
 
             var enter = page.GetByRole(AriaRole.Button, new() { Name = "Enter VR" });
@@ -200,7 +203,7 @@ public class ViewerXrTests
         await page.AddInitScriptAsync(MockXr);
         try
         {
-            await page.GotoAsync(_rig.BaseUrl + "/map?hud=0&time=6000&cam=0,120,0,-15,0", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await page.GotoAsync(_rig.BaseUrl + "/map?hud=0&time=6000&cam=" + Cam, new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
             await ViewerShotTests.WaitForSettledAsync(page, minSections: 100, quietSeconds: 5, maxSeconds: 90);
             var enter = page.GetByRole(AriaRole.Button, new() { Name = "Enter AR" });
             await enter.WaitForAsync(new() { Timeout = 30_000 });
