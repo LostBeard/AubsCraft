@@ -83,6 +83,16 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         };
     });
 builder.Services.AddAuthorization();
+// The generated game assets (atlases that are mostly empty: 25 MB become about 1) and the columns' block ids (196 KB each, thousands of them) cross the network packed, to a browser that says it can unpack them
+builder.Services.AddResponseCompression(o =>
+{
+    o.EnableForHttps = true;
+    o.MimeTypes = ["application/octet-stream", "application/json"];
+    o.Providers.Add<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider>();
+    o.Providers.Add<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider>();
+});
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
 
 var app = builder.Build();
 // Which block properties change how a block looks (generated with the viewer's assets): a chunk's palette names a block with them, so the viewer can tell a lying log from a standing one
@@ -110,6 +120,7 @@ catch (Exception ex) { app.Logger.LogError(ex, "Could not set up the AubsCraft G
 app.Services.GetRequiredService<EmailNotificationService>();
 
 app.UseWebSockets();
+app.UseWhen(ctx => ctx.Request.Path.StartsWithSegments("/assets") || ctx.Request.Path.StartsWithSegments("/api/world/chunk-ids"), branch => branch.UseResponseCompression());
 app.MapStaticAssets();
 app.UseAuthentication();
 app.UseAuthorization();

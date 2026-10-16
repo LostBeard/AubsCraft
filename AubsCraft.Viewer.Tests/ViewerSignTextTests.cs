@@ -44,6 +44,8 @@ public class ViewerSignTextTests
         ("standing-east", "14.2,-58.7,82.5,6,180"),    // the east-facing one (x 11, faces +x), looking west
         ("wall-south", "2.5,-58.7,89.2,6,-90"),
         ("glowing", "14.5,-58.7,85.2,6,-90"),
+        ("hanging-south", "21.5,-58.6,81.8,4,-90"),    // the hanging sign at x 21 faces south
+        ("hanging-west", "22.3,-58.6,78.5,4,0"),       // the one at x 24 faces west
     };
 
     [Test]

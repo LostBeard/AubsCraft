@@ -303,6 +303,13 @@ public class SceneBuilderTests
             await Cmd($"data merge block {2 + i * 3} {y} {modelZ + 16} {{front_text:{{messages:['\"{facing[i]}\"','\"on a wall\"','\"\"','\"\"'],color:'black'}}}}");
         }
         await Cmd($"data merge block 14 {y} {modelZ + 12} {{front_text:{{messages:['\"Glowing\"','\"blue\"','\"text\"','\"!\"'],color:'blue',has_glowing_text:1b}}}}");
+        // Hanging signs under a stone beam, with words (south-facing and east-facing)
+        await Cmd($"fill 20 {y + 2} {modelZ + 8} 26 {y + 2} {modelZ + 8} minecraft:stone_bricks");
+        await Set(21, y + 1, modelZ + 8, "minecraft:oak_hanging_sign[attached=false,rotation=0]");
+        await Set(24, y + 1, modelZ + 8, "minecraft:spruce_hanging_sign[attached=false,rotation=4]");
+        await Cmd($"data merge block 21 {y + 1} {modelZ + 8} {{front_text:{{messages:['\"Hanging\"','\"sign\"','\"south\"','\"\"'],color:'black'}}}}");
+        await Cmd($"data merge block 24 {y + 1} {modelZ + 8} {{front_text:{{messages:['\"Hanging\"','\"sign\"','\"west\"','\"\"'],color:'blue'}}}}");
+        Item("be-hanging-signs", 22, y, modelZ + 6);
         Item("be-signs", 6, y, modelZ + 13);
         // Blocks that make their own light, in a row (a gate shoots them at midnight: they should be the only bright things)
         string[] lights = ["glowstone", "sea_lantern", "shroomlight", "magma_block", "jack_o_lantern[facing=south]", "torch", "ochre_froglight", "soul_lantern"];
