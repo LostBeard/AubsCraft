@@ -19,6 +19,26 @@ public readonly record struct DayLighting(Vector3 SunDirection, Vector3 Ambient,
     /// </summary>
     public const int FogEndChunks = 30;
 
+    /// <summary>
+    /// The light at a time of day, in the weather: <paramref name="rain"/> (0 clear .. 1 pouring) greys the sky and fog toward the colour of cloud and takes most of the sun's strength;
+    /// <paramref name="thunder"/> (0..1, a storm) darkens it further. Both at 0 is the clear day exactly.
+    /// </summary>
+    public static DayLighting At(float timeOfDay, float rain, float thunder)
+    {
+        var clear = At(timeOfDay);
+        rain = Math.Clamp(rain, 0f, 1f);
+        thunder = Math.Clamp(thunder, 0f, 1f) * rain;
+        if (rain <= 0f) return clear;
+        // How bright the day is decides how bright the cloud is: a rainy night is still night
+        float day = Math.Clamp(clear.SunStrength / 0.6f, 0f, 1f);
+        var cloud = new Vector3(0.52f, 0.54f, 0.58f) * (0.18f + 0.82f * day) * (1f - 0.45f * thunder);
+        var fog = Vector3.Lerp(clear.FogColor, cloud, 0.8f * rain);
+        float sun = clear.SunStrength * (1f - 0.62f * rain - 0.2f * thunder);
+        var sunColour = Vector3.Lerp(clear.SunColor, new Vector3(0.7f, 0.72f, 0.76f), 0.7f * rain);
+        var ambient = clear.Ambient * (1f - 0.18f * rain - 0.12f * thunder);
+        return new DayLighting(clear.SunDirection, ambient, sunColour, fog, Math.Max(sun, 0.03f));
+    }
+
     public static DayLighting At(float timeOfDay)
     {
         float angle = timeOfDay * MathF.Tau;

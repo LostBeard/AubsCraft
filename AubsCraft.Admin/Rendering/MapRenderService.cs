@@ -33,6 +33,9 @@ public sealed class MapRenderService : IDisposable
     /// -cos(2*pi*t)); noon until the server reports its time. Set from the server's time via RenderWorkerService.
     /// </summary>
     public float TimeOfDay { get; set; } = 0.5f;
+    /// <summary>How hard it rains (0..1) and how stormy it is (0..1): eased toward what the server's weather says, so a shower does not snap on.</summary>
+    public float RainLevel { get; set; }
+    public float ThunderLevel { get; set; }
 
     public FpsCamera Camera { get; } = new();
 
@@ -243,7 +246,7 @@ public sealed class MapRenderService : IDisposable
         using var colorView = colorTexture.CreateView();
         using var encoder = _device.CreateCommandEncoder();
 
-        var light = DayLighting.At(TimeOfDay);
+        var light = DayLighting.At(TimeOfDay, RainLevel, ThunderLevel);
         var stats = voxel.Render(encoder, colorView, _canvasWidth, _canvasHeight, Camera, in light, DrawDistance);
         VisibleChunkCount = stats.VisibleSections;
         TotalChunkCount = stats.SectionsWithQuads;
@@ -281,7 +284,7 @@ public sealed class MapRenderService : IDisposable
         using var colorTexture = _context.GetCurrentTexture();
         using var colorView = colorTexture.CreateView();
         using var encoder = _device.CreateCommandEncoder();
-        var light = DayLighting.At(TimeOfDay);
+        var light = DayLighting.At(TimeOfDay, RainLevel, ThunderLevel);
         var stats = voxel.Render(encoder, colorView, width, height, in view, in light, DrawDistance);
         using var commandBuffer = encoder.Finish();
         _submitArray[0] = commandBuffer;

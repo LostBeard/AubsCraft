@@ -137,7 +137,8 @@ public class ModelDumpObf {
         Class<?> meshClass = Class.forName(byMapped.get(MD).obf, false, cl);
         List<String> mappedClasses = new ArrayList<>();
         for (String m : byMapped.keySet())
-            if (m.startsWith("net.minecraft.client.model.") && !m.contains("$") && !m.startsWith("net.minecraft.client.model.geom") ) mappedClasses.add(m);
+            if (!m.contains("$") && (m.startsWith("net.minecraft.client.model.") && !m.startsWith("net.minecraft.client.model.geom")
+                    || m.startsWith("net.minecraft.client.renderer.blockentity.") || m.startsWith("net.minecraft.client.renderer.entity."))) mappedClasses.add(m);
         Collections.sort(mappedClasses);
         sb.append("{");
         boolean firstModel = true;
@@ -151,10 +152,14 @@ public class ModelDumpObf {
             for (Method m : methods) {
                 if (!Modifier.isStatic(m.getModifiers()) || m.getReturnType() != layerClass) continue;
                 Class<?>[] pt = m.getParameterTypes();
+                int booleans = 0;
+                for (Class<?> t : pt) if (t == boolean.class) booleans++;
+                for (int combo = 0; combo < (1 << booleans); combo++) {
                 Object[] a = new Object[pt.length];
                 boolean ok = true;
+                int boolIndex = 0;
                 for (int i = 0; i < pt.length; i++) {
-                    if (pt[i] == boolean.class) a[i] = false;
+                    if (pt[i] == boolean.class) a[i] = ((combo >> boolIndex++) & 1) != 0;
                     else if (pt[i] == cubeDeformation) a[i] = cubeDeformation.getConstructor(float.class).newInstance(0f);
                     else if (pt[i] == float.class) a[i] = 0f;
                     else if (pt[i] == int.class) a[i] = 0;
@@ -189,13 +194,15 @@ public class ModelDumpObf {
                     firstModel = false;
                     sb.append("\"").append(mc.substring(mc.lastIndexOf('.') + 1)).append(".").append(label);
                     if (pt.length > 0) sb.append("(").append(pt.length).append(")");
+                    if (combo != 0) sb.append("#").append(combo);
                     sb.append("\":{\"tex\":[").append(tw).append(",").append(th).append("],\"root\":");
                     dumpPart("root", root);
                     sb.append("}");
                 } catch (Throwable t) {
                     errors++;
                     System.err.println("FAILED " + mc + "." + label + ": " + t + (t.getCause() != null ? " / " + t.getCause() : ""));
-                }
+                    }
+            }
             }
         }
         sb.append("}");

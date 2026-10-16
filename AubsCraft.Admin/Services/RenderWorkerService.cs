@@ -598,6 +598,7 @@ public class RenderWorkerService : IRenderWorkerService
             }
             _hud.SetMinimapTexture(_voxel.MinimapView);
         }
+        EaseWeather(dt);
         // The creatures on the minimap, ten times a second (a map's dots need not be sampled every frame)
         _markersTimer += dt;
         if (_markersTimer >= 0.1f && _entities != null && _hud.Visible)
@@ -633,6 +634,17 @@ public class RenderWorkerService : IRenderWorkerService
             _fullDirty = false;
             _ = LoadVoxelColumnsNearbyAsync();
         }
+    }
+
+    // The server's weather eased in over about five seconds (the game does the same: a shower takes a while to set in and to clear)
+    private void EaseWeather(float dt)
+    {
+        var state = _entities?.State;
+        if (state == null) return;
+        float rainTarget = state.Raining || state.Thundering ? 1f : 0f, thunderTarget = state.Thundering ? 1f : 0f;
+        float step = dt * 0.2f;
+        _renderer.RainLevel += Math.Clamp(rainTarget - _renderer.RainLevel, -step, step);
+        _renderer.ThunderLevel += Math.Clamp(thunderTarget - _renderer.ThunderLevel, -step, step);
     }
 
     private (int cx, int cz) CameraChunk()
