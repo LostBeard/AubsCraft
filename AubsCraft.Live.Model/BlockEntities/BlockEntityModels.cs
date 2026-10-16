@@ -146,6 +146,36 @@ public static class BlockEntityModels
         }
     }
 
+    /// <summary>
+    /// The quad that carries the writing on a sign's board: a flat box with no depth, just in front of the board's front face, <paramref name="texture"/> its picture (four picture pixels to a model pixel:
+    /// 96 x 48 on a standing or wall sign's board, 56 x 40 on a hanging sign's). Its back face reads the picture's clear right half, so the other side of the sign shows nothing.
+    /// </summary>
+    public static void PoseSignText(in BlockEntitySpot spot, float x, float y, float z, string texture, List<PartDraw> output)
+    {
+        float yaw = spot.Orient * Step;
+        Stack s;
+        Vector3 origin, size;
+        if (spot.Kind == BlockEntityKind.HangingSign)
+        {
+            s = new Stack().Translate(0.5f, 0.9375f, 0.5f).RotateY(-yaw).Translate(0f, -0.3125f, 0f).Scale(1f, -1f, -1f);
+            origin = new Vector3(-28f, 0f, -4.2f);
+            size = new Vector3(56f, 40f, 0f);
+        }
+        else
+        {
+            s = new Stack().Translate(0.5f, 0.5f, 0.5f).RotateY(-yaw);
+            if (spot.Part == 1) s.Translate(0f, -0.3125f, -0.4375f);
+            s.Scale(0.6666667f, -0.6666667f, -0.6666667f);
+            origin = new Vector3(-48f, -56f, -4.2f);
+            size = new Vector3(96f, 48f, 0f);
+        }
+        output.Add(new PartDraw
+        {
+            Model = Matrix4x4.CreateScale(0.25f) * Matrix4x4.CreateScale(1f / 16f) * s.M * Matrix4x4.CreateTranslation(x, y, z),
+            Origin = origin, Size = size, Texture = texture, Tint = Vector3.One,
+        });
+    }
+
     private static void Add(ModelPart[] parts, Matrix4x4 stack, float x, float y, float z, string texture, Vector3 tint, List<PartDraw> output)
     {
         var world = new Matrix4x4[parts.Length];

@@ -762,7 +762,7 @@ public class RenderWorkerService : IRenderWorkerService
 
             // The server says how many block names it knows; a column can use ids we have no name for yet
             int registryCount = 0;
-            string? emitterHeader, biomeHeader, blockEntityHeader, rainHeader;
+            string? emitterHeader, biomeHeader, blockEntityHeader, rainHeader, signTextHeader;
             using (var headers = response.Headers)
             {
                 int.TryParse(headers.Get("X-Block-Registry-Count"), out registryCount);
@@ -770,6 +770,7 @@ public class RenderWorkerService : IRenderWorkerService
                 biomeHeader = headers.Get("X-Biomes");       // the biome of each 4 x 4 block cell: the colour of its grass, leaves and water
                 blockEntityHeader = headers.Get("X-BlockEntities");   // the chests, beds, signs, banners and shulker boxes of this column
                 rainHeader = headers.Get("X-RainHeights");            // how high the sky is blocked over each block: where rain and snow stop
+                signTextHeader = headers.Get("X-SignText");           // what the signs of this column say
             }
             if (registryCount > _voxel!.NamesKnown) await RefreshVoxelBlockNamesAsync(registryCount);
 
@@ -781,6 +782,7 @@ public class RenderWorkerService : IRenderWorkerService
             {
                 _particles?.SetColumn(cx, cz, AubsCraft.Live.Model.Particles.EmitterCodec.Decode(emitterHeader));
                 _blockEntities?.SetColumn(cx, cz, AubsCraft.Live.Model.BlockEntities.BlockEntityCodec.Decode(blockEntityHeader));
+                _blockEntities?.SetSignTexts(cx, cz, AubsCraft.Live.Model.BlockEntities.SignTextCodec.Decode(signTextHeader));
                 byte[]? biomeCells = null;
                 if (!string.IsNullOrEmpty(biomeHeader))
                 {

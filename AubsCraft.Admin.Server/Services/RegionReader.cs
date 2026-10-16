@@ -197,7 +197,34 @@ public sealed class RegionReader
             catch { } // Skip malformed sections
         }
 
-        return new ChunkResult(blocks, palette, biomes, blockEntities, RainHeights(root));
+        return new ChunkResult(blocks, palette, biomes, blockEntities, RainHeights(root), SignTexts(root));
+    }
+
+    /// <summary>
+    /// The writing on the front of the column's signs (and hanging signs), read from the chunk's block entities: the four lines as plain text (the game stores each as a text component: a JSON string, or
+    /// since 1.21.5 NBT), the dye and the glow. Signs with nothing written are left out.
+    /// </summary>
+    public static List<SignText>? SignTexts(NbtCompound root)
+    {
+        if (!root.ContainsKey("block_entities") || root["block_entities"] is not NbtList entities) return null;
+        List<SignText>? signs = null;
+        foreach (var item in entities)
+        {
+            if (item is not NbtCompound entity) continue;
+            var id = entity.GetString("id");
+            if (id != "minecraft:sign" && id != "minecraft:hanging_sign") continue;
+            if (!entity.ContainsKey("front_text") || entity["front_text"] is not NbtCompound front) continue;
+            var lines = new string[4];
+            for (int i = 0; i < 4; i++) lines[i] = "";
+            if (front.ContainsKey("messages") && front["messages"] is NbtList messages)
+                for (int i = 0; i < 4 && i < messages.Count; i++) lines[i] = TextComponent.Plain(messages[i]);
+            int dye = Array.IndexOf(BlockEntityKinds.Dyes, front.GetString("color"));
+            var sign = new SignText(entity.GetInt("x"), entity.GetInt("y"), entity.GetInt("z"), lines, (byte)(dye < 0 ? 15 : dye), front.GetByte("has_glowing_text") != 0);
+            if (sign.IsBlank) continue;
+            (signs ??= new()).Add(sign with { X = sign.X & 15, Z = sign.Z & 15 });
+            if (signs.Count >= SignTextCodec.MaxPerColumn) break;
+        }
+        return signs;
     }
 
     /// <summary>
@@ -268,7 +295,7 @@ public sealed class RegionReader
 /// Result of reading a chunk column: block IDs and the chunk's palette. A palette entry is a block's name, with the properties that change its look when it has
 /// any (<see cref="BlockStateNamer"/>): <c>minecraft:oak_log[axis=x]</c>. Code that wants the plain name uses <see cref="BlockStateNamer.NameOf"/>.
 /// </summary>
-public record ChunkResult(ushort[] Blocks, List<string> Palette, byte[]? Biomes = null, List<BlockEntitySpot>? BlockEntities = null, ushort[]? RainHeights = null);
+public record ChunkResult(ushort[] Blocks, List<string> Palette, byte[]? Biomes = null, List<BlockEntitySpot>? BlockEntities = null, ushort[]? RainHeights = null, List<SignText>? SignTexts = null);
 
 internal static class BinaryReaderExtensions
 {

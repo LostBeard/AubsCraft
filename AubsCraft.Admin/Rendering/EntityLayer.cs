@@ -109,6 +109,7 @@ public sealed class EntityLayer : IDisposable
         _slotOwner = new string[assets.SkinColumns * assets.SkinRows];
         _assets = assets;
         _atlas = atlas;
+        if (BlockEntities != null && assets.TextColumns > 0) BlockEntities.Texts = new SignTextAtlas(atlas, assets);
         _pipe.SetTextures(atlas);
         Console.WriteLine($"[Live] Entity assets: {assets.Textures.Count} textures, {_slotOwner.Length} skin slots");
     }
@@ -346,6 +347,11 @@ public sealed class EntityLayer : IDisposable
 
     private bool TextureOrigin(string name, out int x, out int y)
     {
+        if (name.StartsWith("text:", StringComparison.Ordinal))
+        {
+            x = y = 0;
+            return BlockEntities?.Texts is { } texts && texts.TryGetOrigin(name[5..], out x, out y);
+        }
         if (name.StartsWith("skin:", StringComparison.Ordinal))
         {
             if (_skins.TryGetValue(name[5..], out var skin) && skin.Loaded && skin.Slot >= 0)

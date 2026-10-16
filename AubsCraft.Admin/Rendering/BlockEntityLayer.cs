@@ -18,6 +18,28 @@ public sealed class BlockEntityLayer
 
     private readonly Dictionary<(int cx, int cz), BlockEntitySpot[]> _columns = new();
     private readonly List<(float distSq, int cx, int cz, BlockEntitySpot spot)> _near = new();
+    private readonly Dictionary<(int cx, int cz), Dictionary<(int x, int y, int z), SignText>> _texts = new();
+
+    /// <summary>Past this many blocks a sign's writing is not drawn (it could not be read).</summary>
+    public const float TextRange = 28f;
+
+    /// <summary>The pictures of signs' writing (made once the entity atlas is there); without it the signs are blank boards.</summary>
+    public SignTextAtlas? Texts { get; set; }
+    /// <summary>Signs with writing in the columns the layer knows.</summary>
+    public int KnownTexts { get; private set; }
+    /// <summary>Signs whose writing was drawn in the last frame.</summary>
+    public int TextsDrawn { get; private set; }
+
+    /// <summary>What a column's signs say (replacing what it had).</summary>
+    public void SetSignTexts(int cx, int cz, IReadOnlyList<SignText> texts)
+    {
+        if (_texts.Remove((cx, cz), out var old)) KnownTexts -= old.Count;
+        if (texts.Count == 0) return;
+        var map = new Dictionary<(int, int, int), SignText>(texts.Count);
+        foreach (var t in texts) map[(t.X, t.Y, t.Z)] = t;
+        _texts[(cx, cz)] = map;
+        KnownTexts += map.Count;
+    }
 
     /// <summary>All the blocks the layer knows, and how many were posed in the last frame.</summary>
     public int Known { get; private set; }
@@ -37,12 +59,14 @@ public sealed class BlockEntityLayer
     public void RemoveColumn(int cx, int cz)
     {
         if (_columns.Remove((cx, cz), out var old)) Known -= old.Length;
+        if (_texts.Remove((cx, cz), out var texts)) KnownTexts -= texts.Count;
     }
 
     /// <summary>Append the boxes of the blocks near the camera and in its view to <paramref name="output"/>.</summary>
     public void Collect(Vector3 camera, in FrustumCuller.Frustum frustum, List<PartDraw> output)
     {
         _near.Clear();
+        Texts?.BeginFrame();
         float rangeSq = Range * Range;
         foreach (var ((cx, cz), spots) in _columns)
         {
@@ -59,8 +83,24 @@ public sealed class BlockEntityLayer
             }
         }
         if (_near.Count > MaxPosed) { _near.Sort((a, b) => a.distSq.CompareTo(b.distSq)); _near.RemoveRange(MaxPosed, _near.Count - MaxPosed); }
-        foreach (var (_, cx, cz, spot) in _near)
+        int written = 0;
+        float textSq = TextRange * TextRange;
+        foreach (var (d2, cx, cz, spot) in _near)
+        {
             BlockEntityModels.Pose(spot, cx * 16 + spot.X, spot.Y, cz * 16 + spot.Z, output);
+            // The writing on a sign near enough to read
+            if (Texts != null && d2 <= textSq && spot.Kind is BlockEntityKind.Sign or BlockEntityKind.HangingSign
+                && _texts.TryGetValue((cx, cz), out var column) && column.TryGetValue((spot.X, spot.Y, spot.Z), out var sign))
+            {
+                bool hanging = spot.Kind == BlockEntityKind.HangingSign;
+                if (Texts.Ensure(sign, hanging))
+                {
+                    BlockEntityModels.PoseSignText(spot, cx * 16 + spot.X, spot.Y, cz * 16 + spot.Z, "text:" + SignTextAtlas.KeyOf(sign, hanging), output);
+                    written++;
+                }
+            }
+        }
         Posed = _near.Count;
+        TextsDrawn = written;
     }
 }

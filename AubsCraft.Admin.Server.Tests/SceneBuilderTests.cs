@@ -295,6 +295,14 @@ public class SceneBuilderTests
             await Set(2 + i * 3 + behind[i].dx, y, modelZ + 16 + behind[i].dz, "minecraft:stone_bricks");
             await Set(2 + i * 3, y, modelZ + 16, $"minecraft:oak_wall_sign[facing={fourWays[i]}]");
         }
+        // What the signs say (the first line is the way it faces, so a screenshot shows the writing is the right way round and not mirrored): the standing ones in red, the wall ones in black, one glowing
+        string[] facing = ["South", "West", "North", "East"];
+        for (int i = 0; i < 4; i++)
+        {
+            await Cmd($"data merge block {2 + i * 3} {y} {modelZ + 12} {{front_text:{{messages:['\"{facing[i]}\"','\"AubsCraft\"','\"sign {i}\"','\"\"'],color:'red'}}}}");
+            await Cmd($"data merge block {2 + i * 3} {y} {modelZ + 16} {{front_text:{{messages:['\"{facing[i]}\"','\"on a wall\"','\"\"','\"\"'],color:'black'}}}}");
+        }
+        await Cmd($"data merge block 14 {y} {modelZ + 12} {{front_text:{{messages:['\"Glowing\"','\"blue\"','\"text\"','\"!\"'],color:'blue',has_glowing_text:1b}}}}");
         Item("be-signs", 6, y, modelZ + 13);
         for (int i = 0; i < 4; i++) await Set(24 + i * 3, y, modelZ + 12, $"minecraft:red_banner[rotation={i * 4}]");
         await Set(36, y, modelZ + 12, "minecraft:white_banner[rotation=0]"); await Set(38, y, modelZ + 12, "minecraft:blue_banner[rotation=8]");

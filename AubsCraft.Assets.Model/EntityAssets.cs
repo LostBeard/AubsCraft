@@ -19,6 +19,12 @@ public sealed class EntityAssets
     public int SkinSize { get; set; } = 64;
     public int SkinColumns { get; set; }
     public int SkinRows { get; set; }
+    /// <summary>Where the sign-text slots start (y), their size (a sign's writing takes the left half of a slot, the right half stays clear), and how many there are across and down.</summary>
+    public int TextY { get; set; }
+    public int TextWidth { get; set; } = 192;
+    public int TextHeight { get; set; } = 48;
+    public int TextColumns { get; set; }
+    public int TextRows { get; set; }
     /// <summary>Texture name (a path under textures/entity, no extension; "white" is a plain white tile) to its place: x, y, width, height in atlas pixels.</summary>
     public Dictionary<string, int[]> Textures { get; set; } = new();
 }
