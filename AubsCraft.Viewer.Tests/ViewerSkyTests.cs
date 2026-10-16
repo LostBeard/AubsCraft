@@ -90,14 +90,20 @@ public class ViewerSkyTests
     }
 
     [Test]
-    public async Task AtNoon_TheSkyIsTheOldBlue()
+    public async Task AtNoon_TheSkyIsBlueOverhead_AndTheFogColourAtTheHorizon()
     {
         using var bmp = await ShotAsync("noon", ticks: 6000);
-        var c = bmp.GetPixel(bmp.Width / 2, 6); // top middle: sky
-        // SkyColor (0.65, 0.80, 0.95) = the fog colour at noon: nothing changes by day
-        Assert.That(c.R, Is.EqualTo(166).Within(4));
-        Assert.That(c.G, Is.EqualTo(204).Within(4));
-        Assert.That(c.B, Is.EqualTo(242).Within(4));
+        // The top of the frame is up the sky: the zenith's blue, deeper than the fog colour (166, 204, 242) it fades to at the horizon; clouds (near white) are skipped
+        long r = 0, n = 0;
+        for (int y = 6; y < 40; y += 2)
+            for (int x = 6; x < bmp.Width - 6; x += 2)
+            {
+                var p = bmp.GetPixel(x, y);
+                if (p.R > 200) continue;
+                r += p.R; n++;
+            }
+        Assert.That(n, Is.GreaterThan(200));
+        Assert.That(r / n, Is.LessThan(155), "deeper blue overhead than the fog colour");
     }
 
     [Test]
@@ -105,10 +111,10 @@ public class ViewerSkyTests
     {
         using var bmp = await ShotAsync("midnight", ticks: 18000);
         var top = bmp.GetPixel(bmp.Width / 2, 6);
-        // The fog colour at midnight is (0.04, 0.05, 0.10): 10, 13, 26
-        Assert.That(top.R, Is.LessThan(30));
-        Assert.That(top.G, Is.LessThan(30));
-        Assert.That(top.B, Is.InRange(15, 45));
+        // The sky at midnight is nearly black (a star or a cloud may be under this one pixel, so the bound is loose)
+        Assert.That(top.R, Is.LessThan(60));
+        Assert.That(top.G, Is.LessThan(60));
+        Assert.That(top.B, Is.LessThan(80));
         // The sky blue of the old constant clear colour is (166, 204, 242): not one pixel of the upper half is anywhere near it
         int dayBlue = 0;
         // Inside a 6 px margin: the canvas screenshot has a white 1 px edge (rounded corners)
@@ -116,7 +122,7 @@ public class ViewerSkyTests
             for (int x = 6; x < bmp.Width - 6; x += 3)
             {
                 var p = bmp.GetPixel(x, y);
-                if (p.B > 150 && p.G > 120) dayBlue++;
+                if (p.B > 150 && p.G > 120 && p.B > p.R + 40) dayBlue++;   // the blue of the day, not a white star
             }
         Assert.That(dayBlue, Is.Zero, "daytime blue showed in the upper half of a midnight frame (the frame is cleared to the wrong colour)");
     }

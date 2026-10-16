@@ -67,5 +67,38 @@ public readonly record struct DayLighting(Vector3 SunDirection, Vector3 Ambient,
         return new DayLighting(sun, new Vector3(ar, ag, ab), new Vector3(sr, sg, sb), new Vector3(fr, fg, fb), sunStrength);
     }
 
+    /// <summary>What the sky above the horizon looks like: the colour overhead, how much daylight and how much night there is (the stars fade in as the sun sets), the colour of a cloud.</summary>
+    public readonly record struct SkyLook(Vector3 Zenith, float Daylight, float Night, Vector3 CloudColour);
+
+    /// <summary>The sky for a time of day (0 = midnight, 0.5 = noon) in the weather; the horizon's colour is the fog's (<see cref="At(float, float, float)"/>).</summary>
+    public static SkyLook SkyAt(float timeOfDay, float rain, float thunder)
+    {
+        float elevation = -MathF.Cos(timeOfDay * MathF.Tau);   // the sun's height: 1 noon, -1 midnight
+        float daylight = Smooth(-0.12f, 0.28f, elevation);
+        float night = 1f - Smooth(-0.3f, 0.02f, elevation);
+        float dawn = Math.Clamp(1f - MathF.Abs(elevation) * 5f, 0f, 1f);
+
+        var zenith = Vector3.Lerp(new Vector3(0.012f, 0.018f, 0.045f), new Vector3(0.47f, 0.65f, 1.0f), daylight);
+        zenith = Vector3.Lerp(zenith, new Vector3(0.30f, 0.34f, 0.58f), dawn * 0.55f);
+        var cloud = Vector3.Lerp(new Vector3(0.10f, 0.10f, 0.14f), Vector3.One, daylight);
+        cloud = Vector3.Lerp(cloud, new Vector3(1.0f, 0.72f, 0.6f), dawn * 0.5f);
+
+        rain = Math.Clamp(rain, 0f, 1f);
+        thunder = Math.Clamp(thunder, 0f, 1f) * rain;
+        if (rain > 0f)
+        {
+            float shade = (0.12f + 0.88f * daylight) * (1f - 0.45f * thunder);
+            zenith = Vector3.Lerp(zenith, new Vector3(0.42f, 0.44f, 0.48f) * shade, 0.85f * rain);
+            cloud = Vector3.Lerp(cloud, new Vector3(0.56f, 0.58f, 0.62f) * shade, 0.85f * rain);
+        }
+        return new SkyLook(zenith, daylight, night, cloud);
+    }
+
+    private static float Smooth(float edge0, float edge1, float x)
+    {
+        float t = Math.Clamp((x - edge0) / (edge1 - edge0), 0f, 1f);
+        return t * t * (3f - 2f * t);
+    }
+
     private static float Lerp(float a, float b, float t) => a + (b - a) * t;
 }

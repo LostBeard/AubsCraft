@@ -134,6 +134,13 @@ public sealed class VoxelWorldRenderer : IDisposable
     public EntityLayer? Entities { get; set; }
     /// <summary>The smoke and flames of campfires, furnaces, fire and torches (drawn after the creatures, before the water).</summary>
     public ParticleLayer? Particles { get; set; }
+    /// <summary>The sky: gradient, sun, moon, stars, clouds (drawn first in the pass, so the world draws over it).</summary>
+    public SkyLayer? Sky { get; set; }
+    /// <summary>Weather and the server's clock, for the sky: how hard it rains and storms (0..1), the time of day (0 midnight .. 0.5 noon), the server's seconds (negative: not known).</summary>
+    public float Rain { get; set; }
+    public float Thunder { get; set; }
+    public float TimeOfDay { get; set; } = 0.5f;
+    public double ServerSeconds { get; set; } = -1;
 
     public bool HasColumn(int cx, int cz) => _columns.ContainsKey((cx, cz));
     public bool HasFarChunk(int cx, int cz) => _far.ContainsKey((cx, cz));
@@ -746,6 +753,8 @@ public sealed class VoxelWorldRenderer : IDisposable
 
         // Cleared to the fog colour: what lies past the fog (not drawn) must look exactly like fogged terrain, at any hour
         using var pass = _pipe.BeginRenderPass(encoder, colorView, _depthView!, fogColour, view.ClearAlpha);
+        // The sky first, under everything (not under water, where everything is murk, nor in a see-through frame: the camera feed is the sky there)
+        if (!underwater && view.ClearAlpha >= 1f) Sky?.Draw(pass, in view, TimeOfDay, Rain, Thunder, light, ServerSeconds);
 
         foreach (var kind in CubePasses)
         {

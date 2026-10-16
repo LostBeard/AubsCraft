@@ -49,10 +49,14 @@ try
     var particles = new ParticleAtlasBuilder(client, version).Build();
     Write("mc-particles.json", JsonSerializer.SerializeToUtf8Bytes(particles.Assets, ParticleAssetsJson.Default.ParticleAssets));
     Write("mc-particle-atlas.rgba", particles.Rgba);
+    // The sun, the moon's phases and the clouds
+    var sky = new SkyAtlasBuilder(client, version).Build();
+    Write("mc-sky.json", JsonSerializer.SerializeToUtf8Bytes(sky.Assets, SkyAssetsJson.Default.SkyAssets));
+    Write("mc-sky.rgba", sky.Rgba);
     // What the biomes do to grass, leaves and water (the colour maps and the biome table)
     var biomes = new BiomeColorBuilder(client, version).Build();
     Write("mc-biomes.json", JsonSerializer.SerializeToUtf8Bytes(biomes, BiomeAssetsJson.Default.BiomeAssets));
-    Write("mc-assets-report.txt", System.Text.Encoding.UTF8.GetBytes(result.Report + "\n" + entities.Report + "\n" + particles.Report + $"\nBiome colours: {biomes.Names.Length} biomes\n"));
+    Write("mc-assets-report.txt", System.Text.Encoding.UTF8.GetBytes(result.Report + "\n" + entities.Report + "\n" + particles.Report + "\n" + sky.Report + $"\nBiome colours: {biomes.Names.Length} biomes\n"));
     Console.WriteLine("[assets] " + result.Report.Split('\n')[1].Trim());
     Console.WriteLine("[assets] " + entities.Report.Split('\n')[1].Trim());
     Console.WriteLine("[assets] " + particles.Report.Split('\n')[1].Trim());

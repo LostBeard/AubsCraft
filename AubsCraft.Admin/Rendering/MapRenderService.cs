@@ -247,6 +247,7 @@ public sealed class MapRenderService : IDisposable
         using var encoder = _device.CreateCommandEncoder();
 
         var light = DayLighting.At(TimeOfDay, RainLevel, ThunderLevel);
+        voxel.TimeOfDay = TimeOfDay; voxel.Rain = RainLevel; voxel.Thunder = ThunderLevel;
         var stats = voxel.Render(encoder, colorView, _canvasWidth, _canvasHeight, Camera, in light, DrawDistance);
         VisibleChunkCount = stats.VisibleSections;
         TotalChunkCount = stats.SectionsWithQuads;
@@ -285,6 +286,7 @@ public sealed class MapRenderService : IDisposable
         using var colorView = colorTexture.CreateView();
         using var encoder = _device.CreateCommandEncoder();
         var light = DayLighting.At(TimeOfDay, RainLevel, ThunderLevel);
+        voxel.TimeOfDay = TimeOfDay; voxel.Rain = RainLevel; voxel.Thunder = ThunderLevel;
         var stats = voxel.Render(encoder, colorView, width, height, in view, in light, DrawDistance);
         using var commandBuffer = encoder.Finish();
         _submitArray[0] = commandBuffer;
