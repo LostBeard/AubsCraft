@@ -7,6 +7,7 @@
 @inject NavigationManager Nav
 @inject AubsCraft.Admin.Xr.XrViewerHost Xr
 @inject AuthStateProvider Auth
+@inject AubsCraft.Admin.Voice.VoiceClient Voice
 @implements IDisposable
 @using AubsCraft.Admin.Services
 @using SpawnDev.SpawnJS
@@ -38,6 +39,15 @@
                 <button class="btn btn-sm btn-outline-success" disabled="@_xrBusy" @onclick="@(() => EnterXrAsync("immersive-ar"))">Enter AR</button>
             }
             <button class="btn btn-sm @(_lighting ? "btn-outline-warning" : "btn-outline-secondary")" title="Light the world by the sky and block light (torches, caves) near you; off is the plainer, faster picture" @onclick="ToggleLightingAsync">Lighting: @(_lighting ? "On" : "Off")</button>
+            <button class="btn btn-sm @(Voice.IsOn ? "btn-success" : "btn-outline-secondary")" title="Hear the players and the other viewers, each from where they are, and speak to them" @onclick="ToggleVoiceAsync">Voice: @(Voice.IsOn ? "On" : "Off")</button>
+            @if (Voice.IsOn)
+            {
+                <button class="btn btn-sm @(Voice.MicOn ? "btn-danger" : "btn-outline-secondary")" title="Open the microphone: the players near where you are in the world hear you in the game" @onclick="ToggleMicAsync">Mic: @(Voice.MicOn ? "On" : "Off")</button>
+            }
+            @if (_voiceText.Length > 0)
+            {
+                <small class="text-muted">@_voiceText</small>
+            }
             @if (Auth.Role is "Owner" or "Admin")
             {
                 <button class="btn btn-sm @(_editing ? "btn-warning" : "btn-outline-warning")" title="Build in the world as an admin: left click breaks, right click places, middle click copies a block, Ctrl+Z undoes, B turns it on and off" @onclick="ToggleEditAsync">Edit: @(_editing ? "On" : "Off")</button>
@@ -165,6 +175,39 @@ else
         StateHasChanged();
     }
 
+    // Voice: the players and the other viewers heard where they are, the user heard in the game (the microphone is the user's to open)
+    private string _voiceText = "";
+
+    private async Task ToggleVoiceAsync()
+    {
+        if (Voice.IsOn) { Voice.Stop(); _voiceText = ""; return; }
+        Voice.Where = () => _lastStats == null ? System.Numerics.Vector3.Zero : new System.Numerics.Vector3(_lastStats.CamX, _lastStats.CamY, _lastStats.CamZ);
+        Voice.Notice -= OnVoiceNotice;
+        Voice.Notice += OnVoiceNotice;
+        var uri = new Uri(Nav.BaseUri);
+        var url = $"{(uri.Scheme == "https" ? "wss" : "ws")}://{uri.Authority}/api/live/voice/ws?server={Uri.EscapeDataString(Hub.SelectedServerId ?? "")}";
+        await Voice.StartAsync(url);
+    }
+
+    private async Task ToggleMicAsync() => await Voice.SetMicAsync(!Voice.MicOn);
+
+    private void OnVoiceNotice(string text)
+    {
+        _voiceText = text;
+        InvokeAsync(StateHasChanged);
+    }
+
+    // Where the camera is and who is heard, about ten times a second while the voice is on
+    private async Task UpdateVoiceAsync()
+    {
+        var s = await _renderService!.GetStatsAsync();
+        _lastStats = s;
+        float yaw = s.CamYaw * MathF.PI / 180f, pitch = s.CamPitch * MathF.PI / 180f;
+        Voice.SetListener(new System.Numerics.Vector3(s.CamX, s.CamY, s.CamZ), new System.Numerics.Vector3(MathF.Cos(pitch) * MathF.Cos(yaw), MathF.Sin(pitch), MathF.Cos(pitch) * MathF.Sin(yaw)));
+        var speaking = Voice.Speaking();
+        var text = speaking.Count == 0 ? "" : "Speaking: " + string.Join(", ", speaking);
+        if (text != _voiceText && (_voiceText.StartsWith("Speaking") || _voiceText.Length == 0)) { _voiceText = text; StateHasChanged(); }
+    }
     private async Task ToggleLightingAsync()
     {
         _lighting = !_lighting;
@@ -415,6 +458,7 @@ else
     {
         int cameraSaveCounter = 0;
         int feedCounter = 0;
+        int voiceCounter = 0;
         int chatPollTicks = 0; // ticks left in which to look for a line the player just sent from the HUD chat
         while (_viewMode == ViewMode.Viewer3D && _renderService != null)
         {
@@ -439,6 +483,8 @@ else
                     else _ = Hub.SayAsync(line);
                 }
             }
+
+            if (Voice.IsOn && !Xr.IsActive && ++voiceCounter >= 6) { voiceCounter = 0; await UpdateVoiceAsync(); }
 
             // Chat, players and notices for the HUD, at most ~10 times a second
             if (++feedCounter >= 6)
@@ -531,6 +577,8 @@ else
     {
         Xr.Ended -= OnXrEnded;
         Xr.ChatSent -= OnXrChat;
+        Voice.Notice -= OnVoiceNotice;
+        Voice.Stop();
         Hub.OnServerStatusReceived -= OnServerStatus;
         Hub.OnChatMessageReceived -= OnHubChat;
         Hub.OnActivityEventReceived -= OnHubActivity;

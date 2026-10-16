@@ -171,6 +171,9 @@ public sealed class ViewerRig : IAsyncDisposable
                     "--disable-renderer-backgrounding",
                     "--disable-background-timer-throttling",
                     "--disable-backgrounding-occluded-windows",
+                    // A fake microphone (a tone) that needs no permission: the voice gate speaks into it
+                    "--use-fake-ui-for-media-stream",
+                    "--use-fake-device-for-media-stream",
                 ],
             });
     }

@@ -15,6 +15,7 @@ builder.Services.AddSingleton<GlobalBlockRegistry>();
 builder.Services.AddSingleton<LiveFeedService>();
 builder.Services.AddSingleton<EditChannelService>();
 builder.Services.AddSingleton<BlueprintStore>();
+builder.Services.AddSingleton<VoiceHubService>();
 builder.Services.AddSingleton<LivePluginService>();
 // Players' skins for the viewer, fetched from Mojang's texture server on its behalf (only that host, only a small PNG, cached)
 builder.Services.AddHttpClient<SkinProxyService>(c => { c.Timeout = TimeSpan.FromSeconds(10); c.DefaultRequestHeaders.UserAgent.ParseAdd("AubsCraft-panel"); });
@@ -331,6 +332,7 @@ api.MapGet("/servers/{id}/backups/{file}", (string id, string file, BackupServic
 app.MapLiveEndpoints();
 app.MapEditEndpoints();
 app.MapAdminEndpoints();
+app.MapVoiceEndpoints();
 
 var world = app.MapGroup("/api/world").RequireAuthorization();
 

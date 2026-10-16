@@ -31,6 +31,7 @@ builder.Services.AddSingleton<RenderWorkerHost>();
 builder.Services.AddGameUI(UITheme.AubsCraft);
 builder.Services.AddSingleton<AubsCraft.Admin.Rendering.ViewerHud>();
 builder.Services.AddSingleton<AubsCraft.Admin.Xr.XrViewerHost>();
+builder.Services.AddSingleton<AubsCraft.Admin.Voice.VoiceClient>();
 // RenderWorkerService is NOT registered here - it's created via worker.New() with OffscreenCanvas
 
 if (JS.IsWindow)

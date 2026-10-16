@@ -40,6 +40,14 @@ public class LiveChunksEndToEndTests
     private Uri _base = null!;
     private string _cookie = "";
 
+    // A file of the repository (the voice chat plugin is kept in its root), looked for from the test's folder upwards
+    private static string? FindUpwards(string file)
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
+            if (File.Exists(Path.Combine(dir.FullName, file))) return Path.Combine(dir.FullName, file);
+        return null;
+    }
+
     private static int FreePort()
     {
         var l = new TcpListener(IPAddress.Loopback, 0);
@@ -62,6 +70,13 @@ public class LiveChunksEndToEndTests
         {
             var result = plugins.Install(new ServerDefinition { Id = "lc", Name = "chunks", Path = dir, Loader = ServerLoader.Paper });
             Assert.That(result.Success, Is.True, result.Message);
+            var voiceChat = FindUpwards("voicechat-bukkit-2.6.16.jar");
+            if (voiceChat != null)
+            {
+                File.Copy(voiceChat, Path.Combine(dir, "plugins", "voicechat-bukkit-2.6.16.jar"), overwrite: true);
+                Directory.CreateDirectory(Path.Combine(dir, "plugins", "voicechat"));
+                File.WriteAllText(Path.Combine(dir, "plugins", "voicechat", "voicechat-server.properties"), "port=-1\nbind_address=127.0.0.1\n");
+            }
             return Task.CompletedTask;
         });
 
@@ -522,5 +537,37 @@ public class LiveChunksEndToEndTests
         req.Headers.Add("Cookie", friendCookie);
         Assert.That((await _http.SendAsync(req)).StatusCode, Is.EqualTo(System.Net.HttpStatusCode.Forbidden));
         Assert.That(await rcon.SendCommandAsync("time query daytime"), Does.Not.Contain("13000"));
+    }
+
+    // ---- voice: the plugin joins Simple Voice Chat and the panel's hub ----
+
+    [Test]
+    public async Task TheVoiceBridge_JoinsSimpleVoiceChat_AndTakesABrowsersVoiceWithoutComplaint()
+    {
+        Assume.That(FindUpwards("voicechat-bukkit-2.6.16.jar"), Is.Not.Null, "the voice chat plugin is not in the repository");
+        var hub = _factory.Services.GetRequiredService<VoiceHubService>();
+        for (int i = 0; i < 120 && !hub.PluginConnected("lc"); i++) await Task.Delay(500);
+        Assert.That(hub.PluginConnected("lc"), Is.True, "the plugin's voice socket reached the panel:\n" + string.Join("\n", _paper.OutputTail(30)));
+
+        // A browser: a socket with the user's cookie; it speaks (an Opus-sized packet of nothing in particular, from a place in the world)
+        using var browser = new ClientWebSocket();
+        browser.Options.SetRequestHeader("Cookie", _cookie);
+        await browser.ConnectAsync(new UriBuilder(new Uri(_base, "api/live/voice/ws?server=lc")) { Scheme = "ws" }.Uri, CancellationToken.None);
+        for (int i = 0; i < 20 && hub.ListenerCount("lc") == 0; i++) await Task.Delay(200);
+        Assert.That(hub.ListenerCount("lc"), Is.EqualTo(1), "the browser is a listener");
+        var opus = new byte[60]; new Random(1).NextBytes(opus);
+        for (int i = 0; i < 25; i++)
+        {
+            await browser.SendAsync(AubsCraft.Live.Model.Voice.VoiceFrames.WriteMic(8.5f, -59f, 8.5f, 0, opus), WebSocketMessageType.Binary, true, CancellationToken.None);
+            await Task.Delay(20);
+        }
+        await Task.Delay(1000);
+        await browser.CloseAsync(WebSocketCloseStatus.NormalClosure, "done", CancellationToken.None);
+        for (int i = 0; i < 20 && hub.ListenerCount("lc") != 0; i++) await Task.Delay(200);
+        Assert.That(hub.ListenerCount("lc"), Is.Zero, "the browser left");
+
+        var log = string.Join("\n", _paper.OutputTail(120));
+        Assert.That(log, Does.Not.Contain("AubsCraftLive").Or.Not.Contain("Exception"), "the plugin raised nothing:\n" + log);
+        Assert.That(log, Does.Contain("Voice: connected to Simple Voice Chat"));
     }
 }

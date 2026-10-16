@@ -104,6 +104,14 @@ public final class LivePlugin extends JavaPlugin {
                 channel.start();
             }
         }
+        // Voice: players heard in the viewer, viewers heard in the game, through Simple Voice Chat when it is installed
+        if (getConfig().getBoolean("voice", true) && getServer().getPluginManager().getPlugin("voicechat") != null) {
+            try {
+                VoiceBridge.register(this, http, panel.replaceAll("/+$", ""), serverId, secret);
+            } catch (Throwable t) {
+                getLogger().log(Level.WARNING, "The voice bridge could not start", t);
+            }
+        }
         getLogger().info("Sending the world's activity to " + endpoint + " every " + interval + " ticks");
     }
 

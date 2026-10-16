@@ -52,8 +52,13 @@ public sealed class XrViewerHost : IDisposable
     /// <summary>What a held grip multiplies the speed by.</summary>
     public float BoostFactor { get; set; } = 6f;
 
-    public XrViewerHost(SpawnJSRuntime js, GpuContextService gpu, MapRenderService map, ViewerHud hud)
+    private readonly AubsCraft.Admin.Voice.VoiceClient _voice;
+    private string _serverId = "";
+    private int _voiceTick;
+
+    public XrViewerHost(SpawnJSRuntime js, GpuContextService gpu, MapRenderService map, ViewerHud hud, AubsCraft.Admin.Voice.VoiceClient voice)
     {
+        _voice = voice;
         _js = js;
         _gpu = gpu;
         _map = map;
@@ -83,6 +88,7 @@ public sealed class XrViewerHost : IDisposable
     {
         if (_session.IsActive) return;
         _startPosition = cameraPosition;
+        _serverId = serverId;
         float yaw = yawDegrees * MathF.PI / 180f;
         _startForward = new Vector3(MathF.Cos(yaw), 0f, MathF.Sin(yaw));
         _worldFromRoom = null;
@@ -146,6 +152,8 @@ public sealed class XrViewerHost : IDisposable
         _hud.SetEditToolbar(false, false, false, false, false);   // in a headset: the Edit mode button
         _hud.OnPlayerAction = OnHudPlayerAction;
         _hud.OnTableAction = OnTableAction;
+        _hud.OnMicToggle = () => _ = ToggleMicAsync();
+        _voice.Where = () => _world != null ? _world.Camera.Position : Vector3.Zero;
         _hud.SetTableToolbar(_isAr, _tabletop);
         _panel.SetVisible(true);
         _xWasDown = true;
@@ -168,6 +176,8 @@ public sealed class XrViewerHost : IDisposable
         _hud.SetPointer(0, 0, false);
         _hud.OnPlayerAction = null;
         _hud.OnTableAction = null;
+        _hud.OnMicToggle = null;
+        _hud.SetSpeaking([]);
         _hud.SetTableToolbar(false, false);
         _panelGpu?.Dispose();
         _panelGpu = null;
@@ -293,6 +303,12 @@ public sealed class XrViewerHost : IDisposable
         }
         if (!_panel.Visible) _pointerOnPanel = false;
 
+        if (_voice.IsOn && ++_voiceTick % 3 == 0)
+        {
+            _voice.SetListener(headWorld, gaze);
+            _hud.SetSpeaking(_voice.Speaking());
+        }
+        _hud.SetMicState(_voice.IsOn, _voice.MicOn);
         _world.XrFrame(dt);
         foreach (var line in _hud.TakeOutgoingChat()) ChatSent?.Invoke(line);
         if (!_world.WorldReady) return;
@@ -341,6 +357,21 @@ public sealed class XrViewerHost : IDisposable
             _hud.Apply(new UiInputEvent(UiInputEvent.Wheel, 0, _scrollAccumulator > 0 ? 100 : -100));
             _scrollAccumulator -= MathF.Sign(_scrollAccumulator);
         }
+    }
+    // The Mic button: the voice starts if it has not (a headset's press is a gesture the browser accepts), then the microphone opens or closes
+    private async Task ToggleMicAsync()
+    {
+        try
+        {
+            if (!_voice.IsOn)
+            {
+                var url = new UriBuilder(new Uri(_js.WindowThis?.Origin ?? "http://localhost")) { Path = "/api/live/voice/ws", Query = "server=" + Uri.EscapeDataString(_serverId) };
+                url.Scheme = url.Scheme == "https" ? "wss" : "ws";
+                if (!await _voice.StartAsync(url.Uri.ToString())) return;
+            }
+            await _voice.SetMicAsync(!_voice.MicOn);
+        }
+        catch (Exception ex) { Console.WriteLine("[Xr] voice: " + ex.Message); }
     }
     // The table's buttons (AR): life size or tabletop, bigger, smaller, bring the model here
     private void OnTableAction(string id)

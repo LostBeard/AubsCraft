@@ -16,3 +16,5 @@ chunk-updates: true
 # Admins of the panel may edit the world from the viewer (needs chunk-updates). edit-budget-ms: the most a tick spends on it.
 edits: true
 edit-budget-ms: 8
+# Voice between the viewer and the game (needs the Simple Voice Chat plugin).
+voice: true

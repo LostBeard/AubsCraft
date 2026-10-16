@@ -210,14 +210,14 @@ public sealed class ViewerHud
     {
         foreach (var (id, label) in new[]
         {
-            ("chat", "Say something"), ("enter", "Edit mode"), ("blocks", "Blocks"), ("select", "Select"), ("blueprints", "Blueprints"), ("undo", "Undo"), ("redo", "Redo"),
+            ("chat", "Say something"), ("mic", "Mic: off"), ("enter", "Edit mode"), ("blocks", "Blocks"), ("select", "Select"), ("blueprints", "Blueprints"), ("undo", "Undo"), ("redo", "Redo"),
             ("fill", "Fill"), ("clear", "Clear"), ("copy", "Copy"), ("cut", "Cut"), ("paste", "Paste"), ("save", "Save as blueprint"),
             ("turn", "Turn"), ("mirror", "Mirror"), ("cancel", "Stop placing"), ("leave", "Leave edit mode"),
         })
         {
             var button = new UIButton { Text = label, FontSize = FontSize.Caption, Width = 112, Height = 26, PaddingX = 4, PaddingY = 3, Visible = false };
             var captured = id;
-            button.OnClick = () => { if (captured == "chat") OpenPhrases(!IsPhrasesOpen); else OnEditAction?.Invoke(captured); };
+            button.OnClick = () => { if (captured == "chat") OpenPhrases(!IsPhrasesOpen); else if (captured == "mic") OnMicToggle?.Invoke(); else OnEditAction?.Invoke(captured); };
             _toolButtons.Add((id, button));
             button.X = 8; button.Y = 118;
             _root.AddChild(button);
@@ -232,7 +232,7 @@ public sealed class ViewerHud
         foreach (var (id, button) in _toolButtons)
         {
             // In a headset the way into edit mode is a button (a hand has no thumbstick to press); everything else shows in edit mode
-            bool show = id == "chat" ? _headset : id == "enter" ? !editing && _headset : editing && id switch
+            bool show = id is "chat" or "mic" ? _headset : id == "enter" ? !editing && _headset : editing && id switch
             {
                 "blocks" or "select" or "blueprints" or "undo" or "redo" or "leave" => !pasting || id is "leave" or "undo" or "redo",
                 "fill" or "clear" or "copy" or "cut" or "save" => hasSelection && !pasting,
@@ -282,6 +282,28 @@ public sealed class ViewerHud
             button.X = 8 + 2 * 118; button.Y = 118 + row * 30;
             row++;
         }
+    }
+    // ---- voice: the microphone button of a headset, and who is heard ----
+
+    /// <summary>The Mic button was pressed (a headset's): the page opens or closes the microphone.</summary>
+    public Action? OnMicToggle { get; set; }
+
+    private UILabel _speaking = null!;
+
+    /// <summary>What the Mic button says: whether the voice is connected and the microphone open.</summary>
+    public void SetMicState(bool voiceOn, bool micOn)
+    {
+        foreach (var (id, button) in _toolButtons)
+            if (id == "mic") button.Text = !voiceOn ? "Voice: off" : micOn ? "Mic: ON" : "Mic: off";
+    }
+
+    /// <summary>Who is being heard right now (names), or nothing.</summary>
+    public void SetSpeaking(IReadOnlyList<string> names)
+    {
+        if (_speaking == null) return;
+        var text = names.Count == 0 ? "" : "Speaking: " + string.Join(", ", names);
+        if (_speaking.Text != text) _speaking.Text = text;
+        _speaking.Visible = text.Length > 0;
     }
     // ---- quick things to say, for where there is no keyboard (a headset) ----
 
@@ -562,6 +584,8 @@ public sealed class ViewerHud
         };
         _root.AddAnchored(_hint, Anchor.BottomCenter, 0, -10);
 
+        _speaking = new UILabel { FontSize = FontSize.Caption, Color = theme.TextPrimary, OutlineWidth = 0.14f, Visible = false };
+        _root.AddAnchored(_speaking, Anchor.TopCenter, 0, 36);
         _followLabel = new UILabel { FontSize = FontSize.Caption, Color = theme.TextPrimary, OutlineWidth = 0.14f, Visible = false };
         _root.AddAnchored(_followLabel, Anchor.BottomCenter, 0, -34);
 

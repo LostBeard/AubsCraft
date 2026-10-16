@@ -64,3 +64,14 @@ The viewers' socket (`/api/live/ws`) carries these frames as well as the creatur
 The plugin makes a long poll, `GET /api/live/commands/{serverId}` (same gate as the frames: loopback + `X-Live-Secret`); the panel answers when it has commands (or 204 after ~25 s). The answer is `u16 count`, then for each command `i32 length` and its bytes. Each command's result goes back as JSON to `POST /api/live/commands/{serverId}/result`: `{"id", "ok", "edit", "placed", "skipped", "applied", "error"}`. Commands are binary, little-endian (`Edits.java` reads them, `EditCodec` writes them): `u8 kind` (1 edit, 2 undo), `string id`; an edit goes on with `string editor, string label, u16 palette count + strings (block data), u16 op count` and the ops: `1 set` (i32 x y z, u16 block), `2 fill` (i32 x1 y1 z1 x2 y2 z2, u16 block, i32 only-where (-1 none), u8 hollow), `3 blocks` (i32 x y z anchor, i32 byte length, records of i16 dx, i16 dy, i16 dz, u16 block); an undo goes on with `string edit` and SWAPS the world with the edit's journal (so undoing twice redoes). Strings are u16 length + UTF-8.
 
 The plugin applies an edit on the main thread a slice a tick (`edit-budget-ms`, default 8), remembers what it overwrote (block data and tile entities: signs, chests) in a journal of up to 3,000,000 blocks, and marks the chunks it changed for the chunk updates above. Edits of 512 blocks or fewer update their neighbours (fences connect); bigger ones do not.
+
+## Voice (web viewers speak and hear through Simple Voice Chat)
+
+Needs the Simple Voice Chat plugin (a soft dependency; without it the bridge stays off). The plugin keeps a WebSocket open to the panel, `/api/live/voice/plugin/{serverId}` (same gate as the frames: loopback + `X-Live-Secret`), and the messages are binary frames, little-endian, a type byte first (`VoiceFrames.cs` is the reference):
+
+- `1 Mic`, panel to plugin: `u16 speaker id, f32 x, f32 y, f32 z, u8 flags (1 whispering), Opus` (48 kHz mono, one 20 ms packet). The plugin gives each web speaker its own locational channel at that position and sends the packet through it, so players near that spot hear the viewer in the game.
+- `3 Listeners`, panel to plugin: `u8` how many browsers listen (the plugin forwards players' voices only while it is above 0; it is sent on connect too).
+- `4 Left`, panel to plugin: `u16 speaker id` of a browser that has gone; its channel is closed.
+- `5 PlayerVoice`, plugin to panel: `u8 name length, name, f32 x, f32 y, f32 z, u8 flags, Opus` (a player speaking, from the microphone event). The panel relays it to every browser (as type 2) and the browser plays it spatialised from that position.
+
+A browser's own socket (`/api/live/voice/ws?server=`, logged-in users) carries `1 Mic` (`f32 x, y, z, u8 flags, Opus`) up and `2 Voice` (`u8 name length, name, f32 x, y, z, flags, Opus`) down. Packets are capped (4096 bytes, 60 a second a speaker).

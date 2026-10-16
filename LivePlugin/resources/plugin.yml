@@ -4,3 +4,4 @@ main: com.spawndev.aubscraftlive.LivePlugin
 api-version: '1.21'
 author: SpawnDev
 description: Sends what is happening in the world (animals, mobs, players) to the AubsCraft panel's 3D viewer.
+softdepend: [voicechat]

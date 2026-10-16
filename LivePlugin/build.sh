@@ -26,6 +26,9 @@ else
     SRC2="$HERE/src/com/spawndev/aubscraftlive/Frames.java"
     CLASSES="$OUT/classes"
 fi
+# Simple Voice Chat's API (the bridge compiles against it; the voice chat plugin provides it at run time)
+VC="$HERE/../voicechat-bukkit-2.6.16.jar"
+if [ -f "$VC" ]; then if command -v cygpath >/dev/null 2>&1; then CP="$CP;$(cygpath -m "$VC")"; else CP="$CP:$VC"; fi; fi
 [ -n "$CP" ] || { echo "No libraries found in $BUNDLE_JAR (is it the Paper bundle?)"; exit 1; }
 
 SRCS="$(find "$HERE/src" -name "*.java" | while read -r f; do if command -v cygpath >/dev/null 2>&1; then cygpath -m "$f"; else echo "$f"; fi; done)"
