@@ -35,14 +35,86 @@ public static class EntityPoser
     /// 90 = west): the game's renderer order - 1/16 scale, the 1.501 lift, the creature's scale, the flip of x and y (the model's y points down), the turn
     /// of 180 minus the yaw, then the place.
     /// </summary>
-    public static Matrix4x4 Root(float x, float y, float z, float bodyYawDegrees, float scale, Vector3 modelOffset = default, float modelYawDegrees = 0f) =>
+    public static Matrix4x4 Root(float x, float y, float z, float bodyYawDegrees, float scale, Vector3 modelOffset = default, float modelYawDegrees = 0f, Matrix4x4? entityFrame = null) =>
         Matrix4x4.CreateScale(1f / 16f)
         * Matrix4x4.CreateRotationY(modelYawDegrees * Deg)
         * Matrix4x4.CreateTranslation(modelOffset.X, modelOffset.Y - 1.501f, modelOffset.Z)
         * Matrix4x4.CreateScale(scale)
         * Matrix4x4.CreateScale(-1f, -1f, 1f)
+        * (entityFrame ?? Matrix4x4.Identity)
         * Matrix4x4.CreateRotationY((180f - bodyYawDegrees) * Deg)
         * Matrix4x4.CreateTranslation(x, y, z);
+
+    /// <summary>How a creature stands or lies, from its flags.</summary>
+    public enum Stance { Upright, Sneaking, Riding, Swimming, Gliding, Sleeping, Dead }
+
+    /// <summary>The stance the flags say (a dead creature is on its side whatever else it was doing).</summary>
+    public static Stance StanceOf(in LiveEntityView view, EntityModel model)
+    {
+        bool humanoid = model.Rig == EntityRig.Biped;
+        if (view.Dead) return Stance.Dead;
+        if (view.Sleeping && humanoid) return Stance.Sleeping;
+        if (view.Swimming && humanoid) return Stance.Swimming;
+        if (view.Gliding && humanoid) return Stance.Gliding;
+        if (view.Riding && humanoid) return Stance.Riding;
+        if (view.Sneaking && humanoid) return Stance.Sneaking;
+        return Stance.Upright;
+    }
+
+    // What the renderer does to the whole creature (in its own frame, after the model is flipped and before it is turned to face): lie it down, tip it over
+    private static Matrix4x4? FrameOf(Stance stance, in LiveEntityView view) => stance switch
+    {
+        // The game swims a creature flat: down a block and back a third, then pitched to its look
+        Stance.Swimming => Matrix4x4.CreateTranslation(0f, -1f, 0.3f) * Matrix4x4.CreateRotationX((-90f - Math.Clamp(view.Pitch, -90f, 90f)) * Deg),
+        Stance.Gliding => Matrix4x4.CreateRotationX((-90f - Math.Clamp(view.Pitch, -90f, 90f)) * Deg),
+        // On its side
+        Stance.Dead => Matrix4x4.CreateRotationZ(90f * Deg),
+        // On its back (its head toward the head of the bed it is in)
+        Stance.Sleeping => Matrix4x4.CreateRotationY(270f * Deg) * Matrix4x4.CreateRotationZ(90f * Deg),
+        _ => null,
+    };
+
+    // Where a part of a humanoid sits and turns in a stance: (a move of its pivot in model px, a turn added to its own, whether the walk's swing still applies)
+    private static (Vector3 shift, Vector3 turn, bool swings) Tweak(Stance stance, PartRole role, float age)
+    {
+        switch (stance)
+        {
+            case Stance.Sneaking:
+                // HumanoidModel crouching: the body leans (0.5), the arms go with it, the legs step back and the head and arms drop with the body
+                return role switch
+                {
+                    PartRole.Head => (new Vector3(0f, 4.2f, 0f), Vector3.Zero, true),
+                    PartRole.Body => (new Vector3(0f, 3.2f, 0f), new Vector3(0.5f, 0f, 0f), true),
+                    PartRole.RightArm or PartRole.LeftArm => (new Vector3(0f, 3.2f, 0f), new Vector3(0.4f, 0f, 0f), true),
+                    PartRole.RightLeg or PartRole.LeftLeg => (new Vector3(0f, 0.2f, 3.9f), Vector3.Zero, true),
+                    _ => (Vector3.Zero, Vector3.Zero, true),
+                };
+            case Stance.Riding:
+                // Sitting: the legs out in front and a little apart, the arms a little forward
+                return role switch
+                {
+                    PartRole.RightLeg => (Vector3.Zero, new Vector3(-1.4137f, 0.3142f, 0f), false),
+                    PartRole.LeftLeg => (Vector3.Zero, new Vector3(-1.4137f, -0.3142f, 0f), false),
+                    PartRole.RightArm or PartRole.LeftArm => (Vector3.Zero, new Vector3(-0.6283f, 0f, 0f), false),
+                    _ => (Vector3.Zero, Vector3.Zero, false),
+                };
+            case Stance.Swimming:
+                // The crawl: the arms reach over the head in turn, the legs kick
+                return role switch
+                {
+                    PartRole.RightArm => (Vector3.Zero, new Vector3(-2.9f + 0.7f * MathF.Cos(age * 0.35f), 0f, 0f), false),
+                    PartRole.LeftArm => (Vector3.Zero, new Vector3(-2.9f + 0.7f * MathF.Cos(age * 0.35f + MathF.PI), 0f, 0f), false),
+                    PartRole.RightLeg => (Vector3.Zero, new Vector3(0.5f * MathF.Cos(age * 0.7f), 0f, 0f), false),
+                    PartRole.LeftLeg => (Vector3.Zero, new Vector3(0.5f * MathF.Cos(age * 0.7f + MathF.PI), 0f, 0f), false),
+                    _ => (Vector3.Zero, Vector3.Zero, false),
+                };
+            case Stance.Gliding:
+            case Stance.Sleeping:
+                return (Vector3.Zero, Vector3.Zero, false);
+            default:
+                return (Vector3.Zero, Vector3.Zero, true);
+        }
+    }
 
     /// <summary>The head's turn relative to the body, in degrees: what the head looks at minus where the body faces, at most 75 either way.</summary>
     public static float HeadYawRelative(float headYaw, float bodyYaw)
@@ -55,14 +127,35 @@ public static class EntityPoser
     /// <param name="ageTicks">A clock in ticks (idle sway, wing flap): any monotonic time.</param>
     /// <param name="texture">Replaces the model's own texture where it names the "player" texture (a player's skin); null leaves it.</param>
     /// <param name="coarse">A creature far away: only its head and body are drawn (limbs and overlay layers are a few pixels there), a third of the boxes.</param>
-    public static void Pose(in LiveEntityView view, EntityModel model, float ageTicks, List<PartDraw> output, string? texture = null, bool coarse = false)
+    /// <param name="sleepYaw">A creature asleep lies along its bed: the yaw the bed faces (the game's own numbers: south 0, west 90, north 180, east 270); null: along the way it faces.</param>
+    /// <param name="holding">The creature holds something in its right hand: the arm is raised a little to carry it.</param>
+    /// <returns>The matrix that takes the right arm's own space (model pixels, the origin at its shoulder) to the world, for whatever is held in that hand; null when the model has no right arm (or it was left out).</returns>
+    public static Matrix4x4? Pose(in LiveEntityView view, EntityModel model, float ageTicks, List<PartDraw> output, string? texture = null, bool coarse = false, float? sleepYaw = null, bool holding = false)
     {
+        Matrix4x4? rightArm = null;
         float scale = (view.Baby ? model.BabyScale : 1f) * model.Scale;
-        var root = Root(view.X, view.Y, view.Z, view.BodyYaw, scale, model.ModelOffset, model.ModelYawDegrees);
+        var stance = StanceOf(in view, model);
+        // A player who sneaks is drawn an eighth lower
+        float lift = stance == Stance.Sneaking && view.IsPlayer ? -0.125f : 0f;
+        // On a bed the turn is the bed's, not the creature's: the game turns a sleeper to the bed (south 90, west 0, north 270, east 180) where it would turn it to 180 minus its yaw
+        float bodyYaw = view.BodyYaw;
+        if (stance == Stance.Sleeping && sleepYaw is { } facing) bodyYaw = 180f - ((90f - facing) % 360f + 360f) % 360f;
+        float x = view.X, z = view.Z;
+        if (stance == Stance.Sleeping && sleepYaw is { } bed)
+        {
+            // The game moves a sleeper back along the bed by the height of its eyes, so its head, not its feet, is where the entity is
+            float turn = bed * Deg;
+            x += MathF.Sin(turn) * 1.52f;
+            z -= MathF.Cos(turn) * 1.52f;
+        }
+        var root = model.Projectile
+            ? Matrix4x4.CreateScale(1f / 16f) * Matrix4x4.CreateScale(scale) * Matrix4x4.CreateRotationZ(view.Pitch * Deg) * Matrix4x4.CreateRotationY((view.Yaw - 90f) * Deg) * Matrix4x4.CreateTranslation(x, view.Y, z)
+            : Root(x, view.Y + lift, z, bodyYaw, scale, model.ModelOffset, model.ModelYawDegrees, FrameOf(stance, in view));
         float headYaw = HeadYawRelative(view.Yaw, view.BodyYaw) * Deg;
         float headPitch = Math.Clamp(view.Pitch, -90f, 90f) * Deg;
         float swing = view.WalkedBlocks * 4f * (view.Baby ? 3f : 1f);
         float amount = Math.Min(view.SpeedBlocksPerTick * 4f, 1f);
+        if (stance is Stance.Riding or Stance.Gliding or Stance.Sleeping or Stance.Swimming) amount = 0f;
         var dye = DyeColour(view.Variant);
 
         var parts = model.Parts;
@@ -72,13 +165,19 @@ public static class EntityPoser
         {
             var part = parts[i];
             if (coarse && part.Role is not (PartRole.Head or PartRole.Body)) continue;
-            var rot = part.Rotation + Animation(model, part.Role, view, swing, amount, headYaw, headPitch, ageTicks);
+            var (shift, turn, swings) = stance == Stance.Upright || stance == Stance.Dead ? (Vector3.Zero, Vector3.Zero, true) : Tweak(stance, part.Role, ageTicks);
+            var rot = part.Rotation + Animation(model, part.Role, view, swings ? swing : 0f, swings ? amount : 0f, headYaw, headPitch, ageTicks) + turn;
+            // The body is already pitched to the look of a swimmer or a glider: its head does not tip again
+            if (part.Role == PartRole.Head && stance is Stance.Swimming or Stance.Gliding) rot.X = part.Rotation.X;
+            // An arm that carries something is held a little forward, its swing halved
+            if (holding && part.Role == PartRole.RightArm && stance is Stance.Upright or Stance.Sneaking) rot.X = rot.X * 0.5f - 0.3142f;
             var local = Matrix4x4.CreateRotationX(rot.X) * Matrix4x4.CreateRotationY(rot.Y) * Matrix4x4.CreateRotationZ(rot.Z)
-                        * Matrix4x4.CreateTranslation(part.Pivot);
+                        * Matrix4x4.CreateTranslation(part.Pivot + shift);
             if (part.PoseScale is { } poseScale) local = Matrix4x4.CreateScale(poseScale) * local;   // the game scales before it rotates and moves
             world[i] = part.Parent >= 0 ? local * world[part.Parent] : local;
 
             var model2 = world[i] * root;
+            if (part.Role == PartRole.RightArm && part.Parent < 0) rightArm = model2;
             string? partTexture = part.Texture;
             if (part.VariantTexture != null && (partTexture = part.VariantTexture(view.Variant)) == null) continue;   // this variant has no such layer
             foreach (var box in part.Boxes)
@@ -97,6 +196,7 @@ public static class EntityPoser
                 });
             }
         }
+        return rightArm;
     }
 
     // The rotation a part gets on top of its rest rotation (radians about x, y, z)

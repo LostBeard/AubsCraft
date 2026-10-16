@@ -234,4 +234,63 @@ public class ViewerItemsTests
             await page.CloseAsync();
         }
     }
+
+    [Test]
+    public async Task Projectiles_FlyTheWayTheyPoint_AndThrownThingsFaceTheCamera()
+    {
+        var entities = new List<LiveEntity>
+        {
+            // An arrow's yaw is the game's own for projectiles (+90 east) and its pitch is up positive
+            new(500, "arrow", -5.0f, 118.5f, 0.5f, 90f, 20f, 90f, 0, 0f, 0f, 0f, null, null),
+            new(501, "arrow", -3.0f, 118.5f, 0.5f, 0f, -35f, 0f, 0, 0f, 0f, 0f, null, null),
+            new(502, "spectral_arrow", -1.0f, 118.5f, 0.5f, 180f, 0f, 180f, 0, 0f, 0f, 0f, null, null),
+            new(503, "snowball", 1.0f, 118.5f, 0.5f, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, null),
+            new(504, "ender_pearl", 2.0f, 118.5f, 0.5f, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, null),
+            new(505, "egg", 3.0f, 118.5f, 0.5f, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, null),
+            new(506, "small_fireball", 4.0f, 118.5f, 0.5f, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, null),
+            new(507, "fireball", 7.0f, 118.5f, 0.5f, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, null),
+        };
+        long tick = 800_000;
+        byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
+        {
+            FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
+            Worlds = [new LiveWorld { Name = "world", Entities = entities, Players = System.Array.Empty<LivePlayer>() }],
+        });
+
+        var page = await _rig.Context.NewPageAsync();
+        var errors = new List<string>();
+        var log = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        page.Console += (_, m) => { log.Enqueue(m.Text); if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.Worker += (_, w) => w.Console += (_, m) => { log.Enqueue(m.Text); if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.PageError += (_, e) => errors.Add(e);
+        using var stop = new CancellationTokenSource();
+        Task? poster = null;
+        try
+        {
+            await page.GotoAsync($"{_rig.BaseUrl}/map?hud=0&time=6000&dd=6&cam=1.0,118.7,-7.0,0,90", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            poster = Task.Run(async () =>
+            {
+                while (!stop.IsCancellationRequested)
+                {
+                    int status = await _rig.PostLiveFrameAsync(Frame());
+                    if (status != 204) throw new InvalidOperationException($"The panel answered {status} to a live frame");
+                    tick += 4;
+                    await Task.Delay(200);
+                }
+            });
+            for (int i = 0; i < 40 && !log.ToArray().Any(l => l.Contains("[Items] Item assets:")); i++) await Task.Delay(1000);
+            for (int i = 0; i < 30 && !log.ToArray().Any(l => Regex.IsMatch(l, @"creatures 3 drawn")); i++) await Task.Delay(1000);
+            await Task.Delay(2000);
+            await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "projectiles.png") });
+            Assert.That(log.ToArray().Any(l => Regex.IsMatch(l, @"creatures 3 drawn")), Is.True, "the three arrows are drawn:\n" + string.Join("\n", log.ToArray().Where(l => l.Contains("[Live]")).TakeLast(3)));
+            Assert.That(log.ToArray().Any(l => Regex.IsMatch(l, @"\b5 items\)")), Is.True, "and the five thrown things:\n" + string.Join("\n", log.ToArray().Where(l => l.Contains("[Live]")).TakeLast(3)));
+            Assert.That(errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", errors));
+        }
+        finally
+        {
+            stop.Cancel();
+            try { if (poster != null) await poster; } catch (OperationCanceledException) { }
+            await page.CloseAsync();
+        }
+    }
 }

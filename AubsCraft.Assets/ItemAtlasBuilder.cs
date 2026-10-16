@@ -36,6 +36,8 @@ public sealed class ItemAtlasBuilder
     {
         public byte[] Rgba = System.Array.Empty<byte>();
         public int Kind;
+        /// <summary>A flat item held like a tool (the model's parent is item/handheld): the game turns it in the hand where it would not turn a flat item of another kind.</summary>
+        public bool Handheld;
     }
 
     // A texture of the game as 16 x 16 pixels (an animated one is a strip of frames: the first is shown; a larger one is sampled down), null when the jar lacks it
@@ -122,7 +124,7 @@ public sealed class ItemAtlasBuilder
                 // The game tints a leather piece's base layer (the overlay layer is not tinted)
                 Over(sprite, tex, layer == 0 && item.StartsWith("leather_", StringComparison.Ordinal) ? LeatherTint : null);
             }
-            return IsBlank(sprite) ? null : new Picture { Kind = ItemAssets.KindSprite, Rgba = Unfold(sprite) };
+            return IsBlank(sprite) ? null : new Picture { Kind = ItemAssets.KindSprite, Rgba = Unfold(sprite), Handheld = model.HasAncestor("item/handheld") };
         }
 
         byte[] side = new byte[16 * 16 * 4], top = new byte[16 * 16 * 4];
@@ -260,7 +262,7 @@ public sealed class ItemAtlasBuilder
             using (var doc = JsonDocument.Parse(_jar.ReadText(path))) modelId = ModelOf(doc.RootElement);
             var picture = modelId == null ? null : PictureOf(name, modelId);
             if (picture == null) { unresolved++; report.AppendLine($"  NO picture: {name} (model {modelId ?? "none"})"); continue; }
-            var hash = Convert.ToHexString(SHA256.HashData(picture.Rgba)) + picture.Kind;
+            var hash = Convert.ToHexString(SHA256.HashData(picture.Rgba)) + picture.Kind + (picture.Handheld ? "h" : "");
             if (!byHash.TryGetValue(hash, out var shared)) byHash[hash] = shared = picture;
             itemPictures[name] = shared;
         }
@@ -319,7 +321,7 @@ public sealed class ItemAtlasBuilder
         foreach (var (name, picture) in itemPictures)
         {
             var (x, y) = places[picture];
-            assets.Items[name] = new[] { x, y, picture.Kind };
+            assets.Items[name] = picture.Kind == ItemAssets.KindSprite ? new[] { x, y, picture.Kind, picture.Handheld ? 1 : 0 } : new[] { x, y, picture.Kind };
         }
         var head = new StringBuilder();
         head.AppendLine($"Item assets for Minecraft {_version}");

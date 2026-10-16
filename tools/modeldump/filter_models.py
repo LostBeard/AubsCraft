@@ -1,7 +1,7 @@
 """Keeps the creature models of a ModelDumpObf dump and writes them compactly: python filter_models.py all.json out.json"""
 import json, sys
 
-SKIP = ('Elytra', 'LeashKnot', 'Shield', 'Trident', 'SpinAttack', 'PlayerCape', 'PlayerEars', 'Saddle', 'Arrow', 'BeeStinger', 'WindCharge', 'LlamaSpit',
+SKIP = ('Elytra', 'LeashKnot', 'Shield', 'Trident', 'SpinAttack', 'PlayerCape', 'PlayerEars', 'Saddle', 'BeeStinger', 'WindCharge', 'LlamaSpit',
         'ShulkerBullet', 'EvokerFangs', 'DragonHead', 'ArmorStandArmor', 'createWaterPatch')
 
 def r(v):

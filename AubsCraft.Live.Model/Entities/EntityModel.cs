@@ -64,6 +64,8 @@ public sealed class EntityModel
     public Vector3 ModelOffset { get; init; }
     /// <summary>A turn about the vertical, in degrees, the renderer gives the model before anything else (a boat is drawn turned a quarter).</summary>
     public float ModelYawDegrees { get; init; }
+    /// <summary>A projectile: drawn flying the way it points, turned by its yaw (about the vertical) and its pitch (up positive), not stood on the ground like a creature.</summary>
+    public bool Projectile { get; init; }
 }
 
 /// <summary>One box ready to draw: its place in the world and where its texture is. The renderer turns the texture NAME into an atlas position.</summary>

@@ -7,7 +7,7 @@ namespace AubsCraft.Assets.Model;
 /// <see cref="AtlasWidth"/> x <see cref="AtlasHeight"/> pixels. Each item has the unfolded box the entity renderer draws: a flat item (a sword, an apple) is a 16 x 16 x 1 box whose
 /// two big faces are its sprite (<see cref="SpriteWidth"/> x <see cref="SpriteHeight"/> pixels, the box's cross unfolding); a block is a 16 x 16 x 16 cube (<see cref="CubeWidth"/> x
 /// <see cref="CubeHeight"/>). <see cref="Items"/> maps an item's name to x, y (where its unfolding starts in the atlas) and the kind (0 sprite, 1 cube). Items whose pictures came out
-/// the same share one place. A painting (<c>painting/kebab</c>) or an item frame (<c>frame/item_frame</c>) is a box one pixel thick of the picture's own size: its entry is x, y, 2, width, height
+/// the same share one place. A flat item has a fourth number: 1 when the game holds it as a tool (a sword, a pickaxe), 0 otherwise. A painting (<c>painting/kebab</c>) or an item frame (<c>frame/item_frame</c>) is a box one pixel thick of the picture's own size: its entry is x, y, 2, width, height
 /// of the picture in pixels (its unfolding is 2 x width + 2 by height + 1).
 /// </summary>
 public sealed class ItemAssets

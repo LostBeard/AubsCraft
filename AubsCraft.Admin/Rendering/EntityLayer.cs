@@ -226,6 +226,13 @@ public sealed class EntityLayer : IDisposable
                 else Items.AddBlock(in v, kind == "tnt" ? "tnt" : v.Variant, id2);
                 continue;
             }
+            if (Items != null && ItemLayer.Thrown.TryGetValue(kind, out var thrown))
+            {
+                float tx = v.X - camera.X, ty = v.Y - camera.Y, tz = v.Z - camera.Z;
+                float td2 = tx * tx + ty * ty + tz * tz;
+                if (td2 <= ItemRange * ItemRange) Items.AddBillboard(in v, thrown.item, thrown.size, camera.X, camera.Z, td2);
+                continue;
+            }
             if (Items != null && kind is "painting" or "item_frame" or "glow_item_frame")
             {
                 float hx = v.X - camera.X, hy = v.Y - camera.Y, hz = v.Z - camera.Z;
@@ -286,9 +293,11 @@ public sealed class EntityLayer : IDisposable
         EntityModel model;
         string? texture = null;
         bool fallback = false;
+        string? held = null;
         if (v.IsPlayer)
         {
             var player = _state.PlayerOf(world, v.Id);
+            if (player is { HeldItem: { Length: > 0 } heldItem } && heldItem != "air" && heldItem != "minecraft:air") held = heldItem;
             model = EntityModels.Get(player is { Slim: true } ? "player_slim" : "player")!;
             texture = player != null ? SkinTextureFor(player, now) : EntityModels.DefaultSkinFor(v.Id.ToString(), false);
         }
@@ -303,7 +312,9 @@ public sealed class EntityLayer : IDisposable
         AddTag(world, v, model, distSq);
 
         int first = _draws.Count;
-        EntityPoser.Pose(v, model, ageTicks, _draws, texture, coarse: distSq > CoarseRange * CoarseRange);
+        float? sleepYaw = v.Sleeping ? BlockEntities?.BedFacingNear(v.X, v.Y, v.Z) : null;
+        var hand = EntityPoser.Pose(v, model, ageTicks, _draws, texture, coarse: distSq > CoarseRange * CoarseRange, sleepYaw: sleepYaw, holding: held != null);
+        if (held != null && hand is { } arm && distSq <= ItemRange * ItemRange) Items?.AddHeld(arm, EntityModels.Normalise(held), distSq);
         if (fallback)
         {
             // A creature with no model of its own is a box, coloured by its kind so different kinds can be told apart

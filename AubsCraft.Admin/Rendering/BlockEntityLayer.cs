@@ -45,6 +45,32 @@ public sealed class BlockEntityLayer
     public int Known { get; private set; }
     public int Posed { get; private set; }
 
+    /// <summary>
+    /// The way the bed under a sleeper faces (the yaw the game numbers: south 0, west 90, north 180, east 270), found among the beds within a block and a half of (x, y, z); null when there is none
+    /// near (the bed is not loaded, or the player sleeps on something that is not a bed block entity).
+    /// </summary>
+    public float? BedFacingNear(float x, float y, float z)
+    {
+        int cx0 = (int)MathF.Floor((x - 1.5f) / 16f), cx1 = (int)MathF.Floor((x + 1.5f) / 16f), cz0 = (int)MathF.Floor((z - 1.5f) / 16f), cz1 = (int)MathF.Floor((z + 1.5f) / 16f);
+        float best = float.MaxValue;
+        float? yaw = null;
+        for (int cx = cx0; cx <= cx1; cx++)
+            for (int cz = cz0; cz <= cz1; cz++)
+            {
+                if (!_columns.TryGetValue((cx, cz), out var spots)) continue;
+                foreach (var spot in spots)
+                {
+                    if (spot.Kind != BlockEntityKind.Bed) continue;
+                    float dx = cx * 16 + spot.X + 0.5f - x, dy = spot.Y + 0.6f - y, dz = cz * 16 + spot.Z + 0.5f - z;
+                    float d2 = dx * dx + dy * dy + dz * dz;
+                    if (Math.Abs(dx) > 1.5f || Math.Abs(dz) > 1.5f || Math.Abs(dy) > 1.5f || d2 >= best) continue;
+                    best = d2;
+                    yaw = spot.Orient * 22.5f;
+                }
+            }
+        return yaw;
+    }
+
     /// <summary>A column's blocks (replacing what it had). None removes it.</summary>
     public void SetColumn(int cx, int cz, IReadOnlyList<BlockEntitySpot> spots)
     {

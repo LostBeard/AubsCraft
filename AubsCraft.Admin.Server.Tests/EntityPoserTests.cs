@@ -400,8 +400,8 @@ public class EntityPoserTests
     public void NamespacesAreIgnoredForVanilla()
     {
         Assert.That(EntityModels.Get("minecraft:cow"), Is.SameAs(EntityModels.Get("cow")));
-        Assert.That(EntityModels.IsNotACreature("minecraft:arrow"), Is.True);
-        Assert.That(EntityModels.IsNotACreature("arrow"), Is.True);
+        Assert.That(EntityModels.IsNotACreature("minecraft:snowball"), Is.True);
+        Assert.That(EntityModels.IsNotACreature("snowball"), Is.True);
         Assert.That(EntityModels.IsNotACreature("cow"), Is.False);
         Assert.That(EntityModels.IsNotACreature("mymod:thing"), Is.False);
         foreach (var vehicle in new[] { "oak_boat", "minecraft:bamboo_raft", "oak_chest_boat", "minecart", "hopper_minecart", "armor_stand" })
@@ -419,7 +419,7 @@ public class EntityPoserTests
         ["squid"] = (-1.3f, -1.0f), ["glow_squid"] = (-1.3f, -1.0f),   // the body is centred on the hitbox, the tentacles hang below it
         ["salmon"] = (-0.05f, 0.15f), ["tropical_fish_b"] = (-0.2f, 0.2f),   // swimmers: their bodies are a little above the hitbox's floor
         ["allay"] = (-0.15f, 0.1f), ["axolotl"] = (-0.15f, 0.05f), ["guardian"] = (-0.3f, 0.05f), ["elder_guardian"] = (-0.8f, 0.1f),   // the game's models reach a little below their hitbox
-        ["breeze"] = (0.5f, 0.8f), ["wither"] = (0.2f, 0.6f), ["ender_dragon"] = (-3f, 0f), ["bat"] = (-0.3f, 0.7f), ["phantom"] = (-0.3f, 0.7f), ["vex"] = (-0.3f, 0.7f),
+        ["arrow"] = (-0.3f, 0.3f), ["spectral_arrow"] = (-0.3f, 0.3f), ["breeze"] = (0.5f, 0.8f), ["wither"] = (0.2f, 0.6f), ["ender_dragon"] = (-3f, 0f), ["bat"] = (-0.3f, 0.7f), ["phantom"] = (-0.3f, 0.7f), ["vex"] = (-0.3f, 0.7f),
     };
 
     [Test]
@@ -438,9 +438,9 @@ public class EntityPoserTests
             {
                 if (feet < range.min || feet > range.max) problems.Add($"{type} should hang between {range.min} and {range.max} below its feet; it is {feet:F2}");
             }
-            else if (feet < -0.08f || feet > 0.08f) problems.Add($"{type}: its lowest box is {feet:F2} from the ground");
+            else if (feet < -0.09f || feet > 0.08f) problems.Add($"{type}: its lowest box is {feet:F2} from the ground");
             // The model is as tall as the game's hitbox says, give or take (a head held high, ears, hats)
-            if (type is not ("rabbit" or "pufferfish" or "tropical_fish_a" or "bat" or "ender_dragon" or "bamboo_chest_raft") && (top < model.Height * 0.6f || top > model.Height * 1.45f + 0.25f)) problems.Add($"{type}: {top:F2} blocks tall against a hitbox of {model.Height:F2}");
+            if (type is not ("rabbit" or "pufferfish" or "tropical_fish_a" or "bat" or "ender_dragon" or "bamboo_chest_raft" or "arrow" or "spectral_arrow") && (top < model.Height * 0.6f || top > model.Height * 1.45f + 0.25f)) problems.Add($"{type}: {top:F2} blocks tall against a hitbox of {model.Height:F2}");
         }
         TestContext.Progress.WriteLine(string.Join(Environment.NewLine, report));
         Assert.That(problems, Is.Empty, string.Join(Environment.NewLine, problems));

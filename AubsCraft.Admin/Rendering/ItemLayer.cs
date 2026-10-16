@@ -104,6 +104,62 @@ public sealed class ItemLayer : IDisposable
         _wanted.Add((distSq, part));
     }
 
+    /// <summary>The item a thrown or shot thing is drawn as, and how big (1 is half a block across): what the game's renderer for it shows.</summary>
+    public static readonly IReadOnlyDictionary<string, (string item, float size)> Thrown = new Dictionary<string, (string, float)>
+    {
+        ["snowball"] = ("snowball", 1f), ["egg"] = ("egg", 1f), ["ender_pearl"] = ("ender_pearl", 1f), ["eye_of_ender"] = ("ender_eye", 1f),
+        ["experience_bottle"] = ("experience_bottle", 1f), ["potion"] = ("splash_potion", 1f), ["firework_rocket"] = ("firework_rocket", 1f),
+        ["fireball"] = ("fire_charge", 3f), ["small_fireball"] = ("fire_charge", 0.75f), ["wind_charge"] = ("wind_charge", 1f), ["breeze_wind_charge"] = ("wind_charge", 1f),
+    };
+
+    /// <summary>A thrown or shot thing: its item as a flat picture that always turns its face to the camera at (<paramref name="cameraX"/>, <paramref name="cameraZ"/>).</summary>
+    public void AddBillboard(in LiveEntityView v, string item, float size, float cameraX, float cameraZ, float distSq)
+    {
+        if (_assets == null || !_assets.Items.TryGetValue(item, out var cell) || cell[2] == ItemAssets.KindHanging) return;
+        bool cube = cell[2] == ItemAssets.KindCube;
+        // Facing the camera: the yaw of the direction from the thing to it (south 0, west 90)
+        float yaw = MathF.Atan2(-(cameraX - v.X), cameraZ - v.Z) * 180f / MathF.PI;
+        _wanted.Add((distSq, new EntityPartInstance
+        {
+            Model = EntityPoser.Root(v.X, v.Y - 0.125f, v.Z, yaw, 0.5f * size * (cube ? 0.5f : 1f)),
+            OriginInflate = cube ? new Vector4(-8f, 8f, -8f, 0f) : new Vector4(-8f, 8f, -0.5f, 0f),
+            SizeFlags = cube ? new Vector4(16f, 16f, 16f, 0f) : new Vector4(16f, 16f, 1f, 0f),
+            Uv = new Vector4(cell[0], cell[1], 0f, 0f),
+            Tint = Brighten,
+        }));
+    }
+
+    /// <summary>
+    /// What a creature holds in its right hand, as the game places it: in the arm's own space the item's origin is a hand's length down and a little forward, turned to lie along the arm, and then
+    /// the model's own display transform for being held (tools tilted along the hand, other flat items small and upright, blocks as little cubes). <paramref name="arm"/> takes the arm's space (model
+    /// pixels, origin at the shoulder) to the world.
+    /// </summary>
+    public void AddHeld(Matrix4x4 arm, string item, float distSq)
+    {
+        if (_assets == null || !_assets.Items.TryGetValue(item, out var cell) || cell[2] == ItemAssets.KindHanging) return;
+        bool cube = cell[2] == ItemAssets.KindCube;
+        bool tool = !cube && cell.Length > 3 && cell[3] == 1;
+        // ItemTransform: scale, rotate about x then y then z the game's way, translate (in sixteenths of a block, the same as model pixels); then the hand: (1, 2, -10) in a frame turned 180 about y and -90 about x
+        float scale; Vector3 rotation, translation;
+        if (cube) { scale = 0.375f; rotation = new Vector3(75f, 45f, 0f); translation = new Vector3(0f, 2.5f, 0f); }
+        else if (tool) { scale = 0.85f; rotation = new Vector3(0f, -90f, 55f); translation = new Vector3(0f, 4f, 0.5f); }
+        else { scale = 0.55f; rotation = Vector3.Zero; translation = new Vector3(0f, 3f, 1f); }
+        const float Deg = MathF.PI / 180f;
+        var local = Matrix4x4.CreateScale(1f, -1f, -1f)    // the box's y points down and its front is -z: stand it up and turn its front to +z
+            * Matrix4x4.CreateScale(scale)
+            * Matrix4x4.CreateRotationZ(rotation.Z * Deg) * Matrix4x4.CreateRotationY(rotation.Y * Deg) * Matrix4x4.CreateRotationX(rotation.X * Deg)
+            * Matrix4x4.CreateTranslation(translation + new Vector3(1f, 2f, -10f))
+            * Matrix4x4.CreateRotationY(180f * Deg) * Matrix4x4.CreateRotationX(-90f * Deg);
+        _wanted.Add((distSq, new EntityPartInstance
+        {
+            Model = local * arm,
+            OriginInflate = cube ? new Vector4(-8f, -8f, -8f, 0f) : new Vector4(-8f, -8f, -0.5f, 0f),
+            SizeFlags = cube ? new Vector4(16f, 16f, 16f, 0f) : new Vector4(16f, 16f, 1f, 0f),
+            Uv = new Vector4(cell[0], cell[1], 0f, 0f),
+            Tint = Brighten,
+        }));
+    }
+
     /// <summary>
     /// A painting or an item frame (and what is in it): a thin box of the picture's size standing against its wall, facing the way the entity does. <paramref name="kind"/> is <c>painting</c>,
     /// <c>item_frame</c> or <c>glow_item_frame</c>; <paramref name="variant"/> the painting's name or the item in the frame (none when empty).

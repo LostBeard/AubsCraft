@@ -12,9 +12,9 @@ public static partial class EntityModels
     private static void AddFromGame(Dictionary<string, EntityModel> d)
     {
         EntityModel Make(string key, string texture, EntityRig rig, float width, float height, float scale = 1f, Vector3 offset = default,
-            Func<string, PartRole>? role = null, string[]? hide = null, float baby = 0.5f, string[]? variants = null, Func<string?, string>? byVariant = null, float modelYaw = 0f, Func<ModelPart[], ModelPart[]>? afterParts = null) => new()
+            Func<string, PartRole>? role = null, string[]? hide = null, float baby = 0.5f, string[]? variants = null, Func<string?, string>? byVariant = null, float modelYaw = 0f, Func<ModelPart[], ModelPart[]>? afterParts = null, bool projectile = false) => new()
         {
-            Texture = texture, Rig = rig, Width = width, Height = height, Scale = scale, ModelOffset = offset, ModelYawDegrees = modelYaw, BabyScale = baby,
+            Texture = texture, Rig = rig, Width = width, Height = height, Scale = scale, ModelOffset = offset, ModelYawDegrees = modelYaw, Projectile = projectile, BabyScale = baby,
             TextureByVariant = byVariant, VariantTextures = variants ?? Array.Empty<string>(),
             Parts = afterParts == null ? GameModels.Parts(key, role, hide == null ? null : new HashSet<string>(hide)) : afterParts(GameModels.Parts(key, role, hide == null ? null : new HashSet<string>(hide))),
         };
@@ -123,6 +123,10 @@ public static partial class EntityModels
             d[cart] = Make("MinecartModel.createBodyLayer", "minecart", EntityRig.Static, 0.98f, 0.7f, offset: lift, role: _ => PartRole.Static);
         // An armor stand with no arms and its base plate (the plugin does not say otherwise); its hat layer is for armour
         d["armor_stand"] = Make("ArmorStandModel.createBodyLayer", "armorstand/wood", EntityRig.Static, 0.5f, 1.975f, role: _ => PartRole.Static, hide: ["hat", "right_arm", "left_arm"]);
+
+        // Arrows: the game scales the model 0.9 and draws it along its flight (yaw about the vertical, pitch up positive)
+        d["arrow"] = Make("ArrowModel.createBodyLayer", "projectiles/arrow", EntityRig.Static, 0.5f, 0.5f, scale: 0.9f, role: _ => PartRole.Static, projectile: true);
+        d["spectral_arrow"] = Make("ArrowModel.createBodyLayer", "projectiles/spectral_arrow", EntityRig.Static, 0.5f, 0.5f, scale: 0.9f, role: _ => PartRole.Static, projectile: true);
 
         // ---- fish: the game's whole models, fins and tails and all ----
         d["cod"] = Make("CodModel.createBodyLayer", "fish/cod", EntityRig.Static, 0.5f, 0.3f, role: HeadOnly);

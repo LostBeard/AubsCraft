@@ -70,11 +70,11 @@ public static partial class EntityModels
     /// <summary>What is not a creature worth drawing: projectiles, items, markers, display entities, effects. (They are not in the frame unless the plugin is told to send them.)</summary>
     public static bool IsNotACreature(string type) => NotCreatures.Contains(Normalise(type));
 
-    /// <summary>A boat, raft, minecart or armor stand: drawn, but nothing to put on the minimap as a creature.</summary>
+    /// <summary>A boat, raft, minecart, armor stand or arrow: drawn, but nothing to put on the minimap as a creature.</summary>
     public static bool IsVehicleOrStand(string type)
     {
         var key = Normalise(type);
-        return key.EndsWith("_boat", StringComparison.Ordinal) || key.EndsWith("_raft", StringComparison.Ordinal) || key.EndsWith("minecart", StringComparison.Ordinal) || key is "armor_stand" or "end_crystal";
+        return key.EndsWith("_boat", StringComparison.Ordinal) || key.EndsWith("_raft", StringComparison.Ordinal) || key.EndsWith("minecart", StringComparison.Ordinal) || key is "armor_stand" or "end_crystal" or "arrow" or "spectral_arrow";
     }
 
     /// <summary>A model of one box the size of the creature: the picture for a creature with no model of its own.</summary>
@@ -316,7 +316,8 @@ public static partial class EntityModels
         float py = slim ? 2.5f : 2f;
         return new EntityModel
         {
-            Texture = "player", Rig = EntityRig.Biped, Width = 0.6f, Height = 1.8f,
+            // The game draws a player at 15/16 of the model (PlayerRenderer.scale)
+            Texture = "player", Rig = EntityRig.Biped, Width = 0.6f, Height = 1.8f, Scale = 0.9375f,
             Parts =
             [
                 P("head", PartRole.Head, -1, 0, 0, 0, [B(0, 0, -4, -8, -4, 8, 8, 8)]),
@@ -356,7 +357,7 @@ public static partial class EntityModels
 
     private static readonly HashSet<string> NotCreatures =
     [
-        "item", "experience_orb", "arrow", "spectral_arrow", "trident", "snowball", "egg", "ender_pearl", "eye_of_ender", "fireball", "small_fireball",
+        "item", "experience_orb", "trident", "snowball", "egg", "ender_pearl", "eye_of_ender", "fireball", "small_fireball",
         "wither_skull", "dragon_fireball", "potion", "experience_bottle", "firework_rocket", "fishing_bobber", "text_display", "block_display", "item_display",
         "interaction", "marker", "area_effect_cloud", "lightning_bolt", "painting", "item_frame", "glow_item_frame", "leash_knot", "falling_block", "tnt",
         "evoker_fangs", "shulker_bullet", "llama_spit", "wind_charge", "breeze_wind_charge", "ominous_item_spawner",
