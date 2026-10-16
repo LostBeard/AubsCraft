@@ -6,6 +6,7 @@ import org.bukkit.entity.Axolotl;
 import org.bukkit.entity.Cat;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Fox;
 import org.bukkit.entity.Frog;
 import org.bukkit.entity.Horse;
@@ -201,6 +202,11 @@ public final class LivePlugin extends JavaPlugin {
     }
 
     private static String variantOf(Entity e) {
+        // A falling block: which block (the viewer draws a cube of it)
+        if (e instanceof FallingBlock fb) {
+            var key = fb.getBlockData().getMaterial().getKey();
+            return typeKey(key.getNamespace(), key.getKey());
+        }
         // A dropped item: what it is (the viewer draws its picture)
         if (e instanceof Item item) {
             var key = item.getItemStack().getType().getKey();

@@ -47,7 +47,10 @@ public class ViewerItemsTests
             float x = -3.3f + (i % 6) * 1.3f, y = 119.2f - (i / 6) * 0.9f;
             entities.Add(new LiveEntity(100 + i, "item", x, y, 0.5f, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, items[i]));
         }
-        long tick = 200_000;
+        // A falling block and a primed TNT: whole blocks, in the row below the items
+        entities.Add(new LiveEntity(150, "falling_block", -3.3f, 117.0f, 0.5f, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, "sand"));
+        entities.Add(new LiveEntity(151, "tnt", -1.8f, 117.0f, 0.5f, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, null));
+        long tick = 400_000;
         byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
         {
             FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
@@ -77,7 +80,9 @@ public class ViewerItemsTests
                     await Task.Delay(200);
                 }
             });
-            await Task.Delay(6000);
+            await Task.Delay(4000);
+            // The count is logged every few seconds: wait for the line that has all of them
+            for (int i = 0; i < 30 && !log.ToArray().Any(l => l.Contains($" {items.Length + 2} items)")); i++) await Task.Delay(1000);
             var files = new List<string>();
             for (int i = 0; i < 3; i++)
             {
@@ -89,7 +94,7 @@ public class ViewerItemsTests
 
             Assert.That(log.Any(l => Regex.IsMatch(l, @"\[Items\] Item assets: \d{4} items")), Is.True, "the item pictures loaded:\n" + string.Join("\n", log.Where(l => l.Contains("Items"))));
             var drawn = log.ToArray().Select(l => Regex.Match(l, @"(\d+) items\)")).Where(m => m.Success).Select(m => int.Parse(m.Groups[1].Value)).ToList();
-            Assert.That(drawn.Count == 0 ? 0 : drawn.Max(), Is.EqualTo(items.Length), "every item is in range and drawn");
+            Assert.That(drawn.Count == 0 ? 0 : drawn.Max(), Is.EqualTo(items.Length + 2), "every item, the falling block and the TNT are in range and drawn");
             // Pixels that are neither sky blue nor cloud white are the items
             using var bmp = new Bitmap(files[0]);
             int itemPixels = 0;

@@ -20,6 +20,7 @@ public sealed class ItemLayer : IDisposable
     /// <summary>A flat item is drawn half a block across, a block a quarter.</summary>
     public const float SpriteScale = 0.5f, CubeScale = 0.25f;
     // The creatures' light (ambient and sun on the face) is dim for a picture that the game shows at full brightness: lift it
+    private static readonly Vector4 BlockBrightness = new(1.3f, 1.3f, 1.3f, 1f);
     private static readonly Vector4 Brighten = new(1.7f, 1.7f, 1.7f, 1f);
 
     private readonly SpawnJSRuntime _js;
@@ -84,6 +85,21 @@ public sealed class ItemLayer : IDisposable
             SizeFlags = cube ? new Vector4(16f, 16f, 16f, 0f) : new Vector4(16f, 16f, 1f, 0f),
             Uv = new Vector4(cell[0], cell[1], 0f, 0f),
             Tint = Brighten,
+        };
+        _wanted.Add((distSq, part));
+    }
+
+    /// <summary>A falling block or a primed TNT: a whole block (a hair under one, as the game's 0.98 box), not spinning. <paramref name="name"/> is the block's name.</summary>
+    public void AddBlock(in LiveEntityView v, string? name, float distSq)
+    {
+        if (_assets == null || name is not { Length: > 0 } || !_assets.Items.TryGetValue(name, out var cell) || cell[2] != ItemAssets.KindCube) return;
+        var part = new EntityPartInstance
+        {
+            Model = EntityPoser.Root(v.X, v.Y, v.Z, 0f, 0.98f),
+            OriginInflate = new Vector4(-8f, 8f, -8f, 0f),
+            SizeFlags = new Vector4(16f, 16f, 16f, 0f),
+            Uv = new Vector4(cell[0], cell[1], 0f, 0f),
+            Tint = BlockBrightness,
         };
         _wanted.Add((distSq, part));
     }

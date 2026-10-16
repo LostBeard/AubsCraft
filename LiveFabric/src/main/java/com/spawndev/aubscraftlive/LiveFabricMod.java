@@ -29,6 +29,7 @@ import net.minecraft.world.entity.animal.horse.Llama;
 import net.minecraft.world.entity.animal.sheep.Sheep;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.phys.Vec3;
 
 import java.io.IOException;
@@ -206,6 +207,8 @@ public final class LiveFabricMod implements DedicatedServerModInitializer {
     }
 
     private static String variantOf(Entity e) {
+        // A falling block: which block (the viewer draws a cube of it)
+        if (e instanceof FallingBlockEntity fb) return key(BuiltInRegistries.BLOCK.getKey(fb.getBlockState().getBlock()));
         // A dropped item: what it is (the viewer draws its picture)
         if (e instanceof ItemEntity item) return key(BuiltInRegistries.ITEM.getKey(item.getItem().getItem()));
         if (e instanceof Sheep s) return s.getColor().getName();

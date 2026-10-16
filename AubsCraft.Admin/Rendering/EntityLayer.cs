@@ -213,11 +213,14 @@ public sealed class EntityLayer : IDisposable
         foreach (var v in _state.Sample(world, now, Wanted))
         {
             if ((v.Flags & LiveFlags.Invisible) != 0) continue;
-            if (Items != null && EntityModels.Normalise(v.Type) == "item")
+            var kind = EntityModels.Normalise(v.Type);
+            if (Items != null && kind is "item" or "falling_block" or "tnt")
             {
                 float ix = v.X - camera.X, iy = v.Y - camera.Y, iz = v.Z - camera.Z;
                 float id2 = ix * ix + iy * iy + iz * iz;
-                if (id2 <= ItemRange * ItemRange) Items.Add(in v, now, id2);
+                if (id2 > ItemRange * ItemRange) continue;
+                if (kind == "item") Items.Add(in v, now, id2);
+                else Items.AddBlock(in v, kind == "tnt" ? "tnt" : v.Variant, id2);
                 continue;
             }
             if (EntityModels.IsNotACreature(v.Type)) continue;
