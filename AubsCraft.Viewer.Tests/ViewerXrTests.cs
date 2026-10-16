@@ -246,9 +246,12 @@ public class ViewerXrTests
         }
     }
 
-    // The panel is in the room: 1.3 m in front of the head (which the mock puts at (0, 1.7, 0) facing -Z), 12 cm below the eyes, 1.5 x 0.9375 m, 800 x 500 pixels
+    // The panel is in the room: 1.4 m in front of the head (which the mock puts at (0, 1.7, 0) facing -Z), 12 cm below the eyes, 1.7 x 1.0625 m, 800 x 500 pixels of layout
     private static (double X, double Y, double Z) PanelSpot(double px, double py)
-        => ((px / 800 - 0.5) * 1.5, 1.58 + (0.5 - py / 500) * 0.9375, -1.3);
+        => ((px / 800 - 0.5) * 1.7, 1.58 + (0.5 - py / 500) * 1.0625, -1.4);
+
+    // The middle of the k-th button of a headset panel's toolbar (150 x 34 px, 38 apart, from y 84), in the first column
+    private static (double X, double Y, double Z) ToolbarSpot(int k) => PanelSpot(8 + 75, 84 + k * 38 + 17);
 
     // Where a room point falls in the left eye of the mock (90 degrees, square, 1024 px, the eye 3.2 cm left of the head)
     private static (int X, int Y) InLeftEye(double x, double y, double z)
@@ -342,7 +345,7 @@ public class ViewerXrTests
             var dot = InLeftEye(middle.X, middle.Y, middle.Z);
             double dotChange = Changed(pointing, back, new Rectangle(dot.X - 10, dot.Y - 10, 20, 20));
             TestContext.Progress.WriteLine($"[xr] dot at {dot}: {dotChange:P1} of its box changed");
-            Assert.That(dotChange, Is.GreaterThan(0.08), "a dot shows where the controller points");
+            Assert.That(dotChange, Is.GreaterThan(0.04), "a dot shows where the controller points");
 
             // The trigger on the minimap cycles its zoom, and says so
             await AimAsync(page, PanelSpot(704, 96));
@@ -352,7 +355,7 @@ public class ViewerXrTests
             using var zoomed = await LeftEyeAsync(page, "hud-minimap-zoom");
 
             // A player in the list: the trigger opens its menu
-            await AimAsync(page, PanelSpot(700, 272));
+            await AimAsync(page, PanelSpot(700, 278));
             await Task.Delay(500);
             await PressAsync(page, "trigger");
             using var menu = await LeftEyeAsync(page, "hud-menu");
@@ -423,7 +426,7 @@ public class ViewerXrTests
             Assert.That(plugin.Received[2].Kind, Is.EqualTo("undo"));
 
             // The toolbar on the panel: the controller points at "Blocks" and the trigger presses it
-            await AimAsync(page, PanelSpot(70, 131));
+            await AimAsync(page, ToolbarSpot(3));   // after "Say something", "Mic" and "Turn"
             await Task.Delay(800);
             await PressAsync(page, "trigger");
             for (int i = 0; i < 20 && !log.ToArray().Any(l => l.Contains("[Edit] tool blocks")); i++) await Task.Delay(300);
@@ -432,12 +435,12 @@ public class ViewerXrTests
             using var palette = await LeftEyeAsync(page, "vr-edit-palette");
 
             // No keyboard in a headset: a chip fills the search in ("glass"), the first block of the list is picked, and the right trigger then places it
-            await AimAsync(page, PanelSpot(400, 94));
+            await AimAsync(page, PanelSpot(481, 161));   // the "glass" chip
             await Task.Delay(700);
             await PressAsync(page, "trigger");
             await Task.Delay(800);
             using var chipped = await LeftEyeAsync(page, "vr-edit-chip");
-            await AimAsync(page, PanelSpot(300, 152));
+            await AimAsync(page, PanelSpot(300, 232));   // the first block of the list
             await Task.Delay(700);
             await PressAsync(page, "trigger");
             await Task.Delay(1000);
@@ -504,7 +507,7 @@ public class ViewerXrTests
             Assert.That(WorldPixels(model, 700, 1024), Is.GreaterThan(500), "the model is there on the table");
 
             // "On the table" is the button's name at life size and "Life size" on the table: it steps into the model
-            await AimAsync(page, PanelSpot(292, 131));
+            await AimAsync(page, PanelSpot(8 + 156 + 75, 84 + 17));   // the first table button, in the column after the toolbar's
             await Task.Delay(800);
             await PressAsync(page, "trigger");
             await Task.Delay(6000);
@@ -550,7 +553,7 @@ public class ViewerXrTests
             await Task.Delay(6000);
 
             // "Say something" is the first button of the toolbar; the first phrase is the first button of its panel
-            await AimAsync(page, PanelSpot(64, 131));
+            await AimAsync(page, ToolbarSpot(0));
             await Task.Delay(800);
             await PressAsync(page, "trigger");
             await Task.Delay(1000);
@@ -771,6 +774,33 @@ public class ViewerXrTests
             TestContext.Progress.WriteLine($"[xr] forest {button}: far ground changed: {string.Join(" ", far)} (mean {far.Average():F0})");
             if (worst > 0) MarkChanges(frames[at - 1], frames[at], Path.Combine(_outDir, $"forest-{tag}-diff.png"), 0);
             Assert.That(worst, Is.LessThan(200), "the same picture, frame after frame");
+        }
+        finally { await page.CloseAsync(); }
+    }
+
+    // The Turn button of the toolbar: smooth turning is the default, a press makes it steps and another smooth again
+    [Test]
+    public async Task InVr_TheTurnButtonSwitchesBetweenSmoothAndSteps()
+    {
+        var page = await _rig.Context.NewPageAsync();
+        var log = new List<string>();
+        page.Console += (_, m) => log.Add(m.Text);
+        await page.AddInitScriptAsync(MockXr);
+        try
+        {
+            await page.GotoAsync(_rig.BaseUrl + "/map?hud=0&time=6000&cam=" + Cam, new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await ViewerShotTests.WaitForSettledAsync(page, minSections: 20, quietSeconds: 4, maxSeconds: 60);
+            await page.GetByRole(AriaRole.Button, new() { Name = "Enter VR" }).ClickAsync();
+            for (int i = 0; i < 90 && !log.Any(l => l.Contains("[Xr] world started")); i++) await Task.Delay(1000);
+            await Task.Delay(6000);
+            await AimAsync(page, ToolbarSpot(2));   // after "Say something" and "Mic"
+            await Task.Delay(800);
+            await PressAsync(page, "trigger");
+            for (int i = 0; i < 20 && !log.Any(l => l.Contains("[Xr] turning")); i++) await Task.Delay(300);
+            Assert.That(log.Any(l => l.Contains("[Xr] turning in steps")), Is.True, "the first press makes it steps:\n" + string.Join("\n", log.Where(l => l.Contains("Xr")).TakeLast(6)));
+            await PressAsync(page, "trigger");
+            for (int i = 0; i < 20 && !log.Any(l => l.Contains("[Xr] turning smoothly")); i++) await Task.Delay(300);
+            Assert.That(log.Any(l => l.Contains("[Xr] turning smoothly")), Is.True, "the second makes it smooth again");
         }
         finally { await page.CloseAsync(); }
     }

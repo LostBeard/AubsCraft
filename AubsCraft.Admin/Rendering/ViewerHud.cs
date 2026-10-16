@@ -51,6 +51,7 @@ public sealed class ViewerHud
     private UITextInput _paletteSearch = null!;
     private UIList _paletteList = null!;
     private UIMinimapFrame _minimap = null!;
+    private UIPanel _statsPanel = null!;
     // Where the mouse is (canvas pixels): a menu opens under the click
     private float _mouseX, _mouseY;
     private string? _followName;
@@ -71,7 +72,7 @@ public sealed class ViewerHud
     public bool IsTyping => (_chat != null && _chat.IsInputFocused) || (_paletteSearch != null && _palette.Visible && _paletteSearch.IsFocused) || (_nameInput != null && _namePrompt.Visible && _nameInput.IsFocused);
 
     private const string DesktopHint = "Click the view to fly   WASD move   Space / Shift up / down   Esc release   Enter chat   M map zoom   F3 debug   Click a player in the list for actions";
-    private const string HeadsetHint = "Left stick fly or slide the model   Right stick turn, rise or zoom   Grips go fast   Trigger on a player or the map   X hide this panel   Y leaves";
+    private const string HeadsetHint = "Left stick fly   Right stick turn, rise   Grips fast   X hide panel   Y leave";
 
     /// <summary>True while the HUD is a panel floating in a headset: its hint tells what the controllers do (there is no mouse, keyboard or pointer lock).</summary>
     public bool HeadsetMode
@@ -80,11 +81,40 @@ public sealed class ViewerHud
         set
         {
             _headset = value;
+            ApplyHeadsetLayout(value);
             if (_hint != null) _hint.Text = value ? HeadsetHint : _editMode ? EditHint : DesktopHint;
         }
     }
     private bool _headset;
 
+    // ---- the headset's layout: bigger text, and only what a person in a headset needs, kept apart ----
+
+    private const float HeadsetFontScale = 1.3f;
+    private float ToolW => _headset ? 150f : 112f;
+    private float ToolH => _headset ? 34f : 26f;
+    private float ToolTop => _headset ? 84f : 118f;
+    private int ToolsPerColumn => _headset ? 8 : 7;
+
+    private void ApplyHeadsetLayout(bool on)
+    {
+        if (_root == null) return;
+        UITheme.Current.FontScale = on ? HeadsetFontScale : 1f;
+        const float pad = 8f;
+        float lineH = _ui.Renderer.GetLineHeight(FontSize.Caption);
+        // The status: how fast and where, two lines (the rest is for the desktop)
+        int shown = on ? 2 : _lines.Length;
+        for (int i = 0; i < _lines.Length; i++) { _lines[i].Visible = i < shown; _lines[i].Y = pad + i * (lineH + 2); }
+        _statsPanel.Width = on ? 250 : 270;
+        _statsPanel.Height = pad * 2 + lineH * shown + 2 * (shown - 1);
+        UIDebugOverlay.Instance.Y = 8 + _statsPanel.Height + 8;
+        _compass.Width = on ? 240 : 420;
+        _chat.Width = on ? 330 : ChatWidth;
+        _chat.Height = on ? 120 : ChatHeight;
+        _editBar.SlotSize = on ? 54 : 66;
+        LayoutPalette(on);
+        foreach (var (_, button) in _toolButtons) { button.Width = ToolW; button.Height = ToolH; }
+        foreach (var (_, button) in _tableButtons) { button.Width = ToolW; button.Height = ToolH; }
+    }
     /// <summary>Whether this pixel of the HUD is on the minimap.</summary>
     public bool OverMinimap(float x, float y) => _minimap != null && _minimap.HitTest(new System.Numerics.Vector2(x, y)) != null;
 
@@ -105,9 +135,9 @@ public sealed class ViewerHud
 
     // ---- edit mode ----
 
-    private const string HeadsetEditHint = "EDIT   right trigger place   A break   left trigger copy the block   left stick click undo   right stick click leaves   the buttons on the left do the rest";
-    private const string HeadsetSelectHint = "SELECT   right trigger marks a corner   A clears   then Fill, Copy, Cut or Save on the left";
-    private const string HeadsetPasteHint = "PLACING   right trigger puts it down   A stops   Turn and Mirror on the left";
+    private const string HeadsetEditHint = "EDIT   right trigger place   A break   left trigger copy block   left stick click undo";
+    private const string HeadsetSelectHint = "SELECT   right trigger marks a corner   A clears";
+    private const string HeadsetPasteHint = "PLACING   right trigger puts it down   A stops";
     private const string EditHint = "EDIT   left break   right place   middle copy block   1-9 wheel choose   E blocks   V select   K blueprints   Ctrl+Z/Y undo/redo   B leave";
     private const string SelectHint = "SELECT   click two corners   F fill   Shift+F hollow   Delete clear   Ctrl+C copy   Ctrl+X cut   Ctrl+V paste   Ctrl+S save blueprint   right click clears   V back to building";
     private const string PasteHint = "PLACING   left click puts it down   R turn   T mirror   right click or Esc stops";
@@ -210,16 +240,16 @@ public sealed class ViewerHud
     {
         foreach (var (id, label) in new[]
         {
-            ("chat", "Say something"), ("mic", "Mic: off"), ("enter", "Edit mode"), ("blocks", "Blocks"), ("select", "Select"), ("blueprints", "Blueprints"), ("undo", "Undo"), ("redo", "Redo"),
+            ("chat", "Say something"), ("mic", "Mic: off"), ("snap", "Turn: smooth"), ("enter", "Edit mode"), ("blocks", "Blocks"), ("select", "Select"), ("blueprints", "Blueprints"), ("undo", "Undo"), ("redo", "Redo"),
             ("fill", "Fill"), ("clear", "Clear"), ("copy", "Copy"), ("cut", "Cut"), ("paste", "Paste"), ("save", "Save as blueprint"),
             ("turn", "Turn"), ("mirror", "Mirror"), ("cancel", "Stop placing"), ("leave", "Leave edit mode"),
         })
         {
-            var button = new UIButton { Text = label, FontSize = FontSize.Caption, Width = 112, Height = 26, PaddingX = 4, PaddingY = 3, Visible = false };
+            var button = new UIButton { Text = label, FontSize = FontSize.Caption, Width = ToolW, Height = ToolH, PaddingX = 4, PaddingY = 3, Visible = false };
             var captured = id;
-            button.OnClick = () => { if (captured == "chat") OpenPhrases(!IsPhrasesOpen); else if (captured == "mic") OnMicToggle?.Invoke(); else OnEditAction?.Invoke(captured); };
+            button.OnClick = () => { if (captured == "chat") OpenPhrases(!IsPhrasesOpen); else if (captured == "mic") OnMicToggle?.Invoke(); else if (captured == "snap") OnTurnToggle?.Invoke(); else OnEditAction?.Invoke(captured); };
             _toolButtons.Add((id, button));
-            button.X = 8; button.Y = 118;
+            button.X = 8; button.Y = ToolTop;
             _root.AddChild(button);
         }
     }
@@ -232,7 +262,7 @@ public sealed class ViewerHud
         foreach (var (id, button) in _toolButtons)
         {
             // In a headset the way into edit mode is a button (a hand has no thumbstick to press); everything else shows in edit mode
-            bool show = id is "chat" or "mic" ? _headset : id == "enter" ? !editing && _headset : editing && id switch
+            bool show = id is "chat" or "mic" or "snap" ? _headset : id == "enter" ? !editing && _headset : editing && id switch
             {
                 "blocks" or "select" or "blueprints" or "undo" or "redo" or "leave" => !pasting || id is "leave" or "undo" or "redo",
                 "fill" or "clear" or "copy" or "cut" or "save" => hasSelection && !pasting,
@@ -243,8 +273,8 @@ public sealed class ViewerHud
             button.Visible = show;
             if (id == "select") button.Text = selecting ? "Build" : "Select";
             if (!show) continue;
-            // Seven to a column, then the next column over
-            button.X = 8 + (shown / 7) * 118; button.Y = 118 + (shown % 7) * 30;
+            // A column of them, then the next column over
+            button.X = 8 + (shown / ToolsPerColumn) * (ToolW + 6); button.Y = ToolTop + (shown % ToolsPerColumn) * (ToolH + 4);
             shown++;
         }
     }
@@ -260,7 +290,7 @@ public sealed class ViewerHud
     {
         foreach (var (id, label) in new[] { ("table", "Life size"), ("bigger", "Bigger"), ("smaller", "Smaller"), ("bring", "Bring it here") })
         {
-            var button = new UIButton { Text = label, FontSize = FontSize.Caption, Width = 112, Height = 26, PaddingX = 4, PaddingY = 3, Visible = false };
+            var button = new UIButton { Text = label, FontSize = FontSize.Caption, Width = ToolW, Height = ToolH, PaddingX = 4, PaddingY = 3, Visible = false };
             var captured = id;
             button.OnClick = () => OnTableAction?.Invoke(captured);
             _tableButtons.Add((id, button));
@@ -279,7 +309,7 @@ public sealed class ViewerHud
             button.Visible = show;
             if (id == "table") button.Text = tabletop ? "Life size" : "On the table";
             if (!show) continue;
-            button.X = 8 + 2 * 118; button.Y = 118 + row * 30;
+            button.X = 8 + (_headset ? 1 : 2) * (ToolW + 6); button.Y = ToolTop + row * (ToolH + 4);
             row++;
         }
     }
@@ -289,6 +319,16 @@ public sealed class ViewerHud
     public Action? OnMicToggle { get; set; }
 
     private UILabel _speaking = null!;
+
+    /// <summary>The "Turn" button was pressed (a headset's): the right stick turns smoothly or in steps.</summary>
+    public Action? OnTurnToggle { get; set; }
+
+    /// <summary>What the Turn button says.</summary>
+    public void SetTurnMode(bool smooth)
+    {
+        foreach (var (id, button) in _toolButtons)
+            if (id == "snap") button.Text = smooth ? "Turn: smooth" : "Turn: steps";
+    }
 
     /// <summary>What the Mic button says: whether the voice is connected and the microphone open.</summary>
     public void SetMicState(bool voiceOn, bool micOn)
@@ -342,6 +382,30 @@ public sealed class ViewerHud
 
     public bool IsPaletteOpen => _palette != null && _palette.Visible;
 
+    private readonly List<UIButton> _paletteChips = new();
+
+    // The palette in a headset: text is bigger, so a narrower set of chips (two rows of five) and a list that stops above the blocks in hand; on the desktop it is as it was built
+    private void LayoutPalette(bool headset)
+    {
+        if (_palette == null) return;
+        _palette.Width = headset ? 420 : 380;
+        _palette.Height = headset ? 322 : 460;
+        _paletteSearch.Width = _palette.Width - 24;
+        int perRow = headset ? 5 : 7;
+        float w = headset ? 78 : 49, h = headset ? 28 : 24, pitchX = headset ? 80 : 51, pitchY = headset ? 32 : 26;
+        for (int i = 0; i < _paletteChips.Count; i++)
+        {
+            var chip = _paletteChips[i];
+            chip.Visible = !headset || i < 10;
+            chip.Width = w; chip.Height = h;
+            chip.X = 12 + (i % perRow) * pitchX; chip.Y = 72 + (i / perRow) * pitchY;
+        }
+        _paletteList.ItemHeight = headset ? 26 : 22;
+        _paletteList.Y = headset ? 142 : 128;
+        _paletteList.Width = _palette.Width - 20;
+        _paletteList.Height = _palette.Height - _paletteList.Y - 8;
+    }
+
     private void BuildPalette(UITheme theme)
     {
         _palette = new UIPanel { Width = 380, Height = 460, Visible = false };
@@ -355,12 +419,15 @@ public sealed class ViewerHud
         for (int i = 0; i < chips.Length; i++)
         {
             var word = chips[i];
-            _palette.AddChild(new UIButton { Text = word, FontSize = FontSize.Caption, X = 12 + (i % 7) * 51, Y = 72 + (i / 7) * 26, Width = 49, Height = 24, PaddingX = 2, PaddingY = 2, OnClick = () => { _paletteSearch.Text = word; RefreshPalette(); } });
+            var chip = new UIButton { Text = word, FontSize = FontSize.Caption, X = 12 + (i % 7) * 51, Y = 72 + (i / 7) * 26, Width = 49, Height = 24, PaddingX = 2, PaddingY = 2, OnClick = () => { _paletteSearch.Text = word; RefreshPalette(); } };
+            _paletteChips.Add(chip);
+            _palette.AddChild(chip);
         }
         _paletteList = new UIList { ItemHeight = 22, ItemFontSize = FontSize.Caption, Padding = 2, X = 10, Y = 128, Width = 360, Height = 322 };
         _paletteList.OnSelectionChanged = ChoosePalette;
         _palette.AddChild(_paletteList);
         _root.AddAnchored(_palette, Anchor.Center, 0, -10);
+        LayoutPalette(_headset);
     }
 
     /// <summary>Every block the palette offers.</summary>
@@ -507,7 +574,8 @@ public sealed class ViewerHud
     public void SetEditSlot(int slot, string label)
     {
         if (_editBar == null) return;
-        _editBar.SetSlot(slot, label.Length > 10 ? label[..10] : label);
+        int max = _headset ? 6 : 10;   // a headset's bigger text must fit its slot
+        _editBar.SetSlot(slot, label.Length > max ? label[..max] : label);
     }
 
     public void SelectEditSlot(int slot)
@@ -551,6 +619,7 @@ public sealed class ViewerHud
         const float pad = 8f;
         float lineH = _ui.Renderer.GetLineHeight(FontSize.Caption);
         var stats = new UIPanel { Width = 270, Height = pad * 2 + lineH * _lines.Length + 2 * (_lines.Length - 1) };
+        _statsPanel = stats;
         for (int i = 0; i < _lines.Length; i++)
         {
             _lines[i] = new UILabel { FontSize = FontSize.Caption, Color = theme.TextPrimary, X = pad, Y = pad + i * (lineH + 2) };
@@ -801,7 +870,7 @@ public sealed class ViewerHud
     // GameUI draws a message on one line: a long one is wrapped here (the sender only in front of the first line)
     private void AddChatLine(string sender, string text)
     {
-        float width = ChatWidth - 2 * _chat.Padding - 6;
+        float width = _chat.Width - 2 * _chat.Padding - 6;
         string prefix = string.IsNullOrEmpty(sender) ? "" : sender + ": ";
         float first = width - _ui.Renderer.MeasureText(prefix, FontSize.Caption);
         var lines = TextWrap.Wrap(text, first, width, s => _ui.Renderer.MeasureText(s, FontSize.Caption));

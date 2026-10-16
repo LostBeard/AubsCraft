@@ -10,11 +10,13 @@ namespace AubsCraft.Admin.Xr;
 public sealed class XrPanel
 {
     /// <summary>The panel's size in the room, metres.</summary>
-    public const float Width = 1.5f, Height = 0.9375f;
-    /// <summary>The HUD's own size in pixels (the panel's texture): the same shape as the panel.</summary>
+    public const float Width = 1.7f, Height = 1.0625f;
+    /// <summary>The HUD's own size in pixels (what its layout is made in): the same shape as the panel.</summary>
     public const int PixelWidth = 800, PixelHeight = 500;
+    /// <summary>The panel's texture has this many pixels to each of the HUD's: the layout is the same, the text is sharp up close.</summary>
+    public const int TextureScale = 2;
     /// <summary>How far in front of the head the panel's middle is (horizontally), metres.</summary>
-    public const float Distance = 1.3f;
+    public const float Distance = 1.4f;
     /// <summary>How far below the eyes the panel's middle is.</summary>
     public const float DropBelowEyes = 0.12f;
     /// <summary>How far the head may turn from the panel (degrees) before the panel follows.</summary>

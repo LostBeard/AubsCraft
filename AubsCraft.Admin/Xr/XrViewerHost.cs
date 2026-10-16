@@ -153,6 +153,8 @@ public sealed class XrViewerHost : IDisposable
         _hud.OnPlayerAction = OnHudPlayerAction;
         _hud.OnTableAction = OnTableAction;
         _hud.OnMicToggle = () => _ = ToggleMicAsync();
+        _hud.OnTurnToggle = () => { _loco.SmoothTurn = !_loco.SmoothTurn; _hud.SetTurnMode(_loco.SmoothTurn); Console.WriteLine($"[Xr] turning {(_loco.SmoothTurn ? "smoothly" : "in steps")}"); };
+        _hud.SetTurnMode(_loco.SmoothTurn);
         _voice.Where = () => _world != null ? _world.Camera.Position : Vector3.Zero;
         _hud.SetTableToolbar(_isAr, _tabletop);
         _panel.SetVisible(true);
@@ -160,7 +162,7 @@ public sealed class XrViewerHost : IDisposable
         _pressedOnPanel = _pointerWasOnPanel = false;
         _pendingTeleport = null;
         _panelGpu = new XrPanelRenderer();
-        _panelGpu.Init(_map.Device!, _map.Queue!, _map.CanvasFormat, XrPanel.PixelWidth, XrPanel.PixelHeight);
+        _panelGpu.Init(_map.Device!, _map.Queue!, _map.CanvasFormat, XrPanel.PixelWidth * XrPanel.TextureScale, XrPanel.PixelHeight * XrPanel.TextureScale);
         if (_world != null) _world.XrHudActive = true;
         _rightThumbWas = _leftThumbWas = _rightTriggerWas = _leftTriggerWas = _rightAWas = true;   // a button already down when the session starts does nothing
         _pointerOnPanel = false;
@@ -177,6 +179,7 @@ public sealed class XrViewerHost : IDisposable
         _hud.OnPlayerAction = null;
         _hud.OnTableAction = null;
         _hud.OnMicToggle = null;
+        _hud.OnTurnToggle = null;
         _hud.SetSpeaking([]);
         _hud.SetTableToolbar(false, false);
         _panelGpu?.Dispose();
