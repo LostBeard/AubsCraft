@@ -193,7 +193,7 @@ public sealed class XrSession : IDisposable
     private void ReadHand(XrFrameData data, XRInputSource source, XRFrame frame, bool left)
     {
         ReadRay(data, source, frame, left);
-        if (left) { data.LeftIsHand = true; data.LeftTrigger = _pinchLeft; data.LeftThumb = _squeezeLeft; }
+        if (left) { data.LeftIsHand = true; data.LeftTrigger = _pinchLeft; data.LeftPrimary = _squeezeLeft; }
         else { data.RightIsHand = true; data.RightTrigger = _pinchRight; data.RightPrimary = _squeezeRight; }
     }
 
@@ -223,13 +223,12 @@ public sealed class XrSession : IDisposable
             var buttons = gamepad.Buttons;
             bool trigger = buttons.Length > 0 && buttons[0].Pressed;
             bool grip = buttons.Length > 1 && buttons[1].Pressed;
-            if (buttons.Length > 5 && buttons[5].Pressed) data.ExitButton = true;
+            bool secondary = buttons.Length > 5 && buttons[5].Pressed;
             bool primary = buttons.Length > 4 && buttons[4].Pressed;
             bool thumb = buttons.Length > 3 && buttons[3].Pressed;
-            if (primary) data.PrimaryButton = true;
             foreach (var b in buttons) b.Dispose();
-            if (left) { data.LeftTrigger = trigger; data.LeftGrip = grip; data.LeftPrimary = primary; data.LeftThumb = thumb; }
-            else { data.RightTrigger = trigger; data.RightGrip = grip; data.RightPrimary = primary; data.RightThumb = thumb; }
+            if (left) { data.LeftTrigger = trigger; data.LeftGrip = grip; data.LeftPrimary = primary; data.LeftSecondary = secondary; data.LeftThumb = thumb; }
+            else { data.RightTrigger = trigger; data.RightGrip = grip; data.RightPrimary = primary; data.RightSecondary = secondary; data.RightThumb = thumb; }
             ReadRay(data, source, frame, left);
         }
     }
@@ -275,13 +274,12 @@ public sealed class XrFrameData
     public bool RightGrip { get; set; }
     public bool LeftTrigger { get; set; }
     public bool RightTrigger { get; set; }
-    /// <summary>B or Y (xr-standard button 5) held: leave.</summary>
-    public bool ExitButton { get; set; }
-    /// <summary>A or X (xr-standard button 4) held.</summary>
-    public bool PrimaryButton { get; set; }
     /// <summary>X (the left controller's button 4) held; A (the right one's) is RightPrimary.</summary>
     public bool LeftPrimary { get; set; }
     public bool RightPrimary { get; set; }
+    /// <summary>Y (the left controller's button 5) held; B (the right one's) is RightSecondary.</summary>
+    public bool LeftSecondary { get; set; }
+    public bool RightSecondary { get; set; }
     /// <summary>A thumbstick pressed in (xr-standard button 3).</summary>
     public bool LeftThumb { get; set; }
     public bool RightThumb { get; set; }

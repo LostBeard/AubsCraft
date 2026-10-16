@@ -13,13 +13,16 @@ public sealed class XrTabletop
     public const float MinScale = 1f / 256f, MaxScale = 0.25f;
 
     /// <summary>How far from its middle the model reaches on the table, in metres of the room: what is farther is not drawn.</summary>
-    public const float TableRadius = 0.6f;
+    public const float TableRadius = 0.8f;
+
+    /// <summary>A block's size in the room when a session starts: a block is 8 mm, so a model of the world as wide as a table shows about 14 chunks each way.</summary>
+    public const float StartScale = 1f / 128f;
 
     /// <summary>The place of the world at the middle of the model.</summary>
     public Vector3 Focus { get; set; }
 
     /// <summary>Metres of the room a block of the world takes.</summary>
-    public float Scale { get; private set; } = 1f / 32f;
+    public float Scale { get; private set; } = StartScale;
 
     /// <summary>Where the middle of the model stands in the room.</summary>
     public Vector3 Anchor { get; set; } = new(0f, 0.8f, -0.7f);

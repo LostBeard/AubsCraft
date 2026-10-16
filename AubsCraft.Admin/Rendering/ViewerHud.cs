@@ -25,7 +25,7 @@ public readonly record struct HudData(
 /// The worker has no DOM, so the page forwards the input it sees (<see cref="UiInputEvent"/>) and this class pushes it into
 /// GameUI's PushedInputProvider.
 /// </summary>
-public sealed class ViewerHud
+public sealed partial class ViewerHud
 {
     private const string ScreenName = "hud";
     // Text is rebuilt this often, not every frame: formatting six strings 90 times a second is allocation for nothing.
@@ -81,40 +81,15 @@ public sealed class ViewerHud
         set
         {
             _headset = value;
-            ApplyHeadsetLayout(value);
+            ActivateXr(value);
             if (_hint != null) _hint.Text = value ? HeadsetHint : _editMode ? EditHint : DesktopHint;
         }
     }
     private bool _headset;
 
-    // ---- the headset's layout: bigger text, and only what a person in a headset needs, kept apart ----
+    private const float ToolW = 112f, ToolH = 26f, ToolTop = 118f;
+    private const int ToolsPerColumn = 7;
 
-    private const float HeadsetFontScale = 1.3f;
-    private float ToolW => _headset ? 150f : 112f;
-    private float ToolH => _headset ? 34f : 26f;
-    private float ToolTop => _headset ? 84f : 118f;
-    private int ToolsPerColumn => _headset ? 8 : 7;
-
-    private void ApplyHeadsetLayout(bool on)
-    {
-        if (_root == null) return;
-        UITheme.Current.FontScale = on ? HeadsetFontScale : 1f;
-        const float pad = 8f;
-        float lineH = _ui.Renderer.GetLineHeight(FontSize.Caption);
-        // The status: how fast and where, two lines (the rest is for the desktop)
-        int shown = on ? 2 : _lines.Length;
-        for (int i = 0; i < _lines.Length; i++) { _lines[i].Visible = i < shown; _lines[i].Y = pad + i * (lineH + 2); }
-        _statsPanel.Width = on ? 250 : 270;
-        _statsPanel.Height = pad * 2 + lineH * shown + 2 * (shown - 1);
-        UIDebugOverlay.Instance.Y = 8 + _statsPanel.Height + 8;
-        _compass.Width = on ? 240 : 420;
-        _chat.Width = on ? 330 : ChatWidth;
-        _chat.Height = on ? 120 : ChatHeight;
-        _editBar.SlotSize = on ? 54 : 66;
-        LayoutPalette(on);
-        foreach (var (_, button) in _toolButtons) { button.Width = ToolW; button.Height = ToolH; }
-        foreach (var (_, button) in _tableButtons) { button.Width = ToolW; button.Height = ToolH; }
-    }
     /// <summary>Whether this pixel of the HUD is on the minimap.</summary>
     public bool OverMinimap(float x, float y) => _minimap != null && _minimap.HitTest(new System.Numerics.Vector2(x, y)) != null;
 
@@ -227,6 +202,11 @@ public sealed class ViewerHud
         _menu.Show(new System.Numerics.Vector2(x, _mouseY));
         float maxY = Math.Max(0, _root.Height - _menu.Height);
         _menu.Y = Math.Min(_menu.Y, maxY);
+        if (_xrActive)
+        {
+            _menu.X = Math.Clamp(_mouseX, 350f, 340f + 760f - MenuWidth - 10f);
+            _menu.Y = Math.Clamp(_mouseY, 70f, 540f - _menu.Height - 8f);
+        }
     }
 
     // ---- the edit toolbar: what the keys do, as buttons (for a headset, where there is no keyboard, and for a mouse) ----
@@ -258,6 +238,8 @@ public sealed class ViewerHud
     public void SetEditToolbar(bool editing, bool hasSelection, bool pasting, bool hasClipboard, bool selecting)
     {
         if (_toolButtons.Count == 0) return;
+        XrContext(editing, hasSelection, pasting, hasClipboard, selecting);
+        if (_xrBuilt) return;
         int shown = 0;
         foreach (var (id, button) in _toolButtons)
         {
@@ -302,6 +284,8 @@ public sealed class ViewerHud
     public void SetTableToolbar(bool ar, bool tabletop)
     {
         if (_tableButtons.Count == 0) return;
+        XrTableContext(ar, tabletop);
+        if (_xrBuilt) return;
         int row = 0;
         foreach (var (id, button) in _tableButtons)
         {
@@ -335,6 +319,7 @@ public sealed class ViewerHud
     {
         foreach (var (id, button) in _toolButtons)
             if (id == "mic") button.Text = !voiceOn ? "Voice: off" : micOn ? "Mic: ON" : "Mic: off";
+        XrMicState(voiceOn, micOn);
     }
 
     /// <summary>Who is being heard right now (names), or nothing.</summary>
@@ -715,6 +700,11 @@ public sealed class ViewerHud
         _menu.Show(new System.Numerics.Vector2(x, _mouseY));
         float maxY = Math.Max(0, _root.Height - _menu.Height);
         _menu.Y = Math.Min(_menu.Y, maxY);
+        if (_xrActive)
+        {
+            _menu.X = Math.Clamp(_mouseX, 350f, 340f + 760f - MenuWidth - 10f);
+            _menu.Y = Math.Clamp(_mouseY, 70f, 540f - _menu.Height - 8f);
+        }
     }
 
     /// <summary>Show (or clear, with null) which player the camera follows, for the label and the menu.</summary>
@@ -731,7 +721,11 @@ public sealed class ViewerHud
     }
 
     /// <summary>A short message over the world (the toast stack).</summary>
-    public void Toast(string text, NotificationType type = NotificationType.Info) => _toasts?.Push(text, type);
+    public void Toast(string text, NotificationType type = NotificationType.Info)
+    {
+        _feedAge = 0f;
+        _toasts?.Push(text, type);
+    }
 
     /// <summary>
     /// Rectangles (x, y, width, height in canvas pixels, four floats each) where a click belongs to the HUD, not to the camera: the player list, and the
@@ -838,12 +832,14 @@ public sealed class ViewerHud
 
     private void SetPlayers(string[] names)
     {
+        _lastPlayers = names;
         _playersTitle.Text = string.Create(CultureInfo.InvariantCulture, $"Players online ({names.Length})");
         _playerList.ClearItems();
         foreach (var n in names) _playerList.AddItem(n);
         int rows = (int)Math.Clamp(names.Length, 1, MaxPlayerRows);
         _playerList.Height = rows * PlayerRow + 2 * _playerList.Padding; // the viewport is the height minus the list's own padding
         _playersPanel.Height = 6 + _ui.Renderer.GetLineHeight(FontSize.Caption) + 4 + _playerList.Height + 6;
+        if (_xrBuilt) RelayoutPlayersForXr();
     }
 
     /// <summary>Chat lines, players and notices the page saw (SignalR lives on the page; the worker has no connection).</summary>
@@ -852,7 +848,7 @@ public sealed class ViewerHud
         if (!_ui.IsInitialized) return;
         for (int i = 0; i < feed.ChatTexts.Length; i++)
             AddChatLine(feed.ChatSenders[i], feed.ChatTexts[i]);
-        if (feed.ChatTexts.Length > 0) _chatAge = 0f;
+        if (feed.ChatTexts.Length > 0) { _chatAge = 0f; _feedAge = 0f; }
         if (feed.PlayersChanged) SetPlayers(feed.Players);
         for (int i = 0; i < feed.ToastTexts.Length; i++)
             _toasts.Push(feed.ToastTexts[i], ToNotificationType(feed.ToastKinds[i]));
@@ -945,6 +941,7 @@ public sealed class ViewerHud
             RefreshText(d);
         }
 
+        if (_xrActive) XrUpdate(dt, d);
         _ui.Update(dt);
 
         if (UIDebugOverlay.IsVisible)

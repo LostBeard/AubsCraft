@@ -29,23 +29,24 @@ public sealed class XrViewerHost : IDisposable
     private Vector3 _startForward;
     private Quaternion _lastHeadOrientation = Quaternion.Identity;
     private double _lastTime = -1;
-    private bool _exitWasDown = true;
     private bool _worldStarting;
     private int _framesDrawn;
     private double _drawMsSum;
     private readonly System.Diagnostics.Stopwatch _clock = new();
 
-    // The HUD, floating in front of the person: a panel (where it is), its texture and quad pipeline, and the controllers' pointer on it
-    private readonly XrPanel _panel = new();
+    // The HUD, in surfaces floating in the room (the menu, the window, the bar of blocks in hand, the feed): where each is, the one atlas texture they show parts of, and the controllers' pointer on them
+    private readonly XrPanel _menuPanel = new(XrSurfaces.Menu), _windowPanel = new(XrSurfaces.Window), _barPanel = new(XrSurfaces.Bar), _feedPanel = new(XrSurfaces.Feed);
+    private readonly XrPanel[] _surfaces;   // far to near: the order they are drawn in
     private XrPanelRenderer? _panelGpu;
-    private bool _xWasDown = true, _pressedOnPanel, _pointerWasOnPanel;
+    private bool _xWasDown = true, _yWasDown = true, _bWasDown = true, _pressedOnPanel, _pointerWasOnPanel;
+    private XrPanel? _pointerSurface;
     private (Vector3 Spot, float YawDegrees)? _pendingTeleport;
     private bool _pointerOnPanel;
     // Augmented reality: the world is a model on the table (the sticks pan, zoom and turn it); "Life size" puts the person back in it
     private readonly XrTabletop _table = new();
     private bool _isAr, _tabletop, _tablePlaced;
     private float _panelBeamLength;
-    private bool _rightThumbWas, _leftThumbWas, _rightTriggerWas, _leftTriggerWas, _rightAWas;
+    private bool _rightThumbWas, _leftThumbWas, _rightTriggerWas, _leftTriggerWas, _rightAWas, _leftGripWas, _rightGripWas;
 
     /// <summary>Blocks a second at full thumbstick.</summary>
     public float FlySpeed { get; set; } = 8f;
@@ -63,6 +64,7 @@ public sealed class XrViewerHost : IDisposable
         _gpu = gpu;
         _map = map;
         _hud = hud;
+        _surfaces = [_feedPanel, _windowPanel, _barPanel, _menuPanel];
         _session = new XrSession(js);
         _session.OnFrame += OnFrame;
         _session.OnEnded += OnEnded;
@@ -84,7 +86,7 @@ public sealed class XrViewerHost : IDisposable
     /// Enter a session and start the world around <paramref name="cameraPosition"/>. Call it straight from the click: the session is requested first thing.
     /// <paramref name="serverTicks"/> is the server's time of day (negative: unknown).
     /// </summary>
-    public async Task EnterAsync(string mode, string serverId, Vector3 cameraPosition, float yawDegrees, float pitchDegrees, int serverTicks)
+    public async Task EnterAsync(string mode, string serverId, Vector3 cameraPosition, float yawDegrees, float pitchDegrees, int serverTicks, bool isAdmin = false)
     {
         if (_session.IsActive) return;
         _startPosition = cameraPosition;
@@ -93,14 +95,13 @@ public sealed class XrViewerHost : IDisposable
         _startForward = new Vector3(MathF.Cos(yaw), 0f, MathF.Sin(yaw));
         _worldFromRoom = null;
         _lastTime = -1;
-        _exitWasDown = true;
         _loco.Reset();
         _isAr = mode == "immersive-ar";
         _tabletop = _isAr;
         _tablePlaced = false;
         _table.Focus = cameraPosition;
         _table.Yaw = 0f;
-        _table.SetScale(1f / 32f);
+        _table.SetScale(XrTabletop.StartScale);
         _framesDrawn = 0;
         _drawMsSum = 0;
 
@@ -117,6 +118,7 @@ public sealed class XrViewerHost : IDisposable
             _world = new RenderWorkerService(_bridge, 1024, 1024, _js, _gpu, _map, _hud) { ManualFrames = true };
             await _world.StartAsync(serverId, cameraPosition.X, cameraPosition.Y, cameraPosition.Z, pitchDegrees, yawDegrees);
             if (serverTicks >= 0) await _world.SetTimeOfDay(serverTicks);
+            await _world.SetAdminAsync(isAdmin);
             StartHudPanel();
         }
         catch (Exception ex)
@@ -147,8 +149,9 @@ public sealed class XrViewerHost : IDisposable
     private void StartHudPanel()
     {
         _hud.Visible = true;
+        _hud.SetViewport(XrSurfaces.AtlasWidth, XrSurfaces.AtlasHeight);   // the layout of the atlas, before the headset's screen is made
         _hud.HeadsetMode = true;
-        _hud.SetViewport(XrPanel.PixelWidth, XrPanel.PixelHeight);
+        _hud.OnXrLeave = () => _session.RequestEnd();
         _hud.SetEditToolbar(false, false, false, false, false);   // in a headset: the Edit mode button
         _hud.OnPlayerAction = OnHudPlayerAction;
         _hud.OnTableAction = OnTableAction;
@@ -157,13 +160,13 @@ public sealed class XrViewerHost : IDisposable
         _hud.SetTurnMode(_loco.SmoothTurn);
         _voice.Where = () => _world != null ? _world.Camera.Position : Vector3.Zero;
         _hud.SetTableToolbar(_isAr, _tabletop);
-        _panel.SetVisible(true);
-        _xWasDown = true;
+        foreach (var surface in _surfaces) surface.SetVisible(false);
+        _xWasDown = _yWasDown = _bWasDown = true;
         _pressedOnPanel = _pointerWasOnPanel = false;
         _pendingTeleport = null;
         _panelGpu = new XrPanelRenderer();
-        _panelGpu.Init(_map.Device!, _map.Queue!, _map.CanvasFormat, XrPanel.PixelWidth * XrPanel.TextureScale, XrPanel.PixelHeight * XrPanel.TextureScale);
-        if (_world != null) _world.XrHudActive = true;
+        _panelGpu.Init(_map.Device!, _map.Queue!, _map.CanvasFormat, (int)(XrSurfaces.AtlasWidth * XrSurfaces.TextureScale), (int)(XrSurfaces.AtlasHeight * XrSurfaces.TextureScale));
+        if (_world != null) _world.XrHudActive = false;
         _rightThumbWas = _leftThumbWas = _rightTriggerWas = _leftTriggerWas = _rightAWas = true;   // a button already down when the session starts does nothing
         _pointerOnPanel = false;
     }
@@ -180,6 +183,8 @@ public sealed class XrViewerHost : IDisposable
         _hud.OnTableAction = null;
         _hud.OnMicToggle = null;
         _hud.OnTurnToggle = null;
+        _hud.OnXrLeave = null;
+        _hud.XrMenuOpen = false;
         _hud.SetSpeaking([]);
         _hud.SetTableToolbar(false, false);
         _panelGpu?.Dispose();
@@ -193,15 +198,31 @@ public sealed class XrViewerHost : IDisposable
         if (_world.TryPlaceBehindPlayer(name, out var spot, out var yaw)) _pendingTeleport = (spot, yaw);
     }
 
-    // The controllers' rays on the panel: the pointer dot, hover, and the trigger as a click (on the minimap it cycles the zoom). The right hand wins where both point at it.
+    // The nearest surface a ray meets: where (a pixel of the HUD atlas) and how far
+    private bool NearestSurface(Vector3 origin, Vector3 direction, out XrPanel? surface, out float x, out float y, out float distance)
+    {
+        surface = null; x = y = 0; distance = float.MaxValue;
+        foreach (var candidate in _surfaces)
+        {
+            if (candidate.Hit(origin, direction, out var sx, out var sy, out var d) && d < distance)
+            {
+                surface = candidate; x = sx + candidate.Spec.RegionX; y = sy + candidate.Spec.RegionY; distance = d;
+            }
+        }
+        return surface != null;
+    }
+
+    // The controllers' rays on the surfaces: the pointer dot, hover, and the trigger as a click (on the minimap it cycles the zoom). The right hand wins where both point at one.
     private void UpdatePointer(XrFrameData f)
     {
         bool hit = false, trigger = false;
         float x = 0, y = 0;
         float distance = 0;
-        if (f.RightHasRay && _panel.Hit(f.RightRayOrigin, f.RightRayDirection, out x, out y, out distance)) { hit = true; trigger = f.RightTrigger; }
-        else if (f.LeftHasRay && _panel.Hit(f.LeftRayOrigin, f.LeftRayDirection, out x, out y, out distance)) { hit = true; trigger = f.LeftTrigger; }
-        _panelBeamLength = distance;
+        XrPanel? surface = null;
+        if (f.RightHasRay && NearestSurface(f.RightRayOrigin, f.RightRayDirection, out surface, out x, out y, out distance)) { hit = true; trigger = f.RightTrigger; }
+        else if (f.LeftHasRay && NearestSurface(f.LeftRayOrigin, f.LeftRayDirection, out surface, out x, out y, out distance)) { hit = true; trigger = f.LeftTrigger; }
+        _panelBeamLength = hit ? distance : 0f;
+        _pointerSurface = hit ? surface : null;
 
         _hud.SetPointer(x, y, hit);
         _pointerOnPanel = hit;
@@ -212,7 +233,7 @@ public sealed class XrViewerHost : IDisposable
             {
                 _pressedOnPanel = true;
                 bool onMinimap = _hud.OverMinimap(x, y);
-                Console.WriteLine($"[Xr] HUD trigger at ({x:F0}, {y:F0}){(onMinimap ? " on the minimap" : "")}");
+                Console.WriteLine($"[Xr] HUD trigger at ({x:F0}, {y:F0}) on the {surface!.Spec.Name}{(onMinimap ? " on the minimap" : "")}");
                 if (onMinimap) _hud.CycleMinimapZoom();
                 else _hud.Apply(new UiInputEvent(UiInputEvent.MouseDown, 0));
             }
@@ -228,14 +249,14 @@ public sealed class XrViewerHost : IDisposable
         }
         _pointerWasOnPanel = hit;
     }
-
     // The HUD, drawn into the panel's texture (once a frame, however many eyes look at it)
     private void DrawPanelTexture()
     {
         if (_panelGpu is not { IsReady: true } gpu || _map.Device is not { } device || _map.Queue is not { } queue) return;
         using var encoder = device.CreateCommandEncoder();
         gpu.Clear(encoder);
-        _hud.Draw(encoder, gpu.View!, XrPanel.PixelWidth, XrPanel.PixelHeight);
+        _hud.Draw(encoder, gpu.View!, XrSurfaces.AtlasWidth, XrSurfaces.AtlasHeight);
+        gpu.BuildMips(encoder);
         using var commands = encoder.Finish();
         queue.Submit(new[] { commands });
     }
@@ -249,9 +270,6 @@ public sealed class XrViewerHost : IDisposable
         float dt = _lastTime < 0 ? 0f : (float)Math.Clamp((f.Time - _lastTime) / 1000.0, 0.0, 0.1);
         _lastTime = f.Time;
         _lastHeadOrientation = f.HeadOrientation;
-
-        if (f.ExitButton && !_exitWasDown) { _session.RequestEnd(); }
-        _exitWasDown = f.ExitButton;
 
         if (_tabletop)
         {
@@ -267,9 +285,11 @@ public sealed class XrViewerHost : IDisposable
         }
         else
         {
-            float speed = FlySpeed * (f.LeftGrip || f.RightGrip ? BoostFactor : 1f);
+            // Fast: the grips (while building they pick the block in hand, and a pressed-in stick is the fast one)
+            bool fast = _world.Edit is { Active: true } ? f.LeftThumb || f.RightThumb : f.LeftGrip || f.RightGrip;
+            float speed = FlySpeed * (fast ? BoostFactor : 1f);
             // Pointing at a menu (the blocks, the blueprints), the right stick scrolls it instead of turning and rising
-            bool scrolling = _pointerOnPanel && (_hud.IsPaletteOpen || _hud.IsBlueprintsOpen);
+            bool scrolling = _pointerOnPanel && _hud.XrListOpen;
             if (scrolling) ScrollMenu(f.RightStick.Y, dt);
             _worldFromRoom = _loco.Step(_worldFromRoom.Value, f.HeadPosition, f.HeadOrientation, f.LeftStick, scrolling ? Vector2.Zero : f.RightStick, dt, speed);
             // "Go to" a player from the HUD: the room is put so the head is behind them, looking their way
@@ -286,26 +306,33 @@ public sealed class XrViewerHost : IDisposable
         var gaze = Vector3.TransformNormal(Vector3.Transform(-Vector3.UnitZ, f.HeadOrientation), _worldFromRoom.Value);
         (_world.Camera.Yaw, _world.Camera.Pitch) = XrMath.AnglesOf(gaze);
 
-        // X shows or hides the HUD panel (it comes back where the head is looking)
-        if (f.LeftPrimary && !_xWasDown)
-        {
-            _panel.SetVisible(!_panel.Visible);
-            Console.WriteLine($"[Xr] HUD panel {(_panel.Visible ? "shown" : "hidden")}");
-        }
+        // X opens and closes the menu; Y turns building on and off
+        if (f.LeftPrimary && !_xWasDown) { _hud.XrMenuOpen = !_hud.XrMenuOpen; Console.WriteLine($"[Xr] menu {(_hud.XrMenuOpen ? "opened" : "closed")}"); }
         _xWasDown = f.LeftPrimary;
-        _world.XrHudActive = _panel.Visible;
-        if (_panel.Visible)
+        if (f.LeftSecondary && !_yWasDown && _world.Edit is { } building) _ = building.SetActiveAsync(!building.Active);
+        _yWasDown = f.LeftSecondary;
+
+        // Which surfaces are shown (the HUD knows what is open); each is put where the head looks when it appears
+        _menuPanel.SetVisible(_hud.XrMenuOpen);
+        _windowPanel.SetVisible(_hud.XrWindowOpen);
+        _barPanel.SetVisible(_hud.XrBarVisible && f.LeftHasRay);   // an armband: it needs the hand
+        _feedPanel.SetVisible(_hud.XrFeedVisible);
+        bool anySurface = false;
+        foreach (var surface in _surfaces)
         {
-            _panel.Update(dt, f.HeadPosition, f.HeadOrientation);
-            UpdatePointer(f);
+            if (!surface.Visible) continue;
+            anySurface = true;
+            if (surface.Spec.OverLeftHand) surface.PlaceOverHand(f.LeftRayOrigin, f.LeftRayDirection, f.HeadPosition);
+            else surface.Update(dt, f.HeadPosition, f.HeadOrientation);
         }
+        _world.XrHudActive = anySurface;
+        if (anySurface) UpdatePointer(f);
         else if (_pointerWasOnPanel || _pressedOnPanel)
         {
             _hud.SetPointer(0, 0, false);
             _pointerWasOnPanel = _pressedOnPanel = false;
         }
-        if (!_panel.Visible) _pointerOnPanel = false;
-
+        if (!anySurface) { _pointerOnPanel = false; _pointerSurface = null; }
         if (_voice.IsOn && ++_voiceTick % 3 == 0)
         {
             _voice.SetListener(headWorld, gaze);
@@ -316,9 +343,9 @@ public sealed class XrViewerHost : IDisposable
         foreach (var line in _hud.TakeOutgoingChat()) ChatSent?.Invoke(line);
         if (!_world.WorldReady) return;
         UpdateEditing(f);
-        if (_panel.Visible) DrawPanelTexture();
+        if (anySurface) DrawPanelTexture();
 
-        var corners = _panel.Corners();
+        var shown = _surfaces.Where(surface => surface.Visible).ToArray();
         foreach (var v in f.Views)
         {
             var eye = XrMath.EyeInWorld(v.RoomView, _worldFromRoom.Value);
@@ -326,13 +353,22 @@ public sealed class XrViewerHost : IDisposable
                 _tabletop ? _table.Focus : null, _tabletop ? _table.ChunkRadius : 0);
             int w = (int)v.Viewport.Width, h = (int)v.Viewport.Height;
             Action<GPUCommandEncoder, GPUTextureView>? overlay = null;
-            if (_panel.Visible && _panelGpu is { IsReady: true } gpu)
+            if (shown.Length > 0 && _panelGpu is { IsReady: true } gpu)
             {
-                var tl = XrPanelRenderer.ClipOf(corners.TopLeft, v.RoomView, v.Projection);
-                var tr = XrPanelRenderer.ClipOf(corners.TopRight, v.RoomView, v.Projection);
-                var bl = XrPanelRenderer.ClipOf(corners.BottomLeft, v.RoomView, v.Projection);
-                var br = XrPanelRenderer.ClipOf(corners.BottomRight, v.RoomView, v.Projection);
-                overlay = (encoder, target) => gpu.Draw(encoder, target, tl, tr, bl, br);
+                // Each surface: its corners as this eye sees them, and its part of the atlas
+                var quads = new (Vector4 Tl, Vector4 Tr, Vector4 Bl, Vector4 Br, Vector4 Region)[shown.Length];
+                for (int i = 0; i < shown.Length; i++)
+                {
+                    var c = shown[i].Corners();
+                    var spec = shown[i].Spec;
+                    quads[i] = (XrPanelRenderer.ClipOf(c.TopLeft, v.RoomView, v.Projection), XrPanelRenderer.ClipOf(c.TopRight, v.RoomView, v.Projection),
+                        XrPanelRenderer.ClipOf(c.BottomLeft, v.RoomView, v.Projection), XrPanelRenderer.ClipOf(c.BottomRight, v.RoomView, v.Projection),
+                        new Vector4(spec.RegionX, spec.RegionY, spec.RegionWidth, spec.RegionHeight));
+                }
+                overlay = (encoder, target) =>
+                {
+                    for (int i = 0; i < quads.Length; i++) gpu.Draw(encoder, target, i, quads[i].Tl, quads[i].Tr, quads[i].Bl, quads[i].Br, quads[i].Region);
+                };
             }
             _world.XrRenderEye(in view, w, h, overlay);
             _blit.Blit(_bridge, _session.Layer.Framebuffer, v.Viewport);
@@ -404,18 +440,15 @@ public sealed class XrViewerHost : IDisposable
         }
     }
     // ---- building with the controllers ----
-    // The right thumbstick pressed in turns edit mode on and off. In edit mode the right controller points (a beam and a hand are drawn; the block it points at is outlined): the right trigger is the main
-    // button (place a block, make a selection corner, put a blueprint down), A the other (break, clear the selection, stop placing), the left trigger copies the block pointed at, the left thumbstick
-    // pressed undoes. Pointing at the HUD panel, the trigger is the panel's (UpdatePointer). Everything else - blocks, blueprints, fill, copy, paste - is a button of the panel's toolbar.
+    // Y turns building on and off (or the menu's Build tile). While building the right controller points (a beam is drawn; the block it points at is outlined): the right trigger is the main button (place a
+    // block, make a selection corner, put a blueprint down), A the other (break, clear the selection, stop placing), B undoes, the left trigger copies the block pointed at, the grips pick the next and the
+    // previous block in hand (the bar of them is on the left arm; a pressed-in stick is the fast fly while building). Pointing at a surface of the HUD, the trigger is the surface's (UpdatePointer). Everything else - blocks, blueprints, fill, copy, paste - is a tile of the menu (X).
     private void UpdateEditing(XrFrameData f)
     {
         var edit = _world?.Edit;
         if (edit == null || _worldFromRoom is not { } toWorld) return;
         edit.RayOnly = true;
         edit.AutoName = true;
-
-        if (f.RightThumb && !_rightThumbWas) _ = edit.SetActiveAsync(!edit.Active);
-        _rightThumbWas = f.RightThumb;
 
         bool pointing = f.RightHasRay || f.LeftHasRay;
         bool useRight = f.RightHasRay;
@@ -429,7 +462,7 @@ public sealed class XrViewerHost : IDisposable
             edit.ClearRay();
             // The panel is pointed at: show the beam
             if (pointing && _pointerOnPanel) edit.AddController(origin, direction, _panelBeamLength * (_tabletop ? 1f / _table.Scale : 1f), new Vector3(0.3f, 0.6f, 1f), _tabletop ? 1f / _table.Scale : 1f);
-            _rightTriggerWas = f.RightTrigger; _leftTriggerWas = f.LeftTrigger; _rightAWas = f.RightPrimary; _leftThumbWas = f.LeftThumb;
+            _rightTriggerWas = f.RightTrigger; _leftTriggerWas = f.LeftTrigger; _rightAWas = f.RightPrimary; _leftThumbWas = f.LeftThumb; _rightThumbWas = f.RightThumb; _bWasDown = f.RightSecondary; _leftGripWas = f.LeftGrip; _rightGripWas = f.RightGrip;
             return;
         }
 
@@ -443,8 +476,11 @@ public sealed class XrViewerHost : IDisposable
             if (f.RightPrimary && !_rightAWas) edit.Alternate();
         }
         if (f.LeftTrigger && !_leftTriggerWas) edit.Eyedrop();
-        if (f.LeftThumb && !_leftThumbWas) edit.UndoNow();
-        _rightTriggerWas = f.RightTrigger; _leftTriggerWas = f.LeftTrigger; _rightAWas = f.RightPrimary; _leftThumbWas = f.LeftThumb;
+        if (f.RightSecondary && !_bWasDown) edit.UndoNow();
+        // The grips pick the block in hand: the right one the next, the left one the one before (the bar is on the left arm)
+        if (f.RightGrip && !_rightGripWas) edit.CycleSlot(1);
+        if (f.LeftGrip && !_leftGripWas) edit.CycleSlot(-1);
+        _rightTriggerWas = f.RightTrigger; _leftTriggerWas = f.LeftTrigger; _rightAWas = f.RightPrimary; _leftThumbWas = f.LeftThumb; _rightThumbWas = f.RightThumb; _bWasDown = f.RightSecondary; _leftGripWas = f.LeftGrip; _rightGripWas = f.RightGrip;
 
         if (pointing)
         {

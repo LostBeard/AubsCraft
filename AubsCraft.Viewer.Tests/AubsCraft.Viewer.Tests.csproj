@@ -21,6 +21,8 @@
 	<ItemGroup>
 		<!-- Same job object the server tests use: the published server and Chrome die with the test host, however it exits. -->
 		<Compile Include="..\AubsCraft.Admin.Server.Tests\Live\KillOnExitJob.cs" Link="KillOnExitJob.cs" />
+		<!-- Where the headset's surfaces float (pure geometry): the gates aim at the real numbers -->
+		<Compile Include="..\AubsCraft.Admin\Xr\XrPanel.cs" Link="XrPanel.cs" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -180,6 +180,15 @@ public sealed class EditController
 
     public void UndoNow() { if (Session.Active) _ = UndoAsync(); }
 
+    /// <summary>The next block in hand (+1) or the one before (-1), round the nine.</summary>
+    public void CycleSlot(int step)
+    {
+        if (!Session.Active) return;
+        int n = Session.Hotbar.Length;
+        Session.Selected = ((Session.Selected + step) % n + n) % n;
+        RefreshHud();
+    }
+
     /// <summary>A toolbar button, by id.</summary>
     public void Perform(string id)
     {

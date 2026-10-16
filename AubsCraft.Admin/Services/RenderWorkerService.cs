@@ -696,7 +696,7 @@ public class RenderWorkerService : IRenderWorkerService
     // The HUD's state for a frame: the minimap (drawn into its own texture a few times a second: it is a map, not a view), the creatures on it, the text
     private void UpdateHud(float dt)
     {
-        if (_voxel != null && _hud.Visible)
+        if (_voxel != null && _hud.Visible && _hud.WantsMinimap)
         {
             _minimapTimer += dt;
             if (_minimapTimer >= 0.25f || _voxel.MinimapView == null)

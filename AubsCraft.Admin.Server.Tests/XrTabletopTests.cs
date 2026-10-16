@@ -113,10 +113,13 @@ public class XrTabletopTests
     public void TheChunksToDrawFillTheTable()
     {
         var t = new XrTabletop();
-        t.SetScale(1f / 32f);   // the table reaches 0.6 m = 19 blocks: 2 chunks
+        Assert.That(t.Scale, Is.EqualTo(XrTabletop.StartScale), "a session starts small enough to show a good part of the map");
+        t.SetScale(1f / 32f);   // the table reaches 0.8 m = 25 blocks: 2 chunks
         Assert.That(t.ChunkRadius, Is.EqualTo(2));
-        t.SetScale(1f / 128f);  // 77 blocks: 5 chunks
-        Assert.That(t.ChunkRadius, Is.EqualTo(5));
+        t.SetScale(1f / 128f);  // 102 blocks: 7 chunks
+        Assert.That(t.ChunkRadius, Is.EqualTo(7));
+        t.SetScale(1f / 256f);  // 205 blocks: 13 chunks
+        Assert.That(t.ChunkRadius, Is.EqualTo(13));
         t.SetScale(0.25f);
         Assert.That(t.ChunkRadius, Is.EqualTo(1));
     }
