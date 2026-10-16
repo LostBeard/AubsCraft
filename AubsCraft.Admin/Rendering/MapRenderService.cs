@@ -269,7 +269,8 @@ public sealed class MapRenderService : IDisposable
                 $"{stats.VisibleSections}/{stats.SectionsWithQuads} sections | {stats.Columns} columns+far | {stats.VisibleQuads / 1000}K/{stats.TotalQuads / 1000}K quads | " +
                 $"{voxel.MeshesDone} meshes ({voxel.RemeshesDone} re-meshes, {voxel.StaleCount} waiting) in {voxel.ArenaBlocks} quad buffers | far {voxel.FarMeshedCount}/{voxel.FarChunkCount} meshed" +
                 (voxel.Entities is { Known: > 0 } e ? $" | creatures {e.EntityCount}/{e.Known} {e.PartCount} parts {e.PrepareMs:F1} ms" : "") +
-                (voxel.Particles is { Known: > 0 } p ? $" | particles {p.DrawnCount}/{p.Known} emitters" : ""));
+                (voxel.Particles is { Known: > 0 } p ? $" | particles {p.DrawnCount}/{p.Known} emitters" : "") +
+                (voxel.Rain > 0.02f && voxel.Sky is { } sky ? $" | weather {voxel.Rain:F2} on {sky.Map.Active} columns" : ""));
         }
     }
 

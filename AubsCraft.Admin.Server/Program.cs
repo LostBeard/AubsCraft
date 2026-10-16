@@ -374,6 +374,8 @@ world.MapGet("/chunk-ids/{x:int}/{z:int}", (int x, int z, string? server, Server
     if (emitters.Count > 0) ctx.Response.Headers["X-Emitters"] = AubsCraft.Live.Model.Particles.EmitterCodec.Encode(emitters);
     // The biome (an id of AubsCraft.Live.Model.Biomes.BiomeData) of each 4 x 4 block cell of the column: the viewer tints grass, leaves and water by it
     if (chunk.Biomes is { Length: 16 } biomes) ctx.Response.Headers["X-Biomes"] = Convert.ToBase64String(biomes);
+    // How high the sky is blocked over each block of the column (256 little-endian 16-bit values): where the viewer's rain and snow stop
+    if (chunk.RainHeights is { Length: 256 } rainHeights) ctx.Response.Headers["X-RainHeights"] = Convert.ToBase64String(System.Runtime.InteropServices.MemoryMarshal.AsBytes<ushort>(rainHeights));
     // The blocks the game draws with a model of their own (chests, beds, signs, banners, heads, shulker boxes): the viewer draws them as boxes
     if (chunk.BlockEntities is { Count: > 0 } blockEntities) ctx.Response.Headers["X-BlockEntities"] = AubsCraft.Live.Model.BlockEntities.BlockEntityCodec.Encode(blockEntities);
     return Results.Bytes(System.Runtime.InteropServices.MemoryMarshal.AsBytes<ushort>(ids).ToArray(), "application/octet-stream");

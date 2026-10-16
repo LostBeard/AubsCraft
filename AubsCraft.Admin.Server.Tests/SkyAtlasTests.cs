@@ -18,15 +18,24 @@ public class SkyAtlasTests
         fake.Texture("environment/clouds", 16, 16, (x, y) => (10, (byte)x, (byte)y, 255));
         fake.Texture("environment/sun", 8, 8, (x, y) => (20, (byte)x, (byte)y, 255));
         fake.Texture("environment/moon_phases", 16, 8, (x, y) => (30, (byte)x, (byte)y, 255));   // four frames of 4x4 across, two down
+        fake.Texture("environment/rain", 6, 10, (x, y) => (40, (byte)x, (byte)y, 255));
+        fake.Texture("environment/snow", 6, 10, (x, y) => (50, (byte)x, (byte)y, 255));
         using var jar = fake.Build();
         var r = new SkyAtlasBuilder(jar, "test").Build();
         Assert.That(r.Assets.Clouds, Is.EqualTo(new[] { 0, 0, 16, 16 }));
         Assert.That(r.Assets.Sun, Is.EqualTo(new[] { 16, 0, 8, 8 }));
         Assert.That(r.Assets.Moon, Is.EqualTo(new[] { 16, 8, 4, 4 }));
+        Assert.That(r.Assets.Rain, Is.EqualTo(new[] { 16, 16, 6, 10 }));
+        Assert.That(r.Assets.Snow, Is.EqualTo(new[] { 22, 16, 6, 10 }));
         Assert.That(r.Rgba.Length, Is.EqualTo(r.Assets.AtlasWidth * r.Assets.AtlasHeight * 4));
         for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) Assert.That(At(r, x, y), Is.EqualTo(((byte)10, (byte)x, (byte)y, (byte)255)));
         for (int y = 0; y < 8; y++) for (int x = 0; x < 8; x++) Assert.That(At(r, 16 + x, y), Is.EqualTo(((byte)20, (byte)x, (byte)y, (byte)255)));
         for (int y = 0; y < 8; y++) for (int x = 0; x < 16; x++) Assert.That(At(r, 16 + x, 8 + y), Is.EqualTo(((byte)30, (byte)x, (byte)y, (byte)255)));
+        for (int y = 0; y < 10; y++) for (int x = 0; x < 6; x++)
+        {
+            Assert.That(At(r, 16 + x, 16 + y), Is.EqualTo(((byte)40, (byte)x, (byte)y, (byte)255)), "rain");
+            Assert.That(At(r, 22 + x, 16 + y), Is.EqualTo(((byte)50, (byte)x, (byte)y, (byte)255)), "snow");
+        }
     }
 
     [Test]
@@ -36,6 +45,8 @@ public class SkyAtlasTests
         fake.Texture("environment/clouds", 4, 4, (x, y) => (1, 1, 1, 255));
         fake.Texture("environment/sun", 4, 4, (x, y) => (1, 1, 1, 255));
         fake.Texture("environment/moon_phases", 6, 3, (x, y) => (1, 1, 1, 255));
+        fake.Texture("environment/rain", 4, 4, (x, y) => (1, 1, 1, 255));
+        fake.Texture("environment/snow", 4, 4, (x, y) => (1, 1, 1, 255));
         using var jar = fake.Build();
         Assert.Throws<InvalidOperationException>(() => new SkyAtlasBuilder(jar, "test").Build());
     }
@@ -49,6 +60,10 @@ public class SkyAtlasTests
         Assert.That(r.Assets.Sun[2], Is.EqualTo(32)); Assert.That(r.Assets.Sun[3], Is.EqualTo(32));
         Assert.That(r.Assets.Moon[2], Is.EqualTo(32)); Assert.That(r.Assets.Moon[3], Is.EqualTo(32));
         Assert.That(r.Assets.Clouds[2], Is.EqualTo(256)); Assert.That(r.Assets.Clouds[3], Is.EqualTo(256));
+        // Rain and snow: something opaque in each
+        bool AnyOf(int[] rect) { for (int y = 0; y < rect[3]; y++) for (int x = 0; x < rect[2]; x++) if (At(r, rect[0] + x, rect[1] + y).a > 0) return true; return false; }
+        Assert.That(AnyOf(r.Assets.Rain), Is.True, "rain"); Assert.That(AnyOf(r.Assets.Snow), Is.True, "snow");
+        Assert.That(r.Assets.Rain[2], Is.GreaterThan(0)); Assert.That(r.Assets.Snow[2], Is.GreaterThan(0));
         // The sun is not blank; every moon phase has something in it
         bool Any(int x0, int y0, int w, int h) { for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) if (At(r, x0 + x, y0 + y).a > 0) return true; return false; }
         Assert.That(Any(r.Assets.Sun[0], r.Assets.Sun[1], 32, 32), Is.True);

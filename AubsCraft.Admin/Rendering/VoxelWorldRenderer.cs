@@ -786,6 +786,8 @@ public sealed class VoxelWorldRenderer : IDisposable
             drawCalls++;
             visibleQuads += list.Count;
         }
+        // The rain and snow over everything (not under water, not in a see-through frame)
+        if (!underwater && view.ClearAlpha >= 1f && Rain > 0.02f) Sky?.DrawWeather(pass, in view, Rain, DayLighting.SkyAt(TimeOfDay, Rain, Thunder).Daylight, ServerSeconds);
         pass.End();
 
         return new VoxelFrameStats(_columns.Count + _far.Count, _totalSections, visibleSections, _totalQuads, visibleQuads,

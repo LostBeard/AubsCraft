@@ -197,7 +197,25 @@ public sealed class RegionReader
             catch { } // Skip malformed sections
         }
 
-        return new ChunkResult(blocks, palette, biomes, blockEntities);
+        return new ChunkResult(blocks, palette, biomes, blockEntities, RainHeights(root));
+    }
+
+    /// <summary>
+    /// How high the sky is blocked over each block column, from the chunk's own MOTION_BLOCKING heightmap (what the game lets rain stop on): 256 values, x + z * 16, each the height of the
+    /// highest blocking block's top above the bottom of the world (so the world's y is the value minus 64); null when the chunk has none. The game packs 9 bits to a value, seven to a long.
+    /// </summary>
+    public static ushort[]? RainHeights(NbtCompound root)
+    {
+        if (!root.ContainsKey("Heightmaps")) return null;
+        var maps = root.GetCompound("Heightmaps");
+        if (maps == null || !maps.ContainsKey("MOTION_BLOCKING")) return null;
+        var data = maps.GetLongArray("MOTION_BLOCKING");
+        const int bits = 9, perLong = 64 / bits;
+        if (data.Length < (256 + perLong - 1) / perLong) return null;
+        var heights = new ushort[256];
+        for (int i = 0; i < 256; i++)
+            heights[i] = (ushort)((((ulong)data[i / perLong]) >> ((i % perLong) * bits)) & ((1UL << bits) - 1));
+        return heights;
     }
 
     // A section with blocks that is higher than any seen so far: its biomes are the column's
@@ -250,7 +268,7 @@ public sealed class RegionReader
 /// Result of reading a chunk column: block IDs and the chunk's palette. A palette entry is a block's name, with the properties that change its look when it has
 /// any (<see cref="BlockStateNamer"/>): <c>minecraft:oak_log[axis=x]</c>. Code that wants the plain name uses <see cref="BlockStateNamer.NameOf"/>.
 /// </summary>
-public record ChunkResult(ushort[] Blocks, List<string> Palette, byte[]? Biomes = null, List<BlockEntitySpot>? BlockEntities = null);
+public record ChunkResult(ushort[] Blocks, List<string> Palette, byte[]? Biomes = null, List<BlockEntitySpot>? BlockEntities = null, ushort[]? RainHeights = null);
 
 internal static class BinaryReaderExtensions
 {

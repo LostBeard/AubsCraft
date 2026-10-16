@@ -6,7 +6,7 @@ namespace AubsCraft.Assets;
 /// <summary>The packed sky images and what describes them.</summary>
 public sealed record SkyAtlasResult(SkyAssets Assets, byte[] Rgba, string Report);
 
-/// <summary>Packs the game's sun, moon phases and cloud map (textures/environment) into one atlas (see <see cref="SkyAssets"/>): the clouds at the corner, the sun and the moon beside them.</summary>
+/// <summary>Packs the game's sun, moon phases, cloud map, rain and snow (textures/environment) into one atlas (see <see cref="SkyAssets"/>): the clouds at the corner, the sun and the moon beside them, the rain and snow under those.</summary>
 public sealed class SkyAtlasBuilder
 {
     private const string Folder = "assets/minecraft/textures/environment/";
@@ -31,10 +31,12 @@ public sealed class SkyAtlasBuilder
         var clouds = Read("clouds");
         var sun = Read("sun");
         var moon = Read("moon_phases");
+        var rain = Read("rain");
+        var snow = Read("snow");
         if (moon.Width % 4 != 0 || moon.Height % 2 != 0) throw new InvalidOperationException($"moon_phases is {moon.Width}x{moon.Height}: expected four frames across and two down");
         int moonW = moon.Width / 4, moonH = moon.Height / 2;
-        int width = clouds.Width + Math.Max(sun.Width, moon.Width);
-        int height = Math.Max(clouds.Height, sun.Height + moon.Height);
+        int width = clouds.Width + Math.Max(Math.Max(sun.Width, moon.Width), rain.Width + snow.Width);
+        int height = Math.Max(clouds.Height, sun.Height + moon.Height + Math.Max(rain.Height, snow.Height));
         var rgba = new byte[width * height * 4];
         void Copy(ImageResult img, int x0, int y0)
         {
@@ -44,13 +46,17 @@ public sealed class SkyAtlasBuilder
         Copy(clouds, 0, 0);
         Copy(sun, clouds.Width, 0);
         Copy(moon, clouds.Width, sun.Height);
+        Copy(rain, clouds.Width, sun.Height + moon.Height);
+        Copy(snow, clouds.Width + rain.Width, sun.Height + moon.Height);
         var assets = new SkyAssets
         {
             McVersion = _version, AtlasWidth = width, AtlasHeight = height,
             Clouds = new[] { 0, 0, clouds.Width, clouds.Height },
             Sun = new[] { clouds.Width, 0, sun.Width, sun.Height },
             Moon = new[] { clouds.Width, sun.Height, moonW, moonH },
+            Rain = new[] { clouds.Width, sun.Height + moon.Height, rain.Width, rain.Height },
+            Snow = new[] { clouds.Width + rain.Width, sun.Height + moon.Height, snow.Width, snow.Height },
         };
-        return new SkyAtlasResult(assets, rgba, $"Sky assets for Minecraft {_version}\n  sun {sun.Width}x{sun.Height}, moon {moonW}x{moonH} x 8, clouds {clouds.Width}x{clouds.Height} in {width}x{height} px\n");
+        return new SkyAtlasResult(assets, rgba, $"Sky assets for Minecraft {_version}\n  sun {sun.Width}x{sun.Height}, moon {moonW}x{moonH} x 8, rain {rain.Width}x{rain.Height}, snow {snow.Width}x{snow.Height}, clouds {clouds.Width}x{clouds.Height} in {width}x{height} px\n");
     }
 }

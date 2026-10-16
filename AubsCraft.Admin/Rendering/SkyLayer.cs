@@ -19,6 +19,7 @@ public sealed class SkyLayer : IDisposable
 
     private readonly SpawnJSRuntime _js;
     private readonly SkyPipeline _pipe = new();
+    private readonly WeatherPipeline _weather = new();
     private EntityTextureAtlas? _atlas;
     private SkyAssets? _assets;
     private string _origin = "";
@@ -29,10 +30,14 @@ public sealed class SkyLayer : IDisposable
 
     public bool Ready => _pipe.IsReady;
 
+    /// <summary>Where the rain and snow stop and what falls where (the columns' heights and biomes): fed by the worker as columns arrive.</summary>
+    public WeatherMap Map { get; } = new();
+
     public void Init(GPUDevice device, GPUQueue queue, string colorFormat, string origin)
     {
         _origin = origin;
         _pipe.Init(device, queue, colorFormat);
+        _weather.Init(device, queue, colorFormat);
     }
 
     /// <summary>Fetch the sun, moon and cloud images (mc-sky.json and the pixels, which go from the fetched ArrayBuffer to the GPU without entering .NET).</summary>
@@ -50,6 +55,7 @@ public sealed class SkyLayer : IDisposable
         var atlas = EntityTextureAtlas.Create(device, queue, assets.AtlasWidth, assets.AtlasHeight);
         atlas.WriteRegion(0, 0, assets.AtlasWidth, assets.AtlasHeight, pixels);
         _pipe.SetTextures(atlas);
+        _weather.SetTextures(atlas);
         _atlas = atlas;
         _assets = assets;
         Console.WriteLine($"[Sky] Sky assets: sun {assets.Sun[2]}x{assets.Sun[3]}, moon {assets.Moon[2]}x{assets.Moon[3]}, clouds {assets.Clouds[2]}x{assets.Clouds[3]}");
@@ -87,10 +93,34 @@ public sealed class SkyLayer : IDisposable
         _pipe.Draw(pass, in sky);
     }
 
+    /// <summary>
+    /// Rain and snow over the world, drawn last in the pass: a streak for each column round the camera, where the map says something falls and nothing roofs it over. <paramref name="rain"/>
+    /// is how hard it rains (0..1; the server's weather eased), <paramref name="light"/> how much daylight there is (the rain is dark at night).
+    /// </summary>
+    public void DrawWeather(GPURenderPassEncoder pass, in ViewSetup view, float rain, float daylight, double serverSeconds)
+    {
+        if (_disposed || _assets == null || rain < 0.02f) return;
+        if (Map.Build(view.Position.X, view.Position.Z, out int x0, out int z0, out var cells)) _weather.SetCells(cells, WeatherMap.Side);
+        double ticks = (serverSeconds >= 0 ? serverSeconds : _clock.Elapsed.TotalSeconds) * 20.0 % 100000.0;
+        var uniforms = new WeatherUniforms
+        {
+            ViewProjection = view.ViewProjectionReversed,
+            Camera = new Vector4(view.Position, (float)ticks),
+            Params = new Vector4(Math.Clamp(rain, 0f, 1f), 0.35f + 0.65f * Math.Clamp(daylight, 0f, 1f), WeatherMap.Side, 12f),
+            Window = new Vector4(x0, z0, 0f, 0f),
+            RainRect = Rect(_assets.Rain),
+            SnowRect = Rect(_assets.Snow),
+        };
+        _weather.Draw(pass, in uniforms);
+    }
+
+    private static Vector4 Rect(int[]? r) => r == null || r.Length < 4 ? Vector4.Zero : new Vector4(r[0], r[1], r[2], r[3]);
+
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
+        _weather.Dispose();
         _pipe.Dispose();
         _atlas?.Dispose();
     }

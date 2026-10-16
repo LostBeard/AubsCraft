@@ -577,7 +577,7 @@ public class RenderWorkerService : IRenderWorkerService
     {
         var s = _renderer.LastVoxelStats;
         return $"Voxel: {s.DrawCalls} draws, {s.BufferBinds} binds, record {s.RecordMs:F1} ms, frame {_renderer.LastVoxelFrameMs:F1} ms; far chunks {_voxel!.FarMeshedCount} meshed of {_voxel.FarChunkCount}; "
-             + $"{_voxel.ArenaBlocks} quad buffers; creatures {_entities?.EntityCount ?? 0} drawn of {_entities?.Known ?? 0} ({_entities?.PartCount ?? 0} parts, {_liveFeed?.Frames ?? 0} frames); loading {_ingest.TurnsPerFrame:F1} meshes/frame, {_ingest.Waiting} waiting, {_voxel.StaleCount} to re-mesh";
+             + $"{_voxel.ArenaBlocks} quad buffers; creatures {_entities?.EntityCount ?? 0} drawn of {_entities?.Known ?? 0} ({_entities?.PartCount ?? 0} parts, {_liveFeed?.Frames ?? 0} frames); weather {_voxel.Rain:F2} on {_sky?.Map.Active ?? 0} columns; loading {_ingest.TurnsPerFrame:F1} meshes/frame, {_ingest.Waiting} waiting, {_voxel.StaleCount} to re-mesh";
     }
 
     // ---- a headset: this service run on the page's own thread, with no loop and no HUD (WebXR cannot be used from a worker) ----
@@ -744,7 +744,7 @@ public class RenderWorkerService : IRenderWorkerService
         foreach (var (cx, cz) in _voxel!.ColumnKeys.ToArray())
         {
             int dx = cx - camCX, dz = cz - camCZ;
-            if (dx * dx + dz * dz > limit) { _voxel.RemoveColumn(cx, cz); _particles?.RemoveColumn(cx, cz); _blockEntities?.RemoveColumn(cx, cz); }
+            if (dx * dx + dz * dz > limit) { _voxel.RemoveColumn(cx, cz); _particles?.RemoveColumn(cx, cz); _blockEntities?.RemoveColumn(cx, cz); _sky?.Map.RemoveColumn(cx, cz); }
         }
     }
 
@@ -762,13 +762,14 @@ public class RenderWorkerService : IRenderWorkerService
 
             // The server says how many block names it knows; a column can use ids we have no name for yet
             int registryCount = 0;
-            string? emitterHeader, biomeHeader, blockEntityHeader;
+            string? emitterHeader, biomeHeader, blockEntityHeader, rainHeader;
             using (var headers = response.Headers)
             {
                 int.TryParse(headers.Get("X-Block-Registry-Count"), out registryCount);
                 emitterHeader = headers.Get("X-Emitters");   // the blocks of this column that give off smoke and flames
                 biomeHeader = headers.Get("X-Biomes");       // the biome of each 4 x 4 block cell: the colour of its grass, leaves and water
                 blockEntityHeader = headers.Get("X-BlockEntities");   // the chests, beds, signs, banners and shulker boxes of this column
+                rainHeader = headers.Get("X-RainHeights");            // how high the sky is blocked over each block: where rain and snow stop
             }
             if (registryCount > _voxel!.NamesKnown) await RefreshVoxelBlockNamesAsync(registryCount);
 
@@ -780,9 +781,24 @@ public class RenderWorkerService : IRenderWorkerService
             {
                 _particles?.SetColumn(cx, cz, AubsCraft.Live.Model.Particles.EmitterCodec.Decode(emitterHeader));
                 _blockEntities?.SetColumn(cx, cz, AubsCraft.Live.Model.BlockEntities.BlockEntityCodec.Decode(blockEntityHeader));
+                byte[]? biomeCells = null;
                 if (!string.IsNullOrEmpty(biomeHeader))
                 {
-                    try { _voxel.SetBiomeCells(cx, cz, Convert.FromBase64String(biomeHeader)); }
+                    try { _voxel.SetBiomeCells(cx, cz, biomeCells = Convert.FromBase64String(biomeHeader)); }
+                    catch (FormatException) { }
+                }
+                if (!string.IsNullOrEmpty(rainHeader) && _sky != null)
+                {
+                    try
+                    {
+                        var raw = Convert.FromBase64String(rainHeader);
+                        if (raw.Length == 512)
+                        {
+                            var heights = new ushort[256];
+                            Buffer.BlockCopy(raw, 0, heights, 0, 512);
+                            _sky.Map.SetColumn(cx, cz, heights, biomeCells);
+                        }
+                    }
                     catch (FormatException) { }
                 }
             }
