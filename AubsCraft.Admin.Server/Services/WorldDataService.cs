@@ -174,7 +174,7 @@ public sealed class WorldDataService
             }
         }
 
-        return new HeightmapResult(heights, blockIds, seabedHeights, seabedBlockIds, chunk.Palette);
+        return new HeightmapResult(heights, blockIds, seabedHeights, seabedBlockIds, chunk.Palette, chunk.Biomes);
     }
 
     /// <summary>
@@ -255,4 +255,4 @@ public record ChunkCoord(int X, int Z);
 public record HeightmapResult(
     int[] Heights, ushort[] BlockIds,
     int[] SeabedHeights, ushort[] SeabedBlockIds,
-    List<string> Palette);
+    List<string> Palette, byte[]? Biomes = null);

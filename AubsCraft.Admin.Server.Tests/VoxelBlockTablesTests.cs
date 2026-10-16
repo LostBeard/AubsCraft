@@ -83,7 +83,7 @@ public class VoxelBlockTablesTests
         var m = VoxelBlockTables.MaterialOf("minecraft:grass_block", Assets);
         Assert.That(Faces(m), Is.EqualTo(new ushort[] { 10, 10, 10, 10, 11, 12 }));
         Assert.That(m.Flags & BlockMaterial.FlagTinted, Is.Zero, "not tinted outright");
-        Assert.That(m.Flags, Is.EqualTo(BlockMaterial.TintFaces(1 << 4)), "the top only");
+        Assert.That(m.Flags, Is.EqualTo(BlockMaterial.TintFaces(1 << 4) | BlockMaterial.TintGrass), "the top only");
         Assert.That(Tint(m), Is.EqualTo(new Vector3(145, 189, 89) / 255f), "the plains grass colour");
     }
 
@@ -99,7 +99,7 @@ public class VoxelBlockTablesTests
     public void LeavesAreTintedOnEveryFace()
     {
         var m = VoxelBlockTables.MaterialOf("minecraft:oak_leaves", Assets);
-        Assert.That(m.Flags, Is.EqualTo(BlockMaterial.TintFaces(63)));
+        Assert.That(m.Flags, Is.EqualTo(BlockMaterial.TintFaces(63) | BlockMaterial.TintFoliage));
         Assert.That(Tint(m), Is.EqualTo(new Vector3(119, 171, 47) / 255f));
     }
 
@@ -125,7 +125,7 @@ public class VoxelBlockTablesTests
     {
         var m = VoxelBlockTables.MaterialOf("minecraft:water", Assets);
         Assert.That(m.Alpha, Is.EqualTo(0.7f));
-        Assert.That(m.Flags, Is.EqualTo(BlockMaterial.FlagTinted | BlockMaterial.FlagLowerTop | BlockMaterial.FlagFlatShading | BlockMaterial.TintFaces(63)));
+        Assert.That(m.Flags, Is.EqualTo(BlockMaterial.FlagTinted | BlockMaterial.FlagLowerTop | BlockMaterial.FlagFlatShading | BlockMaterial.TintFaces(63) | BlockMaterial.TintWater));
         Assert.That(Faces(m), Is.All.EqualTo((ushort)20));
         Assert.That(Tint(m), Is.EqualTo(new Vector3(63, 118, 228) / 255f));
         Assert.That(VoxelBlockTables.MaterialOf("minecraft:stone", Assets).Alpha, Is.EqualTo(1f));

@@ -1,3 +1,5 @@
+using AubsCraft.Live.Model.Biomes;
+
 namespace AubsCraft.Admin.Server.Services;
 
 /// <summary>
@@ -90,6 +92,10 @@ public sealed class RegionReader
         if (sections == null || sections.Count == 0)
             return new ChunkResult(blocks, palette);
 
+        // The biomes of the column's surface: those of the highest section that holds any block (see BiomeCells)
+        int topYOffset = -1;
+        byte[]? biomes = null;
+
         for (int i = 0; i < sections.Count; i++)
         {
             try
@@ -129,12 +135,15 @@ public sealed class RegionReader
             {
                 var blockId = paletteMap[0];
                 if (blockId == 0) continue; // All air, skip
+                NoteBiomes(section, yOffset, ref topYOffset, ref biomes);
                 for (int y = 0; y < SectionHeight; y++)
                     for (int z = 0; z < ChunkWidth; z++)
                         for (int x = 0; x < ChunkWidth; x++)
                             blocks[x + z * ChunkWidth + (yOffset + y) * ChunkWidth * ChunkWidth] = blockId;
                 continue;
             }
+
+            NoteBiomes(section, yOffset, ref topYOffset, ref biomes);
 
             // Unpack the packed long array
             if (!blockStates.ContainsKey("data")) continue;
@@ -171,7 +180,52 @@ public sealed class RegionReader
             catch { } // Skip malformed sections
         }
 
-        return new ChunkResult(blocks, palette);
+        return new ChunkResult(blocks, palette, biomes);
+    }
+
+    // A section with blocks that is higher than any seen so far: its biomes are the column's
+    private static void NoteBiomes(NbtCompound section, int yOffset, ref int topYOffset, ref byte[]? biomes)
+    {
+        if (yOffset <= topYOffset) return;
+        var cells = BiomeCells(section);
+        if (cells == null) return;
+        topYOffset = yOffset;
+        biomes = cells;
+    }
+
+    /// <summary>
+    /// The biome of each 4 x 4 block cell of a section's layer 1 (blocks 4..7 up), as <see cref="BiomeData"/> ids, cell (i, j) at j * 4 + i with i along x and j along z; null when the section has no
+    /// biome data. A section stores 4 x 4 x 4 biome cells (a palette of names and, with more than one, packed indices of ceil(log2(n)) bits, at least one, aligned within each long).
+    /// </summary>
+    public static byte[]? BiomeCells(NbtCompound section)
+    {
+        if (!section.ContainsKey("biomes")) return null;
+        var biomes = section.GetCompound("biomes");
+        var palette = biomes.GetList("palette");
+        if (palette == null || palette.Count == 0) return null;
+        var ids = new byte[palette.Count];
+        for (int p = 0; p < ids.Length; p++) ids[p] = BiomeData.IdOf(palette.GetString(p));
+        var cells = new byte[16];
+        if (palette.Count == 1)
+        {
+            System.Array.Fill(cells, ids[0]);
+            return cells;
+        }
+        var data = biomes.GetLongArray("data");
+        int bits = Math.Max(1, (int)Math.Ceiling(Math.Log2(palette.Count)));
+        int perLong = 64 / bits;
+        long mask = (1L << bits) - 1;
+        const int layer = 1;
+        for (int j = 0; j < 4; j++)
+            for (int i = 0; i < 4; i++)
+            {
+                int index = (layer * 4 + j) * 4 + i;          // y, then z, then x
+                int word = index / perLong;
+                if (word >= data.Length) { cells[j * 4 + i] = BiomeData.Plains; continue; }
+                int paletteIndex = (int)((data[word] >> ((index % perLong) * bits)) & mask);
+                cells[j * 4 + i] = paletteIndex < ids.Length ? ids[paletteIndex] : BiomeData.Plains;
+            }
+        return cells;
     }
 }
 
@@ -179,7 +233,7 @@ public sealed class RegionReader
 /// Result of reading a chunk column: block IDs and the chunk's palette. A palette entry is a block's name, with the properties that change its look when it has
 /// any (<see cref="BlockStateNamer"/>): <c>minecraft:oak_log[axis=x]</c>. Code that wants the plain name uses <see cref="BlockStateNamer.NameOf"/>.
 /// </summary>
-public record ChunkResult(ushort[] Blocks, List<string> Palette);
+public record ChunkResult(ushort[] Blocks, List<string> Palette, byte[]? Biomes = null);
 
 internal static class BinaryReaderExtensions
 {

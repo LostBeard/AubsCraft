@@ -400,6 +400,14 @@ public class RenderWorkerService : IRenderWorkerService
             int registryCount;
             using (var header = new Int32Array(buffer, 0, 3)) registryCount = header[2];
             if (registryCount > _voxel!.NamesKnown) await RefreshVoxelBlockNamesAsync(registryCount);
+            // Biomes of the chunk's 4 x 4 block cells, 16 bytes after the heightmap (an older server's frame has none: plains)
+            if (buffer.ByteLength >= 12 + 3072 + 16)
+            {
+                using var cells = new Uint8Array(buffer, 12 + 3072, 16);
+                var ids = new byte[16];
+                for (int i = 0; i < 16; i++) ids[i] = cells[i];
+                _voxel.SetBiomeCells(cx, cz, ids);
+            }
             if (_voxel.NamesKnown > 0 && !_voxel.HasFarChunk(cx, cz))
             {
                 using var heightmap = new Uint8Array(buffer, 12, 3072);
@@ -466,6 +474,7 @@ public class RenderWorkerService : IRenderWorkerService
                 Console.WriteLine($"[RenderWorker] Block atlas is {pixels.Length} bytes, the assets describe {assets.AtlasWidth}x{assets.AtlasHeight}");
                 return;
             }
+            await LoadBiomeAssetsAsync(origin);
             _voxel!.SetBlockAssets(assets, pixels);
             Console.WriteLine($"[RenderWorker] Block assets for Minecraft {assets.GameVersion}: {assets.Blocks.Count} blocks, {assets.TileCount} tiles, {assets.Animations.Count} animated");
         }
@@ -473,6 +482,25 @@ public class RenderWorkerService : IRenderWorkerService
         {
             Console.WriteLine($"[RenderWorker] Block assets load error: {ex.Message}");
         }
+    }
+
+    // What the biomes do to grass, leaves and water (a small file: colours per biome id); without it every biome is plains
+    private async Task LoadBiomeAssetsAsync(string origin)
+    {
+        try
+        {
+            using var response = await _js.Fetch($"{origin}/assets/mc-biomes.json", new FetchOptions { Credentials = "include" });
+            if (!response.Ok)
+            {
+                Console.WriteLine($"[RenderWorker] Biome assets HTTP {response.Status}: every biome is plains");
+                return;
+            }
+            var biomes = System.Text.Json.JsonSerializer.Deserialize(await response.Text(), AubsCraft.Assets.Model.BiomeAssetsJson.Default.BiomeAssets);
+            if (biomes == null) return;
+            _voxel!.SetBiomeAssets(biomes);
+            Console.WriteLine($"[RenderWorker] Biome colours: {biomes.Names.Length} biomes");
+        }
+        catch (Exception ex) { Console.WriteLine($"[RenderWorker] Biome assets load error: {ex.Message}"); }
     }
 
     private async Task LoadParticleAssetsAsync()
@@ -684,11 +712,12 @@ public class RenderWorkerService : IRenderWorkerService
 
             // The server says how many block names it knows; a column can use ids we have no name for yet
             int registryCount = 0;
-            string? emitterHeader;
+            string? emitterHeader, biomeHeader;
             using (var headers = response.Headers)
             {
                 int.TryParse(headers.Get("X-Block-Registry-Count"), out registryCount);
                 emitterHeader = headers.Get("X-Emitters");   // the blocks of this column that give off smoke and flames
+                biomeHeader = headers.Get("X-Biomes");       // the biome of each 4 x 4 block cell: the colour of its grass, leaves and water
             }
             if (registryCount > _voxel!.NamesKnown) await RefreshVoxelBlockNamesAsync(registryCount);
 
@@ -696,7 +725,15 @@ public class RenderWorkerService : IRenderWorkerService
             using var ids = new Uint8Array(buffer);
             if (!await _voxel.AddColumnAsync(cx, cz, ids))
                 Console.WriteLine($"[RenderWorker] Column ({cx},{cz}) dropped: no free section slots");
-            else _particles?.SetColumn(cx, cz, AubsCraft.Live.Model.Particles.EmitterCodec.Decode(emitterHeader));
+            else
+            {
+                _particles?.SetColumn(cx, cz, AubsCraft.Live.Model.Particles.EmitterCodec.Decode(emitterHeader));
+                if (!string.IsNullOrEmpty(biomeHeader))
+                {
+                    try { _voxel.SetBiomeCells(cx, cz, Convert.FromBase64String(biomeHeader)); }
+                    catch (FormatException) { }
+                }
+            }
         }
         catch (Exception ex)
         {

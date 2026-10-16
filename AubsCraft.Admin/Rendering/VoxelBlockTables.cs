@@ -52,6 +52,15 @@ public static class VoxelBlockTables
         return IsAir(BaseName(name)) ? BlockClass.None : BlockClass.Opaque;
     }
 
+    /// <summary>The material flag for the biome colour a tint takes: grass, foliage and water follow the biome (the map the world fills), a fixed tint is the material's own colour.</summary>
+    public static uint TintKindOf(string tint) => tint switch
+    {
+        BlockTints.Grass => BlockMaterial.TintGrass,
+        BlockTints.Foliage => BlockMaterial.TintFoliage,
+        BlockTints.Water => BlockMaterial.TintWater,
+        _ => 0u,
+    };
+
     /// <summary>How a block name is drawn.</summary>
     public static BlockMaterial MaterialOf(string name, BlockAssets assets)
     {
@@ -70,7 +79,7 @@ public static class VoxelBlockTables
             ushort w = water.Faces[0] < 0 ? BlockMaterial.NoTexture : (ushort)water.Faces[0];
             var waterTint = new Vector3(water.TintColor[0], water.TintColor[1], water.TintColor[2]) / 255f;
             return BlockMaterial.Create(w, w, w, w, w, Tile(0), waterTint,
-                BlockMaterial.TintFaces(0b011111) | BlockMaterial.FlagLowerTop | BlockMaterial.FlagFlatShading | BlockMaterial.FlagPlantFromBottom, WaterAlpha);
+                BlockMaterial.TintFaces(0b011111) | BlockMaterial.TintWater | BlockMaterial.FlagLowerTop | BlockMaterial.FlagFlatShading | BlockMaterial.FlagPlantFromBottom, WaterAlpha);
         }
         // The colour a tinted face is multiplied by (the biome colour: the plains one until a biome says otherwise), or, with no tint, the
         // flat colour of a face that has no texture
@@ -83,12 +92,13 @@ public static class VoxelBlockTables
         }
 
         uint flags = BlockMaterial.TintFaces(block.TintFaces);
+        if (block.TintFaces != 0 || block.Kind == BlockKinds.Water) flags |= TintKindOf(block.Tint);
         // A thin block is a squashed cube; a shaped block is drawn as its boxes (and, far away, as a plain cube): no squash
         if (block.Kind == BlockKinds.Shape && !block.Shaped) flags |= BlockMaterial.Thickness(block.Thickness) | BlockMaterial.Slope(block.Slope);
         float alpha = 1f;
         if (block.Kind == BlockKinds.Water)
         {
-            flags |= BlockMaterial.FlagTinted | BlockMaterial.FlagLowerTop | BlockMaterial.FlagFlatShading;
+            flags |= BlockMaterial.FlagTinted | BlockMaterial.TintWater | BlockMaterial.FlagLowerTop | BlockMaterial.FlagFlatShading;
             alpha = WaterAlpha;
         }
         return BlockMaterial.Create(Tile(0), Tile(1), Tile(2), Tile(3), Tile(4), Tile(5), colour, flags, alpha);

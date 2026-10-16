@@ -50,6 +50,9 @@ public sealed class VoxelWorldRenderer : IDisposable
     }
 
     private readonly BlockRenderPipeline _pipe = new();
+    // The colour of grass, leaves and water by place: one texel per 4 x 4 blocks, filled as columns arrive (plains until then)
+    private BiomeTintMap? _biomeMap;
+    private BiomeColourTable? _biomeColours;
     private readonly Dictionary<(int cx, int cz), Column> _columns = new();
     private readonly Dictionary<(int cx, int cz), Column> _far = new();
     private readonly Stack<int> _freeSlots = new();
@@ -111,6 +114,8 @@ public sealed class VoxelWorldRenderer : IDisposable
         // One slot per column or far chunk: its quads carry their section (EmbedSectionIndex), so a column is ONE draw placed by ONE
         // origin (16 bytes a slot)
         _pipe.Init(device, queue, colorFormat, maxSections: 1 << 15);
+        _biomeMap = BiomeTintMap.Create(device, queue);
+        _pipe.SetBiomeTints(_biomeMap);
         _maxColumns = _pipe.MaxSections;
         _arena = new QuadArena(accelerator);
         _mesher = new ColumnMesher(accelerator, SectionsPerColumn) { MissingNeighborsAreSolid = false, EmbedSectionIndex = true, Arena = _arena };
@@ -194,6 +199,18 @@ public sealed class VoxelWorldRenderer : IDisposable
     }
 
     /// <summary>The 16x16-tile block atlas (RGBA8, square), sliced into texture-array layers on the GPU.</summary>
+    /// <summary>The colour of every biome (generated from the game's colour maps). Columns whose biomes arrive before this are plains.</summary>
+    public void SetBiomeAssets(AubsCraft.Assets.Model.BiomeAssets assets) => _biomeColours = BiomeColourTable.From(assets);
+
+    /// <summary>The biome (BiomeData id) of each 4 x 4 block cell of a column, cell (i, j) at j * 4 + i with i along x: its grass, leaves and water take their colours. 16 ids; anything else is ignored.</summary>
+    public void SetBiomeCells(int cx, int cz, ReadOnlySpan<byte> biomeIds)
+    {
+        if (_biomeMap == null || _biomeColours == null || biomeIds.Length != 16) return;
+        Span<uint> grass = stackalloc uint[16], foliage = stackalloc uint[16], water = stackalloc uint[16];
+        _biomeColours.Cells(biomeIds, grass, foliage, water);
+        _biomeMap.SetColumn(cx, cz, grass, foliage, water);
+    }
+
     public void SetBlockAssets(BlockAssets assets, Uint8Array atlasRgba)
     {
         var old = _textures;
@@ -852,6 +869,7 @@ public sealed class VoxelWorldRenderer : IDisposable
         _miniDepth?.Destroy();
         _miniDepth?.Dispose();
         _pipe.Dispose();
+        _biomeMap?.Dispose();
         _meshLock.Dispose();
     }
 }

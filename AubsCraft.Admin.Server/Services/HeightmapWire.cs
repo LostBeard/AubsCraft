@@ -12,14 +12,20 @@ namespace AubsCraft.Admin.Server.Services;
 /// int32  [256]   for a water column, the world Y of the first solid block below it (otherwise -64)
 /// uint16 [256]   that block's global id (0 = none)
 /// </code>
-/// The last four arrays are exactly SpawnDev.VoxelEngine's <c>HeightmapLayout</c> (3072 bytes), which starts at <see cref="DataOffset"/>.
+/// The last four arrays are exactly SpawnDev.VoxelEngine's <c>HeightmapLayout</c> (3072 bytes), which starts at <see cref="DataOffset"/>. After them:
+/// <code>
+/// uint8  [16]    the biome (BiomeData id) of each 4 x 4 block cell of the chunk, cell (i, j) at j * 4 + i, i along x
+/// </code>
 /// </summary>
 public static class HeightmapWire
 {
     public const int HeaderBytes = 12;
     public const int DataOffset = HeaderBytes;
     public const int DataBytes = 256 * 4 + 256 * 2 + 256 * 4 + 256 * 2;
-    public const int FrameBytes = HeaderBytes + DataBytes;
+    /// <summary>Where the 16 biome ids start.</summary>
+    public const int BiomeOffset = HeaderBytes + DataBytes;
+    public const int BiomeBytes = 16;
+    public const int FrameBytes = BiomeOffset + BiomeBytes;
 
     public static byte[] BuildIdsFrame(int chunkX, int chunkZ, HeightmapResult hm, GlobalBlockRegistry registry)
     {
@@ -40,6 +46,9 @@ public static class HeightmapWire
         for (int c = 0; c < 256; c++, o += 4) BitConverter.TryWriteBytes(span.Slice(o, 4), hm.SeabedHeights[c]);
         // A seabed id of 0 means none; the palette's index 0 is air, which maps to global id 0 too
         for (int c = 0; c < 256; c++, o += 2) BitConverter.TryWriteBytes(span.Slice(o, 2), map[hm.SeabedBlockIds[c]]);
+        // The biome cells (plains where the chunk's data had none)
+        if (hm.Biomes is { Length: BiomeBytes }) hm.Biomes.CopyTo(span.Slice(BiomeOffset, BiomeBytes));
+        else span.Slice(BiomeOffset, BiomeBytes).Fill(AubsCraft.Live.Model.Biomes.BiomeData.Plains);
         return frame;
     }
 }

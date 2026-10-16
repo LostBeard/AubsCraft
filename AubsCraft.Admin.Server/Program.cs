@@ -372,6 +372,8 @@ world.MapGet("/chunk-ids/{x:int}/{z:int}", (int x, int z, string? server, Server
     // The blocks of this column that give off smoke and flames: where the viewer's particles come from (a few bytes; the blocks themselves go to the GPU untouched)
     var emitters = EmitterScan.Scan(chunk);
     if (emitters.Count > 0) ctx.Response.Headers["X-Emitters"] = AubsCraft.Live.Model.Particles.EmitterCodec.Encode(emitters);
+    // The biome (an id of AubsCraft.Live.Model.Biomes.BiomeData) of each 4 x 4 block cell of the column: the viewer tints grass, leaves and water by it
+    if (chunk.Biomes is { Length: 16 } biomes) ctx.Response.Headers["X-Biomes"] = Convert.ToBase64String(biomes);
     return Results.Bytes(System.Runtime.InteropServices.MemoryMarshal.AsBytes<ushort>(ids).ToArray(), "application/octet-stream");
 });
 
