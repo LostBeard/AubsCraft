@@ -40,6 +40,12 @@ public sealed class XrViewerHost : IDisposable
     private XrPanelRenderer? _panelGpu;
     private bool _xWasDown = true, _pressedOnPanel, _pointerWasOnPanel;
     private (Vector3 Spot, float YawDegrees)? _pendingTeleport;
+    private bool _pointerOnPanel;
+    // Augmented reality: the world is a model on the table (the sticks pan, zoom and turn it); "Life size" puts the person back in it
+    private readonly XrTabletop _table = new();
+    private bool _isAr, _tabletop, _tablePlaced;
+    private float _panelBeamLength;
+    private bool _rightThumbWas, _leftThumbWas, _rightTriggerWas, _leftTriggerWas, _rightAWas;
 
     /// <summary>Blocks a second at full thumbstick.</summary>
     public float FlySpeed { get; set; } = 8f;
@@ -80,6 +86,12 @@ public sealed class XrViewerHost : IDisposable
         _lastTime = -1;
         _exitWasDown = true;
         _loco.Reset();
+        _isAr = mode == "immersive-ar";
+        _tabletop = _isAr;
+        _tablePlaced = false;
+        _table.Focus = cameraPosition;
+        _table.Yaw = 0f;
+        _table.SetScale(1f / 32f);
         _framesDrawn = 0;
         _drawMsSum = 0;
 
@@ -128,7 +140,10 @@ public sealed class XrViewerHost : IDisposable
         _hud.Visible = true;
         _hud.HeadsetMode = true;
         _hud.SetViewport(XrPanel.PixelWidth, XrPanel.PixelHeight);
+        _hud.SetEditToolbar(false, false, false, false, false);   // in a headset: the Edit mode button
         _hud.OnPlayerAction = OnHudPlayerAction;
+        _hud.OnTableAction = OnTableAction;
+        _hud.SetTableToolbar(_isAr, _tabletop);
         _panel.SetVisible(true);
         _xWasDown = true;
         _pressedOnPanel = _pointerWasOnPanel = false;
@@ -136,13 +151,21 @@ public sealed class XrViewerHost : IDisposable
         _panelGpu = new XrPanelRenderer();
         _panelGpu.Init(_map.Device!, _map.Queue!, _map.CanvasFormat, XrPanel.PixelWidth, XrPanel.PixelHeight);
         if (_world != null) _world.XrHudActive = true;
+        _rightThumbWas = _leftThumbWas = _rightTriggerWas = _leftTriggerWas = _rightAWas = true;   // a button already down when the session starts does nothing
+        _pointerOnPanel = false;
     }
 
     private void StopHudPanel()
     {
         _hud.HeadsetMode = false;
+        // Whatever the controllers were doing in the headset is over: the page's HUD is not left in edit mode
+        _hud.SetEditMode(false);
+        _hud.SetEditToolbar(false, false, false, false, false);
+        _hud.OpenPalette(false); _hud.OpenBlueprints(false); _hud.OpenNamePrompt(false); _hud.OpenWorldPanel(false);
         _hud.SetPointer(0, 0, false);
         _hud.OnPlayerAction = null;
+        _hud.OnTableAction = null;
+        _hud.SetTableToolbar(false, false);
         _panelGpu?.Dispose();
         _panelGpu = null;
     }
@@ -159,10 +182,13 @@ public sealed class XrViewerHost : IDisposable
     {
         bool hit = false, trigger = false;
         float x = 0, y = 0;
-        if (f.RightHasRay && _panel.Hit(f.RightRayOrigin, f.RightRayDirection, out x, out y, out _)) { hit = true; trigger = f.RightTrigger; }
-        else if (f.LeftHasRay && _panel.Hit(f.LeftRayOrigin, f.LeftRayDirection, out x, out y, out _)) { hit = true; trigger = f.LeftTrigger; }
+        float distance = 0;
+        if (f.RightHasRay && _panel.Hit(f.RightRayOrigin, f.RightRayDirection, out x, out y, out distance)) { hit = true; trigger = f.RightTrigger; }
+        else if (f.LeftHasRay && _panel.Hit(f.LeftRayOrigin, f.LeftRayDirection, out x, out y, out distance)) { hit = true; trigger = f.LeftTrigger; }
+        _panelBeamLength = distance;
 
         _hud.SetPointer(x, y, hit);
+        _pointerOnPanel = hit;
         if (hit)
         {
             _hud.Apply(new UiInputEvent(UiInputEvent.MouseMove, x, y));
@@ -211,19 +237,36 @@ public sealed class XrViewerHost : IDisposable
         if (f.ExitButton && !_exitWasDown) { _session.RequestEnd(); }
         _exitWasDown = f.ExitButton;
 
-        float speed = FlySpeed * (f.LeftGrip || f.RightGrip ? BoostFactor : 1f);
-        _worldFromRoom = _loco.Step(_worldFromRoom.Value, f.HeadPosition, f.HeadOrientation, f.LeftStick, f.RightStick, dt, speed);
-        // "Go to" a player from the HUD: the room is put so the head is behind them, looking their way
-        if (_pendingTeleport is { } go)
+        if (_tabletop)
         {
-            _pendingTeleport = null;
-            float r = go.YawDegrees * MathF.PI / 180f;
-            _worldFromRoom = XrMath.WorldFromRoom(f.HeadPosition, f.HeadOrientation, go.Spot, new Vector3(MathF.Cos(r), 0f, MathF.Sin(r)));
+            if (!_tablePlaced) { _table.PlaceBeforeHead(f.HeadPosition, f.HeadOrientation); _tablePlaced = true; }
+            // The left stick slides the world under the model, the right turns it (sideways) and makes it bigger or smaller (forward and back)
+            var l = XrLocomotion.ApplyDeadzone(f.LeftStick);
+            var rs = XrLocomotion.ApplyDeadzone(f.RightStick);
+            _table.Pan(l.X * 0.5f * dt, l.Y * 0.5f * dt);
+            _table.ZoomBy(MathF.Pow(1.8f, -rs.Y * dt));
+            _table.Yaw -= rs.X * 1.2f * dt;
+            if (_pendingTeleport is { } there) { _pendingTeleport = null; _table.Focus = there.Spot; }
+            _worldFromRoom = _table.WorldFromRoom;
         }
-
+        else
+        {
+            float speed = FlySpeed * (f.LeftGrip || f.RightGrip ? BoostFactor : 1f);
+            // Pointing at a menu (the blocks, the blueprints), the right stick scrolls it instead of turning and rising
+            bool scrolling = _pointerOnPanel && (_hud.IsPaletteOpen || _hud.IsBlueprintsOpen);
+            if (scrolling) ScrollMenu(f.RightStick.Y, dt);
+            _worldFromRoom = _loco.Step(_worldFromRoom.Value, f.HeadPosition, f.HeadOrientation, f.LeftStick, scrolling ? Vector2.Zero : f.RightStick, dt, speed);
+            // "Go to" a player from the HUD: the room is put so the head is behind them, looking their way
+            if (_pendingTeleport is { } go)
+            {
+                _pendingTeleport = null;
+                float r = go.YawDegrees * MathF.PI / 180f;
+                _worldFromRoom = XrMath.WorldFromRoom(f.HeadPosition, f.HeadOrientation, go.Spot, new Vector3(MathF.Cos(r), 0f, MathF.Sin(r)));
+            }
+        }
         // The head is the camera as far as the world's streaming and the creatures' culling go (and the minimap's heading)
         var headWorld = Vector3.Transform(f.HeadPosition, _worldFromRoom.Value);
-        _world.Camera.Position = headWorld;
+        _world.Camera.Position = _tabletop ? _table.Focus : headWorld;
         var gaze = Vector3.TransformNormal(Vector3.Transform(-Vector3.UnitZ, f.HeadOrientation), _worldFromRoom.Value);
         (_world.Camera.Yaw, _world.Camera.Pitch) = XrMath.AnglesOf(gaze);
 
@@ -245,16 +288,19 @@ public sealed class XrViewerHost : IDisposable
             _hud.SetPointer(0, 0, false);
             _pointerWasOnPanel = _pressedOnPanel = false;
         }
+        if (!_panel.Visible) _pointerOnPanel = false;
 
         _world.XrFrame(dt);
         if (!_world.WorldReady) return;
+        UpdateEditing(f);
         if (_panel.Visible) DrawPanelTexture();
 
         var corners = _panel.Corners();
         foreach (var v in f.Views)
         {
             var eye = XrMath.EyeInWorld(v.RoomView, _worldFromRoom.Value);
-            var view = ViewSetup.FromXr(eye, XrMath.EyeView(v.RoomView, _worldFromRoom.Value), v.Projection, _session.EnvironmentBlendMode is "alpha-blend" or "additive" ? 0f : 1f);
+            var view = ViewSetup.FromXr(eye, XrMath.EyeView(v.RoomView, _worldFromRoom.Value), v.Projection, _session.EnvironmentBlendMode is "alpha-blend" or "additive" ? 0f : 1f,
+                _tabletop ? _table.Focus : null, _tabletop ? _table.ChunkRadius : 0);
             int w = (int)v.Viewport.Width, h = (int)v.Viewport.Height;
             Action<GPUCommandEncoder, GPUTextureView>? overlay = null;
             if (_panel.Visible && _panelGpu is { IsReady: true } gpu)
@@ -278,6 +324,96 @@ public sealed class XrViewerHost : IDisposable
         }
     }
 
+    // A stick pushed on a menu the controller points at: lines scroll by, faster the harder it is pushed
+    private float _scrollAccumulator;
+
+    private void ScrollMenu(float stickY, float dt)
+    {
+        var v = XrLocomotion.ApplyDeadzone(new Vector2(0f, stickY)).Y;
+        _scrollAccumulator += v * dt * 12f;
+        // One wheel notch is three lines of the list; a notch each time the push has built up to one
+        while (MathF.Abs(_scrollAccumulator) >= 1f)
+        {
+            _hud.Apply(new UiInputEvent(UiInputEvent.Wheel, 0, _scrollAccumulator > 0 ? 100 : -100));
+            _scrollAccumulator -= MathF.Sign(_scrollAccumulator);
+        }
+    }
+    // The table's buttons (AR): life size or tabletop, bigger, smaller, bring the model here
+    private void OnTableAction(string id)
+    {
+        switch (id)
+        {
+            case "table":
+                if (_tabletop)
+                {
+                    // Step into the model: the head is where the focus is, looking the way the model faces
+                    _tabletop = false;
+                    _startPosition = _table.Focus;
+                    _worldFromRoom = null;   // the next frame places the room so the head is at the focus (OnFrame's first-frame placement)
+                    _loco.Reset();
+                }
+                else
+                {
+                    _tabletop = true;
+                    _tablePlaced = false;
+                    if (_world != null) _table.Focus = _world.Camera.Position;
+                }
+                _hud.SetTableToolbar(_isAr, _tabletop);
+                break;
+            case "bigger": _table.ZoomBy(1.5f); break;
+            case "smaller": _table.ZoomBy(1f / 1.5f); break;
+            case "bring": _tablePlaced = false; break;
+        }
+    }
+    // ---- building with the controllers ----
+    // The right thumbstick pressed in turns edit mode on and off. In edit mode the right controller points (a beam and a hand are drawn; the block it points at is outlined): the right trigger is the main
+    // button (place a block, make a selection corner, put a blueprint down), A the other (break, clear the selection, stop placing), the left trigger copies the block pointed at, the left thumbstick
+    // pressed undoes. Pointing at the HUD panel, the trigger is the panel's (UpdatePointer). Everything else - blocks, blueprints, fill, copy, paste - is a button of the panel's toolbar.
+    private void UpdateEditing(XrFrameData f)
+    {
+        var edit = _world?.Edit;
+        if (edit == null || _worldFromRoom is not { } toWorld) return;
+        edit.RayOnly = true;
+        edit.AutoName = true;
+
+        if (f.RightThumb && !_rightThumbWas) _ = edit.SetActiveAsync(!edit.Active);
+        _rightThumbWas = f.RightThumb;
+
+        bool pointing = f.RightHasRay || f.LeftHasRay;
+        bool useRight = f.RightHasRay;
+        var originRoom = useRight ? f.RightRayOrigin : f.LeftRayOrigin;
+        var directionRoom = useRight ? f.RightRayDirection : f.LeftRayDirection;
+        var origin = Vector3.Transform(originRoom, toWorld);
+        var direction = Vector3.Normalize(Vector3.TransformNormal(directionRoom, toWorld));
+
+        if (!edit.Active)
+        {
+            edit.ClearRay();
+            // The panel is pointed at: show the beam
+            if (pointing && _pointerOnPanel) edit.AddController(origin, direction, _panelBeamLength * (_tabletop ? 1f / _table.Scale : 1f), new Vector3(0.3f, 0.6f, 1f), _tabletop ? 1f / _table.Scale : 1f);
+            _rightTriggerWas = f.RightTrigger; _leftTriggerWas = f.LeftTrigger; _rightAWas = f.RightPrimary; _leftThumbWas = f.LeftThumb;
+            return;
+        }
+
+        float unit = _tabletop ? 1f / _table.Scale : 1f;   // blocks to a metre of the room
+        edit.ReachBlocks = _tabletop ? Math.Clamp(1.5f * unit, 8f, 256f) : 48f;
+        if (pointing && !_pointerOnPanel) edit.SetRay(origin, direction); else edit.ClearRay();
+
+        if (!_pointerOnPanel)
+        {
+            if (f.RightTrigger && !_rightTriggerWas) edit.Primary(_world!.Camera.Yaw);
+            if (f.RightPrimary && !_rightAWas) edit.Alternate();
+        }
+        if (f.LeftTrigger && !_leftTriggerWas) edit.Eyedrop();
+        if (f.LeftThumb && !_leftThumbWas) edit.UndoNow();
+        _rightTriggerWas = f.RightTrigger; _leftTriggerWas = f.LeftTrigger; _rightAWas = f.RightPrimary; _leftThumbWas = f.LeftThumb;
+
+        if (pointing)
+        {
+            float length = _pointerOnPanel ? _panelBeamLength * unit : edit.TargetDistance ?? 3f * unit;
+            edit.AddController(origin, direction, length, _pointerOnPanel ? new Vector3(0.3f, 0.6f, 1f) : new Vector3(1f, 0.85f, 0.2f), unit);
+        }
+    }
     private void OnEnded()
     {
         var head = _worldFromRoom.HasValue && _world != null ? _world.Camera.Position : _startPosition;

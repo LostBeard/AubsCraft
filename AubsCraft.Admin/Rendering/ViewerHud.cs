@@ -71,7 +71,7 @@ public sealed class ViewerHud
     public bool IsTyping => (_chat != null && _chat.IsInputFocused) || (_paletteSearch != null && _palette.Visible && _paletteSearch.IsFocused) || (_nameInput != null && _namePrompt.Visible && _nameInput.IsFocused);
 
     private const string DesktopHint = "Click the view to fly   WASD move   Space / Shift up / down   Esc release   Enter chat   M map zoom   F3 debug   Click a player in the list for actions";
-    private const string HeadsetHint = "Left stick fly   Right stick turn / up / down   Grips go fast   Trigger on a player or the map   X hide this panel   Y leaves";
+    private const string HeadsetHint = "Left stick fly or slide the model   Right stick turn, rise or zoom   Grips go fast   Trigger on a player or the map   X hide this panel   Y leaves";
 
     /// <summary>True while the HUD is a panel floating in a headset: its hint tells what the controllers do (there is no mouse, keyboard or pointer lock).</summary>
     public bool HeadsetMode
@@ -105,6 +105,9 @@ public sealed class ViewerHud
 
     // ---- edit mode ----
 
+    private const string HeadsetEditHint = "EDIT   right trigger place   A break   left trigger copy the block   left stick click undo   right stick click leaves   the buttons on the left do the rest";
+    private const string HeadsetSelectHint = "SELECT   right trigger marks a corner   A clears   then Fill, Copy, Cut or Save on the left";
+    private const string HeadsetPasteHint = "PLACING   right trigger puts it down   A stops   Turn and Mirror on the left";
     private const string EditHint = "EDIT   left break   right place   middle copy block   1-9 wheel choose   E blocks   V select   K blueprints   Ctrl+Z/Y undo/redo   B leave";
     private const string SelectHint = "SELECT   click two corners   F fill   Shift+F hollow   Delete clear   Ctrl+C copy   Ctrl+X cut   Ctrl+V paste   Ctrl+S save blueprint   right click clears   V back to building";
     private const string PasteHint = "PLACING   left click puts it down   R turn   T mirror   right click or Esc stops";
@@ -120,7 +123,7 @@ public sealed class ViewerHud
         if (_editBar == null) return;
         _editBar.Visible = on;
         _editLabel.Visible = on;
-        _hint.Text = on ? EditHint : _headset ? HeadsetHint : DesktopHint;
+        _hint.Text = on ? (_headset ? HeadsetEditHint : EditHint) : _headset ? HeadsetHint : DesktopHint;
         if (on && slotLabels != null)
         {
             for (int i = 0; i < slotLabels.Count && i < _editBar.SlotCount; i++) SetEditSlot(i, slotLabels[i]);
@@ -196,6 +199,90 @@ public sealed class ViewerHud
         _menu.Y = Math.Min(_menu.Y, maxY);
     }
 
+    // ---- the edit toolbar: what the keys do, as buttons (for a headset, where there is no keyboard, and for a mouse) ----
+
+    private readonly List<(string Id, UIButton Button)> _toolButtons = new();
+
+    /// <summary>A toolbar button was pressed (its id: blocks, select, blueprints, undo, redo, fill, clear, copy, cut, paste, save, turn, mirror, cancel, leave).</summary>
+    public Action<string>? OnEditAction { get; set; }
+
+    private void BuildToolbar()
+    {
+        foreach (var (id, label) in new[]
+        {
+            ("enter", "Edit mode"), ("blocks", "Blocks"), ("select", "Select"), ("blueprints", "Blueprints"), ("undo", "Undo"), ("redo", "Redo"),
+            ("fill", "Fill"), ("clear", "Clear"), ("copy", "Copy"), ("cut", "Cut"), ("paste", "Paste"), ("save", "Save as blueprint"),
+            ("turn", "Turn"), ("mirror", "Mirror"), ("cancel", "Stop placing"), ("leave", "Leave edit mode"),
+        })
+        {
+            var button = new UIButton { Text = label, FontSize = FontSize.Caption, Width = 112, Height = 26, PaddingX = 4, PaddingY = 3, Visible = false };
+            var captured = id;
+            button.OnClick = () => OnEditAction?.Invoke(captured);
+            _toolButtons.Add((id, button));
+            button.X = 8; button.Y = 118;
+            _root.AddChild(button);
+        }
+    }
+
+    /// <summary>Which toolbar buttons show: always the building ones in edit mode, the ones for a selection when there is one, the ones for placing when a blueprint is on its way down.</summary>
+    public void SetEditToolbar(bool editing, bool hasSelection, bool pasting, bool hasClipboard, bool selecting)
+    {
+        if (_toolButtons.Count == 0) return;
+        int shown = 0;
+        foreach (var (id, button) in _toolButtons)
+        {
+            // In a headset the way into edit mode is a button (a hand has no thumbstick to press); everything else shows in edit mode
+            bool show = id == "enter" ? !editing && _headset : editing && id switch
+            {
+                "blocks" or "select" or "blueprints" or "undo" or "redo" or "leave" => !pasting || id is "leave" or "undo" or "redo",
+                "fill" or "clear" or "copy" or "cut" or "save" => hasSelection && !pasting,
+                "paste" => hasClipboard && !pasting,
+                "turn" or "mirror" or "cancel" => pasting,
+                _ => false,
+            };
+            button.Visible = show;
+            if (id == "select") button.Text = selecting ? "Build" : "Select";
+            if (!show) continue;
+            // Seven to a column, then the next column over
+            button.X = 8 + (shown / 7) * 118; button.Y = 118 + (shown % 7) * 30;
+            shown++;
+        }
+    }
+
+    // ---- augmented reality: the world as a model on a table, and its buttons ----
+
+    private readonly List<(string Id, UIButton Button)> _tableButtons = new();
+
+    /// <summary>A table button was pressed (table, bigger, smaller, bring).</summary>
+    public Action<string>? OnTableAction { get; set; }
+
+    private void BuildTableButtons()
+    {
+        foreach (var (id, label) in new[] { ("table", "Life size"), ("bigger", "Bigger"), ("smaller", "Smaller"), ("bring", "Bring it here") })
+        {
+            var button = new UIButton { Text = label, FontSize = FontSize.Caption, Width = 112, Height = 26, PaddingX = 4, PaddingY = 3, Visible = false };
+            var captured = id;
+            button.OnClick = () => OnTableAction?.Invoke(captured);
+            _tableButtons.Add((id, button));
+            _root.AddChild(button);
+        }
+    }
+
+    /// <summary>The table buttons: shown in an augmented-reality session (<paramref name="ar"/>), "Life size" or "Tabletop" by what pressing it does.</summary>
+    public void SetTableToolbar(bool ar, bool tabletop)
+    {
+        if (_tableButtons.Count == 0) return;
+        int row = 0;
+        foreach (var (id, button) in _tableButtons)
+        {
+            bool show = ar && (id == "table" || tabletop);
+            button.Visible = show;
+            if (id == "table") button.Text = tabletop ? "Life size" : "On the table";
+            if (!show) continue;
+            button.X = 8 + 2 * 118; button.Y = 118 + row * 30;
+            row++;
+        }
+    }
     // ---- the block palette: every block of the game, searched by name ----
 
     private const int PaletteMaxRows = 400;
@@ -214,7 +301,14 @@ public sealed class ViewerHud
         _paletteSearch.OnChanged = _ => RefreshPalette();
         _paletteSearch.OnSubmit = _ => { if (_paletteList.ItemCount > 0) ChoosePalette(0); };
         _palette.AddChild(_paletteSearch);
-        _paletteList = new UIList { ItemHeight = 22, ItemFontSize = FontSize.Caption, Padding = 2, X = 10, Y = 74, Width = 360, Height = 376 };
+        // Words that fill the search in, for where there is no keyboard (a headset) and for a quick pick
+        string[] chips = ["stone", "planks", "log", "glass", "wool", "stairs", "slab", "wall", "fence", "door", "ore", "lamp", "terracotta", "concrete"];
+        for (int i = 0; i < chips.Length; i++)
+        {
+            var word = chips[i];
+            _palette.AddChild(new UIButton { Text = word, FontSize = FontSize.Caption, X = 12 + (i % 7) * 51, Y = 72 + (i / 7) * 26, Width = 49, Height = 24, PaddingX = 2, PaddingY = 2, OnClick = () => { _paletteSearch.Text = word; RefreshPalette(); } });
+        }
+        _paletteList = new UIList { ItemHeight = 22, ItemFontSize = FontSize.Caption, Padding = 2, X = 10, Y = 128, Width = 360, Height = 322 };
         _paletteList.OnSelectionChanged = ChoosePalette;
         _palette.AddChild(_paletteList);
         _root.AddAnchored(_palette, Anchor.Center, 0, -10);
@@ -357,7 +451,7 @@ public sealed class ViewerHud
     /// <summary>Which hint the edit bar shows: 0 building, 1 selecting, 2 placing a blueprint.</summary>
     public void SetEditHint(int kind)
     {
-        if (_editMode && _hint != null) _hint.Text = kind switch { 1 => SelectHint, 2 => PasteHint, _ => EditHint };
+        if (_editMode && _hint != null) _hint.Text = _headset ? kind switch { 1 => HeadsetSelectHint, 2 => HeadsetPasteHint, _ => HeadsetEditHint } : kind switch { 1 => SelectHint, 2 => PasteHint, _ => EditHint };
     }
 
     /// <summary>What a slot of the edit bar shows (a block's short name).</summary>
@@ -451,6 +545,8 @@ public sealed class ViewerHud
         _root.AddAnchored(_editLabel, Anchor.BottomCenter, 0, -132);
 
         BuildPalette(theme);
+        BuildToolbar();
+        BuildTableButtons();
         BuildWorldPanel(theme);
         BuildBlueprints(theme);
 

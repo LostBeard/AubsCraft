@@ -26,7 +26,7 @@ public class ViewerXrTests
     // window.__xr.left / .right / .exit steer the controllers; window.__xr.frames counts frames. Each frame is mirrored onto #xr-mirror after the page drew it.
     private const string MockXr = """
         (() => {
-          const xr = window.__xr = { left: [0, 0], right: [0, 0], exit: false, x: false, trigger: false, frames: 0, ended: false, mode: null, blend: 'opaque',
+          const xr = window.__xr = { left: [0, 0], right: [0, 0], exit: false, x: false, trigger: false, leftTrigger: false, leftThumb: false, rightThumb: false, rightA: false, frames: 0, ended: false, mode: null, blend: 'opaque',
             rayRight: { p: [0.25, 1.3, -0.2], q: [0, 0, 0, 1] }, rayLeft: { p: [-0.25, 1.3, -0.2], q: [-0.7071068, 0, 0, 0.7071068] } };
           // The right controller points from where it is at a point of the room (the left one points at the floor)
           xr.aimAt = (tx, ty, tz) => {
@@ -83,8 +83,8 @@ public class ViewerXrTests
             }, 16); return handle; };
             const pad = (stick, down) => ({ axes: [0, 0, stick[0], stick[1]], buttons: [0,1,2,3,4,5].map(i => ({ pressed: !!down[i], touched: false, value: 0 })) });
             Object.defineProperty(s, 'inputSources', { get: () => [
-              { handedness: 'left', targetRaySpace: { hand: 'left' }, gamepad: pad(xr.left, { 4: xr.x }) },
-              { handedness: 'right', targetRaySpace: { hand: 'right' }, gamepad: pad(xr.right, { 5: xr.exit, 0: xr.trigger }) },
+              { handedness: 'left', targetRaySpace: { hand: 'left' }, gamepad: pad(xr.left, { 4: xr.x, 0: xr.leftTrigger, 3: xr.leftThumb }) },
+              { handedness: 'right', targetRaySpace: { hand: 'right' }, gamepad: pad(xr.right, { 5: xr.exit, 0: xr.trigger, 3: xr.rightThumb, 4: xr.rightA }) },
             ] });
             s.end = async () => { xr.ended = true; clearTimeout(timer); s.dispatchEvent(new Event('end')); };
             return s;
@@ -362,6 +362,167 @@ public class ViewerXrTests
         finally
         {
             try { File.WriteAllLines(Path.Combine(_outDir, "console-hud.log"), log); } catch { }
+            await page.CloseAsync();
+        }
+    }
+
+    [Test]
+    public async Task InVr_TheControllersBuild_AndTheToolbarOnThePanelReachesTheRest()
+    {
+        var plugin = new FakePlugin(_rig);
+        plugin.Start();
+        var page = await _rig.Context.NewPageAsync();
+        var log = new List<string>();
+        var errors = new List<string>();
+        page.Console += (_, m) => { lock (log) log.Add(m.Text); if (m.Type == "error") errors.Add(m.Text); };
+        page.PageError += (_, e) => errors.Add(e);
+        await page.AddInitScriptAsync(MockXr);
+        try
+        {
+            await plugin.PostWorldAsync();
+            await page.GotoAsync(_rig.BaseUrl + "/map?hud=0&time=6000&dd=6&light=0&cam=-8.5,-58.0,8.5,-90,0", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await ViewerShotTests.WaitForSettledAsync(page, minSections: 8, quietSeconds: 3, maxSeconds: 60);
+            var enter = page.GetByRole(AriaRole.Button, new() { Name = "Enter VR" });
+            await enter.WaitForAsync(new() { Timeout = 30_000 });
+            await enter.ClickAsync();
+            for (int i = 0; i < 90 && !log.ToArray().Any(l => l.Contains("[Xr] world started")); i++) await Task.Delay(1000);
+            await Task.Delay(6000);
+
+            // The right controller points down at the floor; the right thumbstick pressed in turns edit mode on
+            await page.EvaluateAsync("window.__xr.aimAt(0.25, -0.5, -1.0)");
+            await PressAsync(page, "rightThumb");
+            for (int i = 0; i < 20 && !log.ToArray().Any(l => l.Contains("[Edit] edit mode on")); i++) await Task.Delay(300);
+            Assert.That(log.ToArray().Any(l => l.Contains("[Edit] edit mode on")), Is.True, "edit mode is on:\n" + string.Join("\n", log.ToArray().Where(l => l.Contains("Edit") || l.Contains("Xr")).TakeLast(8)));
+            await Task.Delay(2500);   // what the controller points at is asked of the panel
+            using var pointing = await LeftEyeAsync(page, "vr-edit-pointing");
+
+            // The right trigger places the block in hand on the floor, in front of the head
+            await PressAsync(page, "trigger");
+            for (int i = 0; i < 30 && plugin.Received.Count == 0; i++) await Task.Delay(200);
+            Assert.That(plugin.Received.Count, Is.GreaterThanOrEqualTo(1), "the trigger placed a block:\n" + string.Join("\n", log.ToArray().Where(l => l.Contains("Edit")).TakeLast(8)));
+            var placed = plugin.Received[0];
+            TestContext.Progress.WriteLine($"[xr-edit] placed {placed.Block} at {string.Join(",", placed.At)}");
+            Assert.That((placed.Kind, placed.Block, placed.At[1]), Is.EqualTo(("set", "minecraft:stone", -60)), "stone on top of the grass");
+            Assert.That(placed.At[0], Is.InRange(-16, -1));
+            await Task.Delay(2500);
+            using var built = await LeftEyeAsync(page, "vr-edit-placed");
+
+            // A breaks what is pointed at (the stone just put there), the left thumbstick pressed undoes it
+            await PressAsync(page, "rightA");
+            for (int i = 0; i < 30 && plugin.Received.Count < 2; i++) await Task.Delay(200);
+            Assert.That(plugin.Received.Count, Is.GreaterThanOrEqualTo(2));
+            Assert.That(plugin.Received[1].Block, Is.EqualTo("minecraft:air"));
+            Assert.That(plugin.Received[1].At, Is.EqualTo(placed.At), "the block that was put there");
+            await Task.Delay(2000);
+            await PressAsync(page, "leftThumb");
+            for (int i = 0; i < 30 && plugin.Received.Count < 3; i++) await Task.Delay(200);
+            Assert.That(plugin.Received.Count, Is.GreaterThanOrEqualTo(3));
+            Assert.That(plugin.Received[2].Kind, Is.EqualTo("undo"));
+
+            // The toolbar on the panel: the controller points at "Blocks" and the trigger presses it
+            await AimAsync(page, PanelSpot(70, 131));
+            await Task.Delay(800);
+            await PressAsync(page, "trigger");
+            for (int i = 0; i < 20 && !log.ToArray().Any(l => l.Contains("[Edit] tool blocks")); i++) await Task.Delay(300);
+            Assert.That(log.ToArray().Any(l => l.Contains("[Edit] tool blocks")), Is.True, "the toolbar's Blocks button was pressed:\n" + string.Join("\n", log.ToArray().Where(l => l.Contains("Edit") || l.Contains("HUD")).TakeLast(8)));
+            await Task.Delay(1000);
+            using var palette = await LeftEyeAsync(page, "vr-edit-palette");
+
+            // No keyboard in a headset: a chip fills the search in ("glass"), the first block of the list is picked, and the right trigger then places it
+            await AimAsync(page, PanelSpot(400, 94));
+            await Task.Delay(700);
+            await PressAsync(page, "trigger");
+            await Task.Delay(800);
+            using var chipped = await LeftEyeAsync(page, "vr-edit-chip");
+            await AimAsync(page, PanelSpot(300, 152));
+            await Task.Delay(700);
+            await PressAsync(page, "trigger");
+            await Task.Delay(1000);
+            await page.EvaluateAsync("window.__xr.aimAt(0.25, -0.5, -1.0)");
+            await Task.Delay(2500);
+            int beforeGlass = plugin.Received.Count;
+            await PressAsync(page, "trigger");
+            for (int i = 0; i < 30 && plugin.Received.Count == beforeGlass; i++) await Task.Delay(200);
+            Assert.That(plugin.Received.Count, Is.GreaterThan(beforeGlass), "a block was placed after choosing from the palette");
+            Assert.That(plugin.Received[^1].Block, Does.Contain("glass"), "the chip's search and the list's first block: some glass");
+            // The thumbstick pressed again leaves edit mode; the session ends cleanly
+            await page.EvaluateAsync("window.__xr.aimAt(0.25, 3.5, -1.3)");
+            await PressAsync(page, "rightThumb");
+            for (int i = 0; i < 20 && !log.ToArray().Any(l => l.Contains("[Edit] edit mode off")); i++) await Task.Delay(300);
+            Assert.That(log.ToArray().Any(l => l.Contains("[Edit] edit mode off")), Is.True);
+            await page.EvaluateAsync("window.__xr.exit = true");
+            for (int i = 0; i < 20 && !log.ToArray().Any(l => l.Contains("[Xr] session ended")); i++) await Task.Delay(500);
+            Assert.That(errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", errors));
+        }
+        finally
+        {
+            await plugin.StopAsync();
+            try { File.WriteAllLines(Path.Combine(_outDir, "console-vr-edit.log"), log.ToArray()); } catch { }
+            await page.CloseAsync();
+        }
+    }
+
+    // Pixels of the left eye that show the world, not the passthrough (transparent in the saved picture), in a band of rows
+    private static int WorldPixels(Bitmap eye, int fromY, int toY)
+    {
+        int n = 0;
+        for (int y = fromY; y < toY; y += 3)
+            for (int x = 0; x < eye.Width; x += 3)
+            {
+                var p = eye.GetPixel(x, y);
+                if (p.A > 8) n++;   // the headset layer is transparent where nothing is drawn
+            }
+        return n;
+    }
+
+    [Test]
+    public async Task InAr_TheWorldIsAModelOnATable_AndLifeSizeStepsIntoIt()
+    {
+        var page = await _rig.Context.NewPageAsync();
+        var log = new List<string>();
+        var errors = new List<string>();
+        page.Console += (_, m) => { lock (log) log.Add(m.Text); if (m.Type == "error") errors.Add(m.Text); };
+        page.PageError += (_, e) => errors.Add(e);
+        await page.AddInitScriptAsync(MockXr);
+        try
+        {
+            await page.GotoAsync(_rig.BaseUrl + "/map?hud=0&time=6000&cam=" + Cam, new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await ViewerShotTests.WaitForSettledAsync(page, minSections: 100, quietSeconds: 5, maxSeconds: 90);
+            var enter = page.GetByRole(AriaRole.Button, new() { Name = "Enter AR" });
+            await enter.WaitForAsync(new() { Timeout = 30_000 });
+            await enter.ClickAsync();
+            for (int i = 0; i < 90 && !log.ToArray().Any(l => l.Contains("[Xr] world started")); i++) await Task.Delay(1000);
+            await Task.Delay(10_000);
+
+            // The model: the upper part of the view is the passthrough (nothing drawn), the world is a small thing low on the table
+            using var model = await LeftEyeAsync(page, "ar-table-model");
+            int modelUp = WorldPixels(model, 0, 380), modelDown = WorldPixels(model, 540, 700);
+            TestContext.Progress.WriteLine($"[ar] the model: world pixels above the horizon {modelUp}, below {modelDown}");
+            Assert.That(WorldPixels(model, 700, 1024), Is.GreaterThan(500), "the model is there on the table");
+
+            // "On the table" is the button's name at life size and "Life size" on the table: it steps into the model
+            await AimAsync(page, PanelSpot(292, 131));
+            await Task.Delay(800);
+            await PressAsync(page, "trigger");
+            await Task.Delay(6000);
+            using var inside = await LeftEyeAsync(page, "ar-life-size");
+            int insideUp = WorldPixels(inside, 0, 380), insideDown = WorldPixels(inside, 540, 700);
+            TestContext.Progress.WriteLine($"[ar] life size: world pixels above the horizon {insideUp}, below {insideDown}");
+            Assert.That(insideDown, Is.GreaterThan(modelDown + 3000), "life size: the ground reaches up to the horizon, the model only fills the table");
+
+            // And back to the table
+            await PressAsync(page, "trigger");
+            await Task.Delay(5000);
+            using var again = await LeftEyeAsync(page, "ar-table-again");
+            Assert.That(WorldPixels(again, 540, 700), Is.LessThan(insideDown), "the model again: less of the view is world");
+
+            await page.EvaluateAsync("window.__xr.exit = true");
+            for (int i = 0; i < 20 && !log.ToArray().Any(l => l.Contains("[Xr] session ended")); i++) await Task.Delay(500);
+            Assert.That(errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", errors));
+        }
+        finally
+        {
+            try { File.WriteAllLines(Path.Combine(_outDir, "console-ar-table.log"), log.ToArray()); } catch { }
             await page.CloseAsync();
         }
     }

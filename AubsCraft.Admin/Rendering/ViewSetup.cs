@@ -7,8 +7,11 @@ namespace AubsCraft.Admin.Rendering;
 /// What the world is drawn from: where the eye is and the matrices that take the world to the screen - the reversed-Z one the pipeline draws with, and the standard-Z one the
 /// frustum is cut from. The fly camera makes one (<see cref="Of"/>); so does each eye of a headset (<see cref="FromXr"/>).
 /// </summary>
-public readonly record struct ViewSetup(Vector3 Position, Matrix4x4 ViewProjectionReversed, Matrix4x4 ViewProjectionStandard, float ClearAlpha = 1f)
+public readonly record struct ViewSetup(Vector3 Position, Matrix4x4 ViewProjectionReversed, Matrix4x4 ViewProjectionStandard, float ClearAlpha = 1f, Vector3? CullCenter = null, int DrawChunks = 0)
 {
+    /// <summary>The world is seen as a MODEL (on a table): what is drawn is a few chunks round <see cref="CullCenter"/>, not round the eye, with no fog and no water or sky of the eye's.</summary>
+    public bool IsModel => CullCenter != null;
+
     /// <summary>The fly camera.</summary>
     public static ViewSetup Of(FpsCamera camera, float aspect)
     {
@@ -31,9 +34,9 @@ public readonly record struct ViewSetup(Vector3 Position, Matrix4x4 ViewProjecti
     /// One eye. <paramref name="worldToEye"/> takes world points to the eye's space (row-vector, like everything here); <paramref name="projectionGl"/> is the eye's WebXR projection as a row-vector
     /// matrix (<see cref="VrMatrixHelpers.GlColumnMajorToDotNetMatrix"/> of XRView.projectionMatrix); <paramref name="eyeInWorld"/> is where the eye is.
     /// </summary>
-    public static ViewSetup FromXr(Vector3 eyeInWorld, Matrix4x4 worldToEye, Matrix4x4 projectionGl, float clearAlpha = 1f)
+    public static ViewSetup FromXr(Vector3 eyeInWorld, Matrix4x4 worldToEye, Matrix4x4 projectionGl, float clearAlpha = 1f, Vector3? cullCenter = null, int drawChunks = 0)
     {
         var vp = worldToEye * projectionGl;
-        return new ViewSetup(eyeInWorld, vp * VrMatrixHelpers.ZFlipStandardToReversedZ, vp * GlToStandardZ, clearAlpha);
+        return new ViewSetup(eyeInWorld, vp * VrMatrixHelpers.ZFlipStandardToReversedZ, vp * GlToStandardZ, clearAlpha, cullCenter, drawChunks);
     }
 }

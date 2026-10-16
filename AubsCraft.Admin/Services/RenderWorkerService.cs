@@ -208,6 +208,9 @@ public class RenderWorkerService : IRenderWorkerService
     }
 
     private AubsCraft.Admin.Editing.EditController? _edit;
+
+    /// <summary>Building in this world (a headset drives it with a controller).</summary>
+    public AubsCraft.Admin.Editing.EditController? Edit => _edit;
     private AubsCraft.Admin.Editing.AdminController? _admin;
 
     public Task SetAdminAsync(bool isAdmin)
@@ -663,6 +666,7 @@ public class RenderWorkerService : IRenderWorkerService
         _renderer.TrackFrame(dt);
         EaseWeather(dt);
         if (XrHudActive) UpdateHud(dt);
+        _edit?.Update(dt, _renderer.Camera);
         StreamWorld(dt);
     }
 

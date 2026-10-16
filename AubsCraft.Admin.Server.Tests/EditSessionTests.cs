@@ -332,4 +332,38 @@ public class EditSessionTests
         Assert.That(list.Select(b => b.Name), Is.EqualTo(new[] { "A", "B" }));
         Assert.That(EditJson.ReadBlueprints("""{"not":"a list"}"""), Is.Empty);
     }
+
+    [Test]
+    public void ABeamRunsFromItsOriginToItsEnd_InAnyDirection()
+    {
+        foreach (var dir in new[] { new Vector3(0, 0, 1), new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector3(0, -1, 0), Vector3.Normalize(new Vector3(1, 2, -3)), Vector3.Normalize(new Vector3(-0.3f, -0.1f, 0.9f)) })
+        {
+            var parts = new List<PartDraw>();
+            var origin = new Vector3(10, 5, 3);
+            SelectionBoxes.Beam(origin, dir, 4f, 0.01f, Vector3.One, parts);
+            var bar = parts.Single();
+            // The bar starts on the origin and its far end is 4 blocks along the direction (its middle line)
+            var start = Vector3.Transform(new Vector3(0, 0, bar.Origin.Z), bar.Model);
+            var end = Vector3.Transform(new Vector3(0, 0, bar.Origin.Z + bar.Size.Z), bar.Model);
+            Assert.That((start - origin).Length(), Is.LessThan(1e-3f), dir.ToString());
+            Assert.That((end - (origin + dir * 4f)).Length(), Is.LessThan(1e-3f), dir.ToString());
+            Assert.That(bar.Size.X, Is.EqualTo(0.01f * 16f).Within(1e-4));
+        }
+        var none = new List<PartDraw>();
+        SelectionBoxes.Beam(Vector3.Zero, Vector3.UnitZ, 0f, 0.01f, Vector3.One, none);
+        SelectionBoxes.Beam(Vector3.Zero, Vector3.Zero, 2f, 0.01f, Vector3.One, none);
+        Assert.That(none, Is.Empty, "no length or no direction: nothing to draw");
+    }
+
+    [Test]
+    public void AHandIsACubeAroundItsCentre()
+    {
+        var parts = new List<PartDraw>();
+        SelectionBoxes.Cube(new Vector3(1, 2, 3), 0.1f, Vector3.One, parts);
+        var cube = parts.Single();
+        var lo = Vector3.Transform(cube.Origin, cube.Model);
+        var hi = Vector3.Transform(cube.Origin + cube.Size, cube.Model);
+        Assert.That(((lo + hi) / 2 - new Vector3(1, 2, 3)).Length(), Is.LessThan(1e-4f));
+        Assert.That((hi - lo).X, Is.EqualTo(0.1f).Within(1e-4));
+    }
 }

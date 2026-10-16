@@ -17,8 +17,8 @@ namespace AubsCraft.Admin.Editing;
 /// </summary>
 public sealed class EditController
 {
-    /// <summary>How far the camera reaches, in blocks.</summary>
-    public const double Reach = 48;
+    /// <summary>How far the camera reaches, in blocks (the host sets it: at the scale of a table model it is a metre or two of the room).</summary>
+    public float ReachBlocks { get; set; } = 48f;
     private const float PickEverySeconds = 0.08f;
     private const int MaxEditsInFlight = 3;
 
@@ -32,9 +32,11 @@ public sealed class EditController
     private bool _pickInFlight;
     private int _editsInFlight;
     private string _lastStatus = "";
-    private int _lastHint = -1;
+    private int _lastHint = -1, _lastToolState = -1;
     // What the clipboard holds (its size), once something has been copied
     private (int W, int H, int D)? _clipboard;
+    // A headset: the pointing is done by a controller's ray (set each frame), and there is no keyboard to name a blueprint with
+    private Vector3? _rayOrigin, _rayDirection;
 
     public EditController(SpawnJSRuntime js, string baseUrl, string serverQuery, ViewerHud hud, EntityLayer? entities)
     {
@@ -53,6 +55,7 @@ public sealed class EditController
         _hud.OnBlueprintChoice = name => _ = BeginPasteOfAsync(name);
         _hud.OnBlueprintDelete = name => _ = DeleteBlueprintAsync(name);
         _hud.OnNameEntered = name => _ = SaveSelectionAsync(name);
+        _hud.OnEditAction = id => Perform(id);
     }
 
     public EditSession Session { get; } = new();
@@ -89,11 +92,13 @@ public sealed class EditController
             }
         }
         Session.Active = on;
+        Console.WriteLine($"[Edit] edit mode {(on ? "on" : "off")}");
         Session.Target = null;
         _pickTimer = PickEverySeconds;
         _lastHint = -1;
         _hud.SetEditMode(on, on ? Session.Hotbar.Select(EditSession.DisplayName).ToArray() : null, Session.Selected);
-        if (!on) CloseMenus();
+        _lastToolState = -1;
+        if (!on) { CloseMenus(); _hud.SetEditToolbar(false, false, false, false, false); }
         if (!on) Session.CancelPaste();
         if (!on && _entities != null) _entities.Extras.Clear();
         RefreshHud();
@@ -112,15 +117,114 @@ public sealed class EditController
     /// <summary>Ask where the camera points (at most one question at a time), and draw the outlines.</summary>
     public void Update(float dt, FpsCamera camera)
     {
-        if (!Session.Active) return;
+        if (!Session.Active) { _entities?.Extras.Clear(); return; }
         _pickTimer += dt;
         if (!_pickInFlight && _pickTimer >= PickEverySeconds)
         {
             _pickTimer = 0;
-            _ = PickAsync(camera.Position, camera.Front);
+            if (_rayOrigin is { } origin && _rayDirection is { } direction) _ = PickAsync(origin, direction);
+            else if (RayOnly) Session.Target = null;     // a headset points with a controller: no controller ray, nothing is pointed at
+            else _ = PickAsync(camera.Position, camera.Front);
         }
         DrawOutlines();
         RefreshHud();
+    }
+
+    /// <summary>True in a headset: the camera's look does not pick, only a controller's ray (<see cref="SetRay"/>) does.</summary>
+    public bool RayOnly { get; set; }
+
+    /// <summary>Name a blueprint by itself (Blueprint 1, 2...) instead of asking: there is no keyboard in a headset.</summary>
+    public bool AutoName { get; set; }
+
+    /// <summary>The controller points along this ray (world space): that is what is picked.</summary>
+    public void SetRay(Vector3 origin, Vector3 direction) { _rayOrigin = origin; _rayDirection = Vector3.Normalize(direction); }
+
+    public void ClearRay() { _rayOrigin = null; _rayDirection = null; }
+
+    /// <summary>How far the thing pointed at is (the beam's length), or null when nothing is.</summary>
+    public float? TargetDistance => Session.Target is { } t ? (float)t.Distance : null;
+
+    /// <summary>Draw a beam and a hand for a controller (edit mode's outlines are drawn each frame; these are added after them).</summary>
+    public void AddController(Vector3 origin, Vector3 direction, float beamLength, Vector3 tint, float blocksPerMetre = 1f)
+    {
+        if (_entities == null) return;
+        SelectionBoxes.Beam(origin, direction, beamLength, 0.006f * blocksPerMetre, tint, _entities.Extras);
+        SelectionBoxes.Cube(origin, 0.05f * blocksPerMetre, tint * 0.6f, _entities.Extras);
+    }
+
+    // ---- the buttons of a controller (and of the toolbar): what each does depends on the tool ----
+
+    /// <summary>The main button: places the block in hand (building), makes a corner (selecting), puts a blueprint down (placing).</summary>
+    public void Primary(float cameraYawDegrees)
+    {
+        if (!Session.Active) return;
+        if (Session.Paste != null) _ = PasteAsync();
+        else if (Session.Tool == EditSession.Tools.Select) Session.ClickSelect();
+        else Send(Session.PlanPlace(cameraYawDegrees));
+    }
+
+    /// <summary>The other button: breaks the block (building), clears the selection (selecting), stops placing.</summary>
+    public void Alternate()
+    {
+        if (!Session.Active) return;
+        if (Session.Paste != null) Session.CancelPaste();
+        else if (Session.Tool == EditSession.Tools.Select) Session.ClearSelection();
+        else Send(Session.PlanBreak());
+    }
+
+    /// <summary>Take the block pointed at into the hand.</summary>
+    public void Eyedrop()
+    {
+        if (Session.Active && Session.PickBlock()) RefreshHud(slots: true);
+    }
+
+    public void UndoNow() { if (Session.Active) _ = UndoAsync(); }
+
+    /// <summary>A toolbar button, by id.</summary>
+    public void Perform(string id)
+    {
+        var s = Session;
+        if (id == "enter") { _ = SetActiveAsync(true); return; }
+        if (!s.Active) return;
+        Console.WriteLine($"[Edit] tool {id}");
+        switch (id)
+        {
+            case "blocks": _hud.OpenBlueprints(false); _hud.OpenPalette(!_hud.IsPaletteOpen); break;
+            case "select": s.Tool = s.Tool == EditSession.Tools.Select ? EditSession.Tools.Build : EditSession.Tools.Select; s.CancelPaste(); break;
+            case "blueprints": _ = OpenBlueprintsAsync(); break;
+            case "undo": _ = UndoAsync(); break;
+            case "redo": _ = RedoAsync(); break;
+            case "fill": Send(s.PlanFill()); break;
+            case "clear": Send(s.PlanClear()); break;
+            case "copy": if (s.HasSelection) _ = CopyAsync(cut: false); break;
+            case "cut": if (s.HasSelection) _ = CopyAsync(cut: true); break;
+            case "paste": BeginPasteOfClipboard(); break;
+            case "save": _ = SaveSelectionClickedAsync(); break;
+            case "turn": s.RotatePaste(); break;
+            case "mirror": s.MirrorPaste(); break;
+            case "cancel": s.CancelPaste(); break;
+            case "leave": _ = SetActiveAsync(false); break;
+        }
+    }
+
+    private async Task SaveSelectionClickedAsync()
+    {
+        if (!Session.HasSelection) { _hud.Toast("Select a box first", NotificationType.Info); return; }
+        if (!AutoName)
+        {
+            _hud.OpenPalette(false); _hud.OpenBlueprints(false);
+            _hud.OpenNamePrompt(true, "Save the selection as a blueprint called");
+            return;
+        }
+        // Blueprint 1, Blueprint 2...: the first number no blueprint has
+        try
+        {
+            if (!await RefreshBlueprintsAsync()) return;
+            int n = 1;
+            while (_items.Any(b => string.Equals(b.Name, "Blueprint " + n, StringComparison.OrdinalIgnoreCase))) n++;
+            await SaveSelectionAsync("Blueprint " + n);
+        }
+        catch (Exception ex) { _hud.Toast("Could not save: " + ex.Message, NotificationType.Warning); }
     }
 
     private void DrawOutlines()
@@ -156,7 +260,7 @@ public sealed class EditController
         try
         {
             string F(float v) => v.ToString("0.####", CultureInfo.InvariantCulture);
-            var url = $"{_baseUrl}/api/world/edit/pick?{_serverQuery}&ox={F(origin.X)}&oy={F(origin.Y)}&oz={F(origin.Z)}&dx={F(direction.X)}&dy={F(direction.Y)}&dz={F(direction.Z)}&max={Reach.ToString(CultureInfo.InvariantCulture)}";
+            var url = $"{_baseUrl}/api/world/edit/pick?{_serverQuery}&ox={F(origin.X)}&oy={F(origin.Y)}&oz={F(origin.Z)}&dx={F(direction.X)}&dy={F(direction.Y)}&dz={F(direction.Z)}&max={ReachBlocks.ToString("0.#", CultureInfo.InvariantCulture)}";
             using var response = await _js.Fetch(url, new FetchOptions { Credentials = "include" });
             if (!response.Ok) { Session.Target = null; return; }
             var reply = EditJson.ReadPick(await response.Text());
@@ -439,6 +543,10 @@ public sealed class EditController
         if (slots) for (int i = 0; i < Session.Hotbar.Length; i++) _hud.SetEditSlot(i, EditSession.DisplayName(Session.Hotbar[i]));
         int hint = Session.Paste != null ? 2 : Session.Tool == EditSession.Tools.Select ? 1 : 0;
         if (hint != _lastHint) { _lastHint = hint; _hud.SetEditHint(hint); }
+
+        // The toolbar's buttons: only the ones that mean something now
+        int toolState = (Session.Active ? 1 : 0) | (Session.HasSelection ? 2 : 0) | (Session.Paste != null ? 4 : 0) | (_clipboard != null ? 8 : 0) | (Session.Tool == EditSession.Tools.Select ? 16 : 0);
+        if (toolState != _lastToolState) { _lastToolState = toolState; _hud.SetEditToolbar(Session.Active, Session.HasSelection, Session.Paste != null, _clipboard != null, Session.Tool == EditSession.Tools.Select); }
 
         string pointed = Session.Target is { } t ? $"{EditSession.DisplayName(t.Block)}  {t.X} {t.Y} {t.Z}" : "nothing in reach";
         string status = Session.Paste is { } p ? $"placing {p.Name}  {Session.PasteSize!.Value.W} x {Session.PasteSize.Value.H} x {Session.PasteSize.Value.D}     {pointed}"

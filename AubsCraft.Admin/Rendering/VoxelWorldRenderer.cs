@@ -749,12 +749,16 @@ public sealed class VoxelWorldRenderer : IDisposable
         var frustum = FrustumCuller.ExtractPlanes(view.ViewProjectionStandard); // plane extraction wants the standard-Z matrix
         var camera = view;   // the camera's place is all the rest needs from it
 
+        // A model on a table: the chunks round its focus are drawn (not those round the eye, which is outside the model), with no fog
+        bool model = view.IsModel;
+        var center = view.CullCenter ?? camera.Position;
+        if (model && view.DrawChunks > 0) drawDistanceChunks = view.DrawChunks;
         // Under water everything fades into murk a few dozen blocks out, and the frame is cleared to it
-        ProbeCamera(camera.Position);
-        bool underwater = CameraUnderwater;
+        if (!model) ProbeCamera(camera.Position);
+        bool underwater = !model && CameraUnderwater;
         var fogColour = underwater ? UnderwaterLook.FogColor(light.SunStrength) : light.FogColor;
-        var fogStart = underwater ? UnderwaterLook.FogStart : FarWindow.FogStartBlocks(drawDistanceChunks);
-        var fogEnd = underwater ? UnderwaterLook.FogEnd : FarWindow.FogEndBlocks(drawDistanceChunks);
+        var fogStart = model ? 1e6f : underwater ? UnderwaterLook.FogStart : FarWindow.FogStartBlocks(drawDistanceChunks);
+        var fogEnd = model ? 2e6f : underwater ? UnderwaterLook.FogEnd : FarWindow.FogEndBlocks(drawDistanceChunks);
 
         _pipe.BeginFrame(new BlockFrameUniforms
         {
@@ -769,11 +773,11 @@ public sealed class VoxelWorldRenderer : IDisposable
         });
 
         // Creatures are posed for this moment and uploaded before the pass; nothing past the fog is posed
-        Entities?.Prepare(camera.Position, FarWindow.FogEndBlocks(drawDistanceChunks), view.ViewProjectionStandard, width, height);
-        Particles?.Prepare(camera.Position, view.ViewProjectionStandard);
+        Entities?.Prepare(center, model ? FarWindow.CullRadius(drawDistanceChunks) * 16f : FarWindow.FogEndBlocks(drawDistanceChunks), view.ViewProjectionStandard, width, height);
+        Particles?.Prepare(center, view.ViewProjectionStandard);
 
-        int camCX = (int)MathF.Floor(camera.Position.X / 16f);
-        int camCZ = (int)MathF.Floor(camera.Position.Z / 16f);
+        int camCX = (int)MathF.Floor(center.X / 16f);
+        int camCZ = (int)MathF.Floor(center.Z / 16f);
         // Never past the fog: terrain beyond it is the fog colour (the frame is cleared to it below) and only costs draws
         long drawDistSq = (long)FarWindow.CullRadius(drawDistanceChunks) * FarWindow.CullRadius(drawDistanceChunks);
         var gatherTimer = System.Diagnostics.Stopwatch.StartNew();

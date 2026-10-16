@@ -59,10 +59,17 @@ public sealed class XrSession : IDisposable
         _session = await xr.RequestSession(mode, new XRSessionInit
         {
             RequiredFeatures = new[] { "local-floor" },
+            // Hands as input where the headset has them (a browser without them ignores the word)
+            OptionalFeatures = new[] { "hand-tracking" },
         });
         Mode = mode;
         try { EnvironmentBlendMode = _session.EnvironmentBlendMode; } catch { EnvironmentBlendMode = null; }
         _session.OnEnd += OnSessionEnd;
+        // A hand has no buttons: a pinch (thumb to index finger) is a select, thumb to middle finger a squeeze
+        _session.OnSelectStart += e => OnHandGesture(e, true, squeeze: false);
+        _session.OnSelectEnd += e => OnHandGesture(e, false, squeeze: false);
+        _session.OnSqueezeStart += e => OnHandGesture(e, true, squeeze: true);
+        _session.OnSqueezeEnd += e => OnHandGesture(e, false, squeeze: true);
         _refSpace = await _session.RequestReferenceSpace("local-floor");
 
         using var doc = _js.Get<Document>("document");
@@ -165,6 +172,31 @@ public sealed class XrSession : IDisposable
         }
     }
 
+    // What each hand is doing with its fingers (set by the session's select and squeeze events: only a HAND's - a controller's trigger is read from its gamepad)
+    private volatile bool _pinchLeft, _pinchRight, _squeezeLeft, _squeezeRight;
+
+    private void OnHandGesture(XRInputSourceEvent e, bool down, bool squeeze)
+    {
+        try
+        {
+            using var source = e.InputSource;
+            using var hand = source.Hand;
+            if (hand == null) return;
+            bool left = source.Handedness == "left";
+            if (squeeze) { if (left) _squeezeLeft = down; else _squeezeRight = down; }
+            else { if (left) _pinchLeft = down; else _pinchRight = down; }
+        }
+        catch { /* an event for a source that is gone */ }
+    }
+
+    // A hand as an input source: where it points (the ray its aim pose gives), and its gestures as the buttons they stand for - a pinch is the trigger, a squeeze the other button
+    private void ReadHand(XrFrameData data, XRInputSource source, XRFrame frame, bool left)
+    {
+        ReadRay(data, source, frame, left);
+        if (left) { data.LeftIsHand = true; data.LeftTrigger = _pinchLeft; data.LeftThumb = _squeezeLeft; }
+        else { data.RightIsHand = true; data.RightTrigger = _pinchRight; data.RightPrimary = _squeezeRight; }
+    }
+
     // The thumbsticks and buttons of the controllers (xr-standard: the stick is axes 2 and 3 - 0 and 1 are a touchpad - the trigger button 0, the grip 1, A/X 4, B/Y 5)
     private void ReadControllers(XrFrameData data, XRFrame frame)
     {
@@ -172,11 +204,15 @@ public sealed class XrSession : IDisposable
         for (int i = 0; i < sources.Length; i++)
         {
             using var source = sources[i];
+            var handedness = source.Handedness;
+            bool left = handedness == "left";
+            if (!left && handedness != "right") continue;
+            using (var hand = source.Hand)
+            {
+                if (hand != null) { ReadHand(data, source, frame, left); continue; }
+            }
             using var gamepad = source.Gamepad;
             if (gamepad == null) continue;
-            var hand = source.Handedness;
-            bool left = hand == "left";
-            if (!left && hand != "right") continue;
             var axes = gamepad.Axes;
             int a = axes.Length >= 4 ? 2 : 0;
             if (axes.Length >= a + 2)
@@ -189,10 +225,11 @@ public sealed class XrSession : IDisposable
             bool grip = buttons.Length > 1 && buttons[1].Pressed;
             if (buttons.Length > 5 && buttons[5].Pressed) data.ExitButton = true;
             bool primary = buttons.Length > 4 && buttons[4].Pressed;
+            bool thumb = buttons.Length > 3 && buttons[3].Pressed;
             if (primary) data.PrimaryButton = true;
             foreach (var b in buttons) b.Dispose();
-            if (left) { data.LeftTrigger = trigger; data.LeftGrip = grip; data.LeftPrimary = primary; }
-            else { data.RightTrigger = trigger; data.RightGrip = grip; }
+            if (left) { data.LeftTrigger = trigger; data.LeftGrip = grip; data.LeftPrimary = primary; data.LeftThumb = thumb; }
+            else { data.RightTrigger = trigger; data.RightGrip = grip; data.RightPrimary = primary; data.RightThumb = thumb; }
             ReadRay(data, source, frame, left);
         }
     }
@@ -242,10 +279,17 @@ public sealed class XrFrameData
     public bool ExitButton { get; set; }
     /// <summary>A or X (xr-standard button 4) held.</summary>
     public bool PrimaryButton { get; set; }
-    /// <summary>X (the left controller's button 4) held.</summary>
+    /// <summary>X (the left controller's button 4) held; A (the right one's) is RightPrimary.</summary>
     public bool LeftPrimary { get; set; }
+    public bool RightPrimary { get; set; }
+    /// <summary>A thumbstick pressed in (xr-standard button 3).</summary>
+    public bool LeftThumb { get; set; }
+    public bool RightThumb { get; set; }
     /// <summary>Where each controller points, in the room (a unit direction); Has says it is tracked this frame.</summary>
     public bool LeftHasRay { get; set; }
+    /// <summary>That side is a tracked HAND (no thumbstick, no buttons: gestures stand in for them).</summary>
+    public bool LeftIsHand { get; set; }
+    public bool RightIsHand { get; set; }
     public bool RightHasRay { get; set; }
     public Vector3 LeftRayOrigin { get; set; }
     public Vector3 LeftRayDirection { get; set; }
