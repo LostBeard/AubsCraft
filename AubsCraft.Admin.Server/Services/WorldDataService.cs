@@ -82,6 +82,22 @@ public sealed class WorldDataService
     }
 
     /// <summary>
+    /// The light of a chunk column (<see cref="RegionReader.LightOf"/>), read from the region file when asked (it is not kept: a column's light is a hundred kilobytes and only the columns
+    /// near a camera are asked for). Null when the chunk is not there or its light was never worked out.
+    /// </summary>
+    public byte[]? GetChunkLight(int chunkX, int chunkZ)
+    {
+        var regionPath = Path.Combine(_worldPath, "region", $"r.{chunkX >> 5}.{chunkZ >> 5}.mca");
+        if (!File.Exists(regionPath)) return null;
+        try { return RegionReader.ReadChunkLight(regionPath, chunkX & 31, chunkZ & 31); }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to read the light of chunk ({ChunkX}, {ChunkZ})", chunkX, chunkZ);
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Lists all populated chunk coordinates across all regions.
     /// </summary>
     public List<ChunkCoord> GetPopulatedChunks()

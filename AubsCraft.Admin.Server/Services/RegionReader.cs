@@ -31,6 +31,19 @@ public sealed class RegionReader
     /// </summary>
     public static ChunkResult? ReadChunk(string regionPath, int localX, int localZ)
     {
+        var nbt = ReadChunkNbt(regionPath, localX, localZ);
+        return nbt == null ? null : ParseChunkNbt(nbt);
+    }
+
+    /// <summary>The light of a chunk column from a region file (see <see cref="LightOf"/>), or null when the chunk is not there or its light was never worked out.</summary>
+    public static byte[]? ReadChunkLight(string regionPath, int localX, int localZ)
+    {
+        var nbt = ReadChunkNbt(regionPath, localX, localZ);
+        return nbt == null ? null : LightOf(nbt);
+    }
+
+    private static NbtCompound? ReadChunkNbt(string regionPath, int localX, int localZ)
+    {
         using var fs = OpenShared(regionPath);
         using var reader = new BinaryReader(fs);
 
@@ -55,8 +68,63 @@ public sealed class RegionReader
             throw new NotSupportedException($"Unsupported compression type: {compressionType}");
 
         // Parse the NBT data
-        var nbt = NbtReader.ReadCompressed(compressedData);
-        return ParseChunkNbt(nbt);
+        return NbtReader.ReadCompressed(compressedData);
+    }
+
+    /// <summary>The size of a column's light: a byte for each block, laid out as the block ids are (x + z * 16 + y * 256, 384 high from y = -64).</summary>
+    public const int LightBytes = ChunkWidth * TotalHeight * ChunkWidth;
+
+    /// <summary>
+    /// The light of a chunk column, one byte a block: the sky light in the high four bits, the block light in the low four (0..15 each), in the order of the block ids. The game stores each section's
+    /// light as two arrays of nibbles (SkyLight, BlockLight; x fastest, then z, then y, two blocks to a byte, the first in the low half). Sections above the highest one the chunk has are open sky
+    /// (sky light 15); a section the chunk has but without a sky array is open sky only when it is empty air, else dark. Null when the chunk says its light was never worked out
+    /// (<c>isLightOn</c> 0 and no light arrays at all; Paper's Starlight engine writes <c>isLightOn</c> 0 yet saves the light, and leaves out the arrays of sections that are uniform).
+    /// </summary>
+    public static byte[]? LightOf(NbtCompound root)
+    {
+        bool flaggedUnlit = root.ContainsKey("isLightOn") && root.GetByte("isLightOn") == 0;
+        var sections = root.GetList("sections");
+        if (sections == null || sections.Count == 0) return null;
+        const int SectionCount = TotalHeight / SectionHeight;
+        var light = new byte[LightBytes];
+        bool anyArray = false;
+        var seen = new bool[SectionCount];
+        int highest = -1;
+        for (int s = 0; s < sections.Count; s++)
+        {
+            var section = sections.GetCompound(s);
+            int index = (sbyte)section.GetByte("Y") + 4;
+            if (index < 0 || index >= SectionCount) continue;
+            seen[index] = true;
+            highest = Math.Max(highest, index);
+            var sky = section.ContainsKey("SkyLight") ? section["SkyLight"] as byte[] : null;
+            var block = section.ContainsKey("BlockLight") ? section["BlockLight"] as byte[] : null;
+            anyArray |= sky != null || block != null;
+            // No sky array: open sky when the section is nothing but air (the game leaves the light of such a section out), else dark
+            bool openAir = sky == null && IsAllAir(section);
+            int baseIndex = index * SectionHeight * ChunkWidth * ChunkWidth;
+            for (int i = 0; i < 4096; i++)
+            {
+                int skyLevel = sky != null && sky.Length >= 2048 ? (sky[i >> 1] >> ((i & 1) * 4)) & 15 : openAir ? 15 : 0;
+                int blockLevel = block != null && block.Length >= 2048 ? (block[i >> 1] >> ((i & 1) * 4)) & 15 : 0;
+                light[baseIndex + i] = (byte)((skyLevel << 4) | blockLevel);
+            }
+        }
+        // Above the highest section, and any section between that the chunk does not list: open sky
+        for (int index = 0; index < SectionCount; index++)
+        {
+            if (seen[index]) continue;
+            if (index < highest) continue;   // a hole below the top is not sky (it should not happen)
+            System.Array.Fill(light, (byte)0xF0, index * SectionHeight * ChunkWidth * ChunkWidth, SectionHeight * ChunkWidth * ChunkWidth);
+        }
+        return flaggedUnlit && !anyArray ? null : light;
+    }
+
+    private static bool IsAllAir(NbtCompound section)
+    {
+        if (!section.ContainsKey("block_states")) return true;
+        var palette = section.GetCompound("block_states").GetList("palette");
+        return palette == null || palette.Count == 0 || palette.Count == 1 && palette.GetCompound(0).GetString("Name") is "minecraft:air" or "minecraft:cave_air" or "minecraft:void_air";
     }
 
     /// <summary>

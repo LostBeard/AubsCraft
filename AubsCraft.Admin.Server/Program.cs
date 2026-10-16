@@ -120,7 +120,7 @@ catch (Exception ex) { app.Logger.LogError(ex, "Could not set up the AubsCraft G
 app.Services.GetRequiredService<EmailNotificationService>();
 
 app.UseWebSockets();
-app.UseWhen(ctx => ctx.Request.Path.StartsWithSegments("/assets") || ctx.Request.Path.StartsWithSegments("/api/world/chunk-ids"), branch => branch.UseResponseCompression());
+app.UseWhen(ctx => ctx.Request.Path.StartsWithSegments("/assets") || ctx.Request.Path.StartsWithSegments("/api/world/chunk-ids") || ctx.Request.Path.StartsWithSegments("/api/world/chunk-light"), branch => branch.UseResponseCompression());
 app.MapStaticAssets();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -394,6 +394,14 @@ world.MapGet("/chunk-ids/{x:int}/{z:int}", (int x, int z, string? server, Server
     // The blocks the game draws with a model of their own (chests, beds, signs, banners, heads, shulker boxes): the viewer draws them as boxes
     if (chunk.BlockEntities is { Count: > 0 } blockEntities) ctx.Response.Headers["X-BlockEntities"] = AubsCraft.Live.Model.BlockEntities.BlockEntityCodec.Encode(blockEntities);
     return Results.Bytes(System.Runtime.InteropServices.MemoryMarshal.AsBytes<ushort>(ids).ToArray(), "application/octet-stream");
+});
+
+// A column's light: a byte for each block (sky light in the high four bits, block light in the low four), laid out like the block ids. The viewer lights the world with it near the camera.
+world.MapGet("/chunk-light/{x:int}/{z:int}", (int x, int z, string? server, ServerManager servers) =>
+{
+    if (servers.Get(server) is not { } instance) return Results.NotFound();
+    var light = instance.World.GetChunkLight(x, z);
+    return light == null ? Results.NotFound() : Results.Bytes(light, "application/octet-stream");
 });
 
 // The block textures (assets/mc-atlas.rgba) and what each block looks like (assets/mc-blocks.json) are static files generated at build time (AubsCraft.AssetTool)

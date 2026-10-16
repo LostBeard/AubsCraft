@@ -315,6 +315,13 @@ public class SceneBuilderTests
         string[] lights = ["glowstone", "sea_lantern", "shroomlight", "magma_block", "jack_o_lantern[facing=south]", "torch", "ochre_froglight", "soul_lantern"];
         for (int i = 0; i < lights.Length; i++) await Set(30 + i * 2, y, 56, $"minecraft:{lights[i]}");
         Item("emissive", 36, y, 56);
+        // A closed room (inside 5 x 5 x 3, a roof over it) with a torch in the middle: dark but for the torch, the sky shut out; and a torch in the open beside it
+        await Cmd($"fill 46 {y} 62 52 {y + 4} 68 minecraft:stone_bricks");
+        await Cmd($"fill 47 {y} 63 51 {y + 3} 67 minecraft:air");
+        await Set(49, y, 65, "minecraft:torch");
+        await Set(56, y, 65, "minecraft:torch");
+        await Set(55, y, 66, "minecraft:glowstone");
+        Item("room", 49, y, 65);
         // A wall facing south, the backdrop of the gate that hangs paintings and item frames on it (entities come from the live feed, not the world files)
         await Cmd($"fill 0 {y} 88 26 {y + 4} 88 minecraft:stone_bricks");
         Item("be-hanging", 10, y, 90);
