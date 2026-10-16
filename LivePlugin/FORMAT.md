@@ -5,7 +5,7 @@ One frame is one binary body, little-endian, POSTed by the plugin to `{panel-url
 tested against each other (`AubsCraft.Admin.Server.Tests/LiveFrameCodecTests.cs`: the C# encoder must write the Java encoder's bytes exactly).
 
 ```
-"ACL1"  u8 version (1)  i64 fullTime  i64 dayTime  u8 weather (bit0 storm, bit1 thunder)
+"ACL1"  u8 version (1)  i64 gameTime (the world game time: it ticks even when the day cycle is off)  i64 dayTime  u8 weather (bit0 storm, bit1 thunder)
 u16 typeCount, then typeCount x str8 type key        ("cow", "player", "mymod:thing": the minecraft namespace is dropped)
 u8 worldCount, then per world:
     str8 name

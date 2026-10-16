@@ -58,20 +58,21 @@ public class SkyLayerTests
     }
 
     [Test]
-    public void TheClouds_DriftWithTheServersClock_AndWrapAtTheMapsWidth_AndAreAtTheGamesHeight()
+    public void TheClouds_DriftWithTheViewersOwnClock_NotTheServers_AndWrapAtTheMapsWidth_AndAreAtTheGamesHeight()
     {
-        var a = Of(0.5f, server: 0).Cloud;
-        var b = Of(0.5f, server: 1).Cloud;   // a second: 20 ticks of 0.36 blocks
+        var a = Of(0.5f, local: 0).Cloud;
+        var b = Of(0.5f, local: 1).Cloud;   // a second: 20 ticks of 0.36 blocks
         Assert.That(b.Y - a.Y, Is.EqualTo(7.2f).Within(0.01f));
-        Assert.That(Of(0.5f, server: 20.0 * 3600).Cloud.Y, Is.InRange(0f, 12f * 256f));
+        Assert.That(Of(0.5f, local: 3600).Cloud.Y, Is.InRange(0f, 12f * 256f));
         Assert.That(a.X, Is.EqualTo(SkyLayer.CloudHeight));
+        // A server whose time stands still (its day cycle off) does not stop them; nor does its time move them
+        Assert.That(Of(0.5f, server: 5000, local: 10).Cloud.Y, Is.EqualTo(Of(0.5f, server: 9000, local: 10).Cloud.Y));
+        Assert.That(Of(0.5f, server: -1, local: 10).Cloud.Y, Is.EqualTo(72f).Within(0.01f));
         // Without the images there are no clouds (the layer is out of reach)
         var view = View();
         var none = SkyLayer.Uniforms(in view, 0.5f, 0f, 0f, DayLighting.At(0.5f), -1, 0, null);
         Assert.That(none.Cloud.X, Is.GreaterThan(1e8f));
         Assert.That(none.SunRect, Is.EqualTo(Vector4.Zero));
-        // Without a server clock the viewer's own drifts them
-        Assert.That(Of(0.5f, local: 10).Cloud.Y, Is.EqualTo(72f).Within(0.01f));
     }
 
     [Test]

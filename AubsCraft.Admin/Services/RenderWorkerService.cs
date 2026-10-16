@@ -690,6 +690,7 @@ public class RenderWorkerService : IRenderWorkerService
         _renderer.RainLevel += Math.Clamp(rainTarget - _renderer.RainLevel, -step, step);
         _renderer.ThunderLevel += Math.Clamp(thunderTarget - _renderer.ThunderLevel, -step, step);
         // The server's clock, for the moon's phase and the drift of the clouds (not known until a live frame has come)
+        // (for the moon's phase only: rain and clouds move by the viewer's own clock, so they move whatever the server's time is doing)
         if (_voxel != null) _voxel.ServerSeconds = state.LatestServerTime > 0 ? state.LatestServerTime : -1;
     }
 

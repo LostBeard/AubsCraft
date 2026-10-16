@@ -50,6 +50,7 @@ public sealed class LiveWorldState
     private double _offset;
     private bool _haveOffset;
     private double _latestServerTime = double.NegativeInfinity;
+    private double _lastRawTime = double.NegativeInfinity, _lastLocalNow;
 
     /// <summary>How far in the past entities are shown, in seconds. A little more than the frame interval (0.2 s), so two snapshots always bracket it.</summary>
     public double RenderDelaySeconds { get; set; } = 0.3;
@@ -74,8 +75,13 @@ public sealed class LiveWorldState
     /// <summary>Take a frame that arrived at <paramref name="localNow"/> (seconds on any monotonic clock).</summary>
     public void Apply(LiveFrame frame, double localNow)
     {
-        double serverTime = frame.FullTime / 20.0;
-        if (serverTime < _latestServerTime) return; // an old frame that overtook a newer one: the world does not run backwards
+        double raw = frame.FullTime / 20.0;
+        if (raw < _lastRawTime) return; // an old frame that overtook a newer one: the world does not run backwards
+        // A feed whose clock stands still (an older plugin sent the day time, which stops when the server's day cycle is off): its frames are put a frame's real time apart instead, so the
+        // creatures still move between them and the ones that went away are still noticed
+        double serverTime = raw > _lastRawTime || double.IsNegativeInfinity(_lastRawTime) ? Math.Max(raw, _latestServerTime) : _latestServerTime + Math.Max(0.0, localNow - _lastLocalNow);
+        _lastRawTime = raw;
+        _lastLocalNow = localNow;
         _latestServerTime = serverTime;
         DayTime = frame.DayTime;
         Raining = frame.Raining;

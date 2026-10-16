@@ -156,7 +156,9 @@ public final class LivePlugin extends JavaPlugin {
             }
             samples.add(new Frames.WorldSample(world.getName(), entities, players));
         }
-        return Frames.build(first == null ? 0 : first.getFullTime(), first == null ? 0 : first.getTime(), weather, samples);
+        // The clock of the frame is the world's GAME time (it ticks always); getFullTime() is the day time, which stands still when the server's day cycle is off, and a clock that stands still
+        // stops the viewer's interpolation of the creatures and the removal of those that are gone
+        return Frames.build(first == null ? 0 : first.getGameTime(), first == null ? 0 : first.getTime(), weather, samples);
     }
 
     private static Frames.EntitySample sample(Entity e) {

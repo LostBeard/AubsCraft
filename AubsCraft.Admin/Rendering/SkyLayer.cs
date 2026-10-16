@@ -70,7 +70,8 @@ public sealed class SkyLayer : IDisposable
         var look = DayLighting.SkyAt(timeOfDay, rain, thunder);
         float angle = timeOfDay * MathF.Tau;
         Matrix4x4.Invert(view.ViewProjectionReversed, out var inverse);
-        double ticks = serverSeconds >= 0 ? serverSeconds * 20.0 : localSeconds * 20.0;
+        // The clouds drift by the viewer's own clock: the server's time stops when its day cycle does (a server kept at noon), and a drifting cloud must not stop with it
+        double ticks = localSeconds * 20.0;
         int moonPhase = serverSeconds >= 0 ? (int)((long)(serverSeconds * 20.0 / 24000.0) % 8) : 0;
         static Vector4 Rect(int[]? r) => r == null || r.Length < 4 ? Vector4.Zero : new Vector4(r[0], r[1], r[2], r[3]);
         return new SkyUniforms
@@ -101,7 +102,8 @@ public sealed class SkyLayer : IDisposable
     {
         if (_disposed || _assets == null || rain < 0.02f) return;
         if (Map.Build(view.Position.X, view.Position.Z, out int x0, out int z0, out var cells)) _weather.SetCells(cells, WeatherMap.Side);
-        double ticks = (serverSeconds >= 0 ? serverSeconds : _clock.Elapsed.TotalSeconds) * 20.0 % 100000.0;
+        // The viewer's own clock, not the server's: the server's time stands still when its day cycle is off, and the rain would stand with it
+        double ticks = _clock.Elapsed.TotalSeconds * 20.0 % 100000.0;
         var uniforms = new WeatherUniforms
         {
             ViewProjection = view.ViewProjectionReversed,
