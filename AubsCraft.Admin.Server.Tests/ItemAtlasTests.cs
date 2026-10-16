@@ -105,6 +105,37 @@ public class ItemAtlasTests
     }
 
     [Test]
+    public void APainting_IsABoxOfItsOwnSize_ThePictureOnTheFront_TheBackTextureOnTheBackAndEdges()
+    {
+        var jar = Jar();
+        jar.Texture("painting/back", 16, 16, (x, y) => (90, 60, 30, 255));
+        jar.Texture("painting/wide", 32, 16, (x, y) => ((byte)(x * 7), (byte)(y * 9), 5, 255));
+        jar.Texture("block/birch_planks", 16, 16, (x, y) => (200, 180, 120, 255));
+        jar.Texture("block/item_frame", 16, 16, (x, y) => (150, 100, 60, 255));
+        jar.Texture("block/glow_item_frame", 16, 16, (x, y) => (60, 150, 100, 255));
+        var r = Build(jar);
+        var wide = r.Assets.Items["painting/wide"];
+        Assert.That((wide[2], wide[3], wide[4]), Is.EqualTo((ItemAssets.KindHanging, 32, 16)));
+        for (int y = 0; y < 16; y++)
+            for (int x = 0; x < 32; x++)
+            {
+                Assert.That(At(r, wide[0] + 1 + x, wide[1] + 1 + y), Is.EqualTo(((byte)(x * 7), (byte)(y * 9), (byte)5, (byte)255)), $"front ({x},{y})");
+                Assert.That(At(r, wide[0] + 34 + x, wide[1] + 1 + y), Is.EqualTo(((byte)90, (byte)60, (byte)30, (byte)255)), $"back ({x},{y})");
+            }
+        Assert.That(At(r, wide[0] + 5, wide[1]), Is.EqualTo(((byte)90, (byte)60, (byte)30, (byte)255)), "an edge");
+        var frame = r.Assets.Items["frame/item_frame"];
+        Assert.That(At(r, frame[0] + 1, frame[1] + 1), Is.EqualTo(((byte)200, (byte)180, (byte)120, (byte)255)), "the ring is wood");
+        Assert.That(At(r, frame[0] + 1 + 5, frame[1] + 1 + 5), Is.EqualTo(((byte)150, (byte)100, (byte)60, (byte)255)), "the middle is the back");
+        Assert.That(At(r, r.Assets.Items["frame/glow_item_frame"][0] + 1 + 5, r.Assets.Items["frame/glow_item_frame"][1] + 1 + 5), Is.EqualTo(((byte)60, (byte)150, (byte)100, (byte)255)));
+        // No two overlap, and all are inside the atlas
+        var cells = r.Assets.Items.Values.Where(c => c[2] == ItemAssets.KindHanging).Select(c => (x: c[0], y: c[1], w: 2 * c[3] + 2, h: c[4] + 1)).ToList();
+        foreach (var c in cells) { Assert.That(c.x + c.w, Is.LessThanOrEqualTo(r.Assets.AtlasWidth)); Assert.That(c.y + c.h, Is.LessThanOrEqualTo(r.Assets.AtlasHeight)); }
+        for (int i = 0; i < cells.Count; i++)
+            for (int j = i + 1; j < cells.Count; j++)
+                Assert.That(cells[i].x + cells[i].w <= cells[j].x || cells[j].x + cells[j].w <= cells[i].x || cells[i].y + cells[i].h <= cells[j].y || cells[j].y + cells[j].h <= cells[i].y, Is.True, $"{i} overlaps {j}");
+    }
+
+    [Test]
     public async Task TheGamesOwnItems_AreAllPictured()
     {
         using var jar = ClientJar.Open(await JarLocator.FindOrDownloadAsync("1.21.5"));
@@ -113,12 +144,21 @@ public class ItemAtlasTests
         foreach (var name in new[] { "apple", "diamond_sword", "oak_log", "stone", "grass_block", "oak_leaves", "cobblestone", "bread", "arrow", "iron_pickaxe", "oak_planks", "dirt", "torch", "chest", "white_bed", "leather_boots", "enchanted_golden_apple" })
             Assert.That(r.Assets.Items.ContainsKey(name), Is.True, name);
         Assert.That(r.Assets.Items.Count, Is.GreaterThan(1000));
+        // Paintings, with their own sizes, and the item frames
+        var kebab = r.Assets.Items["painting/kebab"];
+        Assert.That((kebab[2], kebab[3], kebab[4]), Is.EqualTo((ItemAssets.KindHanging, 16, 16)), "a one block painting is 16 pixels square");
+        var pointer = r.Assets.Items["painting/pointer"];
+        Assert.That((pointer[3], pointer[4]), Is.EqualTo((64, 64)), "a four by four block painting");
+        Assert.That(r.Assets.Items.Keys.Count(k => k.StartsWith("painting/")), Is.GreaterThanOrEqualTo(40));
+        foreach (var frame in new[] { "frame/item_frame", "frame/glow_item_frame" }) Assert.That(r.Assets.Items[frame].Skip(2).Take(3), Is.EqualTo(new[] { ItemAssets.KindHanging, 12, 12 }), frame);
+        Assert.That(r.Assets.Items.ContainsKey("painting/back"), Is.False, "the back is not a painting");
         Assert.That(r.Assets.Items["oak_stairs"], Is.EqualTo(r.Assets.Items["oak_planks"]), "stairs show the planks' tiles: one picture");
         Assert.That(r.Rgba.Length, Is.EqualTo(r.Assets.AtlasWidth * r.Assets.AtlasHeight * 4));
         // Every item's cell is inside the atlas, and not blank
         foreach (var (name, cell) in r.Assets.Items)
         {
-            int w = cell[2] == ItemAssets.KindSprite ? ItemAssets.SpriteWidth : ItemAssets.CubeWidth, h = cell[2] == ItemAssets.KindSprite ? ItemAssets.SpriteHeight : ItemAssets.CubeHeight;
+            int w = cell[2] switch { ItemAssets.KindSprite => ItemAssets.SpriteWidth, ItemAssets.KindHanging => 2 * cell[3] + 2, _ => ItemAssets.CubeWidth };
+            int h = cell[2] switch { ItemAssets.KindSprite => ItemAssets.SpriteHeight, ItemAssets.KindHanging => cell[4] + 1, _ => ItemAssets.CubeHeight };
             Assert.That(cell[0] + w, Is.LessThanOrEqualTo(r.Assets.AtlasWidth), name);
             Assert.That(cell[1] + h, Is.LessThanOrEqualTo(r.Assets.AtlasHeight), name);
             bool any = false;

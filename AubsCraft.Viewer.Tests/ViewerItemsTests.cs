@@ -175,4 +175,63 @@ public class ViewerItemsTests
             await page.CloseAsync();
         }
     }
+
+    [Test]
+    public async Task PaintingsAndItemFrames_HangOnTheWall_FacingOut()
+    {
+        // The scene's wall (z 88, y -60..-56) faces south: its front is the plane z = 89. A painting's or a frame's own place is the middle of its thin box, a thirty-second off the wall.
+        const float wall = 89.03125f, y0 = -59f;
+        var entities = new List<LiveEntity>
+        {
+            new(300, "painting", 2.5f, y0 + 0.5f, wall, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, "kebab"),
+            new(301, "painting", 6.0f, y0 + 0.5f, wall, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, "pool"),
+            new(302, "painting", 9.5f, y0 + 1.0f, wall, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, "wanderer"),
+            new(303, "item_frame", 14.5f, y0 + 0.5f, wall, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, "diamond_sword"),
+            new(304, "item_frame", 16.5f, y0 + 0.5f, wall, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, "oak_log"),
+            new(305, "item_frame", 18.5f, y0 + 0.5f, wall, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, null),
+            new(306, "glow_item_frame", 20.5f, y0 + 0.5f, wall, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, "apple"),
+        };
+        long tick = 600_000;
+        byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
+        {
+            FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
+            Worlds = [new LiveWorld { Name = "world", Entities = entities, Players = System.Array.Empty<LivePlayer>() }],
+        });
+
+        var page = await _rig.Context.NewPageAsync();
+        var errors = new List<string>();
+        var log = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        page.Console += (_, m) => { log.Enqueue(m.Text); if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.Worker += (_, w) => w.Console += (_, m) => { log.Enqueue(m.Text); if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.PageError += (_, e) => errors.Add(e);
+        using var stop = new CancellationTokenSource();
+        Task? poster = null;
+        try
+        {
+            await page.GotoAsync($"{_rig.BaseUrl}/map?hud=0&time=6000&dd=6&cam=11.5,-58.2,96.5,0,-90", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await ViewerShotTests.WaitForSettledAsync(page, minSections: 8, quietSeconds: 3, maxSeconds: 60);
+            poster = Task.Run(async () =>
+            {
+                while (!stop.IsCancellationRequested)
+                {
+                    int status = await _rig.PostLiveFrameAsync(Frame());
+                    if (status != 204) throw new InvalidOperationException($"The panel answered {status} to a live frame");
+                    tick += 4;
+                    await Task.Delay(200);
+                }
+            });
+            for (int i = 0; i < 30 && !log.ToArray().Any(l => l.Contains(" 9 items)")); i++) await Task.Delay(1000);
+            await Task.Delay(1500);
+            await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "hanging.png") });
+            // Seven entities: the paintings and frames, and the two things in the frames that have a picture (a sword, a log, an apple: three) make ten parts; the count logged is the parts
+            Assert.That(log.ToArray().Any(l => Regex.IsMatch(l, @"\b1[0-9] items\)")), Is.True, "the paintings, frames and what is in them are drawn:\n" + string.Join("\n", log.ToArray().Where(l => l.Contains("[Live]")).TakeLast(3)));
+            Assert.That(errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", errors));
+        }
+        finally
+        {
+            stop.Cancel();
+            try { if (poster != null) await poster; } catch (OperationCanceledException) { }
+            await page.CloseAsync();
+        }
+    }
 }

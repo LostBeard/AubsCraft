@@ -11,6 +11,9 @@ import org.bukkit.entity.Fox;
 import org.bukkit.entity.Frog;
 import org.bukkit.entity.Horse;
 import org.bukkit.entity.Item;
+import org.bukkit.entity.ItemFrame;
+import org.bukkit.entity.Painting;
+import org.bukkit.Material;
 import org.bukkit.entity.Llama;
 import org.bukkit.entity.MushroomCow;
 import org.bukkit.entity.Panda;
@@ -202,6 +205,17 @@ public final class LivePlugin extends JavaPlugin {
     }
 
     private static String variantOf(Entity e) {
+        // A painting: which one; an item frame: what is in it
+        if (e instanceof Painting painting) {
+            var key = painting.getArt().getKey();
+            return typeKey(key.getNamespace(), key.getKey());
+        }
+        if (e instanceof ItemFrame frame) {
+            Material held = frame.getItem().getType();
+            if (held == Material.AIR) return null;
+            var key = held.getKey();
+            return typeKey(key.getNamespace(), key.getKey());
+        }
         // A falling block: which block (the viewer draws a cube of it)
         if (e instanceof FallingBlock fb) {
             var key = fb.getBlockData().getMaterial().getKey();

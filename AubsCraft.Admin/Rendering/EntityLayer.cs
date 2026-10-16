@@ -33,6 +33,8 @@ public sealed class EntityLayer : IDisposable
     public const float CoarseRange = 40f;
     /// <summary>Past this many blocks a dropped item is a speck and is not drawn.</summary>
     public const float ItemRange = 48f;
+    /// <summary>Past this many blocks a painting or an item frame is drawn no more.</summary>
+    public const float HangingRange = 72f;
 
     private readonly SpawnJSRuntime _js;
     private readonly LiveWorldState _state = new();
@@ -222,6 +224,13 @@ public sealed class EntityLayer : IDisposable
                 if (id2 > ItemRange * ItemRange) continue;
                 if (kind == "item") Items.Add(in v, now, id2);
                 else Items.AddBlock(in v, kind == "tnt" ? "tnt" : v.Variant, id2);
+                continue;
+            }
+            if (Items != null && kind is "painting" or "item_frame" or "glow_item_frame")
+            {
+                float hx = v.X - camera.X, hy = v.Y - camera.Y, hz = v.Z - camera.Z;
+                float hd2 = hx * hx + hy * hy + hz * hz;
+                if (hd2 <= HangingRange * HangingRange) Items.AddHanging(in v, kind, v.Variant, hd2);
                 continue;
             }
             if (EntityModels.IsNotACreature(v.Type)) continue;

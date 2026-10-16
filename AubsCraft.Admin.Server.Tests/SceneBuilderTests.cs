@@ -304,6 +304,9 @@ public class SceneBuilderTests
         }
         await Cmd($"data merge block 14 {y} {modelZ + 12} {{front_text:{{messages:['\"Glowing\"','\"blue\"','\"text\"','\"!\"'],color:'blue',has_glowing_text:1b}}}}");
         Item("be-signs", 6, y, modelZ + 13);
+        // A wall facing south, the backdrop of the gate that hangs paintings and item frames on it (entities come from the live feed, not the world files)
+        await Cmd($"fill 0 {y} 88 26 {y + 4} 88 minecraft:stone_bricks");
+        Item("be-hanging", 10, y, 90);
         for (int i = 0; i < 4; i++) await Set(24 + i * 3, y, modelZ + 12, $"minecraft:red_banner[rotation={i * 4}]");
         await Set(36, y, modelZ + 12, "minecraft:white_banner[rotation=0]"); await Set(38, y, modelZ + 12, "minecraft:blue_banner[rotation=8]");
         for (int i = 0; i < 4; i++)

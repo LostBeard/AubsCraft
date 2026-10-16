@@ -189,6 +189,64 @@ public sealed class ItemAtlasBuilder
         return cell;
     }
 
+    // A texture of the game at its own size
+    private (int w, int h, byte[] data)? Full(string id)
+    {
+        var path = $"assets/minecraft/textures/{id}.png";
+        if (!_jar.Exists(path)) return null;
+        var decoded = ImageResult.FromMemory(_jar.ReadBytes(path), ColorComponents.RedGreenBlueAlpha);
+        return (decoded.Width, decoded.Height, decoded.Data);
+    }
+
+    private sealed record Hanging(string Name, int W, int H, byte[] Cell);
+
+    // The unfolding of a w x h x 1 box (2w + 2 by h + 1): the picture on the front, the 16 x 16 edge texture tiled over the back and the edges
+    private static byte[] UnfoldFlat(byte[] front, int w, int h, byte[] edge16)
+    {
+        int cw = 2 * w + 2, ch = h + 1;
+        var cell = new byte[cw * ch * 4];
+        void Edge(int x, int y) => Buffer.BlockCopy(edge16, ((y % 16) * 16 + (x % 16)) * 4, cell, (y * cw + x) * 4, 4);
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                Buffer.BlockCopy(front, (y * w + x) * 4, cell, ((1 + y) * cw + 1 + x) * 4, 4);
+                Edge(w + 2 + x, 1 + y);
+            }
+        for (int x = 0; x < w; x++) { Edge(1 + x, 0); Edge(w + 1 + x, 0); }
+        for (int y = 0; y < h; y++) { Edge(0, 1 + y); Edge(w + 1, 1 + y); }
+        return cell;
+    }
+
+    // The paintings, and the item frames (a ring of birch planks round the leather back, 12 x 12 pixels as the game's model has it)
+    private List<Hanging> BuildHanging(StringBuilder report)
+    {
+        var list = new List<Hanging>();
+        var back = Texture("painting/back");
+        if (back == null) { report.AppendLine("  NO painting/back texture: paintings are not packed"); return list; }
+        foreach (var path in _jar.List("assets/minecraft/textures/painting/").Where(p => p.EndsWith(".png", StringComparison.Ordinal)))
+        {
+            var name = Path.GetFileNameWithoutExtension(path);
+            if (name == "back") continue;
+            if (Full("painting/" + name) is not { } image) continue;
+            list.Add(new Hanging("painting/" + name, image.w, image.h, UnfoldFlat(image.data, image.w, image.h, back)));
+        }
+        var wood = Texture("block/birch_planks");
+        foreach (var frame in new[] { "item_frame", "glow_item_frame" })
+        {
+            var inner = Texture("block/" + frame);
+            if (wood == null || inner == null) { report.AppendLine($"  NO texture for the {frame}"); continue; }
+            var picture = new byte[12 * 12 * 4];
+            for (int y = 0; y < 12; y++)
+                for (int x = 0; x < 12; x++)
+                {
+                    bool ring = x == 0 || y == 0 || x == 11 || y == 11;
+                    Buffer.BlockCopy(ring ? wood : inner, ((2 + y) * 16 + 2 + x) * 4, picture, (y * 12 + x) * 4, 4);
+                }
+            list.Add(new Hanging("frame/" + frame, 12, 12, UnfoldFlat(picture, 12, 12, wood)));
+        }
+        return list;
+    }
+
     public ItemAtlasResult Build()
     {
         var report = new StringBuilder();
@@ -214,7 +272,23 @@ public sealed class ItemAtlasBuilder
         var cubes = byHash.Where(p => p.Value.Kind == ItemAssets.KindCube).OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Value).ToList();
         int spriteRows = (sprites.Count + spriteColumns - 1) / spriteColumns, cubeRows = (cubes.Count + cubeColumns - 1) / cubeColumns;
         int cubeTop = spriteRows * ItemAssets.SpriteHeight;
-        int height = Math.Max(1, cubeTop + cubeRows * ItemAssets.CubeHeight);
+        int hangingTop = cubeTop + cubeRows * ItemAssets.CubeHeight;
+        // Paintings and frames below, in rows of the tallest first
+        var hanging = BuildHanging(report).OrderByDescending(h => h.H).ThenBy(h => h.Name, StringComparer.Ordinal).ToList();
+        var hangingPlace = new Dictionary<string, (int x, int y)>();
+        {
+            int hx = 0, hy = hangingTop, rowHeight = 0;
+            foreach (var h in hanging)
+            {
+                int cw = 2 * h.W + 2, ch = h.H + 1;
+                if (hx + cw > AtlasWidth) { hy += rowHeight; hx = 0; rowHeight = 0; }
+                hangingPlace[h.Name] = (hx, hy);
+                hx += cw;
+                rowHeight = Math.Max(rowHeight, ch);
+            }
+            hangingTop = hy + rowHeight;
+        }
+        int height = Math.Max(1, hangingTop);
         var rgba = new byte[AtlasWidth * height * 4];
         void Copy(Picture p, int w, int h, int x0, int y0)
         {
@@ -233,7 +307,15 @@ public sealed class ItemAtlasBuilder
             Copy(cubes[i], ItemAssets.CubeWidth, ItemAssets.CubeHeight, x, y);
         }
 
+        foreach (var h in hanging)
+        {
+            var (hx, hy) = hangingPlace[h.Name];
+            int cw = 2 * h.W + 2;
+            for (int y = 0; y < h.H + 1; y++) Buffer.BlockCopy(h.Cell, y * cw * 4, rgba, ((hy + y) * AtlasWidth + hx) * 4, cw * 4);
+        }
+
         var assets = new ItemAssets { McVersion = _version, AtlasWidth = AtlasWidth, AtlasHeight = height };
+        foreach (var h in hanging) assets.Items[h.Name] = new[] { hangingPlace[h.Name].x, hangingPlace[h.Name].y, ItemAssets.KindHanging, h.W, h.H };
         foreach (var (name, picture) in itemPictures)
         {
             var (x, y) = places[picture];
@@ -241,7 +323,7 @@ public sealed class ItemAtlasBuilder
         }
         var head = new StringBuilder();
         head.AppendLine($"Item assets for Minecraft {_version}");
-        head.AppendLine($"  {assets.Items.Count} items ({sprites.Count} flat pictures, {cubes.Count} cubes, {unresolved} without a picture) in {AtlasWidth}x{height} px");
+        head.AppendLine($"  {assets.Items.Count} entries ({sprites.Count} flat pictures, {cubes.Count} cubes, {hanging.Count} paintings and frames, {unresolved} items without a picture) in {AtlasWidth}x{height} px");
         return new ItemAtlasResult(assets, rgba, head.ToString() + report);
     }
 }

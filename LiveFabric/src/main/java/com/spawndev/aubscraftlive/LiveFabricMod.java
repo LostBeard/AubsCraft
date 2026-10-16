@@ -29,6 +29,8 @@ import net.minecraft.world.entity.animal.horse.Llama;
 import net.minecraft.world.entity.animal.sheep.Sheep;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.decoration.ItemFrame;
+import net.minecraft.world.entity.decoration.Painting;
 import net.minecraft.world.entity.item.FallingBlockEntity;
 import net.minecraft.world.phys.Vec3;
 
@@ -207,6 +209,9 @@ public final class LiveFabricMod implements DedicatedServerModInitializer {
     }
 
     private static String variantOf(Entity e) {
+        // A painting: which one; an item frame: what is in it
+        if (e instanceof Painting painting) return painting.getVariant().unwrapKey().map(k -> k.location().getPath()).orElse(null);
+        if (e instanceof ItemFrame frame) return frame.getItem().isEmpty() ? null : key(BuiltInRegistries.ITEM.getKey(frame.getItem().getItem()));
         // A falling block: which block (the viewer draws a cube of it)
         if (e instanceof FallingBlockEntity fb) return key(BuiltInRegistries.BLOCK.getKey(fb.getBlockState().getBlock()));
         // A dropped item: what it is (the viewer draws its picture)

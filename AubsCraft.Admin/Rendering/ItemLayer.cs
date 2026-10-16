@@ -104,6 +104,41 @@ public sealed class ItemLayer : IDisposable
         _wanted.Add((distSq, part));
     }
 
+    /// <summary>
+    /// A painting or an item frame (and what is in it): a thin box of the picture's size standing against its wall, facing the way the entity does. <paramref name="kind"/> is <c>painting</c>,
+    /// <c>item_frame</c> or <c>glow_item_frame</c>; <paramref name="variant"/> the painting's name or the item in the frame (none when empty).
+    /// </summary>
+    public void AddHanging(in LiveEntityView v, string kind, string? variant, float distSq)
+    {
+        if (_assets == null) return;
+        string key = kind == "painting" ? "painting/" + variant : "frame/" + kind;
+        if (!_assets.Items.TryGetValue(key, out var cell) || cell[2] != ItemAssets.KindHanging || cell.Length < 5) return;
+        int w = cell[3], h = cell[4];
+        _wanted.Add((distSq, new EntityPartInstance
+        {
+            Model = EntityPoser.Root(v.X, v.Y, v.Z, v.BodyYaw, 1f),
+            OriginInflate = new Vector4(-w / 2f, 24f - h / 2f, -0.5f, 0f),
+            SizeFlags = new Vector4(w, h, 1f, 0f),
+            Uv = new Vector4(cell[0], cell[1], 0f, 0f),
+            Tint = BlockBrightness,
+        }));
+        // The item in a frame floats in front of its back plate, half a block across (a block as a small cube)
+        if (kind != "painting" && variant is { Length: > 0 } && _assets.Items.TryGetValue(variant, out var item) && item[2] != ItemAssets.KindHanging)
+        {
+            bool cube = item[2] == ItemAssets.KindCube;
+            float scale = cube ? 0.3f : 0.5f;
+            float depth = cube ? 8f : 0.5f;
+            _wanted.Add((distSq, new EntityPartInstance
+            {
+                Model = EntityPoser.Root(v.X, v.Y, v.Z, v.BodyYaw, scale, new Vector3(0f, 0f, cube ? -0.2f : -0.1f)),
+                OriginInflate = new Vector4(-8f, 24f - 8f, -depth / 2f, 0f),
+                SizeFlags = new Vector4(16f, 16f, cube ? 16f : 1f, 0f),
+                Uv = new Vector4(item[0], item[1], 0f, 0f),
+                Tint = Brighten,
+            }));
+        }
+    }
+
     /// <summary>End the frame: upload what was added.</summary>
     public void End()
     {
