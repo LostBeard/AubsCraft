@@ -62,6 +62,37 @@ public class ViewerSceneTests
         var page = await _rig.Context.NewPageAsync();
         var errors = new List<string>();
         page.Console += (_, m) => { if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        // AUBS_BOX_ENTITIES="cow,37.5,-60,35.5,yaw,baby;pig,...": creatures standing there (the world's region files hold no entities), posted as the plugin would
+        using var stopPoster = new CancellationTokenSource();
+        Task? poster = null;
+        if (Environment.GetEnvironmentVariable("AUBS_BOX_ENTITIES") is { Length: > 0 } spec)
+        {
+            var list = new List<AubsCraft.Live.Model.LiveEntity>();
+            int id = 1;
+            foreach (var part in spec.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var f = part.Split(',');
+                bool baby = f.Length > 5 && f[5] == "1";
+                list.Add(new AubsCraft.Live.Model.LiveEntity(id++, f[0], float.Parse(f[1], CultureInfo.InvariantCulture), float.Parse(f[2], CultureInfo.InvariantCulture), float.Parse(f[3], CultureInfo.InvariantCulture),
+                    f.Length > 4 ? float.Parse(f[4], CultureInfo.InvariantCulture) : 0f, 0f, f.Length > 4 ? float.Parse(f[4], CultureInfo.InvariantCulture) : 0f,
+                    AubsCraft.Live.Model.LiveFlags.OnGround | (baby ? AubsCraft.Live.Model.LiveFlags.Baby : 0), 0f, 0f, 0f, null, null));
+            }
+            long tick = 500_000;
+            poster = Task.Run(async () =>
+            {
+                while (!stopPoster.IsCancellationRequested)
+                {
+                    var frame = AubsCraft.Live.Model.LiveFrameCodec.Write(new AubsCraft.Live.Model.LiveFrame
+                    {
+                        FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
+                        Worlds = [new AubsCraft.Live.Model.LiveWorld { Name = "world", Entities = list, Players = [] }],
+                    });
+                    await _rig.PostLiveFrameAsync(frame);
+                    tick += 4;
+                    await Task.Delay(200);
+                }
+            });
+        }
         try
         {
             await page.SetViewportSizeAsync(1600, 900);
@@ -69,11 +100,17 @@ public class ViewerSceneTests
             {
                 await page.GotoAsync($"{_rig.BaseUrl}/map?hud=0&time=6000&dd=6&cam={cam}", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
                 await ViewerShotTests.WaitForSettledAsync(page, minSections: 8, quietSeconds: 3, maxSeconds: 60);
+                if (poster != null) await Task.Delay(6000);   // the live socket connects and the creatures arrive
                 await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, $"box-{suffix}.png") });
             }
             Assert.That(errors, Is.Empty, "The page logged errors");
         }
-        finally { await page.CloseAsync(); }
+        finally
+        {
+            stopPoster.Cancel();
+            try { if (poster != null) await poster; } catch (OperationCanceledException) { }
+            await page.CloseAsync();
+        }
     }
 
     [Test]
