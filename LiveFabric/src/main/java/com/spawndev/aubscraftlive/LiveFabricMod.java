@@ -211,7 +211,31 @@ public final class LiveFabricMod implements DedicatedServerModInitializer {
                 v.x, v.y, v.z, name, variantOf(e));
     }
 
+    // The armor a player wears: helmet|chestplate|leggings|boots, each the material (diamond, iron, ...), leather as leather#rrggbb, nothing empty
+    private static String armorOf(ServerPlayer p) {
+        String[] pieces = { armorPiece(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD), "_helmet"), armorPiece(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST), "_chestplate"),
+                armorPiece(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.LEGS), "_leggings"), armorPiece(p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.FEET), "_boots") };
+        boolean any = false;
+        for (String s : pieces) if (!s.isEmpty()) any = true;
+        return any ? String.join("|", pieces) : null;
+    }
+
+    private static String armorPiece(net.minecraft.world.item.ItemStack stack, String suffix) {
+        if (stack.isEmpty()) return "";
+        String name = key(BuiltInRegistries.ITEM.getKey(stack.getItem()));
+        if (!name.endsWith(suffix)) return "";
+        String material = name.substring(0, name.length() - suffix.length());
+        if (material.equals("turtle")) return "turtle_scute";
+        if (material.equals("leather")) {
+            net.minecraft.world.item.component.DyedItemColor dyed = stack.get(net.minecraft.core.component.DataComponents.DYED_COLOR);
+            int rgb = dyed == null ? 0xA06540 : dyed.rgb();
+            return String.format("leather#%06X", rgb & 0xFFFFFF);
+        }
+        return material;
+    }
+
     private static String variantOf(Entity e) {
+        if (e instanceof ServerPlayer player) return armorOf(player);
         // A painting: which one; an item frame: what is in it
         if (e instanceof Painting painting) return painting.getVariant().unwrapKey().map(k -> k.location().getPath()).orElse(null);
         if (e instanceof ItemFrame frame) return frame.getItem().isEmpty() ? null : key(BuiltInRegistries.ITEM.getKey(frame.getItem().getItem()));

@@ -216,7 +216,30 @@ public final class LivePlugin extends JavaPlugin {
         return n.length() > 64 ? n.substring(0, 64) : n;
     }
 
+    // The armor a player wears: helmet|chestplate|leggings|boots, each the material (diamond, iron, ...), leather as leather#rrggbb, nothing empty
+    private static String armorOf(Player p) {
+        var inv = p.getInventory();
+        String[] pieces = { armorPiece(inv.getHelmet(), "_helmet"), armorPiece(inv.getChestplate(), "_chestplate"), armorPiece(inv.getLeggings(), "_leggings"), armorPiece(inv.getBoots(), "_boots") };
+        boolean any = false;
+        for (String s : pieces) if (!s.isEmpty()) any = true;
+        return any ? String.join("|", pieces) : null;
+    }
+
+    private static String armorPiece(org.bukkit.inventory.ItemStack stack, String suffix) {
+        if (stack == null) return "";
+        String name = stack.getType().getKey().getKey();
+        if (!name.endsWith(suffix)) return "";
+        String material = name.substring(0, name.length() - suffix.length());
+        if (material.equals("turtle")) return "turtle_scute";
+        if (material.equals("leather") && stack.getItemMeta() instanceof org.bukkit.inventory.meta.LeatherArmorMeta meta) {
+            org.bukkit.Color c = meta.getColor();
+            return String.format("leather#%02X%02X%02X", c.getRed(), c.getGreen(), c.getBlue());
+        }
+        return material;
+    }
+
     private static String variantOf(Entity e) {
+        if (e instanceof Player player) return armorOf(player);
         // A painting: which one; an item frame: what is in it
         if (e instanceof Painting painting) {
             var key = painting.getArt().getKey();

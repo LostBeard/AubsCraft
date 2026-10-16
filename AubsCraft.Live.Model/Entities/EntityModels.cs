@@ -55,6 +55,7 @@ public static partial class EntityModels
         }
         foreach (var skin in DefaultSkinNames) { names.Add($"player/wide/{skin}"); names.Add($"player/slim/{skin}"); }
         foreach (var t in AubsCraft.Live.Model.BlockEntities.BlockEntityModels.TextureNames()) names.Add(t);
+        foreach (var t in ArmorLook.TextureNames()) names.Add(t);
         return names;
     }
 

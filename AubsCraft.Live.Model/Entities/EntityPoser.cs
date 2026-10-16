@@ -158,6 +158,8 @@ public static class EntityPoser
         float amount = Math.Min(view.SpeedBlocksPerTick * 4f, 1f);
         if (stance is Stance.Riding or Stance.Gliding or Stance.Sleeping or Stance.Swimming) amount = 0f;
         var dye = DyeColour(view.Variant);
+        // A player's armor (the variant of a player says it); a far player is not worth the extra boxes
+        var worn = model.Texture == "player" && !coarse ? WornArmor.Parse(view.Variant) : default;
 
         var parts = model.Parts;
         if (coarse && !model.HasHeadOrBody) coarse = false;   // a one-box model is already as coarse as it gets
@@ -197,6 +199,8 @@ public static class EntityPoser
                     Tint = part.Dyed ? (part.DyeSlot == 0 ? dye : DyeColour(Component(view.Variant, part.DyeSlot))) : Vector3.One,
                 });
             }
+            if (worn.Any && part.Parent < 0 && part.Role is PartRole.Head or PartRole.Body or PartRole.RightArm or PartRole.LeftArm or PartRole.RightLeg or PartRole.LeftLeg)
+                ArmorLook.Add(output, model2, part.Role, worn);
         }
         return rightArm;
     }

@@ -177,4 +177,60 @@ public class ViewerStanceTests
             await page.CloseAsync();
         }
     }
+
+    [Test]
+    public async Task Players_WearTheirArmor()
+    {
+        const int P = LiveFlags.Player | LiveFlags.OnGround;
+        string[] sets =
+        [
+            "diamond|diamond|diamond|diamond", "iron|iron|iron|iron", "gold|chainmail|iron|diamond", "leather#CC2222|leather#CC2222|leather#CC2222|leather#CC2222", "netherite|netherite|netherite|netherite", "turtle_scute|||",
+        ];
+        var entities = new List<LiveEntity>();
+        var players = new List<LivePlayer>();
+        for (int i = 0; i < sets.Length; i++)
+        {
+            entities.Add(new LiveEntity(440 + i, "player", -5.0f + i * 2.0f, 118.0f, 0.5f, 0f, 0f, 0f, P, 0f, 0f, 0f, null, sets[i]));
+            players.Add(new LivePlayer(440 + i, $"00000000-0000-4000-8000-0000000004{40 + i}", "armor" + i, "", i % 2 == 1, 0, "air", 1f));
+        }
+        long tick = 1_100_000;
+        byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
+        {
+            FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
+            Worlds = [new LiveWorld { Name = "world", Entities = entities, Players = players }],
+        });
+        var page = await _rig.Context.NewPageAsync();
+        var errors = new List<string>();
+        var log = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        page.Console += (_, m) => { log.Enqueue(m.Text); if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.Worker += (_, w) => w.Console += (_, m) => { log.Enqueue(m.Text); if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.PageError += (_, e) => errors.Add(e);
+        using var stop = new CancellationTokenSource();
+        Task? poster = null;
+        try
+        {
+            await page.GotoAsync($"{_rig.BaseUrl}/map?hud=0&time=6000&dd=6&cam=0.0,119.3,6.0,0,-90", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            poster = Task.Run(async () =>
+            {
+                while (!stop.IsCancellationRequested)
+                {
+                    int status = await _rig.PostLiveFrameAsync(Frame());
+                    if (status != 204) throw new InvalidOperationException($"The panel answered {status} to a live frame");
+                    tick += 4;
+                    await Task.Delay(200);
+                }
+            });
+            for (int i = 0; i < 30 && !log.ToArray().Any(l => Regex.IsMatch(l, @"creatures 6 drawn")); i++) await Task.Delay(1000);
+            await Task.Delay(3000);
+            await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "armor.png") });
+            Assert.That(log.ToArray().Any(l => Regex.IsMatch(l, @"creatures 6 drawn")), Is.True, "all six are drawn");
+            Assert.That(errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", errors));
+        }
+        finally
+        {
+            stop.Cancel();
+            try { if (poster != null) await poster; } catch (OperationCanceledException) { }
+            await page.CloseAsync();
+        }
+    }
 }
