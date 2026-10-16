@@ -101,7 +101,7 @@ public sealed class EditController
         if (!on) { CloseMenus(); _hud.SetEditToolbar(false, false, false, false, false); }
         if (!on) Session.CancelPaste();
         if (!on && _entities != null) _entities.Extras.Clear();
-        RefreshHud();
+        RefreshHud(slots: on);
         return on;
     }
 
@@ -566,7 +566,7 @@ public sealed class EditController
     private void RefreshHud(bool slots = false)
     {
         if (!Session.Active) return;
-        if (slots) for (int i = 0; i < Session.Hotbar.Length; i++) _hud.SetEditSlot(i, EditSession.DisplayName(Session.Hotbar[i]));
+        if (slots) for (int i = 0; i < Session.Hotbar.Length; i++) _hud.SetEditSlot(i, EditSession.DisplayName(Session.Hotbar[i]), Session.Hotbar[i]);
         _hud.SelectEditSlot(Session.Selected);   // the lit slot is the one in hand, whatever changed it (a grip, a pick, a number key)
         int hint = Session.Paste != null ? 2 : Session.Tool == EditSession.Tools.Select ? 1 : 0;
         if (hint != _lastHint) { _lastHint = hint; _hud.SetEditHint(hint); }

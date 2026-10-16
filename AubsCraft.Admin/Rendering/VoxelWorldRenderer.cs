@@ -68,6 +68,9 @@ public sealed class VoxelWorldRenderer : IDisposable
     private GPUQueue? _queue;
     private string _colorFormat = "bgra8unorm";
     private BlockTextureAtlas? _textures;
+
+    /// <summary>The block textures as one atlas (null until the assets are loaded): the icons of the blocks are drawn from it.</summary>
+    public BlockTextureAtlas? BlockAtlas => _textures;
     // What each block looks like (generated from the game's own assets); empty until SetBlockAssets, when every block is its flat colour
     private BlockAssets _assets = new();
     private IReadOnlyList<string>? _names;

@@ -302,6 +302,8 @@ public sealed class XrViewerHost : IDisposable
         using var encoder = device.CreateCommandEncoder();
         gpu.Clear(encoder);
         _hud.Draw(encoder, gpu.View!, XrSurfaces.AtlasWidth, XrSurfaces.AtlasHeight);
+        // The blocks' icons go on after the HUD (GameUI draws whole textures only)
+        _hud.Icons?.Overlay(encoder, gpu.View!, _map.CanvasFormat, XrSurfaces.AtlasWidth, XrSurfaces.AtlasHeight, _hud.IconDraws);
         gpu.BuildMips(encoder);
         using var commands = encoder.Finish();
         queue.Submit(new[] { commands });

@@ -20,6 +20,16 @@ public sealed partial class ViewerHud
 
     private enum XrPage { None, Inventory, Tools, Blueprints, Players, Say, Map, World, Settings }
 
+    /// <summary>The icons of the blocks (a headset's): set by the headset's world once the block atlas is loaded.</summary>
+    public BlockIconAtlas? Icons { get; set; }
+
+    private readonly List<IconQuad> _iconDraws = new();
+
+    /// <summary>The icons the screen asked for in its last draw: the headset puts them on the HUD's texture after it.</summary>
+    public IReadOnlyList<IconQuad> IconDraws => _iconDraws;
+
+    private XrBlockGrid? _xrGrid;
+    private UILabel? _xrGridName;
     private bool _xrBuilt, _xrActive;
     private UIPanel _xrRoot = null!, _xrMenu = null!, _xrWindow = null!, _xrBar = null!, _xrFeed = null!;
     private UIPanel _xrMapPage = null!, _xrSettingsPage = null!, _xrToolsPage = null!;
@@ -242,9 +252,11 @@ public sealed partial class ViewerHud
         MoveTo(_editLabel, _xrBar, 16, 6);
         _editLabel.FontSize = FontSize.Body;
         _editLabel.Visible = true;
-        MoveTo(_editBar, _xrBar, 74, 32);
-        _editBar.SlotSize = 64;
-        _editBar.Visible = true;
+        var bar = new XrHotbar(() => Icons, _iconDraws) { SlotSize = 64, SlotGap = 6, Visible = true, X = 62, Y = 32 };
+        bar.OnSlotChanged = i => OnEditSlot?.Invoke(i);
+        _root.RemoveAnchored(_editBar);
+        _editBar = bar;
+        _xrBar.AddChild(bar);
 
         // ---- the feed ----
         _xrFeed = Surface(770, 600, 330, 240, background: false);
@@ -286,9 +298,15 @@ public sealed partial class ViewerHud
             chip.Width = 100; chip.Height = 38;
             chip.X = 12 + (i % 7) * 104; chip.Y = 58 + (i / 7) * 44;
         }
-        _paletteList.ItemFontSize = FontSize.Body;
-        _paletteList.ItemHeight = 46;
-        _paletteList.X = 10; _paletteList.Y = 152; _paletteList.Width = w - 20; _paletteList.Height = h - 152 - 8;
+        _paletteList.Visible = false;   // the inventory is a grid of icons
+        _xrGrid = new XrBlockGrid(() => _paletteShown, () => Icons, _iconDraws) { X = 10, Y = 150, OnPick = ChoosePalette };
+        _palette.AddChild(_xrGrid);
+        _xrGridName = new UILabel { Text = "", FontSize = FontSize.Body, Color = theme.TextPrimary, Align = TextAlign.Center, X = 150, Y = 408, Width = 440 };
+        _palette.AddChild(_xrGridName);
+        var previous = new UIButton { Text = "Previous", FontSize = FontSize.Body, X = 12, Y = 398, Width = 130, Height = 46, PaddingX = 4, PaddingY = 4, OnClick = () => _xrGrid!.Previous() };
+        var next = new UIButton { Text = "Next", FontSize = FontSize.Body, X = w - 142, Y = 398, Width = 130, Height = 46, PaddingX = 4, PaddingY = 4, OnClick = () => _xrGrid!.Next() };
+        _palette.AddChild(previous);
+        _palette.AddChild(next);
 
         // The blueprints
         _blueprints.Width = w; _blueprints.Height = h; _blueprints.Visible = false;
@@ -585,6 +603,8 @@ public sealed partial class ViewerHud
         _xrFeed.Visible = XrFeedVisible;
         _xrMenuWhere.Text = string.Create(CultureInfo.InvariantCulture, $"{d.CamX:F0}  {d.CamY:F0}  {d.CamZ:F0}    {d.Fps:F0} FPS");
         _xrMenuMode.Text = XrModeText;
+        if (_xrGrid != null && _xrGridName != null && IsPaletteOpen)
+            _xrGridName.Text = _xrGrid.HoveredName is { } hovered ? (hovered.StartsWith("minecraft:", StringComparison.Ordinal) ? hovered[10..] : hovered).Replace('_', ' ') : $"page {_xrGrid.Page + 1} of {_xrGrid.PageCount}";
         LayoutXrTabs();
         // The window is as tall as the page it shows
         _xrWindow.Visible = XrWindowOpen;

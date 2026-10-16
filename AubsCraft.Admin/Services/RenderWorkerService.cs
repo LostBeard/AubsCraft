@@ -557,6 +557,18 @@ public class RenderWorkerService : IRenderWorkerService
             await LoadBiomeAssetsAsync(origin);
             _voxel!.SetBlockAssets(assets, pixels);
             _edit?.SetAllBlocks(assets.Blocks.Keys);
+            // In a headset the blocks have icons (the blocks in hand, the inventory): drawn once from the atlas
+            if (ManualFrames && _voxel?.BlockAtlas is { } blockAtlas)
+            {
+                try
+                {
+                    var iconNames = AubsCraft.Admin.Editing.EditSession.PlaceableBlocks(assets.Blocks.Keys).ToList();
+                    _hud.Icons?.Dispose();
+                    _hud.Icons = BlockIconAtlas.Build(_renderer.Device!, _renderer.Queue!, assets, blockAtlas.View, iconNames);
+                    Console.WriteLine($"[RenderWorker] {_hud.Icons.Cells.Count} block icons");
+                }
+                catch (Exception ex) { Console.WriteLine("[RenderWorker] block icons: " + ex.Message); }
+            }
             Console.WriteLine($"[RenderWorker] Block assets for Minecraft {assets.GameVersion}: {assets.Blocks.Count} blocks, {assets.TileCount} tiles, {assets.Animations.Count} animated");
         }
         catch (Exception ex)

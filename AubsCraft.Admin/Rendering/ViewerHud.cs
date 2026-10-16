@@ -448,6 +448,7 @@ public sealed partial class ViewerHud
             _paletteShown.Add(b);
             if (_paletteShown.Count >= PaletteMaxRows) break;
         }
+        if (_xrGrid != null) _xrGrid.Page = 0;
         _paletteList.ClearItems();
         foreach (var b in _paletteShown) _paletteList.AddItem(b.StartsWith("minecraft:", StringComparison.Ordinal) ? b[10..].Replace('_', ' ') : b);
         _paletteList.SelectedIndex = -1;
@@ -556,11 +557,11 @@ public sealed partial class ViewerHud
     }
 
     /// <summary>What a slot of the edit bar shows (a block's short name).</summary>
-    public void SetEditSlot(int slot, string label)
+    public void SetEditSlot(int slot, string label, string? block = null)
     {
         if (_editBar == null) return;
         int max = _headset ? 6 : 10;   // a headset's bigger text must fit its slot
-        _editBar.SetSlot(slot, label.Length > max ? label[..max] : label);
+        _editBar.SetSlot(slot, label.Length > max ? label[..max] : label, block);
     }
 
     public void SelectEditSlot(int slot)
@@ -972,6 +973,7 @@ public sealed partial class ViewerHud
     public void Draw(GPUCommandEncoder encoder, GPUTextureView target, int width, int height)
     {
         if (!_ui.IsInitialized || !Visible) return;
+        _iconDraws.Clear();
         _ui.BeginRender(width, height);
         _ui.Screens.Draw(_ui.Renderer);
         _ui.EndRender(encoder, target);

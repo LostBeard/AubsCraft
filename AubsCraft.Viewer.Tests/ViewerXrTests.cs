@@ -383,6 +383,9 @@ public class ViewerXrTests
         for (int i = 0; i < 20 && !log.ToArray().Any(l => l.Contains("[Xr] session ended")); i++) await Task.Delay(500);
         Assert.That(log.ToArray().Any(l => l.Contains("[Xr] session ended")), Is.True, "the session ended");
         Assert.That(errors.Where(e => !e.Contains("whitelisted")).ToList(), Is.Empty, "The page logged errors:\n" + string.Join("\n", errors));
+        // A shader that did not compile logs here (a wrong draw does not fail by itself: the icons were missing for a day over a reserved word)
+        var shaderTrouble = log.ToArray().Where(l => l.Contains("Error while parsing WGSL") || l.Contains("Invalid ShaderModule") || l.Contains("is a reserved keyword")).Take(3).ToList();
+        Assert.That(shaderTrouble, Is.Empty, "A shader did not compile:\n" + string.Join("\n", shaderTrouble));
     }
 
     private static async Task ClickAtAsync(IPage page, (double X, double Y, double Z) spot)
@@ -576,7 +579,7 @@ public class ViewerXrTests
             await ClickAtAsync(page, SurfaceSpot(AubsCraft.Admin.Xr.XrSurfaces.Window, 384, 141));   // the "glass" chip
             await Task.Delay(800);
             using var chipped = await LeftEyeAsync(page, "vr-edit-chip");
-            await ClickAtAsync(page, SurfaceSpot(AubsCraft.Admin.Xr.XrSurfaces.Window, 380, 241));   // the first block of the list
+            await ClickAtAsync(page, SurfaceSpot(AubsCraft.Admin.Xr.XrSurfaces.Window, 60, 254));   // the first block of the grid
             await Task.Delay(1200);
             // The window closes by itself once a block is chosen; the ray goes to the world again
             await page.EvaluateAsync("window.__xr.aimAt(0.25, -0.5, -1.0)");
