@@ -39,6 +39,27 @@ public static class FarWindow
         return current;
     }
 
+    /// <summary>A headset draws two eyes: its draw distance may go lower than a screen's.</summary>
+    public const int MinXrDrawDistance = 8;
+
+    /// <summary>A headset's frame is spent when the CPU needs more than this share of the display's period; with less than <see cref="XrGrowBelow"/> there is room to draw farther.</summary>
+    public const float XrShrinkAbove = 0.80f;
+    public const float XrGrowBelow = 0.55f;
+
+    /// <summary>How many checks (half a second apart) in a row must find room before a headset's draw distance grows a chunk.</summary>
+    public const int XrGrowAfterChecks = 12;
+
+    /// <summary>
+    /// A headset's draw distance. Its frame rate is pinned to the display's refresh (72 or 90 Hz) whatever the cost, so frame rate cannot steer it
+    /// (it would grow to the fog distance and never shrink until frames were already dropping); the CPU time of a frame, against the display's period, can.
+    /// </summary>
+    public static int NextXrDrawDistance(int current, float cpuMs, float periodMs)
+    {
+        if (cpuMs > periodMs * XrShrinkAbove) return Math.Max(current - 1, MinXrDrawDistance);
+        if (cpuMs < periodMs * XrGrowBelow) return Math.Min(current + 1, MaxDrawDistance);
+        return current;
+    }
+
     /// <summary>
     /// Where fog is total at this draw distance (blocks): the nearest block of a chunk at the draw radius is at least radius * 16 - 24 from the
     /// camera, so terrain at the radius is fully fogged and what lies beyond (not drawn) is indistinguishable from it. At the largest distance

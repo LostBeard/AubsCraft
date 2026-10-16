@@ -32,6 +32,8 @@ public sealed class XrViewerHost : IDisposable
     private bool _worldStarting;
     private int _framesDrawn;
     private double _drawMsSum;
+    private double _cpuAverageMs;   // a moving average of what a frame costs the CPU: steers the draw distance (see FarWindow.NextXrDrawDistance)
+    private const float DefaultDisplayRate = 72f;   // a Quest's usual, when the session does not say
     private readonly System.Diagnostics.Stopwatch _clock = new();
 
     // The HUD, in surfaces floating in the room (the menu, the window, the bar of blocks in hand, the feed): where each is, the one atlas texture they show parts of, and the controllers' pointer on them
@@ -110,6 +112,7 @@ public sealed class XrViewerHost : IDisposable
         _table.SetScale(XrTabletop.StartScale);
         _framesDrawn = 0;
         _drawMsSum = 0;
+        _cpuAverageMs = 0;
 
         await _session.EnterAsync(mode);
         _blit = new WebGlXrBlit();
@@ -387,7 +390,7 @@ public sealed class XrViewerHost : IDisposable
             _hud.SetSpeaking(_voice.Speaking());
         }
         _hud.SetMicState(_voice.IsOn, _voice.MicOn);
-        _world.XrFrame(dt);
+        _world.XrFrame(dt, (float)_cpuAverageMs, 1000f / (_session.DisplayRate ?? DefaultDisplayRate));
         foreach (var line in _hud.TakeOutgoingChat()) ChatSent?.Invoke(line);
         if (!_world.WorldReady) return;
         UpdateEditing(f, dt);
@@ -422,11 +425,13 @@ public sealed class XrViewerHost : IDisposable
             _blit.Blit(_bridge, _session.Layer.Framebuffer, v.Viewport);
         }
 
-        _drawMsSum += _clock.Elapsed.TotalMilliseconds;
+        double spent = _clock.Elapsed.TotalMilliseconds;
+        _cpuAverageMs = _cpuAverageMs <= 0 ? spent : _cpuAverageMs + 0.05 * (spent - _cpuAverageMs);
+        _drawMsSum += spent;
         if (++_framesDrawn % 120 == 0)
         {
             var vp = f.Views.Length > 0 ? f.Views[0].Viewport : null;
-            Console.WriteLine($"[Xr] {_framesDrawn} frames; {_drawMsSum / 120:F1} ms of CPU a frame ({f.Views.Length} eyes of {vp?.Width}x{vp?.Height}), head at {headWorld:F1}; {_map.LastVoxelStats.DrawCalls} draws, {_map.LastVoxelStats.VisibleSections}/{_map.LastVoxelStats.SectionsWithQuads} sections, {_map.LastVoxelStats.Columns} columns, {_world.LoadedCount} loaded; {_world.Note}");
+            Console.WriteLine($"[Xr] {_framesDrawn} frames; {_drawMsSum / 120:F1} ms of CPU a frame ({f.Views.Length} eyes of {vp?.Width}x{vp?.Height}), head at {headWorld:F1}; draw distance {_map.DrawDistance}; {_map.LastVoxelStats.DrawCalls} draws, {_map.LastVoxelStats.VisibleSections}/{_map.LastVoxelStats.SectionsWithQuads} sections, {_map.LastVoxelStats.Columns} columns, {_world.LoadedCount} loaded; {_world.Note}");
             _drawMsSum = 0;
         }
     }
@@ -563,6 +568,7 @@ public sealed class XrViewerHost : IDisposable
         var world = _world;
         _world = null;
         _bridge = null;
+        _map.CpuSteered = false;   // the screen steers the draw distance by frame rate again
         if (world != null) _ = DisposeWorldAsync(world);
         _worldFromRoom = null;
         try { Ended?.Invoke(head, yaw, pitch); }

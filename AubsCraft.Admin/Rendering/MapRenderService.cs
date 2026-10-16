@@ -85,6 +85,22 @@ public sealed class MapRenderService : IDisposable
         _drawDistanceFixed = true;
     }
 
+    /// <summary>A headset's draw distance follows the CPU time of its frames (<see cref="FarWindow.NextXrDrawDistance"/>), not the frame rate: it is set by <see cref="SteerDrawDistance"/>.</summary>
+    public bool CpuSteered { get; set; }
+
+    /// <summary>Move the draw distance one chunk by how much of the display's period a frame's CPU work takes (no effect while it is fixed).</summary>
+    public void SteerDrawDistance(float cpuMs, float periodMs)
+    {
+        if (_drawDistanceFixed) return;
+        int next = FarWindow.NextXrDrawDistance(DrawDistance, cpuMs, periodMs);
+        // Shrinking is at once (the frame is already too dear); growing waits for a long spell of room, so the horizon (the fog follows it) does not breathe
+        if (next > DrawDistance && ++_xrGrowVotes < FarWindow.XrGrowAfterChecks) return;
+        _xrGrowVotes = 0;
+        DrawDistance = next;
+    }
+
+    private int _xrGrowVotes;
+
     public MapRenderService(SpawnJSRuntime js)
     {
         _js = js;
@@ -235,7 +251,7 @@ public sealed class MapRenderService : IDisposable
             _fpsAccumulator = 0;
 
             // Adaptive draw distance (the fog follows it, so a shorter one is a closer horizon, not a visible edge)
-            if (!_drawDistanceFixed) DrawDistance = FarWindow.NextDrawDistance(DrawDistance, Fps);
+            if (!_drawDistanceFixed && !CpuSteered) DrawDistance = FarWindow.NextDrawDistance(DrawDistance, Fps);
         }
     }
 

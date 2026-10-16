@@ -30,6 +30,15 @@ public sealed class XrSession : IDisposable
     public XRWebGLLayer? Layer => _layer;
     public int FramesDrawn => _frames;
 
+    /// <summary>The display's refresh rate in Hz as the session reports it (null when it does not say).</summary>
+    public float? DisplayRate
+    {
+        get
+        {
+            try { return _session?.FrameRate is { } rate and > 0 ? rate : null; } catch { return null; }
+        }
+    }
+
     /// <summary>Fired each animation frame of the session.</summary>
     public event Action<XrFrameData>? OnFrame;
     /// <summary>Fired when the session ends, however it ends (the headset's own button, <see cref="ExitAsync"/>).</summary>

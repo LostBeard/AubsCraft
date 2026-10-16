@@ -74,6 +74,31 @@ public class FarWindowTests
     }
 
     [Test]
+    public void AHeadsetsPolicy_FollowsTheCpuTimeOfAFrame_NotTheFrameRate()
+    {
+        const float period = 1000f / 72f;   // 13.9 ms
+        Assert.That(FarWindow.NextXrDrawDistance(20, 5f, period), Is.EqualTo(21), "well inside the period: grow");
+        Assert.That(FarWindow.NextXrDrawDistance(20, 12f, period), Is.EqualTo(19), "most of the period spent: shrink");
+        Assert.That(FarWindow.NextXrDrawDistance(20, 9f, period), Is.EqualTo(20), "between: hold");
+        Assert.That(FarWindow.NextXrDrawDistance(FarWindow.MaxDrawDistance, 1f, period), Is.EqualTo(FarWindow.MaxDrawDistance));
+        Assert.That(FarWindow.NextXrDrawDistance(FarWindow.MinXrDrawDistance, 40f, period), Is.EqualTo(FarWindow.MinXrDrawDistance), "never below the headset's floor");
+        Assert.That(FarWindow.MinXrDrawDistance, Is.LessThan(FarWindow.MinDrawDistance));
+    }
+
+    [Test]
+    public void AHeadset_WithAFrameCostingMoreWithDistance_SettlesWhereItFits()
+    {
+        // 90 Hz (11.1 ms); a frame costs 6 ms at 12 chunks and 0.5 ms more for every chunk
+        const float period = 1000f / 90f;
+        int dd = FarWindow.MaxDrawDistance;
+        for (int step = 0; step < 100; step++)
+            dd = FarWindow.NextXrDrawDistance(dd, 6f + 0.5f * (dd - 12), period);
+        float cost = 6f + 0.5f * (dd - 12);
+        Assert.That(cost, Is.LessThanOrEqualTo(period * FarWindow.XrShrinkAbove), "the frame fits");
+        Assert.That(cost, Is.GreaterThan(period * FarWindow.XrGrowBelow - 0.5f), "and is not far from the budget");
+    }
+
+    [Test]
     public void TheFog_AtTheFullDistance_IsTheOriginalFog()
     {
         Assert.That(FarWindow.FogEndBlocks(FarWindow.MaxDrawDistance), Is.EqualTo(DayLighting.FogEnd));

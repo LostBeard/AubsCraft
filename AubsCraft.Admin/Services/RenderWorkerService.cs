@@ -672,15 +672,37 @@ public class RenderWorkerService : IRenderWorkerService
     public bool WorldReady => _initialized && LoadedCount > 0;
 
     /// <summary>One frame of a headset: stream the world around where the head is (set <see cref="Camera"/>'s position first).</summary>
-    public void XrFrame(float dt)
+    public void XrFrame(float dt) => XrFrame(dt, 0f, 0f);
+
+    /// <summary>
+    /// One frame of a headset. <paramref name="cpuMs"/> is what the last frames cost the CPU and <paramref name="periodMs"/> the display's frame period: the
+    /// frame rate is pinned to the display, so these steer the draw distance and the pace of loading (frame rate would say "fine" until frames dropped).
+    /// </summary>
+    public void XrFrame(float dt, float cpuMs, float periodMs)
     {
         if (!_initialized) return;
         _renderer.TrackFrame(dt);
+        if (periodMs > 0)
+        {
+            _renderer.CpuSteered = true;
+            _xrSteerTimer += dt;
+            if (_xrSteerTimer >= 0.5f)
+            {
+                _xrSteerTimer = 0;
+                _renderer.SteerDrawDistance(cpuMs, periodMs);
+            }
+            // Loading may use what the frame leaves: slower once the CPU needs most of the period (the governor's target is the frame time it slows at)
+            _ingest.TargetFrameMs = periodMs * FarWindow.XrShrinkAbove;
+            _ingest.OnFrame(Math.Max(dt * 1000.0, cpuMs));
+        }
+        else _ingest.OnFrame(dt * 1000.0);
         EaseWeather(dt);
         if (XrHudActive) UpdateHud(dt);
         _edit?.Update(dt, _renderer.Camera);
-        StreamWorld(dt);
+        StreamWorld(dt, ingest: false);
     }
+
+    private float _xrSteerTimer;
 
     /// <summary>The headset shows the HUD panel: <see cref="XrFrame"/> keeps the HUD's state (minimap, text) up to date for it. Off, that work is skipped.</summary>
     public bool XrHudActive { get; set; }

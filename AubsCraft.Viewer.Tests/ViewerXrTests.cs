@@ -691,7 +691,9 @@ public class ViewerXrTests
             await page.EvaluateAsync("window.__xr.aimAt(0.25, 3.5, -1.3)");
             await PressAsync(page, "x");
             await Task.Delay(500);
-            await ClickAtAsync(page, MenuTile("settings"));
+            // The menu has one more row of tiles when editing is on (an admin starts with it on once the rig's plugin has said hello: a test before this one may have made it so)
+            await Task.Delay(1500);
+            await ClickAtAsync(page, MenuTile("settings", creative: log.ToArray().Any(l => l.Contains("[Edit] edit mode on"))));
             await Task.Delay(1000);
             using var settings = await LeftEyeAsync(page, "vr-settings");
             await ClickAtAsync(page, SurfaceSpot(AubsCraft.Admin.Xr.XrSurfaces.Window, 590, 106));   // the Turn button
@@ -772,6 +774,8 @@ public class ViewerXrTests
 
     // The sky's clouds drift; the ground (the lower part of the eyes) is what must not move
     private const int GroundFromRow = 330;
+    // The forest looks from under the canopy: everything below the horizon (the sky above it has clouds that drift by the viewer's clock, so it is never the same picture)
+    private const int ForestFromRow = 225;
 
     private static int Changed(string a, string b, int fromRow = GroundFromRow, int toRow = int.MaxValue, int toColumn = int.MaxValue)
     {
@@ -914,8 +918,9 @@ public class ViewerXrTests
             await enter.WaitForAsync(new() { Timeout = 30_000 });
             await enter.ClickAsync();
             for (int i = 0; i < 90 && !log.Any(l => l.Contains("[Xr] world started")); i++) await Task.Delay(1000);
+            // Still by default: the mock wobbles the head by real metres, and a head that moved is a different picture (AUBS_XR_JITTER = metres to try a trembling one)
             await Task.Delay(10_000);
-            await page.EvaluateAsync("window.__xr.jitter = " + (Environment.GetEnvironmentVariable("AUBS_XR_JITTER") ?? "0.01"));
+            await page.EvaluateAsync("window.__xr.jitter = " + (Environment.GetEnvironmentVariable("AUBS_XR_JITTER") ?? "0"));
             var frames = new List<string>();
             for (int i = 0; i < 16; i++)
             {
@@ -924,13 +929,13 @@ public class ViewerXrTests
                 frames.Add(file);
             }
             var counts = new List<int>(); int worst = 0, at = 1;
-            for (int i = 1; i < frames.Count; i++) { int c = Changed(frames[i - 1], frames[i], 0); counts.Add(c); if (c > worst) { worst = c; at = i; } }
+            for (int i = 1; i < frames.Count; i++) { int c = Changed(frames[i - 1], frames[i], ForestFromRow); counts.Add(c); if (c > worst) { worst = c; at = i; } }
             TestContext.Progress.WriteLine($"[xr] forest {button}: pixels changed between frames: {string.Join(" ", counts)} (worst {worst})");
             // The far ground (a band of the left eye) barely moves with a head this still: what changes there is the texture sparkling
             var far = new List<int>();
             for (int i = 1; i < frames.Count; i++) far.Add(Changed(frames[i - 1], frames[i], 255, 290, 512));
             TestContext.Progress.WriteLine($"[xr] forest {button}: far ground changed: {string.Join(" ", far)} (mean {far.Average():F0})");
-            if (worst > 0) MarkChanges(frames[at - 1], frames[at], Path.Combine(_outDir, $"forest-{tag}-diff.png"), 0);
+            if (worst > 0) MarkChanges(frames[at - 1], frames[at], Path.Combine(_outDir, $"forest-{tag}-diff.png"), ForestFromRow);
             Assert.That(worst, Is.LessThan(200), "the same picture, frame after frame");
         }
         finally { await page.CloseAsync(); }
