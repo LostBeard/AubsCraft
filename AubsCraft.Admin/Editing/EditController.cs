@@ -39,11 +39,23 @@ public sealed class EditController
         _hud = hud;
         _entities = entities;
         _hud.OnEditSlot = slot => { Session.Selected = slot; RefreshHud(); };
+        _hud.OnPaletteChoice = block =>
+        {
+            Session.SetSelectedBlock(block);
+            _hud.OpenPalette(false);
+            RefreshHud(slots: true);
+        };
     }
 
     public EditSession Session { get; } = new();
 
     public bool Active => Session.Active;
+
+    /// <summary>The palette is open and wants the mouse: the page lets go of the pointer so the HUD can be clicked.</summary>
+    public bool WantsPointer => Session.Active && _hud.IsPaletteOpen;
+
+    /// <summary>Every block the game has, for the palette (from the assets, once they are loaded).</summary>
+    public void SetAllBlocks(IEnumerable<string> names) => _hud.SetPaletteBlocks(EditSession.PlaceableBlocks(names));
 
     // ---- turning it on and off ----
 
@@ -72,6 +84,7 @@ public sealed class EditController
         Session.Target = null;
         _pickTimer = PickEverySeconds;
         _hud.SetEditMode(on, on ? Session.Hotbar.Select(EditSession.DisplayName).ToArray() : null, Session.Selected);
+        if (!on) _hud.OpenPalette(false);
         if (!on && _entities != null) _entities.Extras.Clear();
         RefreshHud();
         return on;
@@ -136,6 +149,9 @@ public sealed class EditController
             return true;
         }
         if (!Session.Active) return false;
+        // E opens the block palette (Escape closes it); the pointer is the HUD's while it is open
+        if (e.Kind == UiInputEvent.KeyDown && e.Code == "KeyE" && (int)e.X == 0) { _hud.OpenPalette(!_hud.IsPaletteOpen); return true; }
+        if (e.Kind == UiInputEvent.KeyDown && e.Code == "Escape" && _hud.IsPaletteOpen) { _hud.OpenPalette(false); return true; }
         switch (e.Kind)
         {
             case UiInputEvent.WorldMouseDown:

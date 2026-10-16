@@ -244,4 +244,11 @@ public class EditSessionTests
         Assert.That(EditJson.ReadError("""{"error":"y must be between -64 and 319"}"""), Is.EqualTo("y must be between -64 and 319"));
         Assert.That(EditJson.ReadError("plain text"), Is.EqualTo("plain text"));
     }
+
+    [Test]
+    public void ThePaletteOffersBlocksThatCanBePlaced_Sorted()
+    {
+        var offered = EditSession.PlaceableBlocks(["minecraft:stone", "minecraft:air", "minecraft:water", "minecraft:oak_wall_sign", "minecraft:oak_sign", "minecraft:wall_torch", "minecraft:torch", "minecraft:piston_head", "minecraft:fire", "minecraft:gold_block", "minecraft:oak_stairs[facing=north]", "mod:thing"]);
+        Assert.That(offered, Is.EqualTo(new[] { "minecraft:gold_block", "minecraft:oak_sign", "minecraft:stone", "minecraft:torch", "mod:thing" }));
+    }
 }

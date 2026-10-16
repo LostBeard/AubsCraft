@@ -47,6 +47,27 @@ public sealed class EditSession
         return name.Replace('_', ' ');
     }
 
+    /// <summary>
+    /// The blocks worth offering for placing: every block name of the game except the ones that cannot be put down as they are - air, the moving parts of a piston, the liquids, portals, fire,
+    /// the wall variants (a wall torch or sign is made by placing the torch or sign on a wall) and the technical ones. Sorted by name.
+    /// </summary>
+    public static List<string> PlaceableBlocks(IEnumerable<string> names)
+    {
+        var list = new List<string>();
+        foreach (var n in names)
+        {
+            if (n.Contains('[')) continue;
+            var plain = n.StartsWith("minecraft:", StringComparison.Ordinal) ? n[10..] : n;
+            if (plain is "air" or "cave_air" or "void_air" or "moving_piston" or "piston_head" or "water" or "lava" or "bubble_column" or "nether_portal" or "end_portal" or "end_gateway" or "fire" or "soul_fire" or "frosted_ice" or "test_block" or "test_instance_block") continue;
+            if (plain.EndsWith("_wall_sign", StringComparison.Ordinal) || plain.EndsWith("_wall_banner", StringComparison.Ordinal) || plain.EndsWith("_wall_head", StringComparison.Ordinal) || plain.EndsWith("_wall_skull", StringComparison.Ordinal)
+                || plain.EndsWith("_wall_hanging_sign", StringComparison.Ordinal) || plain is "wall_torch" or "soul_wall_torch" or "redstone_wall_torch") continue;
+            list.Add(n);
+        }
+        list.Sort(StringComparer.Ordinal);
+        return list;
+    }
+
+
     // ---- plans: what a click asks the server to do ----
 
     /// <summary>Break the block under the cursor (it becomes air). Null when nothing is pointed at.</summary>

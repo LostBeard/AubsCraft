@@ -462,6 +462,8 @@ else
                 cameraSaveCounter = 0;
                 _lastStats = await _renderService.GetStatsAsync();
                 _editing = _lastStats.Editing;
+                // The block palette is open: the mouse is the HUD's until it closes
+                if (_lastStats.WantsPointer && _isPointerLocked) _document?.ExitPointerLock();
                 StateHasChanged();
 
                 if (_lastStats != null)

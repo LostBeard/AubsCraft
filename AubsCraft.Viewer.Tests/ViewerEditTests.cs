@@ -247,6 +247,26 @@ public class ViewerEditTests
             await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = undone });
             using (var c = new Bitmap(undone)) Assert.That(Planks(c), Is.GreaterThan(150), "the planks are back");
 
+            // E opens the block palette (the pointer is let go of); typing a name and Enter puts the first match in hand
+            await page.Keyboard.PressAsync("KeyE");
+            await Task.Delay(1500);
+            var palette = Path.Combine(_outDir, "edit-palette.png");
+            await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = palette });
+            await page.Keyboard.TypeAsync("gold block");
+            await Task.Delay(500);
+            var searched = Path.Combine(_outDir, "edit-palette-search.png");
+            await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = searched });
+            await page.Keyboard.PressAsync("Enter");
+            await Task.Delay(500);
+            await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "edit-palette-chosen.png") });
+            await page.Locator("#map-canvas").ClickAsync();   // the pointer back to the camera
+            await Task.Delay(1500);
+            int before3 = plugin.Received.Count;
+            await page.Mouse.ClickAsync(300, 300, new MouseClickOptions { Button = MouseButton.Right });
+            for (int i = 0; i < 30 && plugin.Received.Count == before3; i++) await Task.Delay(200);
+            Assert.That(plugin.Received.Count, Is.GreaterThan(before3), "a block was placed after the palette");
+            Assert.That(plugin.Received[^1].Block, Is.EqualTo("minecraft:gold_block"), "the palette's choice is in hand");
+
             // B leaves edit mode: clicks do nothing now
             await page.Keyboard.PressAsync("KeyB");
             await Task.Delay(800);

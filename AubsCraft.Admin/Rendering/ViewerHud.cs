@@ -47,6 +47,9 @@ public sealed class ViewerHud
     private UILabel _followLabel = null!;
     private UIHotbar _editBar = null!;
     private UILabel _editLabel = null!;
+    private UIPanel _palette = null!;
+    private UITextInput _paletteSearch = null!;
+    private UIList _paletteList = null!;
     private UIMinimapFrame _minimap = null!;
     // Where the mouse is (canvas pixels): a menu opens under the click
     private float _mouseX, _mouseY;
@@ -64,8 +67,8 @@ public sealed class ViewerHud
 
     public bool IsInitialized => _ui.IsInitialized;
 
-    /// <summary>A chat line is being typed: the keys are the chat's.</summary>
-    public bool IsTyping => _chat != null && _chat.IsInputFocused;
+    /// <summary>A line is being typed (the chat's, or the block search's): the keys are the text's.</summary>
+    public bool IsTyping => (_chat != null && _chat.IsInputFocused) || (_paletteSearch != null && _palette.Visible && _paletteSearch.IsFocused);
 
     private const string DesktopHint = "Click the view to fly   WASD move   Space / Shift up / down   Esc release   Enter chat   M map zoom   F3 debug   Click a player in the list for actions";
     private const string HeadsetHint = "Left stick fly   Right stick turn / up / down   Grips go fast   Trigger on a player or the map   X hide this panel   Y leaves";
@@ -122,6 +125,77 @@ public sealed class ViewerHud
             SelectEditSlot(selected);
         }
     }
+
+    // ---- the block palette: every block of the game, searched by name ----
+
+    private const int PaletteMaxRows = 400;
+    private IReadOnlyList<string> _paletteBlocks = System.Array.Empty<string>();
+
+    /// <summary>A block was chosen in the palette (its name, e.g. <c>minecraft:gold_block</c>).</summary>
+    public Action<string>? OnPaletteChoice { get; set; }
+
+    public bool IsPaletteOpen => _palette != null && _palette.Visible;
+
+    private void BuildPalette(UITheme theme)
+    {
+        _palette = new UIPanel { Width = 380, Height = 460, Visible = false };
+        _palette.AddChild(new UILabel { Text = "Blocks   click one to put it in your hand", FontSize = FontSize.Caption, Color = theme.TextPrimary, X = 12, Y = 10 });
+        _paletteSearch = new UITextInput { Width = 356, Height = 30, X = 12, Y = 36, Placeholder = "Search by name (stairs, gold, glass...)", FontSize = FontSize.Caption };
+        _paletteSearch.OnChanged = _ => RefreshPalette();
+        _paletteSearch.OnSubmit = _ => { if (_paletteList.ItemCount > 0) ChoosePalette(0); };
+        _palette.AddChild(_paletteSearch);
+        _paletteList = new UIList { ItemHeight = 22, ItemFontSize = FontSize.Caption, Padding = 2, X = 10, Y = 74, Width = 360, Height = 376 };
+        _paletteList.OnSelectionChanged = ChoosePalette;
+        _palette.AddChild(_paletteList);
+        _root.AddAnchored(_palette, Anchor.Center, 0, -10);
+    }
+
+    /// <summary>Every block the palette offers.</summary>
+    public void SetPaletteBlocks(IReadOnlyList<string> blocks)
+    {
+        _paletteBlocks = blocks;
+        if (_palette != null && _palette.Visible) RefreshPalette();
+    }
+
+    /// <summary>Open or close the palette. Opened, its search takes the keys.</summary>
+    public void OpenPalette(bool open)
+    {
+        if (_palette == null || _palette.Visible == open) return;
+        _palette.Visible = open;
+        if (open)
+        {
+            _paletteSearch.Text = "";
+            RefreshPalette();
+            _paletteSearch.Focus();
+        }
+        else _paletteSearch.Blur();
+    }
+
+    private readonly List<string> _paletteShown = new();
+
+    private void RefreshPalette()
+    {
+        string q = _paletteSearch.Text.Trim().Replace(' ', '_').ToLowerInvariant();
+        _paletteShown.Clear();
+        foreach (var b in _paletteBlocks)
+        {
+            if (q.Length > 0 && !b.Contains(q, StringComparison.Ordinal)) continue;
+            _paletteShown.Add(b);
+            if (_paletteShown.Count >= PaletteMaxRows) break;
+        }
+        _paletteList.ClearItems();
+        foreach (var b in _paletteShown) _paletteList.AddItem(b.StartsWith("minecraft:", StringComparison.Ordinal) ? b[10..].Replace('_', ' ') : b);
+        _paletteList.SelectedIndex = -1;
+    }
+
+    private void ChoosePalette(int index)
+    {
+        if (index < 0 || index >= _paletteShown.Count) return;
+        var block = _paletteShown[index];
+        _paletteList.SelectedIndex = -1;
+        OnPaletteChoice?.Invoke(block);
+    }
+
 
     /// <summary>What a slot of the edit bar shows (a block's short name).</summary>
     public void SetEditSlot(int slot, string label)
@@ -212,6 +286,8 @@ public sealed class ViewerHud
         _root.AddAnchored(_editBar, Anchor.BottomCenter, 0, -46);
         _editLabel = new UILabel { FontSize = FontSize.Caption, Color = theme.TextPrimary, OutlineWidth = 0.14f, Visible = false };
         _root.AddAnchored(_editLabel, Anchor.BottomCenter, 0, -132);
+
+        BuildPalette(theme);
 
         // Last, so it is on top of everything and gets a click first
         _menu = new UIContextMenu { Visible = false, MenuWidth = MenuWidth };
@@ -451,9 +527,9 @@ public sealed class ViewerHud
             case UiInputEvent.Wheel: input.Wheel(e.Y); break;
             case UiInputEvent.KeyDown:
                 // Enter opens the chat (when the mouse is free and nothing is being typed); the same press then submits an empty line, which is ignored
-                if (e.Code is "Enter" or "NumpadEnter" && !_pointerLocked && !_chat.IsInputFocused) _chat.FocusInput();
+                if (e.Code is "Enter" or "NumpadEnter" && !_pointerLocked && !IsTyping) _chat.FocusInput();
                 // M cycles the minimap zoom (not while typing: the letter belongs to the chat then)
-                if (e.Code == "KeyM" && !_chat.IsInputFocused) _minimapZoom = _minimapZoom % MaxMinimapZoom + 1;
+                if (e.Code == "KeyM" && !IsTyping) _minimapZoom = _minimapZoom % MaxMinimapZoom + 1;
                 if (e.Code != null) input.KeyDown(e.Code, e.Text);
                 break;
             case UiInputEvent.KeyUp: if (e.Code != null) input.KeyUp(e.Code); break;

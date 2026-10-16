@@ -392,7 +392,8 @@ public class RenderWorkerService : IRenderWorkerService
             _renderer.Camera.Position.Z,
             _renderer.Camera.Pitch,
             _renderer.Camera.Yaw,
-            _edit?.Active ?? false
+            _edit?.Active ?? false,
+            _edit?.WantsPointer ?? false
         ));
     }
 
@@ -543,6 +544,7 @@ public class RenderWorkerService : IRenderWorkerService
             }
             await LoadBiomeAssetsAsync(origin);
             _voxel!.SetBlockAssets(assets, pixels);
+            _edit?.SetAllBlocks(assets.Blocks.Keys);
             Console.WriteLine($"[RenderWorker] Block assets for Minecraft {assets.GameVersion}: {assets.Blocks.Count} blocks, {assets.TileCount} tiles, {assets.Animations.Count} animated");
         }
         catch (Exception ex)
@@ -974,4 +976,4 @@ public record RenderStats(
     float Fps, int VisibleChunks, int TotalChunks,
     int VisibleVerts, int TotalVerts, int DrawDistance, int LoadedCount,
     float ChunksPerSecond,
-    float CamX, float CamY, float CamZ, float CamPitch, float CamYaw, bool Editing = false);
+    float CamX, float CamY, float CamZ, float CamPitch, float CamYaw, bool Editing = false, bool WantsPointer = false);
