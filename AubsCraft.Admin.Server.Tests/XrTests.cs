@@ -65,9 +65,34 @@ public class XrTests
     }
 
     [Test]
-    public void RightStickUp_Rises_AndSideways_SnapTurnsOncePerPush()
+    public void RightStickSideways_TurnsSmoothly_InProportionToTheTimeAndTheDeflection()
     {
         var loco = new XrLocomotion();
+        var pushed = new Vector2(1, 0);
+        var m = Matrix4x4.Identity;
+        // A second at full deflection is the turn rate, however the second is cut up
+        for (int i = 0; i < 60; i++) m = loco.Step(m, Vector3.Zero, Quaternion.Identity, Vector2.Zero, pushed, 1f / 60f, 8f);
+        var forward = Vector3.TransformNormal(-Vector3.UnitZ, m);
+        float degrees = MathF.Atan2(forward.X, -forward.Z) * 180f / MathF.PI;
+        Assert.That(degrees, Is.EqualTo(loco.SmoothTurnDegreesPerSecond).Within(0.5f), "turned to the right by the rate");
+
+        // One frame turns a little, not a step; half the push turns about half as fast
+        var one = loco.Step(Matrix4x4.Identity, Vector3.Zero, Quaternion.Identity, Vector2.Zero, pushed, 1f / 60f, 8f);
+        var f1 = Vector3.TransformNormal(-Vector3.UnitZ, one);
+        Assert.That(MathF.Atan2(f1.X, -f1.Z) * 180f / MathF.PI, Is.InRange(0.5f, 3f), "a frame is a couple of degrees");
+        var half = loco.Step(Matrix4x4.Identity, Vector3.Zero, Quaternion.Identity, Vector2.Zero, new Vector2(0.575f, 0), 1f, 8f);
+        var fh = Vector3.TransformNormal(-Vector3.UnitZ, half);
+        Assert.That(MathF.Atan2(fh.X, -fh.Z) * 180f / MathF.PI, Is.LessThan(loco.SmoothTurnDegreesPerSecond * 0.7f).And.GreaterThan(10f));
+
+        // Left turns left; a stick at rest does nothing
+        var left = loco.Step(Matrix4x4.Identity, Vector3.Zero, Quaternion.Identity, Vector2.Zero, new Vector2(-1, 0), 0.5f, 8f);
+        Assert.That(Vector3.TransformNormal(-Vector3.UnitZ, left).X, Is.LessThan(-0.4f));
+        Assert.That(loco.Step(Matrix4x4.Identity, Vector3.Zero, Quaternion.Identity, Vector2.Zero, new Vector2(0.05f, 0), 1f, 8f), Is.EqualTo(Matrix4x4.Identity));
+    }
+    [Test]
+    public void RightStickUp_Rises_AndSideways_SnapTurnsOncePerPush()
+    {
+        var loco = new XrLocomotion { SmoothTurn = false };
         var m = loco.Step(Matrix4x4.Identity, Vector3.Zero, Quaternion.Identity, Vector2.Zero, new Vector2(0, -1), 0.5f, 8f);
         Near(m.Translation, new Vector3(0, 4f, 0));
 

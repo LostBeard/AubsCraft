@@ -57,6 +57,7 @@ public class ViewerXrTests
               m.style.cssText = 'position:fixed;left:0;top:0;width:1024px;height:512px;z-index:99999;background:#f0f';
               document.body.appendChild(m);
             }
+            m.style.display = 'block';
             const gl = xr.glCanvas;
             if (gl && gl.width) { m.width = gl.width; m.height = gl.height; m.getContext('2d').drawImage(gl, 0, 0); }
           };
@@ -563,5 +564,138 @@ public class ViewerXrTests
             Assert.That(errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", errors));
         }
         finally { await page.CloseAsync(); }
+    }
+
+    // A head that does not move sees a world that does not move: frame after frame the eyes must be the same picture (flicker is the viewer's, not the world's: nothing here changes it)
+    [TestCase("Enter VR")]
+    [TestCase("Enter AR")]
+    public async Task TheWorldHoldsStill_WhenTheHeadDoes(string button)
+    {
+        var page = await _rig.Context.NewPageAsync();
+        var log = new List<string>();
+        page.Console += (_, m) => log.Add(m.Text);
+        await page.AddInitScriptAsync(MockXr);
+        try
+        {
+            await page.GotoAsync(_rig.BaseUrl + "/map?hud=0&time=6000&cam=" + (Environment.GetEnvironmentVariable("AUBS_STILL_CAM") ?? "392,88,-1000,-40,0"), new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await ViewerShotTests.WaitForSettledAsync(page, minSections: 100, quietSeconds: 5, maxSeconds: 90);
+            var enter = page.GetByRole(AriaRole.Button, new() { Name = button });
+            await enter.WaitForAsync(new() { Timeout = 30_000 });
+            await enter.ClickAsync();
+            for (int i = 0; i < 90 && !log.Any(l => l.Contains("[Xr] world started")); i++) await Task.Delay(1000);
+            await Task.Delay(15_000);   // everything streamed in and meshed
+
+            var frames = new List<string>();
+            for (int i = 0; i < 24; i++)
+            {
+                var file = Path.Combine(_outDir, $"still-{button.Replace(' ', '-')}-{i:00}.png");
+                await page.ScreenshotAsync(new PageScreenshotOptions { Path = file, Clip = new Clip { X = 0, Y = 0, Width = 1024, Height = 512 } });
+                frames.Add(file);
+            }
+            int worst = 0, worstAt = 0; var counts = new List<int>();
+            for (int i = 1; i < frames.Count; i++)
+            {
+                int changed = Changed(frames[i - 1], frames[i]);
+                counts.Add(changed);
+                if (changed > worst) { worst = changed; worstAt = i; }
+            }
+            TestContext.Progress.WriteLine($"[xr] {button}: pixels changed between frames: {string.Join(" ", counts)} (worst {worst} at {worstAt})");
+            if (worst > 0) MarkChanges(frames[worstAt - 1], frames[worstAt], Path.Combine(_outDir, $"still-{button.Replace(' ', '-')}-diff.png"));
+            Assert.That(worst, Is.LessThan(200), "the same picture, frame after frame");
+        }
+        finally { await page.CloseAsync(); }
+    }
+
+    // The sky's clouds drift; the ground (the lower part of the eyes) is what must not move
+    private const int GroundFromRow = 330;
+
+    private static int Changed(string a, string b)
+    {
+        using var x = new Bitmap(a); using var y = new Bitmap(b);
+        int n = 0;
+        for (int j = GroundFromRow; j < x.Height; j += 1)
+            for (int i = 0; i < x.Width; i += 1)
+            {
+                var p = x.GetPixel(i, j); var q = y.GetPixel(i, j);
+                if (Math.Abs(p.R - q.R) + Math.Abs(p.G - q.G) + Math.Abs(p.B - q.B) > 40) n++;
+            }
+        return n;
+    }
+
+    private static void MarkChanges(string a, string b, string output)
+    {
+        using var x = new Bitmap(a); using var y = new Bitmap(b);
+        using var o = new Bitmap(y);
+        for (int j = GroundFromRow; j < x.Height; j++)
+            for (int i = 0; i < x.Width; i++)
+            {
+                var p = x.GetPixel(i, j); var q = y.GetPixel(i, j);
+                if (Math.Abs(p.R - q.R) + Math.Abs(p.G - q.G) + Math.Abs(p.B - q.B) > 40) o.SetPixel(i, j, Color.Magenta);
+            }
+        o.Save(output);
+    }
+
+    // Leave the headset and go back in: the second session shows the world as the first did (it stayed black once)
+    [TestCase("Enter VR")]
+    [TestCase("Enter AR")]
+    public async Task AfterLeaving_TheHeadsetCanBeEnteredAgain(string button)
+    {
+        var page = await _rig.Context.NewPageAsync();
+        var log = new List<string>();
+        var errors = new List<string>();
+        page.Console += (_, m) => { log.Add(m.Text); if (m.Type == "error") errors.Add(m.Text); };
+        page.PageError += (_, e) => errors.Add(e);
+        await page.AddInitScriptAsync(MockXr);
+        var tag = button.Replace(' ', '-');
+        try
+        {
+            await page.GotoAsync(_rig.BaseUrl + "/map?hud=0&time=6000&cam=" + Cam, new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await ViewerShotTests.WaitForSettledAsync(page, minSections: 20, quietSeconds: 4, maxSeconds: 60);
+            for (int round = 1; round <= 3; round++)
+            {
+                int startedBefore = log.Count(l => l.Contains("[Xr] world started"));
+                var enter = page.GetByRole(AriaRole.Button, new() { Name = button });
+                await enter.WaitForAsync(new() { Timeout = 30_000 });
+                await enter.ClickAsync();
+                for (int i = 0; i < 90 && log.Count(l => l.Contains("[Xr] world started")) <= startedBefore; i++) await Task.Delay(1000);
+                Assert.That(log.Count(l => l.Contains("[Xr] world started")), Is.GreaterThan(startedBefore), $"round {round}: the headset world started:\n" + string.Join("\n", log.Where(l => l.Contains("Xr") || l.Contains("rror")).TakeLast(15)));
+                await Task.Delay(8000);
+
+                var shot = Path.Combine(_outDir, $"reenter-{tag}-{round}.png");
+                await page.ScreenshotAsync(new PageScreenshotOptions { Path = shot, Clip = new Clip { X = 0, Y = 0, Width = 1024, Height = 512 } });
+                using (var left = Crop(shot, new Rectangle(0, 0, 512, 512)))
+                {
+                    double spread = Spread(left);
+                    TestContext.Progress.WriteLine($"[xr] {button} round {round}: left eye spread {spread:F1}, frames {await page.EvaluateAsync<double>("window.__xr.frames")}");
+                    Assert.That(button == "Enter AR" || spread > 12, Is.True, $"round {round}: the eye shows the world");
+                    if (button == "Enter AR") Assert.That(HasOpaquePixels(shot), Is.True, $"round {round}: something is drawn");
+                }
+
+                await page.EvaluateAsync("window.__xr.exit = true");
+                for (int i = 0; i < 20 && log.Count(l => l.Contains("[Xr] session ended")) < round; i++) await Task.Delay(500);
+                await page.EvaluateAsync("window.__xr.exit = false");
+                Assert.That(log.Count(l => l.Contains("[Xr] session ended")), Is.GreaterThanOrEqualTo(round), $"round {round}: the session ended");
+                await Task.Delay(3000);
+                await page.EvaluateAsync("document.getElementById('xr-mirror').style.display = 'none'");   // the mock's mirror covers the page; a headset's does not
+            }
+            Assert.That(errors.Where(e => !e.Contains("whitelisted")).ToList(), Is.Empty, "The page logged errors:\n" + string.Join("\n", errors));
+        }
+        finally
+        {
+            try { File.WriteAllLines(Path.Combine(_outDir, $"console-reenter-{tag}.log"), log); } catch { }
+            await page.CloseAsync();
+        }
+    }
+
+    private static bool HasOpaquePixels(string file)
+    {
+        using var b = new Bitmap(file);
+        for (int y = 0; y < b.Height; y += 8)
+            for (int x = 0; x < b.Width / 2; x += 8)
+            {
+                var p = b.GetPixel(x, y);
+                if (Math.Abs(p.R - 0xf0) + Math.Abs(p.G) + Math.Abs(p.B - 0xf0) > 90) return true;   // not the mirror's magenta backdrop
+            }
+        return false;
     }
 }

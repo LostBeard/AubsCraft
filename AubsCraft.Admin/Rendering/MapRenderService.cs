@@ -101,6 +101,8 @@ public sealed class MapRenderService : IDisposable
 
     public void InitOffscreen(OffscreenCanvas canvas, Accelerator accelerator)
     {
+        // A second world on this renderer (a headset session entered again) draws into ITS canvas: the first one's is gone
+        if (IsInitialized) { AttachCanvas(canvas); return; }
         var ctx = canvas.GetWebGPUContext()
             ?? throw new InvalidOperationException("Failed to get WebGPU canvas context");
         InitWithContext(ctx, canvas.Width, canvas.Height, accelerator);

@@ -5,8 +5,8 @@ namespace AubsCraft.Admin.Xr;
 /// <summary>
 /// Thumbstick locomotion for a VR session, applied to the room-to-world transform from <see cref="XrMath"/>
 /// (row-vector convention: pScene = pRoom * sceneFromRoom). The comfort defaults of most VR apps: the LEFT stick moves
-/// smoothly along the head's horizontal facing (strafing sideways), the RIGHT stick snap-turns in fixed steps about the
-/// head (no smooth yaw, the main source of VR sickness) and, pushed forward or back, rises or sinks - splat scenes have
+/// smoothly along the head's horizontal facing (strafing sideways), the RIGHT stick turns smoothly about the
+/// head (or snap-turns in fixed steps, for those smooth turning makes sick) and, pushed forward or back, rises or sinks - splat scenes have
 /// no floor to walk on, so up and down is the only way to reach a ceiling or look down on a scene.
 /// </summary>
 public sealed class XrLocomotion
@@ -20,6 +20,12 @@ public sealed class XrLocomotion
 
     /// <summary>Degrees per snap-turn.</summary>
     public float SnapTurnDegrees { get; set; } = 30f;
+
+    /// <summary>Turn smoothly while the right stick is held sideways (the default); false snaps in steps of <see cref="SnapTurnDegrees"/> (for those it makes sick).</summary>
+    public bool SmoothTurn { get; set; } = true;
+
+    /// <summary>Degrees a second at full deflection of a smooth turn.</summary>
+    public float SmoothTurnDegreesPerSecond { get; set; } = 110f;
 
     bool _snapArmed = true;
 
@@ -50,7 +56,16 @@ public sealed class XrLocomotion
         if (!turnAxis) move.Y += -r.Y * speed * dt;
         if (move != Vector3.Zero) m *= Matrix4x4.CreateTranslation(move);
 
-        if (MathF.Abs(right.X) < SnapRearm) _snapArmed = true;
+        if (SmoothTurn)
+        {
+            if (turnAxis && r.X != 0f)
+            {
+                var head = Vector3.Transform(headPosition, m);
+                float angle = -r.X * SmoothTurnDegreesPerSecond * MathF.PI / 180f * dt;
+                m *= Matrix4x4.CreateTranslation(-head) * Matrix4x4.CreateRotationY(angle) * Matrix4x4.CreateTranslation(head);
+            }
+        }
+        else if (MathF.Abs(right.X) < SnapRearm) _snapArmed = true;
         else if (_snapArmed && turnAxis && MathF.Abs(right.X) >= SnapFire)
         {
             _snapArmed = false;

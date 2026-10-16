@@ -972,6 +972,11 @@ public class RenderWorkerService : IRenderWorkerService
         _disposed = true;
         // Data worker handles WebSocket - no OnChunkReceived to unsubscribe
         _renderer.StopRenderLoop();
+        // The renderer outlives this world (a headset session is entered again): it must not draw it, or into its canvas, any more
+        if (ReferenceEquals(_renderer.Voxel, _voxel)) _renderer.Voxel = null;
+        _renderer.OnUpdate = null;
+        _renderer.OnOverlay = null;
+        _renderer.DetachCanvas();
         _liveFeed?.Dispose();
         _voxel?.Dispose();
         _entities?.Dispose();
