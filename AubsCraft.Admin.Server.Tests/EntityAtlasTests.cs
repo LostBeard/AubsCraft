@@ -199,7 +199,7 @@ public class EntityAtlasTests
     // Boxes whose layout the game leaves mostly empty on purpose (a chicken's legs are thin lines, a skeleton horse has no tail)
     private static readonly HashSet<string> SparseBoxes =
     [
-        "chicken/right_leg", "chicken/left_leg", "parrot/left_leg", "parrot/right_leg",
+        "chicken/right_leg", "chicken/left_leg", "chicken_warm/right_leg", "chicken_warm/left_leg", "chicken_cold/right_leg", "chicken_cold/left_leg", "parrot/left_leg", "parrot/right_leg",
         "bee/left_antenna", "bee/right_antenna", "bee/right_wing", "bee/left_wing", "bee/front_legs", "bee/middle_legs", "bee/back_legs",
         "zombified_piglin/left_ear",   // it has one ear
         "skeleton_horse/head_parts", "skeleton_horse/mane", "skeleton_horse/tail", "skeleton_horse/left_ear", "skeleton_horse/right_ear",   // bones: no mane, no tail, no ears

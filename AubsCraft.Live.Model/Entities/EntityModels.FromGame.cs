@@ -105,6 +105,22 @@ public static partial class EntityModels
             };
         }
 
+        // ---- the warm and cold kinds of the farm animals (1.21.5): the temperate ones are the hand-made models above ----
+        EntityModel Reskin(EntityModel m, string texture) => new()
+        {
+            Texture = texture, Rig = m.Rig, Width = m.Width, Height = m.Height, ArmsForward = m.ArmsForward, BabyScale = m.BabyScale, FootY = m.FootY, Scale = m.Scale, ModelOffset = m.ModelOffset, Parts = m.Parts,
+        };
+        d["cow_warm"] = Make("WarmCowModel.createBodyLayer", "cow/warm_cow", EntityRig.Quadruped, 0.9f, 1.4f);
+        d["cow_cold"] = Make("ColdCowModel.createBodyLayer", "cow/cold_cow", EntityRig.Quadruped, 0.9f, 1.4f);
+        d["pig_cold"] = Make("ColdPigModel.createBodyLayer(1)", "pig/cold_pig", EntityRig.Quadruped, 0.9f, 0.9f);
+        if (d.TryGetValue("pig", out var pigModel)) d["pig_warm"] = Reskin(pigModel, "pig/warm_pig");
+        if (d.TryGetValue("chicken", out var chickenModel))
+        {
+            d["chicken_warm"] = Reskin(chickenModel, "chicken/warm_chicken");
+            d["chicken_cold"] = Make("ColdChickenModel.createBodyLayer", "chicken/cold_chicken", EntityRig.Chicken, 0.4f, 0.7f,
+                role: n => n switch { "head" => PartRole.Head, "body" => PartRole.Body, "right_leg" => PartRole.RightLeg, "left_leg" => PartRole.LeftLeg, "right_wing" => PartRole.RightWing, "left_wing" => PartRole.LeftWing, _ => PartRole.Static });
+        }
+
         // ---- vehicles and stands ----
         // A boat is drawn lifted 0.375 (the model offset is in the flipped space of the renderer: 1.501 - 0.375) and turned a quarter; a raft the same with its own model. The paddles stay as the model has them.
         string[] woods = ["oak", "spruce", "birch", "jungle", "acacia", "dark_oak", "mangrove", "cherry", "pale_oak"];

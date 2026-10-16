@@ -20,6 +20,8 @@ public static partial class EntityModels
         var key = Normalise(type);
         // A tropical fish is one of two models by its pattern
         if (key == "tropical_fish") key = Array.IndexOf(Lists.TropicalPatternsB, EntityPoser.Component(variant, 0) ?? "") >= 0 ? "tropical_fish_b" : "tropical_fish_a";
+        // A cow, pig or chicken of the warm or cold kind (1.21.5) has its own coat, and the cold ones their own shape
+        else if (variant is "warm" or "cold" && key is "cow" or "pig" or "chicken") key = $"{key}_{variant}";
         if (!Models.TryGetValue(key, out var model)) return null;
         return model;
     }

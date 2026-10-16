@@ -293,4 +293,55 @@ public class ViewerItemsTests
             await page.CloseAsync();
         }
     }
+
+    [Test]
+    public async Task FarmAnimals_OfTheWarmAndColdKinds_WearTheirOwnCoats()
+    {
+        var entities = new List<LiveEntity>();
+        string[] kinds = ["temperate", "warm", "cold"];
+        string[] types = ["cow", "pig", "chicken"];
+        int id = 600;
+        for (int row = 0; row < types.Length; row++)
+            for (int col = 0; col < kinds.Length; col++)
+                entities.Add(new LiveEntity(id++, types[row], -3.0f + col * 3.0f, 118.0f - row * 1.6f, 0.5f, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, kinds[col]));
+        long tick = 900_000;
+        byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
+        {
+            FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
+            Worlds = [new LiveWorld { Name = "world", Entities = entities, Players = System.Array.Empty<LivePlayer>() }],
+        });
+        var page = await _rig.Context.NewPageAsync();
+        var errors = new List<string>();
+        var log = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        page.Console += (_, m) => { log.Enqueue(m.Text); if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.Worker += (_, w) => w.Console += (_, m) => { log.Enqueue(m.Text); if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.PageError += (_, e) => errors.Add(e);
+        using var stop = new CancellationTokenSource();
+        Task? poster = null;
+        try
+        {
+            await page.GotoAsync($"{_rig.BaseUrl}/map?hud=0&time=6000&dd=6&cam=0.0,118.6,9.0,0,-90", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            poster = Task.Run(async () =>
+            {
+                while (!stop.IsCancellationRequested)
+                {
+                    int status = await _rig.PostLiveFrameAsync(Frame());
+                    if (status != 204) throw new InvalidOperationException($"The panel answered {status} to a live frame");
+                    tick += 4;
+                    await Task.Delay(200);
+                }
+            });
+            for (int i = 0; i < 30 && !log.ToArray().Any(l => Regex.IsMatch(l, @"creatures 9 drawn")); i++) await Task.Delay(1000);
+            await Task.Delay(2500);
+            await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "farm-variants.png") });
+            Assert.That(log.ToArray().Any(l => Regex.IsMatch(l, @"creatures 9 drawn")), Is.True, "all nine are drawn");
+            Assert.That(errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", errors));
+        }
+        finally
+        {
+            stop.Cancel();
+            try { if (poster != null) await poster; } catch (OperationCanceledException) { }
+            await page.CloseAsync();
+        }
+    }
 }
