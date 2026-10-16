@@ -2,8 +2,8 @@ using System.Text.Json;
 
 namespace AubsCraft.Assets;
 
-/// <summary>One face of a model element: which texture (a "#variable" or an id), its rotation in degrees, whether it takes the block's tint.</summary>
-public sealed record ModelFace(string Texture, int Rotation, int TintIndex, string? CullFace);
+/// <summary>One face of a model element: which texture (a "#variable" or an id), its rotation in degrees, whether it takes the block's tint, and the window of the texture it shows (u0, v0, u1, v1 in sixteenths) when the model gives one.</summary>
+public sealed record ModelFace(string Texture, int Rotation, int TintIndex, string? CullFace, double[]? Uv = null);
 
 /// <summary>A box of a block model, in 1/16 block units, with the faces it has (keys "north", "south", "east", "west", "up", "down").</summary>
 public sealed record ModelElement(double[] From, double[] To, IReadOnlyDictionary<string, ModelFace> Faces)
@@ -106,7 +106,8 @@ public sealed class ModelResolver
                     v.GetProperty("texture").GetString() ?? "",
                     v.TryGetProperty("rotation", out var r) ? r.GetInt32() : 0,
                     v.TryGetProperty("tintindex", out var t) ? t.GetInt32() : -1,
-                    v.TryGetProperty("cullface", out var c) ? c.GetString() : null);
+                    v.TryGetProperty("cullface", out var c) ? c.GetString() : null,
+                    v.TryGetProperty("uv", out var uv) && uv.ValueKind == JsonValueKind.Array && uv.GetArrayLength() == 4 ? uv.EnumerateArray().Select(n => n.GetDouble()).ToArray() : null);
             }
         return new ModelElement(Vec("from"), Vec("to"), faces);
     }

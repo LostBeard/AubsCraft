@@ -163,9 +163,9 @@ public sealed class ViewerRig : IAsyncDisposable
                     "--ignore-gpu-blocklist",
                     "--disable-software-rasterizer",
                     "--no-sandbox",
-                    // Off-screen window, and nothing that throttles an unseen window: a vsync'd or backgrounded
-                    // Chrome pins every build near 30 FPS, which measures nothing.
-                    "--window-position=-2400,-2400",
+                    // On TJ's desktop (he likes to watch the gate run; 10-15), top left. Nothing that throttles a window: a vsync'd or
+                    // backgrounded Chrome pins every build near 30 FPS, which measures nothing.
+                    "--window-position=0,0",
                     "--disable-gpu-vsync",
                     "--disable-frame-rate-limit",
                     "--disable-renderer-backgrounding",

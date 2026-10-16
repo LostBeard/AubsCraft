@@ -13,7 +13,7 @@ public sealed record BuildResult(BlockAssets Assets, byte[] AtlasRgba, int Atlas
 /// grass fringe composited), a cross-shaped plant, water, or a "shape" (stairs, slabs, fences...: not a cube, drawn as one until shapes are
 /// meshed). Animated textures keep their frames as consecutive tiles and a per-tick timeline.
 /// </summary>
-public sealed class BlockAssetBuilder
+public sealed partial class BlockAssetBuilder
 {
     // Face order everywhere: +X, -X, +Z, -Z, +Y, -Y = east, west, south, north, up, down
     private static readonly string[] FaceDirs = { "east", "west", "south", "north", "up", "down" };
@@ -71,6 +71,7 @@ public sealed class BlockAssetBuilder
         names.Sort(StringComparer.Ordinal);
 
         var shapes = new List<string>();
+        var shaped = new HashSet<string>(StringComparer.Ordinal);
         var untextured = new List<string>();
         foreach (var name in names)
         {
@@ -78,11 +79,21 @@ public sealed class BlockAssetBuilder
             assets.Blocks["minecraft:" + name] = asset;
             if (asset.Kind == BlockKinds.Shape) shapes.Add(name);
             if (asset.Kind != BlockKinds.None && asset.Faces.All(f => f < 0)) untextured.Add(name);
+            // Stairs, slabs, fences, doors...: boxes, and the rules that choose them
+            if (DescribeShapes(name) is { } shape)
+            {
+                assets.Shapes["minecraft:" + name] = shape.Logic;
+                assets.StateProps["minecraft:" + name] = shape.Props;
+                asset.Shaped = true;
+                shaped.Add(name);
+            }
         }
+        assets.ShapeModels = _shapeModels;
 
         // The states that look different from the default (a log lying down, a furnace facing east, a rail curving, a crop grown)
         foreach (var name in names)
         {
+            if (shaped.Contains(name)) continue;
             if (DescribeStates(name) is not { } states) continue;
             assets.StateProps["minecraft:" + name] = states.Props;
             foreach (var (key, asset) in states.Assets) assets.Blocks[key] = asset;
@@ -100,7 +111,7 @@ public sealed class BlockAssetBuilder
             report.AppendLine($"  {g.Key,-6} {g.Count()}");
         report.AppendLine($"  tinted {assets.Blocks.Values.Count(b => b.Tint != BlockTints.None)}, cutout {assets.Blocks.Values.Count(b => b.Render == BlockRenders.Cutout)}, translucent {assets.Blocks.Values.Count(b => b.Render == BlockRenders.Translucent)}");
         report.AppendLine($"Without any texture ({untextured.Count}): {string.Join(", ", untextured)}");
-        report.AppendLine($"Not full cubes, drawn as cubes for now ({shapes.Count}): {string.Join(", ", shapes)}");
+        report.AppendLine($"Not full cubes ({shapes.Count}); {shaped.Count} of them are drawn as their boxes ({_shapeModels.Count} models, {_shapeModels.Sum(m => m.Elements.Count)} boxes), the rest as cubes: {string.Join(", ", shapes.Where(s => !shaped.Contains(s)))}");
         if (_notes.Count > 0) report.AppendLine("Notes:").AppendLine(string.Join(Environment.NewLine, _notes.Select(n => "  " + n)));
         return new BuildResult(assets, atlas, w, h, report.ToString());
     }
@@ -255,23 +266,7 @@ public sealed class BlockAssetBuilder
     /// For a model turned by a blockstate's <paramref name="xRotation"/> and <paramref name="yRotation"/> (degrees, multiples of 90): the face of the UNTURNED model that
     /// now looks in direction <paramref name="dest"/> (0..5: +X -X +Z -Z +Y -Y), and how many degrees clockwise (seen from outside) its texture is turned with it.
     /// </summary>
-    public static (int source, int uvRotation) SourceFace(int dest, int xRotation, int yRotation)
-    {
-        int xs = ((xRotation % 360) + 360) % 360 / 90, ys = ((yRotation % 360) + 360) % 360 / 90;
-        for (int s = 0; s < 6; s++)
-        {
-            var n = Turn(FaceNormals[s], xs, ys);
-            if (n != FaceNormals[dest]) continue;
-            var up = Turn(FaceUps[s], xs, ys);
-            var u0 = FaceUps[dest];
-            // The angle from the face's natural top to the turned top, counter-clockwise about its normal; the texture turn is clockwise, so the opposite
-            int cross = (u0.y * up.z - u0.z * up.y) * n.x + (u0.z * up.x - u0.x * up.z) * n.y + (u0.x * up.y - u0.y * up.x) * n.z;
-            int dot = u0.x * up.x + u0.y * up.y + u0.z * up.z;
-            int degrees = (int)Math.Round(-Math.Atan2(cross, dot) * 180.0 / Math.PI);
-            return (s, ((degrees % 360) + 360) % 360);
-        }
-        throw new InvalidOperationException("a quarter-turn model has a face looking every way");
-    }
+    public static (int source, int uvRotation) SourceFace(int dest, int xRotation, int yRotation) => ShapeResolver.SourceFace(dest, xRotation, yRotation);
 
     // A layer on the floor (a rail): its up face texture turned with the model on top, the same on the sides (a strip of it), as a thin shape of one sixteenth
     private BlockAsset DescribeFlat(string name, ResolvedModel model, int xRotation, int yRotation)

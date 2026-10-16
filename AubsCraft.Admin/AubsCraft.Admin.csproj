@@ -31,7 +31,7 @@
 		     compiling on 5.0.0-5.3.1) and the >8-argument launcher fix SpawnDev.VoxelEngine's ColumnMesher kernels need. -->
 		<PackageReference Include="SpawnDev.ILGPU" Version="5.3.7" />
 		<!-- The viewer's renderer: BlockRenderPipeline + ColumnMesher + HeightmapMesher (a release candidate: the library's other subsystems are still RC) -->
-		<PackageReference Include="SpawnDev.VoxelEngine" Version="0.2.0-rc.5-local.3" />
+		<PackageReference Include="SpawnDev.VoxelEngine" Version="0.2.0-rc.5-local.6" />
 		<!-- ADB over WebUSB for the /quest installer (the SpawnJS edition of BlazorJS.TangoADB) -->
 		<PackageReference Include="SpawnDev.SpawnJS.TangoADB" Version="1.0.0" />
 		<!-- GameUI without a DOM (Init + PushedInputProvider) for the worker HUD, plus the chat-feed options -->

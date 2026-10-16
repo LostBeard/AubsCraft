@@ -303,7 +303,7 @@ public class BlockStateTests
     }
 
     [Test]
-    public void StairsAndOtherShapesTheViewerCannotDrawYet_KeepOneAssetAName()
+    public void StairsAndOtherShapes_HaveShapeRules_AndTheirStatesAreNamedByWhatChoosesTheModel()
     {
         var jar = new FakeJar().WithStandardParents();
         jar.Solid("block/planks", 160, 120, 70);
@@ -316,10 +316,12 @@ public class BlockStateTests
             { "textures": { "t": "block/planks_b" }, "elements": [ { "from": [0,0,0], "to": [16,8,16], "faces": { "up": { "texture": "#t" }, "north": { "texture": "#t" } } },
                                                                    { "from": [0,8,0], "to": [8,16,16], "faces": { "up": { "texture": "#t" }, "north": { "texture": "#t" } } } ] }
             """);
-        // Even when the states DO look different (another texture), a shape the viewer draws as a cube has no use for them yet
+        // Stairs are boxes now: the blockstate's rules are kept (not one cube asset a state), and the property that chooses the model names the state
         jar.State("stairs", """{ "variants": { "half=bottom": { "model": "block/stairs" }, "half=top": { "model": "block/stairs_b" } } }""");
         var r = BuildJar(jar);
-        Assert.That(r.Assets.StateProps.ContainsKey("minecraft:stairs"), Is.False, "ids are for states the picture can show");
+        Assert.That(r.Assets.Shapes.ContainsKey("minecraft:stairs"), Is.True);
+        Assert.That(r.Assets.StateProps["minecraft:stairs"], Is.EqualTo(new[] { "half" }));
+        Assert.That(r.Assets.Blocks.Keys.Any(k => k.StartsWith("minecraft:stairs[")), Is.False, "the viewer works a state's boxes out from the rules, no asset a state");
     }
 
     [Test]

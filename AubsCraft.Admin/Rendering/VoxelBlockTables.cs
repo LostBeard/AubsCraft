@@ -83,7 +83,8 @@ public static class VoxelBlockTables
         }
 
         uint flags = BlockMaterial.TintFaces(block.TintFaces);
-        if (block.Kind == BlockKinds.Shape) flags |= BlockMaterial.Thickness(block.Thickness) | BlockMaterial.Slope(block.Slope);
+        // A thin block is a squashed cube; a shaped block is drawn as its boxes (and, far away, as a plain cube): no squash
+        if (block.Kind == BlockKinds.Shape && !block.Shaped) flags |= BlockMaterial.Thickness(block.Thickness) | BlockMaterial.Slope(block.Slope);
         float alpha = 1f;
         if (block.Kind == BlockKinds.Water)
         {
@@ -123,7 +124,7 @@ public static class VoxelBlockTables
         return (classes, all);
     }
 
-    /// <summary>The class and material tables for ids 0 .. names.Count-1.</summary>
+    /// <summary>The class and material tables for ids 0 .. names.Count-1 (blocks that are not cubes are drawn as cubes: no shape table).</summary>
     public static (int[] Classes, BlockMaterial[] Materials) Build(IReadOnlyList<string> names, BlockAssets assets)
     {
         var classes = new int[names.Count];
@@ -134,5 +135,79 @@ public static class VoxelBlockTables
             materials[i] = MaterialOf(names[i], assets);
         }
         return (classes, materials);
+    }
+
+    /// <summary>
+    /// <see cref="BuildWithSeabeds"/> and the shapes: a block name whose assets have shape rules (a stair, a slab, a fence, a door...) gets the boxes of ITS state (the properties in the
+    /// name, <c>minecraft:oak_stairs[facing=east,half=bottom,shape=straight]</c>) in the returned <see cref="ShapeTable"/>, a class that says so and a material that points at its slot. A
+    /// state with no boxes, or past the table's 1,024 shapes, stays what <see cref="Build"/> makes of it. Names with the same boxes share a slot, so the table holds the shapes a world
+    /// really uses. Slots are given in name order: a longer list of names (a registry only appends) keeps every slot it had.
+    /// </summary>
+    public static (int[] Classes, BlockMaterial[] Materials, ShapeTable Shapes) BuildWithSeabedsAndShapes(IReadOnlyList<string> names, BlockAssets assets)
+    {
+        var (classes, materials) = BuildWithSeabeds(names, assets);
+        var table = new ShapeTable();
+        var slotOf = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int i = 0; i < names.Count; i++)
+        {
+            var boxes = ShapeBoxesOf(names[i], assets);
+            if (boxes == null) continue;
+            string key = ShapeKey(boxes);
+            if (!slotOf.TryGetValue(key, out int slot))
+            {
+                if (table.Count >= ShapeTable.MaxSlots) continue;   // out of slots: this one stays a cube
+                slot = slotOf[key] = table.Add(boxes);
+            }
+            classes[i] = BlockClass.ShapeSlot(slot);
+            materials[i].Flags |= BlockMaterial.Shape(slot);
+        }
+        return (classes, materials, table);
+    }
+
+    /// <summary>The boxes of a block state's shape, or null when the block is not shaped or the state has none.</summary>
+    public static List<ShapeBox>? ShapeBoxesOf(string name, BlockAssets assets)
+    {
+        string baseName = BaseName(name);
+        if (!assets.Shapes.ContainsKey(baseName)) return null;
+        var resolved = ShapeResolver.Resolve(assets, baseName, StateProps(name));
+        if (resolved == null || resolved.Count == 0 || resolved.Count > ShapeTable.MaxBoxes) return null;
+        var boxes = new List<ShapeBox>(resolved.Count);
+        foreach (var box in resolved)
+        {
+            var faces = new ShapeFace[6];
+            for (int f = 0; f < 6; f++)
+            {
+                var face = box.Faces[f];
+                faces[f] = face.Tile < 0 ? ShapeFace.None : new ShapeFace(face.Tile, face.U0, face.V0, face.U1, face.V1, face.Turns, face.Tint);
+            }
+            boxes.Add(new ShapeBox(box.X0, box.Y0, box.Z0, box.X1, box.Y1, box.Z1, faces));
+        }
+        return boxes;
+    }
+
+    /// <summary>The properties of a registry name: <c>minecraft:oak_stairs[facing=east,half=top]</c> is facing = east, half = top.</summary>
+    public static Dictionary<string, string> StateProps(string name)
+    {
+        var props = new Dictionary<string, string>(StringComparer.Ordinal);
+        int open = name.IndexOf('[');
+        if (open < 0 || !name.EndsWith(']')) return props;
+        foreach (var part in name[(open + 1)..^1].Split(','))
+        {
+            int eq = part.IndexOf('=');
+            if (eq > 0) props[part[..eq]] = part[(eq + 1)..];
+        }
+        return props;
+    }
+
+    private static string ShapeKey(List<ShapeBox> boxes)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var b in boxes)
+        {
+            sb.Append(b.X0).Append(',').Append(b.Y0).Append(',').Append(b.Z0).Append(',').Append(b.X1).Append(',').Append(b.Y1).Append(',').Append(b.Z1);
+            foreach (var f in b.Faces) sb.Append('|').Append(f.Tile).Append(',').Append(f.U0).Append(',').Append(f.V0).Append(',').Append(f.U1).Append(',').Append(f.V1).Append(',').Append(f.Rotation).Append(f.Tinted ? 't' : 'f');
+            sb.Append(';');
+        }
+        return sb.ToString();
     }
 }

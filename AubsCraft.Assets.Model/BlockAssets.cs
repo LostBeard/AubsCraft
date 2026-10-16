@@ -26,6 +26,10 @@ public sealed class BlockAssets
     public Dictionary<string, string[]> StateProps { get; set; } = new();
     /// <summary>Tiles that play through other tiles (water, lava, fire, portals...).</summary>
     public List<TileAnimation> Animations { get; set; } = new();
+    /// <summary>The models of the blocks that are not cubes (stairs, slabs, fences, doors...) as boxes; <see cref="Shapes"/> refer to them by index.</summary>
+    public List<ShapeModelAsset> ShapeModels { get; set; } = new();
+    /// <summary>The blockstate rules of the blocks that are not cubes, by block name ("minecraft:oak_stairs"): which models (turned how) a state of the block uses. See <see cref="ShapeResolver"/>.</summary>
+    public Dictionary<string, ShapeLogic> Shapes { get; set; } = new();
 
     public int AtlasWidth => TilesPerRow * TileSize;
     public int AtlasHeight => TileCount == 0 ? 0 : ((TileCount + TilesPerRow - 1) / TilesPerRow) * TileSize;
@@ -55,6 +59,8 @@ public sealed class BlockAsset
     /// 0 for a level block; for a thin block that is a ramp (a sloping rail) the direction it rises: 1 east (+X), 2 west (-X), 3 south (+Z), 4 north (-Z). The viewer shears the layer so its far end is a block higher.
     /// </summary>
     public int Slope { get; set; }
+    /// <summary>The block has shape rules in <see cref="BlockAssets.Shapes"/> (its other fields are a cube stand-in for the far view and for a state with no boxes).</summary>
+    public bool Shaped { get; set; }
 }
 
 /// <summary>A tile that shows <c>Timeline[tick % Timeline.Length]</c>, 20 ticks a second, where it is used.</summary>
@@ -79,7 +85,7 @@ public static class BlockRenders
     public const string Opaque = "opaque", Cutout = "cutout", Translucent = "translucent";
 }
 
-[JsonSourceGenerationOptions(WriteIndented = false, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+[JsonSourceGenerationOptions(WriteIndented = false, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(BlockAssets))]
 public partial class BlockAssetsJson : JsonSerializerContext
 {

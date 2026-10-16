@@ -136,10 +136,12 @@ public sealed class VoxelWorldRenderer : IDisposable
     public void SetBlockNames(IReadOnlyList<string> names)
     {
         _names = names;
-        var (classes, materials) = VoxelBlockTables.BuildWithSeabeds(names, _assets);
+        var (classes, materials, shapes) = VoxelBlockTables.BuildWithSeabedsAndShapes(names, _assets);
         _mesher!.SetBlockClasses(classes);
+        _mesher.SetShapes(shapes);          // stairs, slabs, fences, doors...: the boxes of each such block's state
         _farMesher!.SetBlockClasses(classes);
         _pipe.SetMaterials(materials);
+        _pipe.SetShapes(shapes);
         _blockClasses = classes;
         NamesKnown = names.Count;
     }

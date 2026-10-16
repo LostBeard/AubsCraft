@@ -147,6 +147,99 @@ public class SceneBuilderTests
         await Set(px + 4, y + 2, pz + 4, "minecraft:kelp[age=10]");
         Item("pool", px + 3, y, pz + 3);
 
+        // ---- shapes: stairs, slabs, fences, walls, doors, ... (the blocks that are boxes of their cell) ----
+        int sz = 46;
+        await Cmd($"fill -4 {FloorY - 1} 44 70 {FloorY - 1} 70 minecraft:stone_bricks");   // more floor, south of the rest
+        await Cmd($"fill -4 {FloorY} 44 70 {FloorY + 8} 70 minecraft:air");
+        // stairs: every facing, bottom and top, straight; then the four corner shapes (a neighbour makes a stair turn into a corner, so place the neighbours too)
+        string[] stairFacings = ["east", "south", "west", "north"];
+        for (int i = 0; i < 4; i++)
+        {
+            await Set(6 + i * 2, y, sz, $"minecraft:oak_stairs[facing={stairFacings[i]},half=bottom]");
+            await Set(6 + i * 2, y, sz + 2, $"minecraft:oak_stairs[facing={stairFacings[i]},half=top]");
+        }
+        // an inner and an outer corner: a stair facing north with a stair to its east that faces east makes it a corner; the game decides the shape from the neighbours
+        await Set(6, y, sz + 5, "minecraft:stone_brick_stairs[facing=north,half=bottom]");
+        await Set(7, y, sz + 5, "minecraft:stone_brick_stairs[facing=east,half=bottom]");
+        await Set(10, y, sz + 5, "minecraft:stone_brick_stairs[facing=north,half=bottom]");
+        await Set(10, y, sz + 4, "minecraft:stone_brick_stairs[facing=east,half=bottom]");
+        await Set(13, y, sz + 5, "minecraft:stone_brick_stairs[facing=north,half=bottom]");
+        await Set(13, y, sz + 6, "minecraft:stone_brick_stairs[facing=east,half=bottom]");
+        Item("stairs", 9, y, sz + 2);
+        // slabs
+        await Set(20, y, sz, "minecraft:oak_slab[type=bottom]");
+        await Set(22, y, sz, "minecraft:oak_slab[type=top]");
+        await Set(24, y, sz, "minecraft:oak_slab[type=double]");
+        await Set(26, y, sz, "minecraft:smooth_stone_slab[type=bottom]");
+        await Set(20, y, sz + 2, "minecraft:stone_brick_slab[type=bottom]");
+        await Set(22, y, sz + 2, "minecraft:stone_brick_slab[type=top]");
+        Item("slabs", 23, y, sz + 1);
+        // fences, with a branch and a gate (open and closed)
+        for (int x = 30; x <= 34; x++) await Set(x, y, sz, "minecraft:oak_fence");
+        await Set(32, y, sz + 1, "minecraft:oak_fence");
+        await Set(32, y, sz + 2, "minecraft:oak_fence");
+        await Set(35, y, sz, "minecraft:oak_fence_gate[facing=east,open=false]");
+        await Set(36, y, sz, "minecraft:oak_fence");
+        await Set(30, y, sz + 4, "minecraft:oak_fence_gate[facing=north,open=true]");
+        await Set(29, y, sz + 4, "minecraft:oak_fence");
+        await Set(31, y, sz + 4, "minecraft:oak_fence");
+        Item("fences", 32, y, sz + 1);
+        // walls: low and tall sides, a post
+        for (int x = 40; x <= 44; x++) await Set(x, y, sz, "minecraft:cobblestone_wall");
+        await Set(42, y, sz + 1, "minecraft:cobblestone_wall");
+        await Set(42, y + 1, sz + 1, "minecraft:cobblestone_wall");
+        await Set(46, y, sz, "minecraft:stone_brick_wall");
+        await Set(46, y + 1, sz, "minecraft:stone_brick_wall");
+        Item("walls", 43, y, sz + 1);
+        // panes and bars
+        for (int x = 50; x <= 54; x++) await Set(x, y, sz, "minecraft:glass_pane");
+        await Set(52, y, sz + 1, "minecraft:glass_pane");
+        for (int x = 56; x <= 59; x++) await Set(x, y, sz, "minecraft:iron_bars");
+        await Set(57, y, sz + 1, "minecraft:iron_bars");
+        Item("panes", 54, y, sz + 1);
+        // doors: closed, open, iron; trapdoors: closed bottom, closed top, open
+        int doorZ = sz + 10;
+        await Set(6, y, doorZ, "minecraft:oak_door[facing=north,half=lower,hinge=left,open=false]");
+        await Set(6, y + 1, doorZ, "minecraft:oak_door[facing=north,half=upper,hinge=left,open=false]");
+        await Set(9, y, doorZ, "minecraft:oak_door[facing=north,half=lower,hinge=left,open=true]");
+        await Set(9, y + 1, doorZ, "minecraft:oak_door[facing=north,half=upper,hinge=left,open=true]");
+        await Set(12, y, doorZ, "minecraft:iron_door[facing=east,half=lower,hinge=right,open=false]");
+        await Set(12, y + 1, doorZ, "minecraft:iron_door[facing=east,half=upper,hinge=right,open=false]");
+        Item("doors", 9, y, doorZ);
+        await Set(20, y, doorZ, "minecraft:oak_trapdoor[facing=north,half=bottom,open=false]");
+        await Set(22, y, doorZ, "minecraft:oak_trapdoor[facing=north,half=top,open=false]");
+        await Set(24, y, doorZ, "minecraft:oak_trapdoor[facing=north,half=bottom,open=true]");
+        await Set(26, y, doorZ, "minecraft:spruce_trapdoor[facing=east,half=bottom,open=true]");
+        Item("trapdoors", 23, y, doorZ);
+        // a ladder up a stone column, torches (standing, on a wall), a hanging lantern, candles
+        await Set(32, y, doorZ, "minecraft:stone_bricks");
+        await Set(32, y + 1, doorZ, "minecraft:stone_bricks");
+        await Set(32, y + 2, doorZ, "minecraft:stone_bricks");
+        await Set(32, y, doorZ - 1, "minecraft:ladder[facing=north]");
+        await Set(32, y + 1, doorZ - 1, "minecraft:ladder[facing=north]");
+        await Set(33, y + 1, doorZ, "minecraft:wall_torch[facing=east]");
+        await Set(34, y, doorZ + 2, "minecraft:torch");
+        await Set(36, y, doorZ + 2, "minecraft:soul_torch");
+        await Set(38, y + 2, doorZ + 2, "minecraft:chain[axis=y]");
+        await Set(38, y + 1, doorZ + 2, "minecraft:lantern[hanging=true]");
+        await Set(40, y, doorZ + 2, "minecraft:lantern[hanging=false]");
+        await Set(42, y, doorZ + 2, "minecraft:candle[candles=3,lit=true]");
+        await Set(44, y, doorZ + 2, "minecraft:white_candle[candles=1,lit=false]");
+        Item("ladder-torches", 34, y, doorZ + 1);
+        // buttons, a lever, farmland, a cauldron, an anvil, a flower pot, a cactus
+        await Set(50, y, doorZ, "minecraft:stone_bricks");
+        await Set(50, y + 1, doorZ, "minecraft:stone_bricks");
+        await Set(51, y + 1, doorZ, "minecraft:stone_button[face=wall,facing=east,powered=false]");
+        await Set(49, y + 1, doorZ, "minecraft:lever[face=wall,facing=west,powered=true]");
+        await Set(50, y + 2, doorZ, "minecraft:oak_button[face=ceiling,facing=north,powered=false]");
+        await Cmd($"fill 54 {y} {doorZ} 57 {y} {doorZ} minecraft:farmland");
+        await Set(60, y, doorZ, "minecraft:cauldron");
+        await Set(62, y, doorZ, "minecraft:anvil[facing=east]");
+        await Set(64, y, doorZ, "minecraft:flower_pot");
+        await Set(66, y, doorZ, "minecraft:potted_poppy");
+        await Set(68, y, doorZ, "minecraft:cactus");
+        Item("small", 58, y, doorZ);
+
         await rcon.SendCommandAsync("save-all flush");
         await Task.Delay(3000);
         File.WriteAllLines(Path.Combine(Path.GetDirectoryName(outDir.TrimEnd('/'))!, "scene-items.txt"), items);
