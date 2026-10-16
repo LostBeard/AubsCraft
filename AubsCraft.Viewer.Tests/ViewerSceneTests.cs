@@ -36,6 +36,46 @@ public class ViewerSceneTests
 
     private static string F(float v) => v.ToString(CultureInfo.InvariantCulture);
 
+    /// <summary>AUBS_BOX="x0,y0,z0,x1,y1,z1": a built thing (somebody else's build, a plan's target) shot from its south-west and north-east corners, from above and from the south; AUBS_VIEWER_TAG names the folder.</summary>
+    [Test]
+    public async Task ABox_IsShot_FromItsCorners()
+    {
+        var box = Environment.GetEnvironmentVariable("AUBS_BOX");
+        if (string.IsNullOrEmpty(box)) Assert.Ignore("AUBS_BOX not set");
+        var v = box!.Split(',').Select(float.Parse).ToArray();
+        float cx = (v[0] + v[3] + 1) / 2f, cy = (v[1] + v[4] + 1) / 2f, cz = (v[2] + v[5] + 1) / 2f;
+        float size = Math.Max(Math.Max(v[3] - v[0], v[5] - v[2]), v[4] - v[1]) + 1;
+        float d = size * 0.8f + 2f;
+        // The camera stands (dx, dz) from the centre and looks at it: yaw 0 = +X, 90 = +Z; pitch up positive
+        string Cam(float dx, float dy, float dz)
+        {
+            float yaw = MathF.Atan2(-dz, -dx) * 180f / MathF.PI, pitch = MathF.Atan2(-dy, MathF.Sqrt(dx * dx + dz * dz)) * 180f / MathF.PI;
+            return $"{F(cx + dx)},{F(cy + dy)},{F(cz + dz)},{F(pitch)},{F(yaw)}";
+        }
+        var cams = new[]
+        {
+            ("southwest", Cam(-d, size * 0.6f, d)),
+            ("northeast", Cam(d, size * 0.6f, -d)),
+            ("south", Cam(0, size * 0.4f, d * 1.2f)),
+            ("top", Cam(0.01f, size * 2.2f, 0.01f)),
+        };
+        var page = await _rig.Context.NewPageAsync();
+        var errors = new List<string>();
+        page.Console += (_, m) => { if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        try
+        {
+            await page.SetViewportSizeAsync(1600, 900);
+            foreach (var (suffix, cam) in cams)
+            {
+                await page.GotoAsync($"{_rig.BaseUrl}/map?hud=0&time=6000&dd=6&cam={cam}", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+                await ViewerShotTests.WaitForSettledAsync(page, minSections: 8, quietSeconds: 3, maxSeconds: 60);
+                await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, $"box-{suffix}.png") });
+            }
+            Assert.That(errors, Is.Empty, "The page logged errors");
+        }
+        finally { await page.CloseAsync(); }
+    }
+
     [Test]
     public async Task TheSceneItems_AreShot()
     {
