@@ -29,6 +29,7 @@ public class RenderWorkerService : IRenderWorkerService
     private ParticleLayer? _particles;
     private BlockEntityLayer? _blockEntities;
     private SkyLayer? _sky;
+    private ItemLayer? _items;
     private LiveFeedClient? _liveFeed;
     /// <summary>Spreads the meshing of arriving columns over the frames, by how the frames are doing.</summary>
     private readonly IngestGovernor _ingest = new();
@@ -93,6 +94,10 @@ public class RenderWorkerService : IRenderWorkerService
         // Chests, beds, signs, banners, shulker boxes: models, drawn with the creatures
         _blockEntities = new BlockEntityLayer();
         _entities.BlockEntities = _blockEntities;
+        // Items lying about
+        _items = new ItemLayer(_js);
+        _items.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _voxel.FrameBuffer, pageOrigin);
+        _entities.Items = _items;
         // The sky: gradient, sun, moon, stars, clouds
         _sky = new SkyLayer(_js);
         _sky.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, pageOrigin);
@@ -127,6 +132,7 @@ public class RenderWorkerService : IRenderWorkerService
         _ = LoadEntityAssetsAsync();
         _ = LoadParticleAssetsAsync();
         _ = LoadSkyAssetsAsync();
+        _ = LoadItemAssetsAsync();
 
         // Create JS data worker and connect via MessageChannel
         // Render worker creates and controls the data worker (clean hierarchy)
@@ -513,6 +519,12 @@ public class RenderWorkerService : IRenderWorkerService
         catch (Exception ex) { Console.WriteLine($"[RenderWorker] Biome assets load error: {ex.Message}"); }
     }
 
+    private async Task LoadItemAssetsAsync()
+    {
+        try { await _items!.LoadAssetsAsync(_renderer.Device!, _renderer.Queue!); }
+        catch (Exception ex) { Console.WriteLine($"[Items] Item assets load error: {ex.Message}"); }
+    }
+
     private async Task LoadSkyAssetsAsync()
     {
         try { await _sky!.LoadAssetsAsync(_renderer.Device!, _renderer.Queue!); }
@@ -819,6 +831,7 @@ public class RenderWorkerService : IRenderWorkerService
         _entities?.Dispose();
         _particles?.Dispose();
         _sky?.Dispose();
+        _items?.Dispose();
         _canvas?.Dispose();
         return ValueTask.CompletedTask;
     }

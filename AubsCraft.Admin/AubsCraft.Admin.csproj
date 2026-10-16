@@ -61,7 +61,7 @@
 	<ItemGroup>
 		<McAssetInputs Include="$(MSBuildProjectDirectory)\..\AubsCraft.Assets\**\*.cs;$(MSBuildProjectDirectory)\..\AubsCraft.Assets.Model\**\*.cs;$(MSBuildProjectDirectory)\..\AubsCraft.AssetTool\**\*.cs;$(MSBuildProjectDirectory)\..\AubsCraft.Live.Model\Entities\**\*.cs;$(MSBuildProjectDirectory)\..\AubsCraft.Live.Model\BlockEntities\**\*.cs;$(MSBuildProjectFullPath)" Exclude="**\obj\**;**\bin\**" />
 	</ItemGroup>
-	<Target Name="GenerateMinecraftAssets" BeforeTargets="Restore;BeforeBuild;ResolveStaticWebAssetsInputs" Inputs="@(McAssetInputs)" Outputs="$(McAssetsDir)\mc-blocks.json;$(McAssetsDir)\mc-entities.json;$(McAssetsDir)\mc-entity-atlas.rgba;$(McAssetsDir)\mc-state-props.json;$(McAssetsDir)\mc-particles.json;$(McAssetsDir)\mc-particle-atlas.rgba;$(McAssetsDir)\mc-biomes.json;$(McAssetsDir)\mc-sky.json">
+	<Target Name="GenerateMinecraftAssets" BeforeTargets="Restore;BeforeBuild;ResolveStaticWebAssetsInputs" Inputs="@(McAssetInputs)" Outputs="$(McAssetsDir)\mc-blocks.json;$(McAssetsDir)\mc-entities.json;$(McAssetsDir)\mc-entity-atlas.rgba;$(McAssetsDir)\mc-state-props.json;$(McAssetsDir)\mc-particles.json;$(McAssetsDir)\mc-particle-atlas.rgba;$(McAssetsDir)\mc-biomes.json;$(McAssetsDir)\mc-sky.json;$(McAssetsDir)\mc-items.json">
 		<Message Importance="high" Text="Generating the block assets for Minecraft $(McAssetVersion) into $(McAssetsDir)" />
 		<Exec Command="dotnet run --project &quot;$(MSBuildProjectDirectory)\..\AubsCraft.AssetTool\AubsCraft.AssetTool.csproj&quot; -c Release -- --version $(McAssetVersion) --out &quot;$(McAssetsDir)&quot;" />
 	</Target>

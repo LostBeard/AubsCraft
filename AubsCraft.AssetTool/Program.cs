@@ -53,13 +53,18 @@ try
     var sky = new SkyAtlasBuilder(client, version).Build();
     Write("mc-sky.json", JsonSerializer.SerializeToUtf8Bytes(sky.Assets, SkyAssetsJson.Default.SkyAssets));
     Write("mc-sky.rgba", sky.Rgba);
+    // The pictures of dropped items
+    var items = new ItemAtlasBuilder(client, version).Build();
+    Write("mc-items.json", JsonSerializer.SerializeToUtf8Bytes(items.Assets, ItemAssetsJson.Default.ItemAssets));
+    Write("mc-item-atlas.rgba", items.Rgba);
     // What the biomes do to grass, leaves and water (the colour maps and the biome table)
     var biomes = new BiomeColorBuilder(client, version).Build();
     Write("mc-biomes.json", JsonSerializer.SerializeToUtf8Bytes(biomes, BiomeAssetsJson.Default.BiomeAssets));
-    Write("mc-assets-report.txt", System.Text.Encoding.UTF8.GetBytes(result.Report + "\n" + entities.Report + "\n" + particles.Report + "\n" + sky.Report + $"\nBiome colours: {biomes.Names.Length} biomes\n"));
+    Write("mc-assets-report.txt", System.Text.Encoding.UTF8.GetBytes(result.Report + "\n" + entities.Report + "\n" + particles.Report + "\n" + sky.Report + "\n" + items.Report + $"\nBiome colours: {biomes.Names.Length} biomes\n"));
     Console.WriteLine("[assets] " + result.Report.Split('\n')[1].Trim());
     Console.WriteLine("[assets] " + entities.Report.Split('\n')[1].Trim());
     Console.WriteLine("[assets] " + particles.Report.Split('\n')[1].Trim());
+    Console.WriteLine("[assets] " + items.Report.Split('\n')[1].Trim());
     return 0;
 }
 catch (Exception ex)

@@ -9,6 +9,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Fox;
 import org.bukkit.entity.Frog;
 import org.bukkit.entity.Horse;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Llama;
 import org.bukkit.entity.MushroomCow;
 import org.bukkit.entity.Panda;
@@ -52,6 +53,7 @@ public final class LivePlugin extends JavaPlugin {
     private String secret;
     private int maxEntities;
     private boolean includeItems;
+    private int maxItems;
     private BukkitTask task;
     private final AtomicBoolean inFlight = new AtomicBoolean();
     private long sent, dropped, failed;
@@ -65,7 +67,8 @@ public final class LivePlugin extends JavaPlugin {
         String serverId = getConfig().getString("server-id", "aubscraft");
         int interval = Math.max(1, getConfig().getInt("interval-ticks", 4));
         maxEntities = Math.max(1, getConfig().getInt("max-entities", 3000));
-        includeItems = getConfig().getBoolean("include-items", false);
+        includeItems = getConfig().getBoolean("include-items", true);
+        maxItems = Math.max(0, getConfig().getInt("max-items", 500));
 
         if (secret == null || secret.isBlank()) {
             getLogger().warning("No secret in config.yml: AubsCraft Live is idle. Install it from the AubsCraft panel, which writes it.");
@@ -122,12 +125,17 @@ public final class LivePlugin extends JavaPlugin {
 
         List<Frames.WorldSample> samples = new ArrayList<>();
         int budget = maxEntities;
+        int itemBudget = maxItems;
         for (World world : worlds) {
             List<Frames.EntitySample> entities = new ArrayList<>();
             List<Frames.PlayerSample> players = new ArrayList<>();
             for (Entity e : world.getEntities()) {
                 if (budget <= 0) break;
-                if (!includeItems && e.getType() == EntityType.ITEM) continue;
+                // Dropped items (there can be a great many, a farm's worth): only up to max-items of them, so they never crowd the creatures out
+                if (e.getType() == EntityType.ITEM) {
+                    if (!includeItems || itemBudget <= 0) continue;
+                    itemBudget--;
+                }
                 if (!e.isValid()) continue;
                 budget--;
                 entities.add(sample(e));
@@ -193,6 +201,11 @@ public final class LivePlugin extends JavaPlugin {
     }
 
     private static String variantOf(Entity e) {
+        // A dropped item: what it is (the viewer draws its picture)
+        if (e instanceof Item item) {
+            var key = item.getItemStack().getType().getKey();
+            return typeKey(key.getNamespace(), key.getKey());
+        }
         if (e instanceof Sheep s) return s.getColor() == null ? "white" : s.getColor().name().toLowerCase();
         if (e instanceof Cat c) return c.getCatType().getKey().getKey();
         if (e instanceof Rabbit r) return r.getRabbitType().name().toLowerCase();

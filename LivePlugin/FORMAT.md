@@ -25,7 +25,7 @@ str8  = u8 length + that many UTF-8 bytes (at most 255, cut at a whole character
 str16 = u16 length + that many UTF-8 bytes
 ```
 
-A frame holds every entity in the loaded chunks of every world (dropped items only when `include-items` is on), up to `max-entities`
+A frame holds every entity in the loaded chunks of every world (dropped items only when `include-items` is on, at most `max-items`, and each names its item in the variant), up to `max-entities`
 (default 3000). At 5 frames a second that is about 150 KB/s on loopback for a busy world.
 
 The reader refuses anything that is not exactly this: wrong magic or version, a count that cannot fit the bytes left, a type index past the

@@ -8,5 +8,6 @@ secret: ""
 interval-ticks: 4
 # The most entities in one frame, across all worlds.
 max-entities: 3000
-# Dropped items (there can be a great many).
-include-items: false
+# Dropped items (there can be a great many): sent, up to max-items of them.
+include-items: true
+max-items: 500

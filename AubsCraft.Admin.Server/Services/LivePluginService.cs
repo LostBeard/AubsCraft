@@ -59,6 +59,8 @@ public sealed class LivePluginService
                 .AppendLine($"secret={_live.Secret}")
                 .AppendLine($"interval-ticks={intervalTicks}")
                 .AppendLine("max-entities=3000")
+                .AppendLine("include-items=true")
+                .AppendLine("max-items=500")
                 .ToString();
         return new StringBuilder()
             .AppendLine("# Written by the AubsCraft panel: do not edit the secret by hand (the panel rewrites this file when it installs the plugin).")
@@ -67,7 +69,8 @@ public sealed class LivePluginService
             .AppendLine($"secret: \"{_live.Secret}\"")
             .AppendLine($"interval-ticks: {intervalTicks}")
             .AppendLine("max-entities: 3000")
-            .AppendLine("include-items: false")
+            .AppendLine("include-items: true")
+            .AppendLine("max-items: 500")
             .ToString();
     }
 

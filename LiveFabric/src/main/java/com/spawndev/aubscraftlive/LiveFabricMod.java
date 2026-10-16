@@ -28,6 +28,7 @@ import net.minecraft.world.entity.animal.horse.Horse;
 import net.minecraft.world.entity.animal.horse.Llama;
 import net.minecraft.world.entity.animal.sheep.Sheep;
 import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.phys.Vec3;
 
 import java.io.IOException;
@@ -60,6 +61,8 @@ public final class LiveFabricMod implements DedicatedServerModInitializer {
     private URI endpoint;
     private String secret;
     private int maxEntities;
+    private boolean includeItems;
+    private int maxItems;
     private int interval;
     private int counter;
     private final AtomicBoolean inFlight = new AtomicBoolean();
@@ -81,6 +84,8 @@ public final class LiveFabricMod implements DedicatedServerModInitializer {
         String serverId = config.getProperty("server-id", "aubscraft").trim();
         interval = Math.max(1, parseInt(config.getProperty("interval-ticks"), 4));
         maxEntities = Math.max(1, parseInt(config.getProperty("max-entities"), 3000));
+        includeItems = !"false".equalsIgnoreCase(config.getProperty("include-items", "true").trim());
+        maxItems = Math.max(0, parseInt(config.getProperty("max-items"), 500));
 
         if (secret.isEmpty()) {
             LOG.warn("No secret in {}: AubsCraft Live is idle. Install it from the AubsCraft panel, which writes it.", file);
@@ -135,6 +140,7 @@ public final class LiveFabricMod implements DedicatedServerModInitializer {
         int weather = 0;
         boolean first = true;
         int budget = maxEntities;
+        int itemBudget = maxItems;
         for (ServerLevel level : server.getAllLevels()) {
             if (first) {
                 first = false;
@@ -150,7 +156,11 @@ public final class LiveFabricMod implements DedicatedServerModInitializer {
                 // A creature that has died is gone as far as the viewer is concerned (it is removed a second later, or lingers if it has no AI)
                 if (e.isRemoved() || (e instanceof LivingEntity dying && dying.isDeadOrDying())) continue;
                 String type = key(BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()));
-                if (type.equals("item")) continue;
+                // Dropped items: only up to max-items of them, so they never crowd the creatures out
+                if (type.equals("item")) {
+                    if (!includeItems || itemBudget <= 0) continue;
+                    itemBudget--;
+                }
                 budget--;
                 entities.add(sample(e, type));
                 if (e instanceof ServerPlayer p) players.add(sample(p));
@@ -196,6 +206,8 @@ public final class LiveFabricMod implements DedicatedServerModInitializer {
     }
 
     private static String variantOf(Entity e) {
+        // A dropped item: what it is (the viewer draws its picture)
+        if (e instanceof ItemEntity item) return key(BuiltInRegistries.ITEM.getKey(item.getItem().getItem()));
         if (e instanceof Sheep s) return s.getColor().getName();
         // The same variants as the Paper plugin sends (the viewer reads them as lowercase names)
         if (e instanceof Cat c) return c.getVariant().unwrapKey().map(k -> k.location().getPath()).orElse(null);

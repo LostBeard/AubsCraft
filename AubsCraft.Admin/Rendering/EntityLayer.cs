@@ -31,6 +31,8 @@ public sealed class EntityLayer : IDisposable
     private const int ParallelSkinLoads = 3;
     /// <summary>Past this many blocks a creature is drawn as its head and body only.</summary>
     public const float CoarseRange = 40f;
+    /// <summary>Past this many blocks a dropped item is a speck and is not drawn.</summary>
+    public const float ItemRange = 48f;
 
     private readonly SpawnJSRuntime _js;
     private readonly LiveWorldState _state = new();
@@ -155,6 +157,9 @@ public sealed class EntityLayer : IDisposable
     /// <summary>The chests, beds, signs and banners of the world (the layer the worker feeds from each column's response): drawn here, with the creatures.</summary>
     public BlockEntityLayer? BlockEntities { get; set; }
 
+    /// <summary>The items lying about: the item entities of the feed go to it instead of being posed as creatures.</summary>
+    public ItemLayer? Items { get; set; }
+
     /// <summary>The dots of the minimap (players, hostile, neutral, passive creatures, villagers) around the camera as they are shown right now; see <see cref="MinimapMarkers"/>.</summary>
     public IReadOnlyList<MinimapMarker> MinimapMarkersAround(float cameraX, float cameraZ, float yawDegrees, float extent)
     {
@@ -176,9 +181,11 @@ public sealed class EntityLayer : IDisposable
         _width = width;
         _height = height;
         var world = _state.PrimaryWorld;
+        Items?.Begin();
         if (_atlas == null || _assets == null)
         {
             if (_pipe.PartCount != 0) _pipe.SetParts(ReadOnlySpan<EntityPartInstance>.Empty);
+            Items?.End();
             return;
         }
 
@@ -192,7 +199,7 @@ public sealed class EntityLayer : IDisposable
         _draws.Clear();
         // The world's chests, beds, signs and banners need no live feed: they are in the world
         BlockEntities?.Collect(camera, in frustum, _draws);
-        if (world == null) { UploadDraws(); return; }
+        if (world == null) { UploadDraws(); Items?.End(); return; }
         // The cheap tests (distance, view) run on each creature's newest known place BEFORE it is interpolated: a creature that is not wanted costs nothing.
         // A creature walks at most a few blocks between frames and is shown 0.3 s in the past, so the margin covers where it may be drawn.
         const float margin = 4f;
@@ -205,7 +212,15 @@ public sealed class EntityLayer : IDisposable
         }
         foreach (var v in _state.Sample(world, now, Wanted))
         {
-            if ((v.Flags & LiveFlags.Invisible) != 0 || EntityModels.IsNotACreature(v.Type)) continue;
+            if ((v.Flags & LiveFlags.Invisible) != 0) continue;
+            if (Items != null && EntityModels.Normalise(v.Type) == "item")
+            {
+                float ix = v.X - camera.X, iy = v.Y - camera.Y, iz = v.Z - camera.Z;
+                float id2 = ix * ix + iy * iy + iz * iz;
+                if (id2 <= ItemRange * ItemRange) Items.Add(in v, now, id2);
+                continue;
+            }
+            if (EntityModels.IsNotACreature(v.Type)) continue;
             float dx = v.X - camera.X, dy = v.Y - camera.Y, dz = v.Z - camera.Z;
             float d2 = dx * dx + dy * dy + dz * dz;
             if (d2 > maxSq) continue;
@@ -222,12 +237,13 @@ public sealed class EntityLayer : IDisposable
         foreach (var (d2, v) in _inRange) PoseOne(world, v, ageTicks, now, d2);
         EntityCount = _inRange.Count;
         int n = UploadDraws();
+        Items?.End();
 
         // A line every few seconds while there is anything to draw (the gate reads it; so does anyone wondering why a creature is missing)
-        if (now - _lastLog >= 3.0 && Known > 0 && EntityCount > 0)
+        if (now - _lastLog >= 3.0 && Known > 0 && (EntityCount > 0 || (Items?.Count ?? 0) > 0))
         {
             _lastLog = now;
-            Console.WriteLine($"[Live] creatures {EntityCount} drawn of {Known} ({n} parts, {_state.PlayerCount} players, {_frames} frames, {Tags.Count} name tags)");
+            Console.WriteLine($"[Live] creatures {EntityCount} drawn of {Known} ({n} parts, {_state.PlayerCount} players, {_frames} frames, {Tags.Count} name tags, {Items?.Count ?? 0} items)");
         }
     }
 
@@ -320,6 +336,7 @@ public sealed class EntityLayer : IDisposable
     public void Draw(GPURenderPassEncoder pass)
     {
         if (_atlas != null) _pipe.Draw(pass);
+        Items?.Draw(pass);
     }
 
     // ---- textures and skins ----
