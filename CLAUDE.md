@@ -67,7 +67,7 @@ dotnet run --project AubsCraft.Admin.Server
 deploy-aubscraft.bat
 ```
 
-**Deploy after EVERY code change.** Don't batch changes - deploy, verify, iterate.
+**Deploy when it is worth it, not per change.** Iterate on the fast non-AOT build (`dotnet publish AubsCraft.Admin.Server -c Release -p:RunAOTCompilation=false -o <dir>`, ~2-3 min) and the focused tests and gates; the AOT deploy is ~12-15 minutes and blocks every other build while it runs. Deploy a batch of verified work, or when TJ asks.
 
 **The client is AOT compiled** (`RunAOTCompilation` + `WasmStripILAfterAOT=false` so ILGPU still has IL to compile
 kernels from, + `WasmDedup=false` for a ~7 minute publish instead of an hour). `deploy-aubscraft.bat` deletes the
