@@ -23,6 +23,8 @@ public interface IRenderWorkerService : IAsyncDisposable
     Task SetLightingAsync(bool enabled);
     /// <summary>Holds the draw distance at this many chunks instead of adapting it (<c>/map?dd=14</c>): for the gate and for screenshots.</summary>
     Task SetDrawDistanceAsync(int chunks);
+    /// <summary>Turns building on or off (an admin's edit mode: break, place, undo). Returns whether it is on afterwards - not when the server cannot take edits or the user may not edit.</summary>
+    Task<bool> SetEditModeAsync(bool on);
     /// <summary>Chat, the player list and notices from the page's SignalR connection, for the worker's HUD.</summary>
     Task PushHudFeedAsync(HudFeed feed);
     /// <summary>The lines the player typed into the HUD's chat since the last call (the page sends them to the server).</summary>

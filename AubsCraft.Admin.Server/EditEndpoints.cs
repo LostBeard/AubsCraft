@@ -1,5 +1,6 @@
 using AubsCraft.Admin.Server.Models;
 using AubsCraft.Admin.Server.Services;
+using AubsCraft.Live.Model.Editing;
 
 namespace AubsCraft.Admin.Server;
 
@@ -41,6 +42,14 @@ public static class EditEndpoints
         // Whether this server can be edited from here (its plugin is there to take the commands)
         edit.MapGet("/status", (string? server, ServerManager servers, EditChannelService channel) =>
             servers.Get(server) is not { } instance ? Results.NotFound() : Results.Ok(new { available = channel.PluginConnected(instance.Id) }));
+
+        // The block a ray hits (the viewer's camera, a controller): where it is, which face the ray came through, and what it is. {"hit": false} when nothing is in reach.
+        edit.MapGet("/pick", (string? server, double ox, double oy, double oz, double dx, double dy, double dz, double? max, ServerManager servers) =>
+        {
+            if (servers.Get(server) is not { } instance) return Results.NotFound();
+            var hit = WorldPicker.Cast((cx, cz) => instance.World.GetChunk(cx, cz), ox, oy, oz, dx, dy, dz, max ?? 32);
+            return hit == null ? Results.Ok(new { hit = false }) : Results.Ok(new { hit = true, x = hit.X, y = hit.Y, z = hit.Z, nx = hit.NormalX, ny = hit.NormalY, nz = hit.NormalZ, block = hit.Block, distance = hit.Distance, hx = hit.HitX, hy = hit.HitY, hz = hit.HitZ });
+        });
 
         edit.MapPost("", async (EditRequest request, string? server, HttpContext ctx, ServerManager servers, EditChannelService channel, ActivityLogService log) =>
         {

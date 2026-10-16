@@ -282,6 +282,7 @@ final class Edits {
         }
         if (!finished) return;
         queue.poll();
+        chunks.settleAll();   // the viewers should see it now, not after the chunks have been quiet a while
         if (job.swap == null) remember(job.journal);
         else job.swap.applied = !job.swap.applied;
         reply.accept("{\"id\":" + json(job.commandId) + ",\"ok\":true,\"edit\":" + json(job.journal.id) + ",\"placed\":" + job.placed + ",\"skipped\":" + job.skipped + ",\"applied\":" + job.journal.applied + "}");

@@ -6,6 +6,7 @@
 @inject SpawnJSRuntime JS
 @inject NavigationManager Nav
 @inject AubsCraft.Admin.Xr.XrViewerHost Xr
+@inject AuthStateProvider Auth
 @implements IDisposable
 @using AubsCraft.Admin.Services
 @using SpawnDev.SpawnJS
@@ -37,6 +38,10 @@
                 <button class="btn btn-sm btn-outline-success" disabled="@_xrBusy" @onclick="@(() => EnterXrAsync("immersive-ar"))">Enter AR</button>
             }
             <button class="btn btn-sm @(_lighting ? "btn-outline-warning" : "btn-outline-secondary")" title="Light the world by the sky and block light (torches, caves) near you; off is the plainer, faster picture" @onclick="ToggleLightingAsync">Lighting: @(_lighting ? "On" : "Off")</button>
+            @if (Auth.Role is "Owner" or "Admin")
+            {
+                <button class="btn btn-sm @(_editing ? "btn-warning" : "btn-outline-warning")" title="Build in the world as an admin: left click breaks, right click places, middle click copies a block, Ctrl+Z undoes, B turns it on and off" @onclick="ToggleEditAsync">Edit: @(_editing ? "On" : "Off")</button>
+            }
             <button class="btn btn-sm btn-outline-secondary" @onclick="SwitchToBlueMap">BlueMap</button>
             <button class="btn btn-sm btn-outline-danger" @onclick="ClearCacheAsync">Clear Cache</button>
         }
@@ -148,6 +153,16 @@ else
             return storage.GetItem(LightingKey) != "0";
         }
         catch { return true; }
+    }
+
+    // Building (an admin's edit mode lives in the worker; B toggles it there too, so the state comes back with the stats)
+    private bool _editing;
+
+    private async Task ToggleEditAsync()
+    {
+        if (_renderService == null) return;
+        _editing = await _renderService.SetEditModeAsync(!_editing);
+        StateHasChanged();
     }
 
     private async Task ToggleLightingAsync()
@@ -446,6 +461,7 @@ else
             {
                 cameraSaveCounter = 0;
                 _lastStats = await _renderService.GetStatsAsync();
+                _editing = _lastStats.Editing;
                 StateHasChanged();
 
                 if (_lastStats != null)

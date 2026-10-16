@@ -111,16 +111,19 @@ public sealed class InputService : IAsyncDisposable
     private void OnCanvasMouseDown(MouseEvent e)
     {
         if (!PointerLocked) _uiEvents.Add(new UiInputEvent(UiInputEvent.MouseDown, (int)e.Button));
+        else _uiEvents.Add(new UiInputEvent(UiInputEvent.WorldMouseDown, (int)e.Button));
     }
 
     private void OnCanvasMouseUp(MouseEvent e)
     {
         if (!PointerLocked) _uiEvents.Add(new UiInputEvent(UiInputEvent.MouseUp, (int)e.Button));
+        else _uiEvents.Add(new UiInputEvent(UiInputEvent.WorldMouseUp, (int)e.Button));
     }
 
     private void OnCanvasWheel(WheelEvent e)
     {
         if (!PointerLocked) _uiEvents.Add(new UiInputEvent(UiInputEvent.Wheel, 0, (float)e.DeltaY));
+        else _uiEvents.Add(new UiInputEvent(UiInputEvent.WorldWheel, 0, (float)e.DeltaY));
     }
 
     private void OnCanvasKeyDown(KeyboardEvent e)
@@ -128,10 +131,13 @@ public sealed class InputService : IAsyncDisposable
         // Keys the viewer uses must not ALSO do the browser's job: F3 is "find next" (it opens the find bar and takes focus, so the
         // next key and click never reach the canvas), Space scrolls the page.
         if (e.Code is "F3" or "Space") e.PreventDefault();
+        // Ctrl+Z / Ctrl+Y are the viewer's undo and redo: not the browser's
+        if (e.CtrlKey && e.Code is "KeyZ" or "KeyY") e.PreventDefault();
 
         // The character the key types: a single character with no Ctrl/Alt/Meta held
         bool types = e.Key.Length == 1 && !e.CtrlKey && !e.AltKey && !e.MetaKey;
-        _uiEvents.Add(new UiInputEvent(UiInputEvent.KeyDown, Code: e.Code, Text: types ? e.Key : null));
+        int modifiers = (e.CtrlKey ? UiInputEvent.Ctrl : 0) | (e.ShiftKey ? UiInputEvent.Shift : 0) | (e.AltKey ? UiInputEvent.Alt : 0);
+        _uiEvents.Add(new UiInputEvent(UiInputEvent.KeyDown, modifiers, Code: e.Code, Text: types ? e.Key : null));
     }
 
     private void OnCanvasKeyUp(KeyboardEvent e) => _uiEvents.Add(new UiInputEvent(UiInputEvent.KeyUp, Code: e.Code));

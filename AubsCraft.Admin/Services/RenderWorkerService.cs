@@ -123,6 +123,9 @@ public class RenderWorkerService : IRenderWorkerService
         _baseUrl = _js.DedicateWorkerThis?.Location.Origin
             ?? _js.WindowThis?.Origin ?? "";
 
+        // Building: an admin edits the world from here (edit mode, off until asked for)
+        _edit = new AubsCraft.Admin.Editing.EditController(_js, _baseUrl, _serverQuery, _hud, _entities);
+
         // Hook the render loop to load columns near the camera
         _renderer.OnUpdate = OnRenderFrame;
         if (!ManualFrames) _renderer.StartRenderLoop();
@@ -194,9 +197,17 @@ public class RenderWorkerService : IRenderWorkerService
     {
         if (!_initialized) return Task.CompletedTask;
         foreach (var e in events)
+        {
+            // Building: the number keys, the buttons and the wheel mean something else while edit mode is on (not while a chat line is being typed)
+            if (_edit != null && !_hud.IsTyping && _edit.Handle(e, _renderer.Camera)) continue;
             _hud.Apply(e);
+        }
         return Task.CompletedTask;
     }
+
+    private AubsCraft.Admin.Editing.EditController? _edit;
+
+    public async Task<bool> SetEditModeAsync(bool on) => _edit != null && await _edit.SetActiveAsync(on);
 
     public Task PushHudFeedAsync(HudFeed feed)
     {
@@ -380,7 +391,8 @@ public class RenderWorkerService : IRenderWorkerService
             _renderer.Camera.Position.Y,
             _renderer.Camera.Position.Z,
             _renderer.Camera.Pitch,
-            _renderer.Camera.Yaw
+            _renderer.Camera.Yaw,
+            _edit?.Active ?? false
         ));
     }
 
@@ -660,6 +672,7 @@ public class RenderWorkerService : IRenderWorkerService
         UpdateFollow(dt);
 
         EaseWeather(dt);
+        _edit?.Update(dt, _renderer.Camera);
         UpdateHud(dt);   // the HUD's state first: it is drawn later in this same frame, after the world pass (MapRenderService.OnOverlay)
 
         StreamWorld(dt, ingest: false);
@@ -961,4 +974,4 @@ public record RenderStats(
     float Fps, int VisibleChunks, int TotalChunks,
     int VisibleVerts, int TotalVerts, int DrawDistance, int LoadedCount,
     float ChunksPerSecond,
-    float CamX, float CamY, float CamZ, float CamPitch, float CamYaw);
+    float CamX, float CamY, float CamZ, float CamPitch, float CamYaw, bool Editing = false);

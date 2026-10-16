@@ -160,6 +160,9 @@ public sealed class EntityLayer : IDisposable
     /// <summary>The chests, beds, signs and banners of the world (the layer the worker feeds from each column's response): drawn here, with the creatures.</summary>
     public BlockEntityLayer? BlockEntities { get; set; }
 
+    /// <summary>Boxes the viewer itself wants drawn this frame, with the creatures (the outline round the block an editor points at): set by their owner, appended to what is drawn.</summary>
+    public List<PartDraw> Extras { get; } = new();
+
     /// <summary>The items lying about: the item entities of the feed go to it instead of being posed as creatures.</summary>
     public ItemLayer? Items { get; set; }
 
@@ -202,6 +205,7 @@ public sealed class EntityLayer : IDisposable
         _draws.Clear();
         // The world's chests, beds, signs and banners need no live feed: they are in the world
         BlockEntities?.Collect(camera, in frustum, _draws);
+        if (Extras.Count > 0) _draws.AddRange(Extras);
         if (world == null) { UploadDraws(); Items?.End(); return; }
         // The cheap tests (distance, view) run on each creature's newest known place BEFORE it is interpolated: a creature that is not wanted costs nothing.
         // A creature walks at most a few blocks between frames and is shown 0.3 s in the past, so the margin covers where it may be drawn.

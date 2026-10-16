@@ -46,7 +46,7 @@ import java.util.logging.Level;
  */
 final class ChunkWatcher implements Listener {
     /** Chunks looked at per run, and the time they may take on the main thread together (nanoseconds). */
-    private static final int MAX_PER_RUN = 2;
+    private static final int MAX_PER_RUN = 3;
     private static final long BUDGET_NANOS = 12_000_000L;
     /** A chunk is sent once it has been quiet this many ticks, or has been changing this many (so a long build still shows up). */
     private static final int QUIET_TICKS = 8, MAX_WAIT_TICKS = 40;
@@ -101,6 +101,11 @@ final class ChunkWatcher implements Listener {
         }
         d.last = tick;
         d.borderMask |= mask;
+    }
+
+    /** The changes so far are all there is to wait for (an edit has finished): the chunks waiting are sent at the next run, not after they have been quiet. */
+    void settleAll() {
+        for (Dirty d : dirty.values()) d.first = tick - MAX_WAIT_TICKS;
     }
 
     private static long pack(int cx, int cz) { return ((long) cx << 32) | (cz & 0xFFFFFFFFL); }

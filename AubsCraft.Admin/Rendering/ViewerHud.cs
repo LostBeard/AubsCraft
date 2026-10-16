@@ -45,6 +45,8 @@ public sealed class ViewerHud
     private UIContextMenu _menu = null!;
     private PointerDot _pointerDot = null!;
     private UILabel _followLabel = null!;
+    private UIHotbar _editBar = null!;
+    private UILabel _editLabel = null!;
     private UIMinimapFrame _minimap = null!;
     // Where the mouse is (canvas pixels): a menu opens under the click
     private float _mouseX, _mouseY;
@@ -62,6 +64,9 @@ public sealed class ViewerHud
 
     public bool IsInitialized => _ui.IsInitialized;
 
+    /// <summary>A chat line is being typed: the keys are the chat's.</summary>
+    public bool IsTyping => _chat != null && _chat.IsInputFocused;
+
     private const string DesktopHint = "Click the view to fly   WASD move   Space / Shift up / down   Esc release   Enter chat   M map zoom   F3 debug   Click a player in the list for actions";
     private const string HeadsetHint = "Left stick fly   Right stick turn / up / down   Grips go fast   Trigger on a player or the map   X hide this panel   Y leaves";
 
@@ -72,7 +77,7 @@ public sealed class ViewerHud
         set
         {
             _headset = value;
-            if (_hint != null) _hint.Text = value ? HeadsetHint : DesktopHint;
+            if (_hint != null) _hint.Text = value ? HeadsetHint : _editMode ? EditHint : DesktopHint;
         }
     }
     private bool _headset;
@@ -93,6 +98,47 @@ public sealed class ViewerHud
     private sealed class PointerDot : UIPanel
     {
         public override UIElement? HitTest(System.Numerics.Vector2 screenPos) => null;
+    }
+
+    // ---- edit mode ----
+
+    private const string EditHint = "EDIT   left click break   right click place   middle click copy the block   1-9 or wheel choose   Ctrl+Z undo   Ctrl+Y redo   B leave";
+    private bool _editMode;
+
+    /// <summary>The slot of the edit bar that was chosen (a number key, the wheel, a click on it).</summary>
+    public Action<int>? OnEditSlot { get; set; }
+
+    /// <summary>Show the edit bar (nine blocks in hand) and the edit hint, or take them away.</summary>
+    public void SetEditMode(bool on, IReadOnlyList<string>? slotLabels = null, int selected = 0)
+    {
+        _editMode = on;
+        if (_editBar == null) return;
+        _editBar.Visible = on;
+        _editLabel.Visible = on;
+        _hint.Text = on ? EditHint : _headset ? HeadsetHint : DesktopHint;
+        if (on && slotLabels != null)
+        {
+            for (int i = 0; i < slotLabels.Count && i < _editBar.SlotCount; i++) SetEditSlot(i, slotLabels[i]);
+            SelectEditSlot(selected);
+        }
+    }
+
+    /// <summary>What a slot of the edit bar shows (a block's short name).</summary>
+    public void SetEditSlot(int slot, string label)
+    {
+        if (_editBar == null) return;
+        _editBar.SetSlot(slot, label.Length > 10 ? label[..10] : label);
+    }
+
+    public void SelectEditSlot(int slot)
+    {
+        if (_editBar != null) _editBar.SelectedSlot = slot;
+    }
+
+    /// <summary>The line over the edit bar: the block pointed at, what is in hand, how much can be undone.</summary>
+    public void SetEditStatus(string text)
+    {
+        if (_editLabel != null && _editLabel.Text != text) _editLabel.Text = text;
     }
 
     /// <summary>The minimap zoom, 1..3 (64, 128, 256 blocks to an edge): the next one, round to the first.</summary>
@@ -160,6 +206,12 @@ public sealed class ViewerHud
 
         _followLabel = new UILabel { FontSize = FontSize.Caption, Color = theme.TextPrimary, OutlineWidth = 0.14f, Visible = false };
         _root.AddAnchored(_followLabel, Anchor.BottomCenter, 0, -34);
+
+        // Edit mode: the nine blocks in hand, and what the buttons do
+        _editBar = new UIHotbar { SlotCount = 9, SlotSize = 66, Visible = false, OnSlotChanged = i => OnEditSlot?.Invoke(i) };
+        _root.AddAnchored(_editBar, Anchor.BottomCenter, 0, -46);
+        _editLabel = new UILabel { FontSize = FontSize.Caption, Color = theme.TextPrimary, OutlineWidth = 0.14f, Visible = false };
+        _root.AddAnchored(_editLabel, Anchor.BottomCenter, 0, -132);
 
         // Last, so it is on top of everything and gets a click first
         _menu = new UIContextMenu { Visible = false, MenuWidth = MenuWidth };
@@ -424,7 +476,7 @@ public sealed class ViewerHud
         _minimap.Coordinates = string.Create(CultureInfo.InvariantCulture, $"{d.CamX:F0}, {d.CamZ:F0}");
         _minimap.ZoomLevel = _minimapZoom;
         _crosshair.Visible = _pointerLocked;
-        _hint.Visible = _headset || !_pointerLocked;
+        _hint.Visible = _headset || _editMode || !_pointerLocked;
 
         _textTimer += dt;
         if (_textTimer >= TextRefreshSeconds)
