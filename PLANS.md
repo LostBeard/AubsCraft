@@ -107,7 +107,7 @@ one constant colour (no biomes); nothing animates; no entities at all. Today's a
   open, connections, waterlogged). Registry becomes rendered-state ids (12-bit = 4096 states: fits a normal world; measured per world), chunk-ids wire unchanged.
 - [ ] WT4. **Non-cube shapes**: VoxelEngine `ModelMesher` (element boxes with per-face UV/cullface/rotation into the same quad stream), stairs/slabs first, then
   fences, walls, panes, doors, trapdoors, torches, ladders, rails, beds, chests, lanterns, candles, flower pots. Greedy merge stays for cubes.
-- [ ] WT5. **Biome tint**: server sends a biome id per column cell (chunk section biome palettes); grass/foliage/water colormaps from the jar; the shader tints per cell
+- [x] WT5. (DONE 10-16, gated; deploy pending) **Biome tint**: the server reads the biome of each 4 x 4 block cell of a column (top section with blocks, layer 1) and sends it in an `X-Biomes` header and 16 bytes after the far-tier heightmap (`HeightmapWire`); the AssetTool computes every biome's grass/foliage/water colour from the colour maps + the biome table (`BiomeData`, 65 vanilla biomes, `mc-biomes.json`); VoxelEngine `BiomeTintMap` (three wrapping 256x256 maps, a texel per 4x4 blocks, linear filtered so borders blend) is read per PIXEL by blocks tagged TintGrass/TintFoliage/TintWater. Unknown (modded) biomes are plains. LEFT: the swamp grass noise (always 6A7039), frozen-ocean temperature modifier, tint where a column's top section is not the surface (a floating island over a different biome).
   (a per-column tint map in a storage buffer, indexed by the column slot). Water colour per biome (swamp, warm ocean...).
 - [ ] WT6. Resource packs (stretch): the same pipeline on a pack's assets; 32x/64x textures need per-layer size (texture array of one size: resample or mip packs).
 
@@ -126,13 +126,13 @@ one constant colour (no biomes); nothing animates; no entities at all. Today's a
   skeleton, creeper, cow, pig, sheep, chicken, villager, horse, wolf, cat, fox, rabbit, bat, spider, enderman, slime, fish, then a textured-box fallback with a name label.
 - [ ] WL3. (DONE: interpolation, walk cycle, head look, wing flap; LEFT: sneak/sleep/swim poses, hurt flash) **Motion**: interpolate 5-10 Hz snapshots to the display rate (render ~150 ms behind), walk cycle from speed, head look, sneak/sleep/swim poses, hurt flash.
 - [ ] WL4. (DONE: skins via the panel proxy; LEFT: name tags, chat bubbles, minimap markers, follow camera) Player skins (server-side fetch + cache of the profile texture URL), name tags, chat bubbles, minimap markers (players, animals; toggles), follow-camera on a player.
-- [ ] WL5. Item entities, projectiles, falling blocks, minecarts/boats, particles.
+- [ ] WL5. Item entities, projectiles, falling blocks, minecarts/boats. (PARTICLES DONE 10-16: `ParticleRenderPipeline` in VoxelEngine, analytic from the clock; campfire/soul campfire/furnace/fire/soul fire/torch/redstone torch/candle show smoke + flames, the server names the emitting blocks in `X-Emitters`. LEFT: rain/snow (needs weather), lava pops, explosions/hits/splashes from the live feed, end rods, bubbles, wall torch position by facing, signal smoke over hay.)
 
 ### Reported by TJ 10-15 (live viewer), not yet handled
 - [ ] Rails draw wrong: they should be a thin layer on top of the block they lie on (shape meshing, WT4).
 - [ ] A top water block that also holds a plant (seagrass, kelp, waterlogged) does not draw its water (the class is the plant's, the water is lost).
 - [ ] Fish (cod, salmon, tropical, pufferfish, squid) are coloured boxes: need their models + a swim rig.
-- [ ] Smoke / particles (campfire, furnace, fire) do not render (WL5).
+- [x] Smoke / particles (campfire, furnace, fire, torches) render (WL5, 10-16).
 - [ ] Intel 620: creatures cost 14.4 ms a frame with 531 drawn (4,794 parts): frustum culling + head-and-body-only beyond 40 blocks added; re-measure.
 
 ### TJ 10-15 (later): the viewer must be a complete spectator client
