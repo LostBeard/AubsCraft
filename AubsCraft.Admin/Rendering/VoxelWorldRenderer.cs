@@ -725,7 +725,7 @@ public sealed class VoxelWorldRenderer : IDisposable
         long visibleQuads = 0;
 
         // Cleared to the fog colour: what lies past the fog (not drawn) must look exactly like fogged terrain, at any hour
-        using var pass = _pipe.BeginRenderPass(encoder, colorView, _depthView!, fogColour);
+        using var pass = _pipe.BeginRenderPass(encoder, colorView, _depthView!, fogColour, view.ClearAlpha);
 
         foreach (var kind in CubePasses)
         {

@@ -32,6 +32,12 @@ public class RenderWorkerService : IRenderWorkerService
     private bool _initialized;
     private bool _disposed;
     public int LoadedCount { get; private set; }
+
+    /// <summary>
+    /// True for a world that is not drawn by a loop of its own: a headset's. Its owner calls <see cref="XrFrame"/> and <see cref="XrRenderEye"/> each frame of the session instead. Set before
+    /// <see cref="StartAsync"/>.
+    /// </summary>
+    public bool ManualFrames { get; set; }
     private System.Diagnostics.Stopwatch _loadTimer = new();
     private float _chunksPerSecond;
 
@@ -98,7 +104,7 @@ public class RenderWorkerService : IRenderWorkerService
 
         // Hook the render loop to load columns near the camera
         _renderer.OnUpdate = OnRenderFrame;
-        _renderer.StartRenderLoop();
+        if (!ManualFrames) _renderer.StartRenderLoop();
         _loadTimer.Start();
 
         // Load the block assets (textures, animations, what each block looks like) in the worker - fetched directly, the pixels stay in JS.
@@ -238,6 +244,22 @@ public class RenderWorkerService : IRenderWorkerService
         camera.Position = new Vector3(c.X, c.Y, c.Z);
         camera.Yaw = c.Yaw;
         camera.Pitch = c.Pitch;
+    }
+
+    public Task SetPausedAsync(bool paused)
+    {
+        if (!_initialized) return Task.CompletedTask;
+        if (paused) _renderer.StopRenderLoop(); else if (!ManualFrames) _renderer.StartRenderLoop();
+        return Task.CompletedTask;
+    }
+
+    public Task SetCameraAsync(float x, float y, float z, float pitch, float yaw)
+    {
+        if (!_initialized) return Task.CompletedTask;
+        _renderer.Camera.Position = new System.Numerics.Vector3(x, y, z);
+        _renderer.Camera.Pitch = pitch;
+        _renderer.Camera.Yaw = yaw;
+        return Task.CompletedTask;
     }
 
     public Task SetPointerLockedAsync(bool locked)
@@ -490,6 +512,33 @@ public class RenderWorkerService : IRenderWorkerService
              + $"{_voxel.ArenaBlocks} quad buffers; creatures {_entities?.EntityCount ?? 0} drawn of {_entities?.Known ?? 0} ({_entities?.PartCount ?? 0} parts, {_liveFeed?.Frames ?? 0} frames); loading {_ingest.TurnsPerFrame:F1} meshes/frame, {_ingest.Waiting} waiting, {_voxel.StaleCount} to re-mesh";
     }
 
+    // ---- a headset: this service run on the page's own thread, with no loop and no HUD (WebXR cannot be used from a worker) ----
+
+    /// <summary>The canvas the eyes are drawn into one after another (copied on to the headset's layer between): null when the service has none.</summary>
+    public OffscreenCanvas? Canvas => _canvas;
+
+    /// <summary>The camera, as the headset's head: where the world streams around and what the live creatures are culled for.</summary>
+    public FpsCamera Camera => _renderer.Camera;
+
+    /// <summary>How many columns are in.</summary>
+    public bool WorldReady => _initialized && LoadedCount > 0;
+
+    /// <summary>One frame of a headset: stream the world around where the head is (set <see cref="Camera"/>'s position first).</summary>
+    public void XrFrame(float dt)
+    {
+        if (!_initialized) return;
+        _renderer.TrackFrame(dt);
+        StreamWorld(dt);
+    }
+
+    /// <summary>Draw one eye into <see cref="Canvas"/> (resized to the eye's size first).</summary>
+    public VoxelFrameStats? XrRenderEye(in ViewSetup view, int width, int height)
+    {
+        if (!_initialized || _canvas == null) return null;
+        if (_canvas.Width != width || _canvas.Height != height) { _canvas.Width = width; _canvas.Height = height; _renderer.HandleResize(width, height); }
+        return _renderer.RenderView(in view, width, height);
+    }
+
     private void OnRenderFrame(float dt)
     {
         _ingest.OnFrame(dt * 1000.0);
@@ -515,6 +564,13 @@ public class RenderWorkerService : IRenderWorkerService
             _renderer.DrawDistance, LoadedCount, _chunksPerSecond, _renderer.TimeOfDay, _gpu.BackendName ?? "?",
             _voxel == null ? "" : VoxelNote()));
 
+        StreamWorld(dt, ingest: false);
+    }
+
+    // The world around the camera: far chunks, the column stream, the data worker's idea of where we are
+    private void StreamWorld(float dt, bool ingest = true)
+    {
+        if (ingest) _ingest.OnFrame(dt * 1000.0);
         // Trigger full 3D loading when camera moves to a new chunk
         var (camCX, camCZ) = CameraChunk();
         _voxel?.UpdateFarWindow(camCX, camCZ, _renderer.DrawDistance);

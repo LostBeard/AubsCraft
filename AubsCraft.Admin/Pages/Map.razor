@@ -5,6 +5,7 @@
 @inject RenderWorkerHost WorkerHost
 @inject SpawnJSRuntime JS
 @inject NavigationManager Nav
+@inject AubsCraft.Admin.Xr.XrViewerHost Xr
 @implements IDisposable
 @using AubsCraft.Admin.Services
 @using SpawnDev.SpawnJS
@@ -27,6 +28,14 @@
                 }
                 @if (!_isPointerLocked) { <span> | Click to fly</span> }
             </small>
+            @if (_vrSupported)
+            {
+                <button class="btn btn-sm btn-outline-success" disabled="@_xrBusy" @onclick="@(() => EnterXrAsync("immersive-vr"))">Enter VR</button>
+            }
+            @if (_arSupported)
+            {
+                <button class="btn btn-sm btn-outline-success" disabled="@_xrBusy" @onclick="@(() => EnterXrAsync("immersive-ar"))">Enter AR</button>
+            }
             <button class="btn btn-sm btn-outline-secondary" @onclick="SwitchToBlueMap">BlueMap</button>
             <button class="btn btn-sm btn-outline-danger" @onclick="ClearCacheAsync">Clear Cache</button>
         }
@@ -132,10 +141,53 @@ else
     // Set by a time= link: the hour is fixed, the server's clock is not followed
     private int? _timeLinked;
 
+    // A headset: the world is drawn on this thread while a session runs (XrViewerHost); the worker's own loop rests
+    private bool _vrSupported, _arSupported, _xrBusy;
+    private int _lastTicks = -1;
+
+    private async Task CheckXrAsync()
+    {
+        try
+        {
+            _vrSupported = await Xr.VrSupportedAsync();
+            _arSupported = await Xr.ArSupportedAsync();
+            if (_vrSupported || _arSupported) { System.Console.WriteLine($"[Map] WebXR: VR {_vrSupported}, AR {_arSupported}"); StateHasChanged(); }
+        }
+        catch (Exception ex) { System.Console.WriteLine($"[Map] WebXR check failed: {ex.Message}"); }
+    }
+
+    private async Task EnterXrAsync(string mode)
+    {
+        if (_renderService == null || _xrBusy || Hub.SelectedServerId is not { } serverId) return;
+        _xrBusy = true;
+        try
+        {
+            var s = await _renderService.GetStatsAsync();
+            await _renderService.SetPausedAsync(true);
+            Xr.Ended -= OnXrEnded;
+            Xr.Ended += OnXrEnded;
+            await Xr.EnterAsync(mode, serverId, new System.Numerics.Vector3(s.CamX, s.CamY, s.CamZ), s.CamYaw, s.CamPitch, _lastTicks);
+        }
+        catch (Exception ex)
+        {
+            System.Console.WriteLine($"[Map] Could not enter {mode}: {ex.Message}");
+            await _renderService.SetPausedAsync(false);
+        }
+        finally { _xrBusy = false; StateHasChanged(); }
+    }
+
+    private void OnXrEnded(System.Numerics.Vector3 head, float yaw, float pitch)
+    {
+        if (_renderService == null) return;
+        _ = _renderService.SetCameraAsync(head.X, head.Y, head.Z, pitch, yaw);
+        _ = _renderService.SetPausedAsync(false);
+    }
+
     private bool IsForSelectedServer(string? serverId) => serverId == null || serverId == Hub.SelectedServerId;
 
     private void OnServerStatus(ServerStatusDto status)
     {
+        if (status.TimeTicks >= 0) _lastTicks = status.TimeTicks;
         if (_timeLinked == null && status.TimeTicks >= 0 && _renderService != null)
             _ = _renderService.SetTimeOfDay(status.TimeTicks);
         if (status.Connected) _hudFeed.SetPlayers(status.Players);
@@ -279,6 +331,7 @@ else
 
             // Main thread: input + stats only
             _ = InputAndStatsLoop();
+            _ = CheckXrAsync();
         }
         catch (Exception ex)
         {
@@ -408,6 +461,7 @@ else
 
     public void Dispose()
     {
+        Xr.Ended -= OnXrEnded;
         Hub.OnServerStatusReceived -= OnServerStatus;
         Hub.OnChatMessageReceived -= OnHubChat;
         Hub.OnActivityEventReceived -= OnHubActivity;

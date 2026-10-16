@@ -30,6 +30,7 @@ builder.Services.AddSingleton<RenderWorkerHost>();
 // GameUI draws the viewer's HUD on the GPU, in the render worker (the AubsCraft theme is the blocky Minecraft look)
 builder.Services.AddGameUI(UITheme.AubsCraft);
 builder.Services.AddSingleton<AubsCraft.Admin.Rendering.ViewerHud>();
+builder.Services.AddSingleton<AubsCraft.Admin.Xr.XrViewerHost>();
 // RenderWorkerService is NOT registered here - it's created via worker.New() with OffscreenCanvas
 
 if (JS.IsWindow)

@@ -127,6 +127,7 @@ public sealed class MapRenderService : IDisposable
         {
             Device = _device,
             Format = _canvasFormat,
+            AlphaMode = CanvasAlphaMode,
         });
 
         _canvasWidth = width;
@@ -165,6 +166,7 @@ public sealed class MapRenderService : IDisposable
         {
             Device = _device,
             Format = _canvasFormat,
+            AlphaMode = CanvasAlphaMode,
         });
 
         _canvasWidth = canvas.Width;
@@ -180,6 +182,9 @@ public sealed class MapRenderService : IDisposable
         _context?.Dispose();
         _context = null;
     }
+
+    /// <summary>"opaque" (the page's canvas), or "premultiplied" for a headset's augmented-reality frames, where clear alpha 0 shows the camera feed. Set before the canvas is configured.</summary>
+    public string CanvasAlphaMode { get; set; } = "opaque";
 
     public void StartRenderLoop()
     {
@@ -205,9 +210,16 @@ public sealed class MapRenderService : IDisposable
         float dt = _lastTimestamp > 0 ? (float)((timestamp - _lastTimestamp) / 1000.0) : 1f / 60f;
         _lastTimestamp = timestamp;
         dt = Math.Min(dt, 0.1f);
-        _lastDt = dt;
+        TrackFrame(dt);
+        OnUpdate?.Invoke(dt);
+        RenderFrame();
+        RequestFrame();
+    }
 
-        // FPS tracking
+    /// <summary>Count a frame of <paramref name="dt"/> seconds: the frame rate the HUD shows and the adaptive draw distance steers by (a headset's frame loop calls it too).</summary>
+    public void TrackFrame(float dt)
+    {
+        _lastDt = dt;
         _frameCount++;
         _fpsAccumulator += dt;
         if (_fpsAccumulator >= 0.5)
@@ -220,10 +232,6 @@ public sealed class MapRenderService : IDisposable
             // Adaptive draw distance (the fog follows it, so a shorter one is a closer horizon, not a visible edge)
             if (!_drawDistanceFixed) DrawDistance = FarWindow.NextDrawDistance(DrawDistance, Fps);
         }
-
-        OnUpdate?.Invoke(dt);
-        RenderFrame();
-        RequestFrame();
     }
 
     private void RenderFrame()
@@ -258,6 +266,27 @@ public sealed class MapRenderService : IDisposable
                 $"{voxel.MeshesDone} meshes ({voxel.RemeshesDone} re-meshes, {voxel.StaleCount} waiting) in {voxel.ArenaBlocks} quad buffers | far {voxel.FarMeshedCount}/{voxel.FarChunkCount} meshed" +
                 (voxel.Entities is { Known: > 0 } e ? $" | creatures {e.EntityCount}/{e.Known} {e.PartCount} parts {e.PrepareMs:F1} ms" : ""));
         }
+    }
+
+    /// <summary>
+    /// Draw the world once from <paramref name="view"/> into the canvas (a headset's eye: the caller copies the canvas on to the headset's layer right after), at the canvas's
+    /// current size, with no HUD. Does nothing without a canvas or a world. <paramref name="width"/> and <paramref name="height"/> are the canvas's size in pixels.
+    /// </summary>
+    public VoxelFrameStats? RenderView(in ViewSetup view, int width, int height)
+    {
+        if (Voxel is not { } voxel || _device == null || _context == null) return null;
+        _canvasWidth = width;
+        _canvasHeight = height;
+        using var colorTexture = _context.GetCurrentTexture();
+        using var colorView = colorTexture.CreateView();
+        using var encoder = _device.CreateCommandEncoder();
+        var light = DayLighting.At(TimeOfDay);
+        var stats = voxel.Render(encoder, colorView, width, height, in view, in light, DrawDistance);
+        using var commandBuffer = encoder.Finish();
+        _submitArray[0] = commandBuffer;
+        _queue!.Submit(_submitArray);
+        LastVoxelStats = stats;
+        return stats;
     }
 
     public void Dispose()

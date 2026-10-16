@@ -1,0 +1,233 @@
+using System.Numerics;
+using SpawnDev.SpawnJS;
+using SpawnDev.SpawnJS.JSObjects;
+
+namespace AubsCraft.Admin.Xr;
+
+/// <summary>
+/// A WebXR session (immersive-vr or immersive-ar) on the page's own thread - WebXR is not available in a worker. The world is drawn by WebGPU and copied to the headset's WebGL layer
+/// (<see cref="WebGlXrBlit"/>): the WebGL layer is what every headset browser has. Each animation frame of the session produces an <see cref="XrFrameData"/>.
+/// </summary>
+public sealed class XrSession : IDisposable
+{
+    private readonly SpawnJSRuntime _js;
+    private XRSession? _session;
+    private XRReferenceSpace? _refSpace;
+    private ActionCallback<double, XRFrame?>? _rafCallback;
+    private HTMLCanvasElement? _glCanvas;
+    private WebGL2RenderingContext? _glContext;
+    private XRWebGLLayer? _layer;
+    private bool? _vrSupported, _arSupported;
+    private int _frames;
+
+    public XrSession(SpawnJSRuntime js) => _js = js;
+
+    public bool IsActive => _session != null;
+    public string? Mode { get; private set; }
+    /// <summary>"opaque" (VR), "alpha-blend" (passthrough AR: the layer's alpha shows the camera feed) or "additive" (see-through displays).</summary>
+    public string? EnvironmentBlendMode { get; private set; }
+    public WebGL2RenderingContext? GL => _glContext;
+    public XRWebGLLayer? Layer => _layer;
+    public int FramesDrawn => _frames;
+
+    /// <summary>Fired each animation frame of the session.</summary>
+    public event Action<XrFrameData>? OnFrame;
+    /// <summary>Fired when the session ends, however it ends (the headset's own button, <see cref="ExitAsync"/>).</summary>
+    public event Action? OnEnded;
+
+    public async Task<bool> IsVrSupportedAsync() => _vrSupported ??= await IsSupportedAsync("immersive-vr");
+    public async Task<bool> IsArSupportedAsync() => _arSupported ??= await IsSupportedAsync("immersive-ar");
+
+    private async Task<bool> IsSupportedAsync(string mode)
+    {
+        try
+        {
+            using var navigator = _js.Get<Navigator>("navigator");
+            using var xr = navigator.XR;
+            return xr != null && await xr.IsSessionSupported(mode);
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Enter a session. Call it straight from the click that asks for it: an await before it can spend the click's user activation.</summary>
+    public async Task EnterAsync(string mode)
+    {
+        if (_session != null) return;
+        using var navigator = _js.Get<Navigator>("navigator");
+        using var xr = navigator.XR ?? throw new InvalidOperationException("WebXR is not available in this browser");
+
+        _session = await xr.RequestSession(mode, new XRSessionInit
+        {
+            RequiredFeatures = new[] { "local-floor" },
+        });
+        Mode = mode;
+        try { EnvironmentBlendMode = _session.EnvironmentBlendMode; } catch { EnvironmentBlendMode = null; }
+        _session.OnEnd += OnSessionEnd;
+        _refSpace = await _session.RequestReferenceSpace("local-floor");
+
+        using var doc = _js.Get<Document>("document");
+        _glCanvas = doc.CreateElement<HTMLCanvasElement>("canvas");
+        _glContext = _glCanvas.GetContext<WebGL2RenderingContext>("webgl2", new WebGLContextAttributes { XrCompatible = true })
+            ?? throw new InvalidOperationException("Could not make a WebGL2 context the headset can use");
+        _layer = new XRWebGLLayer(_session, _glContext);
+        _session.UpdateRenderState(new XRRenderStateInit { BaseLayer = _layer, DepthNear = 0.05, DepthFar = 3000 });
+
+        _frames = 0;
+        _rafCallback = new ActionCallback<double, XRFrame?>(OnAnimationFrame);
+        _session.RequestAnimationFrame(_rafCallback);
+        Console.WriteLine($"[Xr] {mode} session started (blend mode {EnvironmentBlendMode ?? "unknown"})");
+    }
+
+    public async Task ExitAsync()
+    {
+        if (_session == null) return;
+        try { await _session.End(); } catch { }
+        Cleanup();
+    }
+
+    /// <summary>End the session from inside a frame (a controller button): the end waits for the frame to finish.</summary>
+    public void RequestEnd() => _ = EndAfterThisFrameAsync();
+
+    private async Task EndAfterThisFrameAsync()
+    {
+        await Task.Yield();
+        try { if (_session != null) await _session.End(); }
+        catch (Exception ex) { Console.WriteLine($"[Xr] end failed: {ex.Message}"); }
+    }
+
+    private void OnSessionEnd(XRSessionEvent e)
+    {
+        Console.WriteLine("[Xr] session ended");
+        // Listeners first, while the session's GL context is still alive
+        try { OnEnded?.Invoke(); }
+        catch (Exception ex) { Console.WriteLine($"[Xr] session-ended listener failed: {ex.Message}"); }
+        Cleanup();
+    }
+
+    private void Cleanup()
+    {
+        _rafCallback?.Dispose();
+        _rafCallback = null;
+        _layer?.Dispose(); _layer = null;
+        _glContext?.Dispose(); _glContext = null;
+        _glCanvas?.Dispose(); _glCanvas = null;
+        _refSpace?.Dispose(); _refSpace = null;
+        if (_session != null)
+        {
+            _session.OnEnd -= OnSessionEnd;
+            _session.Dispose();
+            _session = null;
+        }
+        Mode = null;
+        EnvironmentBlendMode = null;
+    }
+
+    private void OnAnimationFrame(double time, XRFrame? frame)
+    {
+        if (_session == null || _refSpace == null || frame == null) return;
+        _session.RequestAnimationFrame(_rafCallback!);   // the next frame first, so the loop continues whatever this one does
+        _frames++;
+        try
+        {
+            using var pose = frame.GetViewerPose(_refSpace);
+            if (pose == null) return;
+            var views = pose.Views;
+            using var head = pose.Transform;
+            var hp = head.Position; var ho = head.Orientation;
+            var data = new XrFrameData
+            {
+                Time = time,
+                HeadPosition = new Vector3((float)hp.X, (float)hp.Y, (float)hp.Z),
+                HeadOrientation = new Quaternion((float)ho.X, (float)ho.Y, (float)ho.Z, (float)ho.W),
+                Views = new XrViewData[views.Length],
+            };
+            for (int i = 0; i < views.Length; i++)
+            {
+                var view = views[i];
+                using var projection = view.ProjectionMatrix;
+                using var transform = view.Transform;
+                var p = transform.Position; var o = transform.Orientation;
+                data.Views[i] = new XrViewData
+                {
+                    Eye = view.Eye,
+                    Projection = XrMath.FromWebXrMatrix((float[])projection),
+                    RoomView = XrMath.ViewFromPose(new Vector3((float)p.X, (float)p.Y, (float)p.Z), new Quaternion((float)o.X, (float)o.Y, (float)o.Z, (float)o.W)),
+                    Viewport = _layer!.GetViewport(view),
+                };
+            }
+            ReadControllers(data);
+            OnFrame?.Invoke(data);
+            foreach (var v in views) v.Dispose();
+        }
+        catch (Exception ex)
+        {
+            if (_frames < 5 || _frames % 600 == 0) Console.WriteLine($"[Xr] frame error: {ex.Message}");
+        }
+    }
+
+    // The thumbsticks and buttons of the controllers (xr-standard: the stick is axes 2 and 3 - 0 and 1 are a touchpad - the trigger button 0, the grip 1, A/X 4, B/Y 5)
+    private void ReadControllers(XrFrameData data)
+    {
+        using var sources = _session!.InputSources;
+        for (int i = 0; i < sources.Length; i++)
+        {
+            using var source = sources[i];
+            using var gamepad = source.Gamepad;
+            if (gamepad == null) continue;
+            var hand = source.Handedness;
+            bool left = hand == "left";
+            if (!left && hand != "right") continue;
+            var axes = gamepad.Axes;
+            int a = axes.Length >= 4 ? 2 : 0;
+            if (axes.Length >= a + 2)
+            {
+                var stick = new Vector2((float)axes[a], (float)axes[a + 1]);
+                if (left) data.LeftStick = stick; else data.RightStick = stick;
+            }
+            var buttons = gamepad.Buttons;
+            bool trigger = buttons.Length > 0 && buttons[0].Pressed;
+            bool grip = buttons.Length > 1 && buttons[1].Pressed;
+            if (buttons.Length > 5 && buttons[5].Pressed) data.ExitButton = true;
+            if (buttons.Length > 4 && buttons[4].Pressed) data.PrimaryButton = true;
+            foreach (var b in buttons) b.Dispose();
+            if (left) { data.LeftTrigger = trigger; data.LeftGrip = grip; }
+            else { data.RightTrigger = trigger; data.RightGrip = grip; }
+        }
+    }
+
+    public void Dispose() => Cleanup();
+}
+
+/// <summary>One frame of a session.</summary>
+public sealed class XrFrameData
+{
+    public XrViewData[] Views { get; set; } = System.Array.Empty<XrViewData>();
+    /// <summary>The headset in the room (local-floor space).</summary>
+    public Vector3 HeadPosition { get; set; }
+    public Quaternion HeadOrientation { get; set; } = Quaternion.Identity;
+    /// <summary>The frame's time, milliseconds.</summary>
+    public double Time { get; set; }
+    /// <summary>Thumbsticks (x right, y down: pushed forward reads -1); zero without a controller.</summary>
+    public Vector2 LeftStick { get; set; }
+    public Vector2 RightStick { get; set; }
+    public bool LeftGrip { get; set; }
+    public bool RightGrip { get; set; }
+    public bool LeftTrigger { get; set; }
+    public bool RightTrigger { get; set; }
+    /// <summary>B or Y (xr-standard button 5) held: leave.</summary>
+    public bool ExitButton { get; set; }
+    /// <summary>A or X (xr-standard button 4) held.</summary>
+    public bool PrimaryButton { get; set; }
+}
+
+/// <summary>One eye of a frame.</summary>
+public sealed class XrViewData
+{
+    public string Eye { get; set; } = "none";
+    /// <summary>The eye's projection (row-vector form of WebXR's OpenGL one).</summary>
+    public Matrix4x4 Projection { get; set; }
+    /// <summary>Room -> eye.</summary>
+    public Matrix4x4 RoomView { get; set; }
+    /// <summary>Where the eye's image goes in the layer's framebuffer.</summary>
+    public XRViewport Viewport { get; set; } = null!;
+}

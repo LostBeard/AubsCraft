@@ -33,4 +33,8 @@ public interface IRenderWorkerService : IAsyncDisposable
     Task ResizeAsync(int width, int height);
     Task<RenderStats> GetStatsAsync();
     Task SetTimeOfDay(int ticks);
+    /// <summary>Stops (or resumes) the worker's own frame loop: a headset session draws the world on the page's thread meanwhile, and the GPU is not drawn twice.</summary>
+    Task SetPausedAsync(bool paused);
+    /// <summary>Puts the camera somewhere (after a headset session: where the head was).</summary>
+    Task SetCameraAsync(float x, float y, float z, float pitch, float yaw);
 }
