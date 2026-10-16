@@ -251,4 +251,85 @@ public class EditSessionTests
         var offered = EditSession.PlaceableBlocks(["minecraft:stone", "minecraft:air", "minecraft:water", "minecraft:oak_wall_sign", "minecraft:oak_sign", "minecraft:wall_torch", "minecraft:torch", "minecraft:piston_head", "minecraft:fire", "minecraft:gold_block", "minecraft:oak_stairs[facing=north]", "mod:thing"]);
         Assert.That(offered, Is.EqualTo(new[] { "minecraft:gold_block", "minecraft:oak_sign", "minecraft:stone", "minecraft:torch", "mod:thing" }));
     }
+
+    // ---- a box selected, and blueprints on their way down ----
+
+    [Test]
+    public void TwoClicksMakeABox_AThirdStartsAnother()
+    {
+        var s = new EditSession { Tool = EditSession.Tools.Select };
+        Assert.That(s.ClickSelect(), Is.False, "nothing pointed at");
+        s.Target = Target(10, 5, 20, 0, 1, 0);
+        Assert.That(s.ClickSelect(), Is.True);
+        Assert.That(s.HasSelection, Is.False, "one corner is not a box");
+        s.Target = Target(13, 7, 18, 0, 1, 0);
+        s.ClickSelect();
+        Assert.That(s.SelectionBox, Is.EqualTo((10, 5, 18, 4, 3, 3)), "any two corners, lowest first");
+        s.Target = Target(0, 0, 0, 0, 1, 0);
+        s.ClickSelect();
+        Assert.That(s.HasSelection, Is.False, "a click after a box starts a new one");
+        Assert.That(s.CornerA, Is.EqualTo((0, 0, 0)));
+        s.ClearSelection();
+        Assert.That(s.CornerA, Is.Null);
+    }
+
+    [Test]
+    public void TheSelectionCanBeFilledClearedAndCopied()
+    {
+        var s = new EditSession { Tool = EditSession.Tools.Select };
+        Assert.That(s.PlanFill(), Is.Null);
+        s.Target = Target(10, 5, 20, 0, 1, 0); s.ClickSelect();
+        s.Target = Target(12, 6, 22, 0, 1, 0); s.ClickSelect();
+        s.Selected = 4;   // glass
+        var fill = s.PlanFill()!.Ops.Single();
+        Assert.That((fill.Op, fill.From, fill.To, fill.Block, fill.Hollow), Is.EqualTo(("fill", new[] { 10, 5, 20 }, new[] { 12, 6, 22 }, "minecraft:glass", false)));
+        Assert.That(s.PlanFill(hollow: true)!.Ops.Single().Hollow, Is.True);
+        var clear = s.PlanClear()!.Ops.Single();
+        Assert.That((clear.Block, clear.To), Is.EqualTo(("minecraft:air", new[] { 12, 6, 22 })));
+        var copy = s.PlanCopy("wall")!;
+        Assert.That((copy.Name, copy.From, copy.To), Is.EqualTo(("wall", new[] { 10, 5, 20 }, new[] { 12, 6, 22 })));
+        Assert.That(s.PlanCopy(EditSession.ClipboardName)!.Name, Is.EqualTo("~clipboard"));
+    }
+
+    [Test]
+    public void ABlueprintOnItsWayDown_FollowsTheCursor_TurnedAndMirroredOnRequest()
+    {
+        var s = new EditSession();
+        s.BeginPaste("house", 7, 5, 4);
+        Assert.That(s.PasteSize, Is.EqualTo((7, 5, 4)));
+        Assert.That(s.PasteAnchor(), Is.Null, "nothing pointed at");
+        s.Target = Target(100, 10, 200, 0, 1, 0);
+        // centred on the block that would be placed (100, 11, 200), standing on it
+        Assert.That(s.PasteAnchor(), Is.EqualTo((97, 11, 198)));
+        var plan = s.PlanPaste()!;
+        Assert.That((plan.Name, plan.At, plan.Turns, plan.MirrorX), Is.EqualTo(("house", new[] { 97, 11, 198 }, 0, false)));
+
+        s.RotatePaste();
+        Assert.That(s.PasteSize, Is.EqualTo((4, 5, 7)), "a quarter turn swaps width and depth");
+        Assert.That(s.PasteAnchor(), Is.EqualTo((98, 11, 197)));
+        s.RotatePaste(); s.RotatePaste(); s.RotatePaste();
+        Assert.That(s.PasteTurns, Is.Zero);
+        s.MirrorPaste();
+        Assert.That(s.PlanPaste()!.MirrorX, Is.True);
+        s.CancelPaste();
+        Assert.That(s.Paste, Is.Null);
+        Assert.That(s.PlanPaste(), Is.Null);
+    }
+
+    [Test]
+    public void TheNewMessagesAreWrittenAndReadByHand()
+    {
+        var copy = EditJson.Write(new BlueprintRequest { Name = "a \"b\"", From = [1, 2, 3], To = [4, 5, 6], Trim = false });
+        var back = System.Text.Json.JsonSerializer.Deserialize<BlueprintRequest>(copy, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+        Assert.That((back.Name, back.From, back.To, back.Trim), Is.EqualTo(("a \"b\"", new[] { 1, 2, 3 }, new[] { 4, 5, 6 }, false)));
+        var paste = EditJson.Write(new PasteRequest { Name = "x", At = [7, 8, 9], Turns = 3, MirrorX = true, WithAir = true });
+        var pasteBack = System.Text.Json.JsonSerializer.Deserialize<PasteRequest>(paste, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+        Assert.That((pasteBack.Name, pasteBack.At, pasteBack.Turns, pasteBack.MirrorX, pasteBack.MirrorZ, pasteBack.WithAir), Is.EqualTo(("x", new[] { 7, 8, 9 }, 3, true, false, true)));
+
+        var one = EditJson.ReadBlueprint("""{"name":"Wall","width":3,"height":2,"depth":1,"blocks":4,"author":"alice"}""");
+        Assert.That((one.Name, one.Width, one.Height, one.Depth, one.Blocks, one.Author), Is.EqualTo(("Wall", 3, 2, 1, 4, "alice")));
+        var list = EditJson.ReadBlueprints("""[{"name":"A","width":1,"height":1,"depth":1,"blocks":1,"author":"x"},{"name":"B","width":2,"height":2,"depth":2,"blocks":8,"author":"y"}]""");
+        Assert.That(list.Select(b => b.Name), Is.EqualTo(new[] { "A", "B" }));
+        Assert.That(EditJson.ReadBlueprints("""{"not":"a list"}"""), Is.Empty);
+    }
 }

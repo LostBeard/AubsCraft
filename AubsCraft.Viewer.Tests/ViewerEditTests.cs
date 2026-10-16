@@ -51,6 +51,9 @@ public class ViewerEditTests
 
         public void Start() => _loop = Task.Run(Loop);
 
+        /// <summary>Something already built when the page loads.</summary>
+        public void Place(int x, int y, int z, string block) => _blocks[(x, y, z)] = block;
+
         public async Task StopAsync()
         {
             _stop.Cancel();
@@ -130,13 +133,43 @@ public class ViewerEditTests
                 for (int i = 0; i < ops; i++)
                 {
                     int type = U8();
-                    Assert.That(type, Is.EqualTo(1), "the viewer's clicks are single blocks");
-                    int x = I32(), y = I32(), z = I32();
-                    var block = palette[U16()];
-                    Received.Add(("set", [x, y, z], block));
-                    journal.Add(((x, y, z), _blocks.TryGetValue((x, y, z), out var old) ? old : (y == -61 ? "minecraft:grass_block[snowy=false]" : y < -61 ? "minecraft:stone" : "minecraft:air")));
-                    if (block == "minecraft:air" && y > -61) _blocks.Remove((x, y, z)); else _blocks[(x, y, z)] = block;
-                    placed++;
+                    void Put(int x, int y, int z, string block)
+                    {
+                        journal.Add(((x, y, z), _blocks.TryGetValue((x, y, z), out var old) ? old : (y == -61 ? "minecraft:grass_block[snowy=false]" : y < -61 ? "minecraft:stone" : "minecraft:air")));
+                        if (block == "minecraft:air" && y > -61) _blocks.Remove((x, y, z)); else _blocks[(x, y, z)] = block;
+                        placed++;
+                    }
+                    if (type == 1)
+                    {
+                        int x = I32(), y = I32(), z = I32();
+                        var block = palette[U16()];
+                        Received.Add(("set", [x, y, z], block));
+                        Put(x, y, z, block);
+                    }
+                    else if (type == 2)
+                    {
+                        int x1 = I32(), y1 = I32(), z1 = I32(), x2 = I32(), y2 = I32(), z2 = I32();
+                        var block = palette[U16()];
+                        int only = I32();
+                        bool hollow = U8() != 0;
+                        Received.Add((hollow ? "fill-hollow" : "fill", [x1, y1, z1, x2, y2, z2], block));
+                        for (int x = Math.Min(x1, x2); x <= Math.Max(x1, x2); x++)
+                            for (int y = Math.Min(y1, y2); y <= Math.Max(y1, y2); y++)
+                                for (int z = Math.Min(z1, z2); z <= Math.Max(z1, z2); z++) Put(x, y, z, block);
+                    }
+                    else if (type == 3)
+                    {
+                        int ax = I32(), ay = I32(), az = I32(), length = I32();
+                        for (int r = 0; r < length; r += 8)
+                        {
+                            int dx = (short)(cmd[p + r] | (cmd[p + r + 1] << 8)), dy = (short)(cmd[p + r + 2] | (cmd[p + r + 3] << 8)), dz = (short)(cmd[p + r + 4] | (cmd[p + r + 5] << 8));
+                            var block = palette[cmd[p + r + 6] | (cmd[p + r + 7] << 8)];
+                            Received.Add(("blocks", [ax + dx, ay + dy, az + dz], block));
+                            Put(ax + dx, ay + dy, az + dz, block);
+                        }
+                        p += length;
+                    }
+                    else Assert.Fail("an op the fake plugin does not know: " + type);
                 }
                 _journals[id] = journal;
                 Edits.Add(id);
@@ -275,6 +308,97 @@ public class ViewerEditTests
             await page.Mouse.ClickAsync(300, 300, new MouseClickOptions { Button = MouseButton.Left });
             await Task.Delay(1500);
             Assert.That(plugin.Received.Count, Is.EqualTo(received), "a click edits nothing when edit mode is off");
+            Assert.That(errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", errors));
+        }
+        finally
+        {
+            await plugin.StopAsync();
+            await page.CloseAsync();
+        }
+    }
+
+    [Test]
+    public async Task AnAdminSelectsFillsCopiesPastesAndSavesABlueprint_WithTheKeyboardAndMouse()
+    {
+        var plugin = new FakePlugin(_rig);
+        plugin.Place(-9, -60, 8, "minecraft:stone");   // under the camera: what the cursor points at
+        plugin.Start();
+        var page = await _rig.Context.NewPageAsync();
+        var errors = new List<string>();
+        var log = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        page.Console += (_, m) => { log.Enqueue(m.Text); if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.Worker += (_, w) => w.Console += (_, m) => { log.Enqueue(m.Text); if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.PageError += (_, e) => errors.Add(e);
+        try
+        {
+            await plugin.PostWorldAsync();
+            await page.GotoAsync($"{_rig.BaseUrl}/map?time=6000&dd=6&light=0&cam=-8.5,-58.0,8.5,-90,0", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await ViewerShotTests.WaitForSettledAsync(page, minSections: 8, quietSeconds: 3, maxSeconds: 60);
+            var edit = page.GetByRole(AriaRole.Button, new() { Name = "Edit: Off" });
+            await edit.WaitForAsync(new() { Timeout = 30_000 });
+            for (int i = 0; i < 20; i++)
+            {
+                await edit.ClickAsync();
+                try { await page.GetByRole(AriaRole.Button, new() { Name = "Edit: On" }).WaitForAsync(new() { Timeout = 3000 }); break; }
+                catch (TimeoutException) { }
+            }
+            await page.Locator("#map-canvas").ClickAsync();
+            await Task.Delay(2500);
+
+            // V: the select tool. Two clicks at the same spot: a box of one block (the stone under the camera)
+            await page.Keyboard.PressAsync("KeyV");
+            await Task.Delay(300);
+            await page.Mouse.ClickAsync(300, 300, new MouseClickOptions { Button = MouseButton.Left });
+            await Task.Delay(400);
+            await page.Mouse.ClickAsync(300, 300, new MouseClickOptions { Button = MouseButton.Left });
+            await Task.Delay(800);
+            await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "select-box.png") });
+
+            // 5, then F: glass fills the box
+            await page.Keyboard.PressAsync("Digit5");
+            await Task.Delay(300);
+            await page.Keyboard.PressAsync("KeyF");
+            for (int i = 0; i < 30 && plugin.Received.Count == 0; i++) await Task.Delay(200);
+            Assert.That(plugin.Received.Count, Is.GreaterThanOrEqualTo(1), "the fill reached the plugin:\n" + string.Join("\n", log.ToArray().TakeLast(10)));
+            Assert.That(plugin.Received[0].Kind, Is.EqualTo("fill"));
+            Assert.That(plugin.Received[0].Block, Is.EqualTo("minecraft:glass"));
+            Assert.That(plugin.Received[0].At, Is.EqualTo(new[] { -9, -60, 8, -9, -60, 8 }));
+            await Task.Delay(2500);
+
+            // Ctrl+C then Ctrl+V: the glass is copied (from the panel's picture of the world, which has the glass now) and a blueprint of it follows the cursor; a click puts it on the face pointed at
+            await page.Keyboard.PressAsync("Control+KeyC");
+            await Task.Delay(1500);
+            await page.Keyboard.PressAsync("Control+KeyV");
+            await Task.Delay(800);
+            await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "paste-ghost.png") });
+            int before = plugin.Received.Count;
+            await page.Mouse.ClickAsync(300, 300, new MouseClickOptions { Button = MouseButton.Left });
+            for (int i = 0; i < 30 && plugin.Received.Count == before; i++) await Task.Delay(200);
+            Assert.That(plugin.Received.Count, Is.GreaterThan(before), "the paste reached the plugin");
+            var pasted = plugin.Received[^1];
+            Assert.That(pasted.Kind, Is.EqualTo("blocks"));
+            Assert.That(pasted.Block, Is.EqualTo("minecraft:glass"), "the glass that was copied");
+            Assert.That(pasted.At, Is.EqualTo(new[] { -9, -59, 8 }), "on top of the block pointed at");
+
+            // Escape stops placing; Ctrl+S names the box and keeps it as a blueprint
+            await page.Keyboard.PressAsync("Escape");
+            await Task.Delay(300);
+            await page.Keyboard.PressAsync("Control+KeyS");
+            await Task.Delay(1500);   // the pointer is let go of for the prompt
+            await page.Keyboard.TypeAsync("glass post");
+            await Task.Delay(300);
+            await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "save-prompt.png") });
+            await page.Keyboard.PressAsync("Enter");
+            await Task.Delay(1500);
+
+            // It is in the list (K), and a click on it starts placing it
+            await page.Keyboard.PressAsync("KeyK");
+            await Task.Delay(1500);
+            await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "blueprint-menu.png") });
+            using var listing = new HttpClient { BaseAddress = new Uri(_rig.BaseUrl) };
+            var response = await _rig.Context.APIRequest.GetAsync($"{_rig.BaseUrl}/api/world/edit/blueprints?server=aubscraft");
+            var body = await response.TextAsync();
+            Assert.That(body, Does.Contain("glass post"), "saved on the panel: " + body);
             Assert.That(errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", errors));
         }
         finally

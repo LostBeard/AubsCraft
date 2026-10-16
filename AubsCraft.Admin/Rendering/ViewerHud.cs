@@ -68,7 +68,7 @@ public sealed class ViewerHud
     public bool IsInitialized => _ui.IsInitialized;
 
     /// <summary>A line is being typed (the chat's, or the block search's): the keys are the text's.</summary>
-    public bool IsTyping => (_chat != null && _chat.IsInputFocused) || (_paletteSearch != null && _palette.Visible && _paletteSearch.IsFocused);
+    public bool IsTyping => (_chat != null && _chat.IsInputFocused) || (_paletteSearch != null && _palette.Visible && _paletteSearch.IsFocused) || (_nameInput != null && _namePrompt.Visible && _nameInput.IsFocused);
 
     private const string DesktopHint = "Click the view to fly   WASD move   Space / Shift up / down   Esc release   Enter chat   M map zoom   F3 debug   Click a player in the list for actions";
     private const string HeadsetHint = "Left stick fly   Right stick turn / up / down   Grips go fast   Trigger on a player or the map   X hide this panel   Y leaves";
@@ -105,7 +105,9 @@ public sealed class ViewerHud
 
     // ---- edit mode ----
 
-    private const string EditHint = "EDIT   left click break   right click place   middle click copy the block   1-9 or wheel choose   Ctrl+Z undo   Ctrl+Y redo   B leave";
+    private const string EditHint = "EDIT   left break   right place   middle copy block   1-9 wheel choose   E blocks   V select   K blueprints   Ctrl+Z/Y undo/redo   B leave";
+    private const string SelectHint = "SELECT   click two corners   F fill   Shift+F hollow   Delete clear   Ctrl+C copy   Ctrl+X cut   Ctrl+V paste   Ctrl+S save blueprint   right click clears   V back to building";
+    private const string PasteHint = "PLACING   left click puts it down   R turn   T mirror   right click or Esc stops";
     private bool _editMode;
 
     /// <summary>The slot of the edit bar that was chosen (a number key, the wheel, a click on it).</summary>
@@ -196,6 +198,99 @@ public sealed class ViewerHud
         OnPaletteChoice?.Invoke(block);
     }
 
+
+    // ---- the blueprint menu and the name prompt ----
+
+    private UIPanel _blueprints = null!;
+    private UIList _blueprintList = null!;
+    private UIButton _blueprintDelete = null!;
+    private UIPanel _namePrompt = null!;
+    private UILabel _namePromptTitle = null!;
+    private UITextInput _nameInput = null!;
+    private readonly List<string> _blueprintNames = new();
+    private bool _deleteMode;
+
+    /// <summary>A blueprint was chosen in the menu (its name): the viewer starts placing it.</summary>
+    public Action<string>? OnBlueprintChoice { get; set; }
+
+    /// <summary>A blueprint was chosen while the menu was in delete mode.</summary>
+    public Action<string>? OnBlueprintDelete { get; set; }
+
+    /// <summary>A name was typed and sent (Enter) in the name prompt.</summary>
+    public Action<string>? OnNameEntered { get; set; }
+
+    public bool IsBlueprintsOpen => _blueprints != null && _blueprints.Visible;
+    public bool IsNamePromptOpen => _namePrompt != null && _namePrompt.Visible;
+
+    private void BuildBlueprints(UITheme theme)
+    {
+        _blueprints = new UIPanel { Width = 400, Height = 420, Visible = false };
+        _blueprints.AddChild(new UILabel { Text = "Blueprints   click one to place it", FontSize = FontSize.Caption, Color = theme.TextPrimary, X = 12, Y = 10 });
+        _blueprintList = new UIList { ItemHeight = 24, ItemFontSize = FontSize.Caption, Padding = 2, X = 10, Y = 36, Width = 380, Height = 330 };
+        _blueprintList.OnSelectionChanged = ChooseBlueprint;
+        _blueprints.AddChild(_blueprintList);
+        _blueprintDelete = new UIButton { Text = "Delete: off", FontSize = FontSize.Caption, X = 10, Y = 376, Width = 130, Height = 30, PaddingY = 4 };
+        _blueprintDelete.OnClick = () => { _deleteMode = !_deleteMode; _blueprintDelete.Text = _deleteMode ? "Delete: ON" : "Delete: off"; };
+        _blueprints.AddChild(_blueprintDelete);
+        _root.AddAnchored(_blueprints, Anchor.Center, 0, -10);
+
+        _namePrompt = new UIPanel { Width = 400, Height = 100, Visible = false };
+        _namePromptTitle = new UILabel { Text = "Name", FontSize = FontSize.Caption, Color = theme.TextPrimary, X = 12, Y = 10 };
+        _namePrompt.AddChild(_namePromptTitle);
+        _nameInput = new UITextInput { Width = 376, Height = 32, X = 12, Y = 40, Placeholder = "a name, then Enter", FontSize = FontSize.Caption, MaxLength = 60 };
+        _nameInput.OnSubmit = text => { if (!string.IsNullOrWhiteSpace(text)) OnNameEntered?.Invoke(text.Trim()); };
+        _namePrompt.AddChild(_nameInput);
+        _root.AddAnchored(_namePrompt, Anchor.Center, 0, -10);
+    }
+
+    /// <summary>The blueprints the menu lists: a name and a size each.</summary>
+    public void SetBlueprints(IReadOnlyList<AubsCraft.Live.Model.Editing.BlueprintItem> items)
+    {
+        _blueprintNames.Clear();
+        _blueprintList.ClearItems();
+        foreach (var b in items)
+        {
+            _blueprintNames.Add(b.Name);
+            _blueprintList.AddItem($"{b.Name}    {b.Width} x {b.Height} x {b.Depth}   {b.Blocks:N0} blocks");
+        }
+        _blueprintList.SelectedIndex = -1;
+        if (items.Count == 0) _blueprintList.AddItem("(none yet: select a box, Ctrl+S saves it)");
+    }
+
+    public void OpenBlueprints(bool open)
+    {
+        if (_blueprints == null || _blueprints.Visible == open) return;
+        _blueprints.Visible = open;
+        if (!open) { _deleteMode = false; _blueprintDelete.Text = "Delete: off"; }
+    }
+
+    private void ChooseBlueprint(int index)
+    {
+        if (index < 0 || index >= _blueprintNames.Count) return;
+        var name = _blueprintNames[index];
+        _blueprintList.SelectedIndex = -1;
+        if (_deleteMode) OnBlueprintDelete?.Invoke(name); else OnBlueprintChoice?.Invoke(name);
+    }
+
+    /// <summary>Ask for a name (the blueprint to save). Enter sends it to <see cref="OnNameEntered"/>.</summary>
+    public void OpenNamePrompt(bool open, string title = "Name")
+    {
+        if (_namePrompt == null || _namePrompt.Visible == open) return;
+        _namePrompt.Visible = open;
+        if (open)
+        {
+            _namePromptTitle.Text = title;
+            _nameInput.Text = "";
+            _nameInput.Focus();
+        }
+        else _nameInput.Blur();
+    }
+
+    /// <summary>Which hint the edit bar shows: 0 building, 1 selecting, 2 placing a blueprint.</summary>
+    public void SetEditHint(int kind)
+    {
+        if (_editMode && _hint != null) _hint.Text = kind switch { 1 => SelectHint, 2 => PasteHint, _ => EditHint };
+    }
 
     /// <summary>What a slot of the edit bar shows (a block's short name).</summary>
     public void SetEditSlot(int slot, string label)
@@ -288,6 +383,7 @@ public sealed class ViewerHud
         _root.AddAnchored(_editLabel, Anchor.BottomCenter, 0, -132);
 
         BuildPalette(theme);
+        BuildBlueprints(theme);
 
         // Last, so it is on top of everything and gets a click first
         _menu = new UIContextMenu { Visible = false, MenuWidth = MenuWidth };

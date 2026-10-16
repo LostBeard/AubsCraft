@@ -95,6 +95,109 @@ public sealed class EditSession
         return true;
     }
 
+    // ---- selecting a box, and the plans that act on it ----
+
+    public enum Tools { Build, Select }
+
+    /// <summary>What the buttons do: build (break and place blocks) or select (two clicks make a box).</summary>
+    public Tools Tool { get; set; } = Tools.Build;
+
+    public (int X, int Y, int Z)? CornerA { get; private set; }
+    public (int X, int Y, int Z)? CornerB { get; private set; }
+
+    public bool HasSelection => CornerA != null && CornerB != null;
+
+    /// <summary>The selected box: lowest corner and size in blocks.</summary>
+    public (int X, int Y, int Z, int W, int H, int D)? SelectionBox
+    {
+        get
+        {
+            if (CornerA is not { } a || CornerB is not { } b) return null;
+            return (Math.Min(a.X, b.X), Math.Min(a.Y, b.Y), Math.Min(a.Z, b.Z), Math.Abs(a.X - b.X) + 1, Math.Abs(a.Y - b.Y) + 1, Math.Abs(a.Z - b.Z) + 1);
+        }
+    }
+
+    /// <summary>A click with the select tool: the first corner, then the second; a click after that starts a new box.</summary>
+    public bool ClickSelect()
+    {
+        if (Target is not { } t) return false;
+        var spot = (t.X, t.Y, t.Z);
+        if (CornerA == null || CornerB != null) { CornerA = spot; CornerB = null; }
+        else CornerB = spot;
+        return true;
+    }
+
+    public void ClearSelection() { CornerA = null; CornerB = null; }
+
+    /// <summary>Fill the selection with the block in hand (hollow: only its shell).</summary>
+    public EditRequest? PlanFill(bool hollow = false)
+    {
+        if (SelectionBox is not { } s) return null;
+        return new EditRequest
+        {
+            Label = $"fill {s.W}x{s.H}x{s.D} with {DisplayName(SelectedBlock)}",
+            Ops = [new EditOpDto { Op = "fill", From = [s.X, s.Y, s.Z], To = [s.X + s.W - 1, s.Y + s.H - 1, s.Z + s.D - 1], Block = SelectedBlock, Hollow = hollow }],
+        };
+    }
+
+    /// <summary>Make everything in the selection air.</summary>
+    public EditRequest? PlanClear()
+    {
+        if (SelectionBox is not { } s) return null;
+        return new EditRequest
+        {
+            Label = $"clear {s.W}x{s.H}x{s.D}",
+            Ops = [new EditOpDto { Op = "fill", From = [s.X, s.Y, s.Z], To = [s.X + s.W - 1, s.Y + s.H - 1, s.Z + s.D - 1], Block = Air }],
+        };
+    }
+
+    /// <summary>Keep the selection as a blueprint of this name (<see cref="ClipboardName"/>: the clipboard).</summary>
+    public BlueprintRequest? PlanCopy(string name)
+    {
+        if (SelectionBox is not { } s) return null;
+        return new BlueprintRequest { Name = name, From = [s.X, s.Y, s.Z], To = [s.X + s.W - 1, s.Y + s.H - 1, s.Z + s.D - 1] };
+    }
+
+    public const string ClipboardName = "~clipboard";
+
+    // ---- pasting: a blueprint on its way down ----
+
+    /// <summary>The blueprint that is being placed (its name and size as saved), or null.</summary>
+    public (string Name, int W, int H, int D)? Paste { get; private set; }
+    public int PasteTurns { get; private set; }
+    public bool PasteMirrorX { get; private set; }
+
+    /// <summary>Start placing a blueprint: it follows the cursor until it is put down or cancelled.</summary>
+    public void BeginPaste(string name, int width, int height, int depth)
+    {
+        Paste = (name, width, height, depth);
+        PasteTurns = 0;
+        PasteMirrorX = false;
+    }
+
+    public void CancelPaste() => Paste = null;
+
+    public void RotatePaste() => PasteTurns = (PasteTurns + 1) % 4;
+
+    public void MirrorPaste() => PasteMirrorX = !PasteMirrorX;
+
+    /// <summary>The size of what is being placed, turned.</summary>
+    public (int W, int H, int D)? PasteSize => Paste is { } p ? (PasteTurns % 2 == 0 ? (p.W, p.H, p.D) : (p.D, p.H, p.W)) : null;
+
+    /// <summary>Where the blueprint's lowest north-west corner goes: centred on the block that would be placed, standing on it.</summary>
+    public (int X, int Y, int Z)? PasteAnchor()
+    {
+        if (PasteSize is not { } size || Target is not { } t) return null;
+        var (x, y, z) = t.PlaceAt;
+        return (x - size.W / 2, y, z - size.D / 2);
+    }
+
+    public PasteRequest? PlanPaste()
+    {
+        if (Paste is not { } p || PasteAnchor() is not { } a) return null;
+        return new PasteRequest { Name = p.Name, At = [a.X, a.Y, a.Z], Turns = PasteTurns, MirrorX = PasteMirrorX };
+    }
+
     // ---- history ----
 
     private readonly List<string> _history = new();

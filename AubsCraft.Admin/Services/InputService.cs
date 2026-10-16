@@ -131,8 +131,8 @@ public sealed class InputService : IAsyncDisposable
         // Keys the viewer uses must not ALSO do the browser's job: F3 is "find next" (it opens the find bar and takes focus, so the
         // next key and click never reach the canvas), Space scrolls the page.
         if (e.Code is "F3" or "Space") e.PreventDefault();
-        // Ctrl+Z / Ctrl+Y are the viewer's undo and redo: not the browser's
-        if (e.CtrlKey && e.Code is "KeyZ" or "KeyY") e.PreventDefault();
+        // Ctrl+Z / Ctrl+Y are the viewer's undo and redo, Ctrl+S saves a blueprint: not the browser's (Delete is the clear key; B, E, K, V and R do nothing in the browser)
+        if (e.CtrlKey && e.Code is "KeyZ" or "KeyY" or "KeyS") e.PreventDefault();
 
         // The character the key types: a single character with no Ctrl/Alt/Meta held
         bool types = e.Key.Length == 1 && !e.CtrlKey && !e.AltKey && !e.MetaKey;

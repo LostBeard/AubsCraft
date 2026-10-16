@@ -81,6 +81,58 @@ public static class EditJson
         catch (JsonException) { return json; }
     }
 
+    public static string Write(BlueprintRequest r)
+    {
+        using var stream = new MemoryStream();
+        using (var w = new Utf8JsonWriter(stream))
+        {
+            w.WriteStartObject();
+            w.WriteString("name", r.Name);
+            Triple(w, "from", r.From); Triple(w, "to", r.To);
+            w.WriteBoolean("trim", r.Trim);
+            w.WriteEndObject();
+        }
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    public static string Write(PasteRequest r)
+    {
+        using var stream = new MemoryStream();
+        using (var w = new Utf8JsonWriter(stream))
+        {
+            w.WriteStartObject();
+            w.WriteString("name", r.Name);
+            Triple(w, "at", r.At);
+            w.WriteNumber("turns", r.Turns);
+            w.WriteBoolean("mirrorX", r.MirrorX);
+            w.WriteBoolean("mirrorZ", r.MirrorZ);
+            w.WriteBoolean("withAir", r.WithAir);
+            w.WriteEndObject();
+        }
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
+
+    public static BlueprintItem ReadBlueprint(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return ItemOf(doc.RootElement);
+    }
+
+    public static List<BlueprintItem> ReadBlueprints(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var list = new List<BlueprintItem>();
+        if (doc.RootElement.ValueKind == JsonValueKind.Array)
+            foreach (var e in doc.RootElement.EnumerateArray()) list.Add(ItemOf(e));
+        return list;
+    }
+
+    private static BlueprintItem ItemOf(JsonElement e) => new()
+    {
+        Name = e.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
+        Width = Int(e, "width"), Height = Int(e, "height"), Depth = Int(e, "depth"), Blocks = Int(e, "blocks"),
+        Author = e.TryGetProperty("author", out var a) ? a.GetString() ?? "" : "",
+    };
     private static int Int(JsonElement r, string name) => r.TryGetProperty(name, out var v) ? v.GetInt32() : 0;
     private static double Dbl(JsonElement r, string name) => r.TryGetProperty(name, out var v) ? v.GetDouble() : 0;
 }
