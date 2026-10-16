@@ -1,0 +1,136 @@
+<link rel=preload> has an invalid `href` value
+[RenderWorker] Created with 959x592 canvas
+[Map] Render worker created, transferring canvas...
+[Cache] Load camera error: A requested file or directory could not be found at the time an operation was processed.
+[Map] Starting at world spawn: (240, -256) known=True
+[Map] Camera from link: (0, 120, 0) pitch=-15 yaw=0
+[GpuContextService] Initialized: WebGPU
+[RenderWorker] Initialized: WebGPU
+[RenderWorker] Creating data worker: http://127.0.0.1:64090/data-worker.js
+[RenderWorker] Data worker created, GPU ready, requesting first chunk
+[Live] Live feed connected
+[Map] WebXR: VR True, AR True
+[DataWorker] Initialized, connecting to ws://127.0.0.1:64090/api/world/ws?server=aubscraft&format=ids
+[DataWorker] WebSocket connected
+[DataWorker] Chunk (0,0) received, total: 1
+[DataWorker] Chunk (-1,0) received, total: 2
+[DataWorker] Chunk (0,-1) received, total: 3
+[Live] Entity assets: 161 textures, 128 skin slots
+[RenderWorker] Block assets for Minecraft 1.21.5: 1740 blocks, 1817 tiles, 72 animated
+[BlockColorMap] No color for minecraft:stripped_birch_log (renders magenta)
+[BlockColorMap] No color for minecraft:quartz_pillar (renders magenta)
+[BlockColorMap] No color for minecraft:observer (renders magenta)
+[BlockColorMap] No color for minecraft:carved_pumpkin (renders magenta)
+[BlockColorMap] No color for minecraft:white_carpet (renders magenta)
+[BlockColorMap] No color for minecraft:red_carpet (renders magenta)
+[BlockColorMap] No color for minecraft:stone_pressure_plate (renders magenta)
+[BlockColorMap] No color for minecraft:oak_fence_gate (renders magenta)
+[BlockColorMap] No color for minecraft:stone_brick_wall (renders magenta)
+[BlockColorMap] No color for minecraft:oak_door (renders magenta)
+[BlockColorMap] No color for minecraft:iron_door (renders magenta)
+[BlockColorMap] No color for minecraft:glass_pane (renders magenta)
+[BlockColorMap] No color for minecraft:lantern (renders magenta)
+[BlockColorMap] No color for minecraft:white_candle (renders magenta)
+[BlockColorMap] No color for minecraft:cauldron (renders magenta)
+[BlockColorMap] No color for minecraft:lever (renders magenta)
+[BlockColorMap] No color for minecraft:stone_button (renders magenta)
+[BlockColorMap] No color for minecraft:oak_sign (renders magenta)
+[BlockColorMap] No color for minecraft:oak_wall_sign (renders magenta)
+[BlockColorMap] No color for minecraft:redstone_torch (renders magenta)
+[BlockColorMap] No color for minecraft:cherry_fence (renders magenta)
+[BlockColorMap] No color for minecraft:bamboo (renders magenta)
+[BlockColorMap] No color for minecraft:pale_oak_fence (renders magenta)
+[BlockColorMap] No color for minecraft:cherry_fence_gate (renders magenta)
+[BlockColorMap] No color for minecraft:pale_oak_fence_gate (renders magenta)
+[BlockColorMap] No color for minecraft:pink_bed (renders magenta)
+[BlockColorMap] No color for minecraft:smoker (renders magenta)
+[BlockColorMap] No color for minecraft:acacia_door (renders magenta)
+[BlockColorMap] No color for minecraft:jukebox (renders magenta)
+[BlockColorMap] No color for minecraft:birch_trapdoor (renders magenta)
+[BlockColorMap] No color for minecraft:oxidized_cut_copper (renders magenta)
+[BlockColorMap] No color for minecraft:waxed_oxidized_copper_trapdoor (renders magenta)
+[BlockColorMap] No color for minecraft:moss_block (renders magenta)
+[BlockColorMap] No color for minecraft:pointed_dripstone (renders magenta)
+[RenderWorker] 586 block names
+[DataWorker] Chunk (9,9) received, total: 500
+[Voxel] 394 fps | frame CPU 1.6 ms (record 1.6, of it gather 0.1) | 617 draws, 6 binds | 1631/3910 sections | 1170 columns+far | 301K/673K quads | 975 meshes (211 re-meshes, 456 waiting) in 1 quad buffers | far 215/617 meshed
+[DataWorker] Chunk (18,-6) received, total: 1000
+[Voxel] 302 fps | frame CPU 4.0 ms (record 3.8, of it gather 0.4) | 1029 draws, 6 binds | 2847/6396 sections | 1868 columns+far | 531K/1147K quads | 1744 meshes (499 re-meshes, 424 waiting) in 1 quad buffers | far 503/1126 meshed
+[DataWorker] Chunk (20,-13) received, total: 1500
+[Voxel] 181 fps | frame CPU 4.7 ms (record 4.5, of it gather 0.6) | 1201 draws, 6 binds | 3437/7606 sections | 2341 columns+far | 616K/1348K quads | 2292 meshes (773 re-meshes, 148 waiting) in 1 quad buffers | far 777/1599 meshed
+[DataWorker] Chunk (28,-3) received, total: 2000
+[Voxel] 161 fps | frame CPU 5.8 ms (record 5.6, of it gather 0.8) | 1454 draws, 6 binds | 4279/9707 sections | 2826 columns+far | 749K/1703K quads | 2976 meshes (921 re-meshes, 0 waiting) in 1 quad buffers | far 1313/2084 meshed
+[DataWorker] Chunk (32,-3) received, total: 2500
+[Voxel] 166 fps | frame CPU 4.0 ms (record 3.9, of it gather 0.3) | 1635 draws, 6 binds | 4919/12221 sections | 3292 columns+far | 860K/2164K quads | 3685 meshes (968 re-meshes, 2 waiting) in 2 quad buffers | far 1975/2550 meshed
+[DataWorker] Chunk (12,34) received, total: 3000
+[Voxel] 205 fps | frame CPU 3.9 ms (record 3.9, of it gather 0.4) | 1635 draws, 6 binds | 4919/12405 sections | 3827 columns+far | 860K/2195K quads | 3745 meshes (984 re-meshes, 0 waiting) in 2 quad buffers | far 2019/3085 meshed
+[Xr] immersive-ar session started (blend mode alpha-blend)
+[RenderWorker] Created with 1024x1024 canvas
+The powerPreference option is currently ignored when calling requestAdapter() on Windows. See https://crbug.com/369219127
+[GpuContextService] Initialized: WebGPU
+[RenderWorker] Initialized: WebGPU
+[RenderWorker] Creating data worker: http://127.0.0.1:64090/data-worker.js
+[RenderWorker] Data worker created, GPU ready, requesting first chunk
+[Xr] world started around <0.0, 120.0, 0.0>
+[Live] Live feed connected
+[DataWorker] Initialized, connecting to ws://127.0.0.1:64090/api/world/ws?server=aubscraft&format=ids
+[DataWorker] WebSocket connected
+[RenderWorker] Block assets for Minecraft 1.21.5: 1740 blocks, 1817 tiles, 72 animated
+[Live] Entity assets: 161 textures, 128 skin slots
+[BlockColorMap] No color for minecraft:stripped_birch_log (renders magenta)
+[BlockColorMap] No color for minecraft:quartz_pillar (renders magenta)
+[BlockColorMap] No color for minecraft:observer (renders magenta)
+[BlockColorMap] No color for minecraft:carved_pumpkin (renders magenta)
+[BlockColorMap] No color for minecraft:white_carpet (renders magenta)
+[BlockColorMap] No color for minecraft:red_carpet (renders magenta)
+[BlockColorMap] No color for minecraft:stone_pressure_plate (renders magenta)
+[BlockColorMap] No color for minecraft:oak_fence_gate (renders magenta)
+[BlockColorMap] No color for minecraft:stone_brick_wall (renders magenta)
+[BlockColorMap] No color for minecraft:oak_door (renders magenta)
+[BlockColorMap] No color for minecraft:iron_door (renders magenta)
+[BlockColorMap] No color for minecraft:glass_pane (renders magenta)
+[BlockColorMap] No color for minecraft:lantern (renders magenta)
+[BlockColorMap] No color for minecraft:white_candle (renders magenta)
+[BlockColorMap] No color for minecraft:cauldron (renders magenta)
+[BlockColorMap] No color for minecraft:lever (renders magenta)
+[BlockColorMap] No color for minecraft:stone_button (renders magenta)
+[BlockColorMap] No color for minecraft:oak_sign (renders magenta)
+[BlockColorMap] No color for minecraft:oak_wall_sign (renders magenta)
+[BlockColorMap] No color for minecraft:redstone_torch (renders magenta)
+[BlockColorMap] No color for minecraft:cherry_fence (renders magenta)
+[BlockColorMap] No color for minecraft:bamboo (renders magenta)
+[BlockColorMap] No color for minecraft:pale_oak_fence (renders magenta)
+[BlockColorMap] No color for minecraft:cherry_fence_gate (renders magenta)
+[BlockColorMap] No color for minecraft:pale_oak_fence_gate (renders magenta)
+[BlockColorMap] No color for minecraft:pink_bed (renders magenta)
+[BlockColorMap] No color for minecraft:smoker (renders magenta)
+[BlockColorMap] No color for minecraft:acacia_door (renders magenta)
+[BlockColorMap] No color for minecraft:jukebox (renders magenta)
+[BlockColorMap] No color for minecraft:birch_trapdoor (renders magenta)
+[BlockColorMap] No color for minecraft:oxidized_cut_copper (renders magenta)
+[BlockColorMap] No color for minecraft:waxed_oxidized_copper_trapdoor (renders magenta)
+[BlockColorMap] No color for minecraft:moss_block (renders magenta)
+[BlockColorMap] No color for minecraft:pointed_dripstone (renders magenta)
+[DataWorker] Chunk (0,0) received, total: 1
+[DataWorker] Chunk (-1,0) received, total: 2
+[DataWorker] Chunk (0,-1) received, total: 3
+[RenderWorker] 586 block names
+[DataWorker] Chunk (9,9) received, total: 500
+[DataWorker] Chunk (18,-6) received, total: 1000
+[DataWorker] Chunk (20,-13) received, total: 1500
+[DataWorker] Chunk (28,-3) received, total: 2000
+[DataWorker] Chunk (32,-3) received, total: 2500
+[DataWorker] Chunk (12,34) received, total: 3000
+[DataWorker] Chunk (31,-25) received, total: 3500
+[DataWorker] Chunk (31,-25) received, total: 3500
+[Xr] 120 frames; 1.8 ms of CPU a frame (2 eyes of 1024x1024), head at <0.0, 120.0, 0.0>; 153 draws, 400/1384 sections, 3777 columns, 193 loaded; Voxel: 153 draws, 6 binds, record 0.6 ms, frame 0.0 ms; far chunks 66 meshed of 3580; 1 quad buffers; creatures 0 drawn of 0 (0 parts, 0 frames); loading 3.0 meshes/frame, 1 waiting, 136 to re-mesh
+[Xr] 240 frames; 2.4 ms of CPU a frame (2 eyes of 1024x1024), head at <0.0, 120.0, 0.0>; 309 draws, 809/2629 sections, 4125 columns, 377 loaded; Voxel: 309 draws, 6 binds, record 1.1 ms, frame 0.0 ms; far chunks 149 meshed of 3744; 1 quad buffers; creatures 0 drawn of 0 (0 parts, 0 frames); loading 2.9 meshes/frame, 0 waiting, 283 to re-mesh
+[Xr] 360 frames; 3.3 ms of CPU a frame (2 eyes of 1024x1024), head at <0.0, 120.0, 0.0>; 488 draws, 1286/3953 sections, 4480 columns, 569 loaded; Voxel: 488 draws, 6 binds, record 1.3 ms, frame 0.0 ms; far chunks 225 meshed of 3907; 1 quad buffers; creatures 0 drawn of 0 (0 parts, 0 frames); loading 2.9 meshes/frame, 0 waiting, 448 to re-mesh
+[DataWorker] Chunk (15,41) received, total: 4000
+[DataWorker] Chunk (15,41) received, total: 4000
+[Xr] 480 frames; 4.8 ms of CPU a frame (2 eyes of 1024x1024), head at <0.0, 120.0, 0.0>; 651 draws, 1713/5254 sections, 4800 columns, 737 loaded; Voxel: 651 draws, 6 binds, record 1.8 ms, frame 0.0 ms; far chunks 294 meshed of 4059; 1 quad buffers; creatures 0 drawn of 0 (0 parts, 0 frames); loading 3.0 meshes/frame, 0 waiting, 597 to re-mesh
+[Xr] 600 frames; 5.5 ms of CPU a frame (2 eyes of 1024x1024), head at <0.0, 120.0, 0.0>; 762 draws, 2111/6091 sections, 4960 columns, 742 loaded; Voxel: 762 draws, 6 binds, record 2.7 ms, frame 0.0 ms; far chunks 455 meshed of 4218; 1 quad buffers; creatures 0 drawn of 0 (0 parts, 0 frames); loading 2.9 meshes/frame, 0 waiting, 439 to re-mesh
+[Xr] session ended
+[Voxel] far chunk (16,10) failed to mesh: ObjectDisposed_Generic
+ObjectDisposed_ObjectName_Name, System.Threading.SemaphoreSlim
+[RenderWorker] Far chunk dropped: no free section slots

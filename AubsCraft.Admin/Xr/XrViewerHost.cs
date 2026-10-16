@@ -128,7 +128,7 @@ public sealed class XrViewerHost : IDisposable
         foreach (var v in f.Views)
         {
             var eye = XrMath.EyeInWorld(v.RoomView, _worldFromRoom.Value);
-            var view = ViewSetup.FromXr(eye, XrMath.EyeView(v.RoomView, _worldFromRoom.Value), v.Projection, _session.EnvironmentBlendMode == "opaque" ? 1f : 0f);
+            var view = ViewSetup.FromXr(eye, XrMath.EyeView(v.RoomView, _worldFromRoom.Value), v.Projection, _session.EnvironmentBlendMode is "alpha-blend" or "additive" ? 0f : 1f);
             int w = (int)v.Viewport.Width, h = (int)v.Viewport.Height;
             _world.XrRenderEye(in view, w, h);
             _blit.Blit(_bridge, _session.Layer.Framebuffer, v.Viewport);
@@ -138,7 +138,7 @@ public sealed class XrViewerHost : IDisposable
         if (++_framesDrawn % 120 == 0)
         {
             var vp = f.Views.Length > 0 ? f.Views[0].Viewport : null;
-            Console.WriteLine($"[Xr] {_framesDrawn} frames; {_drawMsSum / 120:F1} ms of CPU a frame ({f.Views.Length} eyes of {vp?.Width}x{vp?.Height}), head at {headWorld:F1}");
+            Console.WriteLine($"[Xr] {_framesDrawn} frames; {_drawMsSum / 120:F1} ms of CPU a frame ({f.Views.Length} eyes of {vp?.Width}x{vp?.Height}), head at {headWorld:F1}; {_map.LastVoxelStats.DrawCalls} draws, {_map.LastVoxelStats.VisibleSections}/{_map.LastVoxelStats.SectionsWithQuads} sections, {_map.LastVoxelStats.Columns} columns, {_world.LoadedCount} loaded; {_world.Note}");
             _drawMsSum = 0;
         }
     }

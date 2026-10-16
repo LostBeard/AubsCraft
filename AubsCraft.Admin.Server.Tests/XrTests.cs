@@ -1,4 +1,5 @@
 using System.Numerics;
+using AubsCraft.Admin.Rendering;
 using AubsCraft.Admin.Xr;
 
 namespace AubsCraft.Admin.Server.Tests;
@@ -80,5 +81,21 @@ public class XrTests
         loco.Step(held, Vector3.Zero, Quaternion.Identity, Vector2.Zero, Vector2.Zero, 0.016f, 8f);
         var again = loco.Step(held, Vector3.Zero, Quaternion.Identity, Vector2.Zero, pushed, 0.016f, 8f);
         Assert.That(again, Is.Not.EqualTo(held), "released and pushed again turns again");
+    }
+
+    [Test]
+    public void TheTerrainInFrontOfAHeadsetIsInsideItsFrustum()
+    {
+        // What the mock headset of the viewer gate sends: 90 degrees, square eyes, near 0.05, far 3000; the head 120 up looking +X
+        float f = 1f;
+        float near = 0.05f, far = 3000f;
+        var proj = new Matrix4x4(f, 0, 0, 0, 0, f, 0, 0, 0, 0, -(far + near) / (far - near), -1, 0, 0, -2f * far * near / (far - near), 0);
+        var head = new Vector3(0, 1.7f, 0);
+        var place = XrMath.WorldFromRoom(head, Quaternion.Identity, new Vector3(0, 120, 0), new Vector3(1, 0, 0));
+        var roomView = XrMath.ViewFromPose(new Vector3(-0.032f, 1.7f, 0), Quaternion.Identity);
+        var view = ViewSetup.FromXr(XrMath.EyeInWorld(roomView, place), XrMath.EyeView(roomView, place), proj);
+        var planes = FrustumCuller.ExtractPlanes(view.ViewProjectionStandard);
+        Assert.That(FrustumCuller.IsBoxVisible(in planes, new Vector3(64, 50, -8), new Vector3(80, 70, 8)), Is.True, "terrain ahead and below is seen");
+        Assert.That(FrustumCuller.IsBoxVisible(in planes, new Vector3(-80, 50, -8), new Vector3(-64, 70, 8)), Is.False, "terrain behind is not");
     }
 }

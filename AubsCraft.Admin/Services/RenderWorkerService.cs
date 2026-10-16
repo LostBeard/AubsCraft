@@ -520,6 +520,9 @@ public class RenderWorkerService : IRenderWorkerService
     /// <summary>The camera, as the headset's head: where the world streams around and what the live creatures are culled for.</summary>
     public FpsCamera Camera => _renderer.Camera;
 
+    /// <summary>The world's own numbers (draws, quad buffers, how loading is going), one line, for a log.</summary>
+    public string Note => _voxel == null ? "" : VoxelNote();
+
     /// <summary>How many columns are in.</summary>
     public bool WorldReady => _initialized && LoadedCount > 0;
 
