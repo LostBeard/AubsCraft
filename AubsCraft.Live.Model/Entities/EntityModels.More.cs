@@ -45,6 +45,8 @@ public static partial class EntityModels
             ["armorer", "butcher", "cartographer", "cleric", "farmer", "fisherman", "fletcher", "leatherworker", "librarian", "mason", "nitwit", "shepherd", "toolsmith", "weaponsmith"];
         public static readonly string[] HorseColours = ["white", "creamy", "chestnut", "brown", "black", "gray", "darkbrown"];
         public static readonly string[] HorseMarkings = ["white", "whitefield", "whitedots", "blackdots"];
+        public static readonly string[] TropicalPatternsA = ["kob", "sunstreak", "snooper", "dasher", "brinely", "spotty"];
+        public static readonly string[] TropicalPatternsB = ["flopper", "stripey", "glitter", "blockfish", "betty", "clayfish"];
     }
 
     private static EntityModel VillagerModel(string texture, string professionFolder, float width, float height, IEnumerable<ModelPart>? extra = null, bool withProfession = false)
@@ -158,6 +160,8 @@ public static partial class EntityModels
 
         // ---- horses and their kin ----
         AddHorses(d);
+        AddWater(d);
+        AddSmall(d);
 
         // ---- llamas ----
         string[] llamaColours = ["creamy", "white", "brown", "gray"];
@@ -404,5 +408,129 @@ public static partial class EntityModels
         d["mule"] = new EntityModel { Texture = "horse/mule", Rig = EntityRig.Quadruped, Width = 1.396f, Height = 1.6f, Scale = 0.92f, BabyScale = 0.5f, Parts = Parts(true, null) };
         d["zombie_horse"] = new EntityModel { Texture = "horse/horse_zombie", Rig = EntityRig.Quadruped, Width = 1.396f, Height = 1.6f, Scale = 1.1f, BabyScale = 0.5f, Parts = Parts(false, null) };
         d["skeleton_horse"] = new EntityModel { Texture = "horse/horse_skeleton", Rig = EntityRig.Quadruped, Width = 1.396f, Height = 1.6f, Scale = 1.1f, BabyScale = 0.5f, Parts = Parts(false, null) };
+    }
+
+    private static void AddWater(Dictionary<string, EntityModel> d)
+    {
+        // ---- squids: a body and eight tentacles hanging from it (the body is centred on the hitbox) ----
+        foreach (var (name, texture) in new[] { ("squid", "squid/squid"), ("glow_squid", "squid/glow_squid") })
+        {
+            var parts = new List<ModelPart> { P("body", PartRole.Body, -1, 0, 17.6f, 0, [B(0, 0, -6, -8, -6, 12, 16, 12)]) };
+            for (int i = 0; i < 8; i++)
+            {
+                float angle = i * MathF.PI * 2f / 8f;
+                parts.Add(P("tentacle" + i, PartRole.Static, -1, MathF.Cos(angle) * 5f, 24.6f, MathF.Sin(angle) * 5f, [B(48, 0, -1, 0, -1, 2, 18, 2)]));
+            }
+            d[name] = new EntityModel { Texture = texture, Rig = EntityRig.Static, Width = 0.8f, Height = 0.8f, Parts = parts };
+        }
+
+        // ---- fish ----
+        // Fish: the body and the head. (The game's thin fins and tails are not drawn: they are a few painted pixels each, and the box numbers for them are easy to get wrong.)
+        d["cod"] = new EntityModel
+        {
+            Texture = "fish/cod", Rig = EntityRig.Static, Width = 0.5f, Height = 0.3f,
+            Parts =
+            [
+                P("body", PartRole.Body, -1, 0, 22, 0, [B(0, 0, -1, -2, 0, 2, 4, 7)]),
+                P("head", PartRole.Head, -1, 0, 22, 0, [B(11, 0, -1, -2, -3, 2, 4, 3), B(0, 0, -1, -2, -4, 2, 3, 1)]),
+            ],
+        };
+        d["salmon"] = new EntityModel
+        {
+            Texture = "fish/salmon", Rig = EntityRig.Static, Width = 0.7f, Height = 0.4f,
+            Parts =
+            [
+                P("body_front", PartRole.Body, -1, 0, 20, 0, [B(0, 0, -1.5f, -2.5f, 0, 3, 5, 8)]),
+                P("body_back", PartRole.Static, -1, 0, 20, 8, [B(0, 13, -1.5f, -2.5f, 0, 3, 5, 8)]),
+                P("head", PartRole.Head, -1, 0, 20, 0, [B(22, 0, -1, -2, -3, 2, 4, 3)]),
+            ],
+        };
+        // The pufferfish: the game's full-size body, drawn smaller (a puffed one is the hitbox's 0.7 across, a calm one about half that)
+        d["pufferfish"] = new EntityModel
+        {
+            Texture = "fish/pufferfish", Rig = EntityRig.Static, Width = 0.7f, Height = 0.7f, Scale = 0.8f,
+            Parts = [P("body", PartRole.Body, -1, 0, 24, 0, [B(0, 0, -4, -8, -4, 8, 8, 8)])],
+        };
+
+        // Tropical fish: a small and a large model, a body colour and a pattern in another (variant "pattern|body colour|pattern colour")
+        foreach (bool large in new[] { false, true })
+        {
+            var patterns = large ? Lists.TropicalPatternsB : Lists.TropicalPatternsA;
+            string basePath = large ? "fish/tropical_b" : "fish/tropical_a";
+            string? Overlay(string? v)
+            {
+                int index = Array.IndexOf(patterns, EntityPoser.Component(v, 0) ?? "");
+                return index < 0 ? null : $"{basePath}_pattern_{index + 1}";
+            }
+            ModelPart[] Fish(bool overlay)
+            {
+                int slot = overlay ? 2 : 1;
+                Func<string?, string?>? vt = overlay ? Overlay : null;
+                IReadOnlyList<string>? names = overlay ? Enumerable.Range(1, 6).Select(i => $"{basePath}_pattern_{i}").ToArray() : null;
+                var box = large ? B(0, 20, -1, -3, -3, 2, 6, 6) : B(0, 0, -1, -1.5f, -3, 2, 3, 6);
+                return [P(overlay ? "body_pattern" : "body", PartRole.Body, -1, 0, large ? 19 : 22, 0, [box with { Inflate = overlay ? 0.02f : 0f }], 0, 0, 0, null, true, vt, names, slot)];
+            }
+            d[large ? "tropical_fish_b" : "tropical_fish_a"] = new EntityModel
+            {
+                Texture = basePath, Rig = EntityRig.Static, Width = 0.5f, Height = 0.4f, Parts = Fish(false).Concat(Fish(true)).ToArray(),
+            };
+        }
+
+        // ---- the dolphin and the turtle ----
+        d["dolphin"] = new EntityModel
+        {
+            Texture = "dolphin", Rig = EntityRig.Static, Width = 0.9f, Height = 0.6f,
+            Parts =
+            [
+                P("body", PartRole.Body, -1, 0, 22, -5, [B(22, 0, -4, -7, 0, 8, 7, 13)]),
+                P("back_fin", PartRole.Static, 0, 0, -7, 0, [B(51, 0, -0.5f, 0, 8, 1, 4, 5)], rx: 0.6981317f),
+                P("left_fin", PartRole.Static, 0, 4, -1, 2, [B(48, 20, -0.5f, 0, 0, 1, 4, 7)], rx: 0.6981317f, rz: 2.0943952f),
+                P("right_fin", PartRole.Static, 0, -4, -1, 2, [B(48, 20, -0.5f, 0, 0, 1, 4, 7, mirror: true)], rx: 0.6981317f, rz: -2.0943952f),
+                P("head", PartRole.Head, 0, 0, -4, -3, [B(0, 0, -4, -3, -3, 8, 7, 6), B(0, 13, -1, 2, -7, 2, 2, 4)]),
+                P("tail", PartRole.Static, 0, 0, -2.5f, 11, [B(0, 19, -2, -2.5f, 0, 4, 5, 11)]),
+                P("tail_fin", PartRole.Static, 5, 0, 0, 9, [B(19, 20, -5, -0.5f, 0, 10, 1, 6)]),
+            ],
+        };
+        d["turtle"] = new EntityModel
+        {
+            Texture = "turtle/big_sea_turtle", Rig = EntityRig.Quadruped, Width = 1.2f, Height = 0.4f, BabyScale = 0.5f,
+            Parts =
+            [
+                P("head", PartRole.Head, -1, 0, 19, -10, [B(3, 0, -3, -1, -3, 6, 5, 6)]),
+                P("body", PartRole.Body, -1, 0, 11, -10, [B(7, 37, -9.5f, 3, -10, 19, 20, 6), B(31, 1, -5.5f, 3, -13, 11, 18, 3)], rx: HalfPi),
+                P("right_hind_leg", PartRole.RightHindLeg, -1, -3.5f, 22, 11, [B(1, 23, -2, 0, 0, 4, 1, 10)]),
+                P("left_hind_leg", PartRole.LeftHindLeg, -1, 3.5f, 22, 11, [B(1, 12, -2, 0, 0, 4, 1, 10)]),
+                P("right_front_leg", PartRole.RightFrontLeg, -1, -5, 21, -4, [B(27, 30, -13, 0, -2, 13, 1, 5)]),
+                P("left_front_leg", PartRole.LeftFrontLeg, -1, 5, 21, -4, [B(27, 24, 0, 0, -2, 13, 1, 5)]),
+            ],
+        };
+    }
+
+    private static void AddSmall(Dictionary<string, EntityModel> d)
+    {
+        // ---- the crawlers: segments of a body in a row ----
+        ModelPart[] Segments(string prefix, (float w, float h, float dpt, float u, float v)[] sizes)
+        {
+            var list = new List<ModelPart>();
+            float z = -3.5f;
+            for (int i = 0; i < sizes.Length; i++)
+            {
+                var (w, h, dpt, u, v) = sizes[i];
+                list.Add(P($"{prefix}{i}", i == 0 ? PartRole.Head : PartRole.Static, -1, 0, 24 - h, z, [B(u, v, -w / 2f, 0, -dpt / 2f, w, h, dpt)]));
+                if (i + 1 < sizes.Length) z += (dpt + sizes[i + 1].dpt) * 0.5f;
+            }
+            return list.ToArray();
+        }
+        d["silverfish"] = new EntityModel
+        {
+            Texture = "silverfish", Rig = EntityRig.Static, Width = 0.4f, Height = 0.3f,
+            Parts = Segments("segment", [(3, 2, 2, 0, 0), (4, 3, 2, 0, 4), (6, 4, 3, 0, 9), (3, 3, 3, 0, 16), (2, 2, 3, 0, 22), (2, 1, 2, 11, 0), (1, 1, 2, 13, 4)]),
+        };
+        d["endermite"] = new EntityModel
+        {
+            Texture = "endermite", Rig = EntityRig.Static, Width = 0.4f, Height = 0.3f,
+            Parts = Segments("segment", [(4, 3, 2, 0, 0), (6, 4, 5, 0, 5), (3, 3, 1, 0, 14), (1, 2, 1, 0, 18)]),
+        };
+
     }
 }

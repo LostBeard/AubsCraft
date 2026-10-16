@@ -392,6 +392,8 @@ public class EntityPoserTests
     private static readonly Dictionary<string, (float min, float max)> Hovering = new()
     {
         ["ghast"] = (-3.5f, -2.4f), ["blaze"] = (0.1f, 0.5f),
+        ["squid"] = (-1.3f, -1.0f), ["glow_squid"] = (-1.3f, -1.0f),   // the body is centred on the hitbox, the tentacles hang below it
+        ["salmon"] = (-0.05f, 0.15f), ["tropical_fish_b"] = (-0.05f, 0.2f),   // swimmers: their bodies are a little above the hitbox's floor
     };
 
     [Test]
@@ -412,7 +414,7 @@ public class EntityPoserTests
             }
             else if (feet < -0.08f || feet > 0.08f) problems.Add($"{type}: its lowest box is {feet:F2} from the ground");
             // The model is as tall as the game's hitbox says, give or take (a head held high, ears, hats)
-            if (type != "rabbit" && (top < model.Height * 0.6f || top > model.Height * 1.45f + 0.25f)) problems.Add($"{type}: {top:F2} blocks tall against a hitbox of {model.Height:F2}");
+            if (type is not ("rabbit" or "pufferfish" or "tropical_fish_a") && (top < model.Height * 0.6f || top > model.Height * 1.45f + 0.25f)) problems.Add($"{type}: {top:F2} blocks tall against a hitbox of {model.Height:F2}");
         }
         TestContext.Progress.WriteLine(string.Join(Environment.NewLine, report));
         Assert.That(problems, Is.Empty, string.Join(Environment.NewLine, problems));

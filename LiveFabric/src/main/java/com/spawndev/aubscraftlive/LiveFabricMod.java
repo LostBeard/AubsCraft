@@ -19,6 +19,7 @@ import net.minecraft.world.entity.animal.Fox;
 import net.minecraft.world.entity.animal.MushroomCow;
 import net.minecraft.world.entity.animal.Parrot;
 import net.minecraft.world.entity.animal.Rabbit;
+import net.minecraft.world.entity.animal.TropicalFish;
 import net.minecraft.world.entity.animal.horse.Horse;
 import net.minecraft.world.entity.animal.horse.Llama;
 import net.minecraft.world.entity.animal.sheep.Sheep;
@@ -200,6 +201,7 @@ public final class LiveFabricMod implements DedicatedServerModInitializer {
         if (e instanceof Llama l) return l.getVariant().name().toLowerCase();
         if (e instanceof Parrot p) return p.getVariant().name().toLowerCase();
         if (e instanceof MushroomCow m) return m.getVariant().name().toLowerCase();
+        if (e instanceof TropicalFish t) return t.getPattern().name().toLowerCase() + "|" + t.getBaseColor().getName() + "|" + t.getPatternColor().getName();
         if (e instanceof Villager v) {
             ResourceLocation id = v.getVillagerData().profession().unwrapKey().map(k -> k.location()).orElse(null);
             return id == null ? null : id.getPath();

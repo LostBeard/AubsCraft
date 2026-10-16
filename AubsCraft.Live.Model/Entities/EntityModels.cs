@@ -18,6 +18,8 @@ public static partial class EntityModels
     public static EntityModel? Get(string type, string? variant = null)
     {
         var key = Normalise(type);
+        // A tropical fish is one of two models by its pattern
+        if (key == "tropical_fish") key = Array.IndexOf(Lists.TropicalPatternsB, EntityPoser.Component(variant, 0) ?? "") >= 0 ? "tropical_fish_b" : "tropical_fish_a";
         if (!Models.TryGetValue(key, out var model)) return null;
         return model;
     }
@@ -85,8 +87,8 @@ public static partial class EntityModels
 
     private static ModelPart P(string name, PartRole role, int parent, float px, float py, float pz, ModelBox[] boxes,
         float rx = 0f, float ry = 0f, float rz = 0f, string? texture = null, bool dyed = false,
-        Func<string?, string?>? variantTexture = null, IReadOnlyList<string>? variantTextureNames = null)
-        => new(name, role, parent, new Vector3(px, py, pz), new Vector3(rx, ry, rz), boxes, texture, dyed, variantTexture, variantTextureNames);
+        Func<string?, string?>? variantTexture = null, IReadOnlyList<string>? variantTextureNames = null, int dyeSlot = 0)
+        => new(name, role, parent, new Vector3(px, py, pz), new Vector3(rx, ry, rz), boxes, texture, dyed, variantTexture, variantTextureNames, dyeSlot);
 
     private static ModelBox B(float u, float v, float x, float y, float z, float w, float h, float d, float inflate = 0f, bool mirror = false)
         => new(u, v, x, y, z, w, h, d, inflate, mirror);

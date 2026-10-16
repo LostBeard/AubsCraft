@@ -12,6 +12,7 @@ import org.bukkit.entity.MushroomCow;
 import org.bukkit.entity.Parrot;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TropicalFish;
 import org.bukkit.entity.Pose;
 import org.bukkit.entity.Rabbit;
 import org.bukkit.entity.Sheep;
@@ -199,6 +200,8 @@ public final class LivePlugin extends JavaPlugin {
         if (e instanceof Llama l) return l.getColor().name().toLowerCase();
         if (e instanceof Parrot p) return p.getVariant().name().toLowerCase();
         if (e instanceof MushroomCow m) return m.getVariant().name().toLowerCase();
+        // A tropical fish: "pattern|body colour|pattern colour"
+        if (e instanceof TropicalFish t) return t.getPattern().name().toLowerCase() + "|" + t.getBodyColor().name().toLowerCase() + "|" + t.getPatternColor().name().toLowerCase();
         return null;
     }
 }

@@ -20,6 +20,14 @@ public static class EntityPoser
         _ => Rgb(0xF9FFFE),
     };
 
+    /// <summary>The <paramref name="slot"/>th "|"-separated part of a variant (0 = the first: the pattern), or null.</summary>
+    public static string? Component(string? variant, int slot)
+    {
+        if (variant == null) return null;
+        var parts = variant.Split('|');
+        return slot < parts.Length ? parts[slot] : null;
+    }
+
     private static Vector3 Rgb(int rgb) => new(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f);
 
     /// <summary>
@@ -83,7 +91,7 @@ public static class EntityPoser
                     Texture = partTexture ?? (texture != null && model.Texture == "player" ? texture : model.TextureByVariant?.Invoke(view.Variant) ?? model.Texture),
                     U = box.U,
                     V = box.V,
-                    Tint = part.Dyed ? dye : Vector3.One,
+                    Tint = part.Dyed ? (part.DyeSlot == 0 ? dye : DyeColour(Component(view.Variant, part.DyeSlot))) : Vector3.One,
                 });
             }
         }

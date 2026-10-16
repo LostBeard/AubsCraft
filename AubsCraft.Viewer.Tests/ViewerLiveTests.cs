@@ -394,6 +394,7 @@ public class ViewerLiveTests
         {
             ["cat"] = "siamese", ["rabbit"] = "gold", ["fox"] = "snow", ["horse"] = "chestnut/white_dots", ["llama"] = "brown", ["villager"] = "farmer",
             ["zombie_villager"] = "librarian", ["parrot"] = "blue", ["sheep"] = "pink", ["wolf"] = "snowy",
+            ["tropical_fish_a"] = "kob|orange|white", ["tropical_fish_b"] = "flopper|yellow|red", ["mooshroom"] = "brown",
         };
         var types = EntityModels_Types().Where(t => t is not ("player" or "player_slim")).OrderBy(t => t, StringComparer.Ordinal).ToList();
         var groups = types.Chunk(6).ToList();

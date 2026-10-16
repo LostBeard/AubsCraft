@@ -238,7 +238,7 @@ public sealed class EntityLayer : IDisposable
             model = EntityModels.Get(player is { Slim: true } ? "player_slim" : "player")!;
             texture = player != null ? SkinTextureFor(player, now) : EntityModels.DefaultSkinFor(v.Id.ToString(), false);
         }
-        else if (EntityModels.Get(v.Type) is { } known) model = known;
+        else if (EntityModels.Get(v.Type, v.Variant) is { } known) model = known;
         else
         {
             var key = EntityModels.Normalise(v.Type);
