@@ -228,4 +228,169 @@ public class LiveChunksEndToEndTests
         await NextChangeAsync(ws, 1, 1, TimeSpan.FromSeconds(30));
         await rcon.SendCommandAsync("fill 14 -60 14 17 -60 17 minecraft:air");
     }
+
+    // ---- editing the world: an admin's request -> the plugin applies it on the server's main thread -> the world, and its undo ----
+
+    private async Task<(System.Net.HttpStatusCode Status, EditResult? Result, string Body)> PostEditAsync(string url, object? body, string? cookie = null)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Post, url) { Content = body == null ? null : JsonContent.Create(body) };
+        req.Headers.Add("Cookie", cookie ?? _cookie);
+        var resp = await _http.SendAsync(req);
+        var text = await resp.Content.ReadAsStringAsync();
+        EditResult? result = null;
+        try { result = System.Text.Json.JsonSerializer.Deserialize<EditResult>(text, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)); } catch (System.Text.Json.JsonException) { }
+        return (resp.StatusCode, result, text);
+    }
+
+    private static object Fill(int[] from, int[] to, string block, string? only = null, bool hollow = false)
+        => new { op = "fill", from, to, block, only, hollow };
+
+    private static async Task<bool> IsBlockAsync(MinecraftRconClient rcon, int x, int y, int z, string block)
+        => (await rcon.SendCommandAsync($"execute if block {x} {y} {z} {block}")).Contains("passed");
+
+    [Test]
+    public async Task AnAdminsFill_ChangesTheWorld_AndUndoAndRedoPutItBackAndForth()
+    {
+        await using var rcon = await TestServers.RconAsync(_paper);
+        await WaitForPluginAsync();
+        // The channel is up once the plugin has asked
+        var status = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Get, "/api/world/edit/status?server=lc") { Headers = { { "Cookie", _cookie } } });
+        for (int i = 0; i < 40 && !(await status.Content.ReadAsStringAsync()).Contains("true"); i++)
+        {
+            await Task.Delay(500);
+            status = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Get, "/api/world/edit/status?server=lc") { Headers = { { "Cookie", _cookie } } });
+        }
+        Assert.That(await status.Content.ReadAsStringAsync(), Does.Contain("\"available\":true"), "the plugin's long poll is there");
+
+        var (code, result, body) = await PostEditAsync("/api/world/edit?server=lc", new { label = "gold floor", ops = new[] { Fill([20, -60, 20], [23, -60, 23], "minecraft:gold_block") } });
+        Assert.That(code, Is.EqualTo(System.Net.HttpStatusCode.OK), body);
+        Assert.That(result!.Ok, Is.True, result.Error);
+        Assert.That(result.Placed, Is.EqualTo(16));
+        Assert.That(result.Applied, Is.True);
+        Assert.That(await IsBlockAsync(rcon, 21, -60, 21, "minecraft:gold_block"), Is.True, "the block is in the world");
+        Assert.That(await IsBlockAsync(rcon, 24, -60, 21, "minecraft:gold_block"), Is.False, "and only where it was asked");
+
+        // The viewers are told, and the chunk the panel serves has it
+        await Task.Delay(1500);
+        var ids = await ChunkIdsAsync(1, 1);
+        var names = await BlockNamesAsync();
+        Assert.That(names[ids[(20 & 15) + (20 & 15) * 16 + 4 * 256]], Is.EqualTo("minecraft:gold_block"));
+
+        // Undo: air again. Undo again (redo): gold again.
+        var undo = await PostEditAsync($"/api/world/edit/undo?server=lc&edit={result.Edit}", null);
+        Assert.That(undo.Result!.Ok, Is.True, undo.Body);
+        Assert.That(undo.Result.Applied, Is.False);
+        Assert.That(undo.Result.Placed, Is.EqualTo(16));
+        Assert.That(await IsBlockAsync(rcon, 21, -60, 21, "minecraft:air"), Is.True, "undone");
+        var redo = await PostEditAsync($"/api/world/edit/undo?server=lc&edit={result.Edit}", null);
+        Assert.That(redo.Result!.Applied, Is.True);
+        Assert.That(await IsBlockAsync(rcon, 21, -60, 21, "minecraft:gold_block"), Is.True, "redone");
+        await PostEditAsync($"/api/world/edit/undo?server=lc&edit={result.Edit}", null);
+        Assert.That(await IsBlockAsync(rcon, 21, -60, 21, "minecraft:air"), Is.True, "and gone again");
+
+        // An edit that is not remembered says so
+        var unknown = await PostEditAsync("/api/world/edit/undo?server=lc&edit=no-such-edit", null);
+        Assert.That(unknown.Result!.Ok, Is.False);
+        Assert.That(unknown.Result.Error, Does.Contain("no longer remembered"));
+    }
+
+    [Test]
+    public async Task AFillOnlyWhereThereIsStone_AndAHollowBox_DoWhatTheyAreAskedTo()
+    {
+        await using var rcon = await TestServers.RconAsync(_paper);
+        await WaitForPluginAsync();
+        await rcon.SendCommandAsync("fill 40 -60 40 44 -60 40 minecraft:stone");
+        // Replace only stone with glass in a wider row: the five stones change, the air beside them does not
+        var only = await PostEditAsync("/api/world/edit?server=lc", new { ops = new[] { Fill([38, -60, 40], [46, -60, 40], "minecraft:glass", only: "minecraft:stone") } });
+        Assert.That(only.Result!.Ok, Is.True, only.Body);
+        Assert.That(only.Result.Placed, Is.EqualTo(5));
+        Assert.That(only.Result.Skipped, Is.EqualTo(4));
+        Assert.That(await IsBlockAsync(rcon, 42, -60, 40, "minecraft:glass"), Is.True);
+        Assert.That(await IsBlockAsync(rcon, 38, -60, 40, "minecraft:air"), Is.True);
+
+        // A 5 x 5 x 5 box with nothing inside: 125 - 27 blocks
+        var hollow = await PostEditAsync("/api/world/edit?server=lc", new { ops = new[] { Fill([50, -59, 50], [54, -55, 54], "minecraft:stone", hollow: true) } });
+        Assert.That(hollow.Result!.Placed, Is.EqualTo(98));
+        Assert.That(await IsBlockAsync(rcon, 50, -57, 52, "minecraft:stone"), Is.True, "a wall");
+        Assert.That(await IsBlockAsync(rcon, 52, -57, 52, "minecraft:air"), Is.True, "the middle is empty");
+        Assert.That(await IsBlockAsync(rcon, 52, -55, 52, "minecraft:stone"), Is.True, "the roof");
+
+        await PostEditAsync($"/api/world/edit/undo?server=lc&edit={hollow.Result.Edit}", null);
+        await PostEditAsync($"/api/world/edit/undo?server=lc&edit={only.Result.Edit}", null);
+        Assert.That(await IsBlockAsync(rcon, 42, -60, 40, "minecraft:stone"), Is.True, "the glass goes back to the stone that was there");
+        await rcon.SendCommandAsync("fill 40 -60 40 44 -60 40 minecraft:air");
+    }
+
+    [Test]
+    public async Task ASignThatIsOverwritten_ComesBackWithItsWriting()
+    {
+        await using var rcon = await TestServers.RconAsync(_paper);
+        await WaitForPluginAsync();
+        await rcon.SendCommandAsync("setblock 60 -60 60 minecraft:oak_sign[rotation=4]{front_text:{messages:['\"Hello\"','\"\"','\"\"','\"\"']}}");
+        Assert.That(await rcon.SendCommandAsync("data get block 60 -60 60 front_text.messages[0]"), Does.Contain("Hello"));
+
+        var over = await PostEditAsync("/api/world/edit?server=lc", new { label = "stone over a sign", ops = new[] { new { op = "set", at = new[] { 60, -60, 60 }, block = "minecraft:stone" } } });
+        Assert.That(over.Result!.Ok, Is.True, over.Body);
+        Assert.That(await IsBlockAsync(rcon, 60, -60, 60, "minecraft:stone"), Is.True);
+
+        await PostEditAsync($"/api/world/edit/undo?server=lc&edit={over.Result.Edit}", null);
+        Assert.That(await IsBlockAsync(rcon, 60, -60, 60, "minecraft:oak_sign"), Is.True, "the sign is back");
+        Assert.That(await rcon.SendCommandAsync("data get block 60 -60 60 front_text.messages[0]"), Does.Contain("Hello"), "with what it said");
+        await rcon.SendCommandAsync("setblock 60 -60 60 minecraft:air");
+    }
+
+    [Test]
+    public async Task ASparseListOfBlocks_PlacesEachWhereItBelongs()
+    {
+        await using var rcon = await TestServers.RconAsync(_paper);
+        await WaitForPluginAsync();
+        // Three blocks from the anchor (56, -60, 56): (0,0,0) dirt, (2,0,0) stone, (0,1,-3) dirt - palette [dirt, stone]
+        var data = new byte[24];
+        void Record(int i, int dx, int dy, int dz, int p)
+        {
+            BitConverter.TryWriteBytes(data.AsSpan(i * 8), (short)dx); BitConverter.TryWriteBytes(data.AsSpan(i * 8 + 2), (short)dy);
+            BitConverter.TryWriteBytes(data.AsSpan(i * 8 + 4), (short)dz); BitConverter.TryWriteBytes(data.AsSpan(i * 8 + 6), (ushort)p);
+        }
+        Record(0, 0, 0, 0, 0); Record(1, 2, 0, 0, 1); Record(2, 0, 1, -3, 0);
+        var result = await PostEditAsync("/api/world/edit?server=lc", new { ops = new object[] { new { op = "blocks", at = new[] { 56, -60, 56 }, palette = new[] { "minecraft:dirt", "minecraft:stone" }, data = Convert.ToBase64String(data) } } });
+        Assert.That(result.Result!.Ok, Is.True, result.Body);
+        Assert.That(result.Result.Placed, Is.EqualTo(3));
+        Assert.That(await IsBlockAsync(rcon, 56, -60, 56, "minecraft:dirt"), Is.True);
+        Assert.That(await IsBlockAsync(rcon, 58, -60, 56, "minecraft:stone"), Is.True);
+        Assert.That(await IsBlockAsync(rcon, 56, -59, 53, "minecraft:dirt"), Is.True);
+        await PostEditAsync($"/api/world/edit/undo?server=lc&edit={result.Result.Edit}", null);
+        Assert.That(await IsBlockAsync(rcon, 58, -60, 56, "minecraft:air"), Is.True);
+    }
+
+    [Test]
+    public async Task ABlockTheServerDoesNotKnow_IsRefusedWholesale_AndAFriendOrAStrangerCannotEdit()
+    {
+        await using var rcon = await TestServers.RconAsync(_paper);
+        await WaitForPluginAsync();
+        var unknown = await PostEditAsync("/api/world/edit?server=lc", new { ops = new[] { new { op = "set", at = new[] { 57, -60, 58 }, block = "minecraft:not_a_real_block" } } });
+        Assert.That(unknown.Result!.Ok, Is.False);
+        Assert.That(unknown.Result.Error, Does.Contain("Unknown block"));
+
+        var bad = await PostEditAsync("/api/world/edit?server=lc", new { ops = new[] { new { op = "set", at = new[] { 57, 900, 58 }, block = "minecraft:stone" } } });
+        Assert.That(bad.Status, Is.EqualTo(System.Net.HttpStatusCode.BadRequest), "the panel refuses a request out of the world before the server sees it");
+
+        // A friend (the lowest role) is not allowed; a stranger is not even let in
+        var auth = _factory.Services.GetRequiredService<AuthService>();
+        await auth.CreateFriendAsync("buddy", "friend-password", "invite");
+        var login = await _http.PostAsJsonAsync("/api/auth/login", new { Username = "buddy", Password = "friend-password" });
+        var friendCookie = string.Join("; ", login.Headers.GetValues("Set-Cookie").Select(c => c.Split(';')[0]));
+        var asFriend = await PostEditAsync("/api/world/edit?server=lc", new { ops = new[] { new { op = "set", at = new[] { 57, -60, 58 }, block = "minecraft:stone" } } }, friendCookie);
+        Assert.That(asFriend.Status, Is.EqualTo(System.Net.HttpStatusCode.Forbidden));
+        var asStranger = await _http.PostAsJsonAsync("/api/world/edit?server=lc", new { ops = new[] { new { op = "set", at = new[] { 57, -60, 58 }, block = "minecraft:stone" } } });
+        Assert.That((int)asStranger.StatusCode, Is.AnyOf(401, 302, 403));
+        Assert.That(await IsBlockAsync(rcon, 57, -60, 58, "minecraft:air"), Is.True, "nothing was placed");
+
+        // Made an Admin, the friend may
+        await auth.SetUserRoleAsync("buddy", "Admin");
+        login = await _http.PostAsJsonAsync("/api/auth/login", new { Username = "buddy", Password = "friend-password" });
+        friendCookie = string.Join("; ", login.Headers.GetValues("Set-Cookie").Select(c => c.Split(';')[0]));
+        var asAdmin = await PostEditAsync("/api/world/edit?server=lc", new { label = "an admin's block", ops = new[] { new { op = "set", at = new[] { 57, -60, 58 }, block = "minecraft:stone" } } }, friendCookie);
+        Assert.That(asAdmin.Result!.Ok, Is.True, asAdmin.Body);
+        await PostEditAsync($"/api/world/edit/undo?server=lc&edit={asAdmin.Result.Edit}", null);
+    }
 }

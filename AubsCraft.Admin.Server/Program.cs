@@ -13,6 +13,7 @@ builder.Services.AddSingleton<ActivityLogService>();
 builder.Services.AddSingleton<GlobalBlockRegistry>();
 // Live activity from the AubsCraft Live plugin (frames in, viewers out) and installing that plugin into a server
 builder.Services.AddSingleton<LiveFeedService>();
+builder.Services.AddSingleton<EditChannelService>();
 builder.Services.AddSingleton<LivePluginService>();
 // Players' skins for the viewer, fetched from Mojang's texture server on its behalf (only that host, only a small PNG, cached)
 builder.Services.AddHttpClient<SkinProxyService>(c => { c.Timeout = TimeSpan.FromSeconds(10); c.DefaultRequestHeaders.UserAgent.ParseAdd("AubsCraft-panel"); });
@@ -327,6 +328,7 @@ api.MapGet("/servers/{id}/backups/{file}", (string id, string file, BackupServic
 // -- World Data API (for 3D viewer) --
 // Every world endpoint takes ?server=<id> (default: the primary server).
 app.MapLiveEndpoints();
+app.MapEditEndpoints();
 
 var world = app.MapGroup("/api/world").RequireAuthorization();
 

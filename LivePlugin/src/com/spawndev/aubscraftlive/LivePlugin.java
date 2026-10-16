@@ -62,6 +62,7 @@ public final class LivePlugin extends JavaPlugin {
     private int maxItems;
     private BukkitTask task;
     private ChunkWatcher chunks;
+    private EditChannel channel;
     private final AtomicBoolean inFlight = new AtomicBoolean();
     private long sent, dropped, failed;
     private long lastReport;
@@ -96,6 +97,12 @@ public final class LivePlugin extends JavaPlugin {
         if (getConfig().getBoolean("chunk-updates", true)) {
             chunks = new ChunkWatcher(this, http, URI.create(panel.replaceAll("/+$", "") + "/api/live/chunk/" + serverId), secret);
             chunks.start();
+            // The panel's admins edit the world through here (a long poll the plugin makes, so the panel never connects in)
+            if (getConfig().getBoolean("edits", true)) {
+                Edits edits = new Edits(this, chunks, getConfig().getInt("edit-budget-ms", 8));
+                channel = new EditChannel(this, http, panel.replaceAll("/+$", ""), serverId, secret, edits);
+                channel.start();
+            }
         }
         getLogger().info("Sending the world's activity to " + endpoint + " every " + interval + " ticks");
     }
@@ -103,6 +110,7 @@ public final class LivePlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (task != null) task.cancel();
+        if (channel != null) channel.stop();
     }
 
     private void sample() {

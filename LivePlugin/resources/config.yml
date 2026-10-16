@@ -13,3 +13,6 @@ include-items: true
 max-items: 500
 # Chunks that change are sent to the panel as they settle (the panel otherwise reads region files, minutes behind the running world).
 chunk-updates: true
+# Admins of the panel may edit the world from the viewer (needs chunk-updates). edit-budget-ms: the most a tick spends on it.
+edits: true
+edit-budget-ms: 8
