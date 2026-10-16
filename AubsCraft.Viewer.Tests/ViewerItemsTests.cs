@@ -117,4 +117,57 @@ public class ViewerItemsTests
             await page.CloseAsync();
         }
     }
+
+    [Test]
+    public async Task BoatsMinecartsAndStands_AreDrawn_AsTheirGameModels()
+    {
+        string[] types = ["oak_boat", "bamboo_raft", "spruce_chest_boat", "cherry_boat", "minecart", "armor_stand"];
+        var entities = new List<LiveEntity>();
+        for (int i = 0; i < types.Length; i++)
+        {
+            float x = -6.25f + i * 2.5f;
+            entities.Add(new LiveEntity(200 + i, types[i], x, 118.0f, 0.5f, i % 2 == 0 ? 20f : -35f, 0f, i % 2 == 0 ? 20f : -35f, 0, 0f, 0f, 0f, null, null));
+        }
+        long tick = 300_000;
+        byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
+        {
+            FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
+            Worlds = [new LiveWorld { Name = "world", Entities = entities, Players = System.Array.Empty<LivePlayer>() }],
+        });
+
+        var page = await _rig.Context.NewPageAsync();
+        var errors = new List<string>();
+        var log = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        page.Console += (_, m) => { log.Enqueue(m.Text); if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.Worker += (_, w) => w.Console += (_, m) => { log.Enqueue(m.Text); if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.PageError += (_, e) => errors.Add(e);
+        using var stop = new CancellationTokenSource();
+        Task? poster = null;
+        try
+        {
+            await page.GotoAsync($"{_rig.BaseUrl}/map?hud=0&time=6000&dd=6&cam=0.5,119.4,-6.5,-6,90", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            poster = Task.Run(async () =>
+            {
+                while (!stop.IsCancellationRequested)
+                {
+                    int status = await _rig.PostLiveFrameAsync(Frame());
+                    if (status != 204) throw new InvalidOperationException($"The panel answered {status} to a live frame");
+                    tick += 4;
+                    await Task.Delay(200);
+                }
+            });
+            for (int i = 0; i < 40 && !log.Any(l => Regex.IsMatch(l, @"\[Live\] creatures 6 drawn")); i++) await Task.Delay(1000);
+            await Task.Delay(2000);
+            var file = Path.Combine(_outDir, "vehicles.png");
+            await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = file });
+            Assert.That(log.Any(l => Regex.IsMatch(l, @"\[Live\] creatures 6 drawn")), Is.True, "all six are drawn");
+            Assert.That(errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", errors));
+        }
+        finally
+        {
+            stop.Cancel();
+            try { if (poster != null) await poster; } catch (OperationCanceledException) { }
+            await page.CloseAsync();
+        }
+    }
 }

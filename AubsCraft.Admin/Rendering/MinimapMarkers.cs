@@ -41,7 +41,7 @@ public static class MinimapMarkers
         var near = new List<(float d2, MinimapMarker marker)>();
         foreach (var v in creatures)
         {
-            if ((v.Flags & LiveFlags.Invisible) != 0 || EntityModels.IsNotACreature(v.Type)) continue;
+            if ((v.Flags & LiveFlags.Invisible) != 0 || EntityModels.IsNotACreature(v.Type) || EntityModels.IsVehicleOrStand(v.Type)) continue;
             float dx = v.X - cameraX, dz = v.Z - cameraZ;
             var (x, y) = MapPosition(dx, dz, yawDegrees, extent);
             if (!v.IsPlayer && MathF.Max(MathF.Abs(x), MathF.Abs(y)) > 1f) continue;

@@ -12,11 +12,11 @@ public static partial class EntityModels
     private static void AddFromGame(Dictionary<string, EntityModel> d)
     {
         EntityModel Make(string key, string texture, EntityRig rig, float width, float height, float scale = 1f, Vector3 offset = default,
-            Func<string, PartRole>? role = null, string[]? hide = null, float baby = 0.5f, string[]? variants = null, Func<string?, string>? byVariant = null) => new()
+            Func<string, PartRole>? role = null, string[]? hide = null, float baby = 0.5f, string[]? variants = null, Func<string?, string>? byVariant = null, float modelYaw = 0f, Func<ModelPart[], ModelPart[]>? afterParts = null) => new()
         {
-            Texture = texture, Rig = rig, Width = width, Height = height, Scale = scale, ModelOffset = offset, BabyScale = baby,
+            Texture = texture, Rig = rig, Width = width, Height = height, Scale = scale, ModelOffset = offset, ModelYawDegrees = modelYaw, BabyScale = baby,
             TextureByVariant = byVariant, VariantTextures = variants ?? Array.Empty<string>(),
-            Parts = GameModels.Parts(key, role, hide == null ? null : new HashSet<string>(hide)),
+            Parts = afterParts == null ? GameModels.Parts(key, role, hide == null ? null : new HashSet<string>(hide)) : afterParts(GameModels.Parts(key, role, hide == null ? null : new HashSet<string>(hide))),
         };
         // Parts that stay still however the creature moves (a frog hops, it does not swing its legs like a pig's)
         PartRole HeadOnly(string name) => name == "head" ? PartRole.Head : name == "body" ? PartRole.Body : PartRole.Static;
@@ -73,7 +73,7 @@ public static partial class EntityModels
         EntityModel WithGameParts(EntityModel m, string key, Func<string, PartRole>? role = null, string[]? hide = null) => new()
         {
             Texture = m.Texture, Rig = m.Rig, Width = m.Width, Height = m.Height, ArmsForward = m.ArmsForward, BabyScale = m.BabyScale, TextureByVariant = m.TextureByVariant,
-            VariantTextures = m.VariantTextures, FootY = m.FootY, Scale = m.Scale, ModelOffset = m.ModelOffset,
+            VariantTextures = m.VariantTextures, FootY = m.FootY, Scale = m.Scale, ModelOffset = m.ModelOffset, ModelYawDegrees = m.ModelYawDegrees,
             Parts = GameModels.Parts(key, role, hide == null ? null : new HashSet<string>(hide)),
         };
         // A cow's legs and nose sit a pixel off in the hand-made model; a mooshroom is a cow
@@ -104,6 +104,25 @@ public static partial class EntityModels
                 Texture = basePath, Rig = EntityRig.Static, Width = 0.5f, Height = 0.4f, Parts = body.Concat(pattern).ToArray(),
             };
         }
+
+        // ---- vehicles and stands ----
+        // A boat is drawn lifted 0.375 (the model offset is in the flipped space of the renderer: 1.501 - 0.375) and turned a quarter; a raft the same with its own model. The paddles stay as the model has them.
+        string[] woods = ["oak", "spruce", "birch", "jungle", "acacia", "dark_oak", "mangrove", "cherry", "pale_oak"];
+        var lift = new Vector3(0f, 1.501f - 0.375f, 0f);
+        // The paddles of a boat nobody rows: the game tips them back (about 37 degrees) rather than leave them lying out flat
+        ModelPart[] RestingPaddles(ModelPart[] parts) => parts.Select(p => p.Name.EndsWith("_paddle", StringComparison.Ordinal) ? p with { Rotation = new Vector3(-0.6545f, p.Rotation.Y, p.Rotation.Z) } : p).ToArray();
+        foreach (var wood in woods)
+        {
+            d[$"{wood}_boat"] = Make("BoatModel.createBoatModel", $"boat/{wood}", EntityRig.Static, 1.375f, 0.5625f, offset: lift, role: _ => PartRole.Static, modelYaw: 90f, afterParts: RestingPaddles);
+            d[$"{wood}_chest_boat"] = Make("BoatModel.createChestBoatModel", $"chest_boat/{wood}", EntityRig.Static, 1.375f, 0.5625f, offset: lift, role: _ => PartRole.Static, modelYaw: 90f, afterParts: RestingPaddles);
+        }
+        d["bamboo_raft"] = Make("RaftModel.createRaftModel", "boat/bamboo", EntityRig.Static, 1.375f, 0.5625f, offset: lift, role: _ => PartRole.Static, modelYaw: 90f, afterParts: RestingPaddles);
+        d["bamboo_chest_raft"] = Make("RaftModel.createChestRaftModel", "chest_boat/bamboo", EntityRig.Static, 1.375f, 0.5625f, offset: lift, role: _ => PartRole.Static, modelYaw: 90f, afterParts: RestingPaddles);
+        // Every minecart is the same cart (the block a chest or furnace cart carries is not drawn)
+        foreach (var cart in new[] { "minecart", "chest_minecart", "furnace_minecart", "hopper_minecart", "tnt_minecart", "spawner_minecart", "command_block_minecart" })
+            d[cart] = Make("MinecartModel.createBodyLayer", "minecart", EntityRig.Static, 0.98f, 0.7f, offset: lift, role: _ => PartRole.Static);
+        // An armor stand with no arms and its base plate (the plugin does not say otherwise); its hat layer is for armour
+        d["armor_stand"] = Make("ArmorStandModel.createBodyLayer", "armorstand/wood", EntityRig.Static, 0.5f, 1.975f, role: _ => PartRole.Static, hide: ["hat", "right_arm", "left_arm"]);
 
         // ---- fish: the game's whole models, fins and tails and all ----
         d["cod"] = Make("CodModel.createBodyLayer", "fish/cod", EntityRig.Static, 0.5f, 0.3f, role: HeadOnly);

@@ -70,6 +70,13 @@ public static partial class EntityModels
     /// <summary>What is not a creature worth drawing: projectiles, items, markers, display entities, effects. (They are not in the frame unless the plugin is told to send them.)</summary>
     public static bool IsNotACreature(string type) => NotCreatures.Contains(Normalise(type));
 
+    /// <summary>A boat, raft, minecart or armor stand: drawn, but nothing to put on the minimap as a creature.</summary>
+    public static bool IsVehicleOrStand(string type)
+    {
+        var key = Normalise(type);
+        return key.EndsWith("_boat", StringComparison.Ordinal) || key.EndsWith("_raft", StringComparison.Ordinal) || key.EndsWith("minecart", StringComparison.Ordinal) || key is "armor_stand" or "end_crystal";
+    }
+
     /// <summary>A model of one box the size of the creature: the picture for a creature with no model of its own.</summary>
     public static EntityModel Fallback(string type)
     {

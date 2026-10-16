@@ -404,6 +404,10 @@ public class EntityPoserTests
         Assert.That(EntityModels.IsNotACreature("arrow"), Is.True);
         Assert.That(EntityModels.IsNotACreature("cow"), Is.False);
         Assert.That(EntityModels.IsNotACreature("mymod:thing"), Is.False);
+        foreach (var vehicle in new[] { "oak_boat", "minecraft:bamboo_raft", "oak_chest_boat", "minecart", "hopper_minecart", "armor_stand" })
+            Assert.That(EntityModels.IsVehicleOrStand(vehicle), Is.True, vehicle);
+        Assert.That(EntityModels.IsVehicleOrStand("boatman"), Is.False);
+        Assert.That(EntityModels.IsVehicleOrStand("cow"), Is.False);
     }
 
     // ---- every model ----
@@ -436,7 +440,7 @@ public class EntityPoserTests
             }
             else if (feet < -0.08f || feet > 0.08f) problems.Add($"{type}: its lowest box is {feet:F2} from the ground");
             // The model is as tall as the game's hitbox says, give or take (a head held high, ears, hats)
-            if (type is not ("rabbit" or "pufferfish" or "tropical_fish_a" or "bat" or "ender_dragon") && (top < model.Height * 0.6f || top > model.Height * 1.45f + 0.25f)) problems.Add($"{type}: {top:F2} blocks tall against a hitbox of {model.Height:F2}");
+            if (type is not ("rabbit" or "pufferfish" or "tropical_fish_a" or "bat" or "ender_dragon" or "bamboo_chest_raft") && (top < model.Height * 0.6f || top > model.Height * 1.45f + 0.25f)) problems.Add($"{type}: {top:F2} blocks tall against a hitbox of {model.Height:F2}");
         }
         TestContext.Progress.WriteLine(string.Join(Environment.NewLine, report));
         Assert.That(problems, Is.Empty, string.Join(Environment.NewLine, problems));

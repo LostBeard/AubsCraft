@@ -35,8 +35,9 @@ public static class EntityPoser
     /// 90 = west): the game's renderer order - 1/16 scale, the 1.501 lift, the creature's scale, the flip of x and y (the model's y points down), the turn
     /// of 180 minus the yaw, then the place.
     /// </summary>
-    public static Matrix4x4 Root(float x, float y, float z, float bodyYawDegrees, float scale, Vector3 modelOffset = default) =>
+    public static Matrix4x4 Root(float x, float y, float z, float bodyYawDegrees, float scale, Vector3 modelOffset = default, float modelYawDegrees = 0f) =>
         Matrix4x4.CreateScale(1f / 16f)
+        * Matrix4x4.CreateRotationY(modelYawDegrees * Deg)
         * Matrix4x4.CreateTranslation(modelOffset.X, modelOffset.Y - 1.501f, modelOffset.Z)
         * Matrix4x4.CreateScale(scale)
         * Matrix4x4.CreateScale(-1f, -1f, 1f)
@@ -57,7 +58,7 @@ public static class EntityPoser
     public static void Pose(in LiveEntityView view, EntityModel model, float ageTicks, List<PartDraw> output, string? texture = null, bool coarse = false)
     {
         float scale = (view.Baby ? model.BabyScale : 1f) * model.Scale;
-        var root = Root(view.X, view.Y, view.Z, view.BodyYaw, scale, model.ModelOffset);
+        var root = Root(view.X, view.Y, view.Z, view.BodyYaw, scale, model.ModelOffset, model.ModelYawDegrees);
         float headYaw = HeadYawRelative(view.Yaw, view.BodyYaw) * Deg;
         float headPitch = Math.Clamp(view.Pitch, -90f, 90f) * Deg;
         float swing = view.WalkedBlocks * 4f * (view.Baby ? 3f : 1f);

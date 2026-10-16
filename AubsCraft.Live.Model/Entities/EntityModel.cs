@@ -62,6 +62,8 @@ public sealed class EntityModel
     public float Scale { get; init; } = 1f;
     /// <summary>What the game's renderer moves the model by before it draws it (blocks; the phantom is lifted 1.3125 and set back 0.1875), in the scaled frame.</summary>
     public Vector3 ModelOffset { get; init; }
+    /// <summary>A turn about the vertical, in degrees, the renderer gives the model before anything else (a boat is drawn turned a quarter).</summary>
+    public float ModelYawDegrees { get; init; }
 }
 
 /// <summary>One box ready to draw: its place in the world and where its texture is. The renderer turns the texture NAME into an atlas position.</summary>
