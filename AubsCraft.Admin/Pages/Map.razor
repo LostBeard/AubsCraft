@@ -198,6 +198,7 @@ else
             Xr.Ended -= OnXrEnded;
             Xr.Ended += OnXrEnded;
             await Xr.EnterAsync(mode, serverId, new System.Numerics.Vector3(s.CamX, s.CamY, s.CamZ), s.CamYaw, s.CamPitch, _lastTicks);
+            Xr.SeedHud(_hudFeed.CurrentPlayers, _hudFeed.RecentChat);
         }
         catch (Exception ex)
         {
@@ -417,7 +418,12 @@ else
             if (++feedCounter >= 6)
             {
                 feedCounter = 0;
-                if (_hudFeed.HasPending) await _renderService.PushHudFeedAsync(_hudFeed.Take());
+                if (_hudFeed.HasPending)
+                {
+                    var feed = _hudFeed.Take();
+                    await _renderService.PushHudFeedAsync(feed);
+                    Xr.FeedHud(feed);   // a headset's HUD is on this thread, not in the worker
+                }
             }
 
             if (_isPointerLocked)

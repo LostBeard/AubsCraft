@@ -249,6 +249,30 @@ public class RenderWorkerService : IRenderWorkerService
         UpdateFollow(0);
     }
 
+    /// <summary>
+    /// Where "go to this player" puts the viewer: behind them, looking the way they look. False (with a notice on the HUD) when they are not in the live view - the headset's HUD uses it,
+    /// as a headset's camera is the head and the host moves the room instead.
+    /// </summary>
+    public bool TryPlaceBehindPlayer(string name, out Vector3 position, out float yawDegrees)
+    {
+        position = default;
+        yawDegrees = 0f;
+        if (_entities == null) return false;
+        switch (_entities.LookupPlayer(name, out var view))
+        {
+            case PlayerLookup.Unknown:
+                _hud.Toast($"{name} is not in the live view yet (it needs the Live view plugin on the server, and the player in a loaded area)", NotificationType.Warning);
+                return false;
+            case PlayerLookup.OtherWorld:
+                _hud.Toast($"{name} is in another dimension; the viewer shows the main world", NotificationType.Warning);
+                return false;
+        }
+        var c = FollowCamera.Behind(view);
+        position = new Vector3(c.X, c.Y, c.Z);
+        yawDegrees = c.Yaw;
+        return true;
+    }
+
     private void StopFollowing(string? why)
     {
         if (_followName == null) return;
@@ -614,15 +638,20 @@ public class RenderWorkerService : IRenderWorkerService
     {
         if (!_initialized) return;
         _renderer.TrackFrame(dt);
+        EaseWeather(dt);
+        if (XrHudActive) UpdateHud(dt);
         StreamWorld(dt);
     }
 
-    /// <summary>Draw one eye into <see cref="Canvas"/> (resized to the eye's size first).</summary>
-    public VoxelFrameStats? XrRenderEye(in ViewSetup view, int width, int height)
+    /// <summary>The headset shows the HUD panel: <see cref="XrFrame"/> keeps the HUD's state (minimap, text) up to date for it. Off, that work is skipped.</summary>
+    public bool XrHudActive { get; set; }
+
+    /// <summary>Draw one eye into <see cref="Canvas"/> (resized to the eye's size first); <paramref name="overlay"/> draws over the finished eye in the same encoder.</summary>
+    public VoxelFrameStats? XrRenderEye(in ViewSetup view, int width, int height, Action<GPUCommandEncoder, GPUTextureView>? overlay = null)
     {
         if (!_initialized || _canvas == null) return null;
         if (_canvas.Width != width || _canvas.Height != height) { _canvas.Width = width; _canvas.Height = height; _renderer.HandleResize(width, height); }
-        return _renderer.RenderView(in view, width, height);
+        return _renderer.RenderView(in view, width, height, overlay);
     }
 
     private void OnRenderFrame(float dt)
@@ -630,7 +659,15 @@ public class RenderWorkerService : IRenderWorkerService
         _ingest.OnFrame(dt * 1000.0);
         UpdateFollow(dt);
 
-        // The minimap is drawn into its own texture before the frame (a few times a second: it is a map, not a view)
+        EaseWeather(dt);
+        UpdateHud(dt);   // the HUD's state first: it is drawn later in this same frame, after the world pass (MapRenderService.OnOverlay)
+
+        StreamWorld(dt, ingest: false);
+    }
+
+    // The HUD's state for a frame: the minimap (drawn into its own texture a few times a second: it is a map, not a view), the creatures on it, the text
+    private void UpdateHud(float dt)
+    {
         if (_voxel != null && _hud.Visible)
         {
             _minimapTimer += dt;
@@ -641,7 +678,6 @@ public class RenderWorkerService : IRenderWorkerService
             }
             _hud.SetMinimapTexture(_voxel.MinimapView);
         }
-        EaseWeather(dt);
         // The creatures on the minimap, ten times a second (a map's dots need not be sampled every frame)
         _markersTimer += dt;
         if (_markersTimer >= 0.1f && _entities != null && _hud.Visible)
@@ -651,15 +687,12 @@ public class RenderWorkerService : IRenderWorkerService
             _hud.SetMinimapMarkers(_entities.MinimapMarkersAround(c.Position.X, c.Position.Z, c.Yaw, _hud.MinimapExtent));
         }
 
-        // HUD state first: it is drawn later in this same frame, after the world pass (MapRenderService.OnOverlay)
         _hud.Update(dt, new HudData(
             _renderer.Fps, _renderer.Camera.Position.X, _renderer.Camera.Position.Y, _renderer.Camera.Position.Z,
             _renderer.Camera.Yaw,
             _renderer.VisibleChunkCount, _renderer.TotalChunkCount, _renderer.VisibleVertices, _renderer.TotalVertices,
             _renderer.DrawDistance, LoadedCount, _chunksPerSecond, _renderer.TimeOfDay, _gpu.BackendName ?? "?",
             _voxel == null ? "" : VoxelNote()));
-
-        StreamWorld(dt, ingest: false);
     }
 
     // The world around the camera: far chunks, the column stream, the data worker's idea of where we are

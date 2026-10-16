@@ -155,7 +155,7 @@ public sealed class XrSession : IDisposable
                     Viewport = _layer!.GetViewport(view),
                 };
             }
-            ReadControllers(data);
+            ReadControllers(data, frame);
             OnFrame?.Invoke(data);
             foreach (var v in views) v.Dispose();
         }
@@ -166,7 +166,7 @@ public sealed class XrSession : IDisposable
     }
 
     // The thumbsticks and buttons of the controllers (xr-standard: the stick is axes 2 and 3 - 0 and 1 are a touchpad - the trigger button 0, the grip 1, A/X 4, B/Y 5)
-    private void ReadControllers(XrFrameData data)
+    private void ReadControllers(XrFrameData data, XRFrame frame)
     {
         using var sources = _session!.InputSources;
         for (int i = 0; i < sources.Length; i++)
@@ -188,10 +188,34 @@ public sealed class XrSession : IDisposable
             bool trigger = buttons.Length > 0 && buttons[0].Pressed;
             bool grip = buttons.Length > 1 && buttons[1].Pressed;
             if (buttons.Length > 5 && buttons[5].Pressed) data.ExitButton = true;
-            if (buttons.Length > 4 && buttons[4].Pressed) data.PrimaryButton = true;
+            bool primary = buttons.Length > 4 && buttons[4].Pressed;
+            if (primary) data.PrimaryButton = true;
             foreach (var b in buttons) b.Dispose();
-            if (left) { data.LeftTrigger = trigger; data.LeftGrip = grip; }
+            if (left) { data.LeftTrigger = trigger; data.LeftGrip = grip; data.LeftPrimary = primary; }
             else { data.RightTrigger = trigger; data.RightGrip = grip; }
+            ReadRay(data, source, frame, left);
+        }
+    }
+
+    // Where the controller points: its target ray in the room (an origin and a direction)
+    private void ReadRay(XrFrameData data, XRInputSource source, XRFrame frame, bool left)
+    {
+        try
+        {
+            using var space = source.TargetRaySpace;
+            if (space == null) return;
+            using var pose = frame.GetPose(space, _refSpace!);
+            if (pose == null) return;
+            using var transform = pose.Transform;
+            var p = transform.Position; var o = transform.Orientation;
+            var origin = new Vector3((float)p.X, (float)p.Y, (float)p.Z);
+            var direction = Vector3.Normalize(Vector3.Transform(-Vector3.UnitZ, new Quaternion((float)o.X, (float)o.Y, (float)o.Z, (float)o.W)));
+            if (left) { data.LeftRayOrigin = origin; data.LeftRayDirection = direction; data.LeftHasRay = true; }
+            else { data.RightRayOrigin = origin; data.RightRayDirection = direction; data.RightHasRay = true; }
+        }
+        catch (Exception ex)
+        {
+            if (_frames < 5) Console.WriteLine($"[Xr] no controller ray: {ex.Message}");
         }
     }
 
@@ -218,6 +242,15 @@ public sealed class XrFrameData
     public bool ExitButton { get; set; }
     /// <summary>A or X (xr-standard button 4) held.</summary>
     public bool PrimaryButton { get; set; }
+    /// <summary>X (the left controller's button 4) held.</summary>
+    public bool LeftPrimary { get; set; }
+    /// <summary>Where each controller points, in the room (a unit direction); Has says it is tracked this frame.</summary>
+    public bool LeftHasRay { get; set; }
+    public bool RightHasRay { get; set; }
+    public Vector3 LeftRayOrigin { get; set; }
+    public Vector3 LeftRayDirection { get; set; }
+    public Vector3 RightRayOrigin { get; set; }
+    public Vector3 RightRayDirection { get; set; }
 }
 
 /// <summary>One eye of a frame.</summary>

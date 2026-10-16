@@ -43,6 +43,7 @@ public sealed class ViewerHud
     private UIList _playerList = null!;
     private UINotificationStack _toasts = null!;
     private UIContextMenu _menu = null!;
+    private PointerDot _pointerDot = null!;
     private UILabel _followLabel = null!;
     private UIMinimapFrame _minimap = null!;
     // Where the mouse is (canvas pixels): a menu opens under the click
@@ -61,11 +62,49 @@ public sealed class ViewerHud
 
     public bool IsInitialized => _ui.IsInitialized;
 
+    private const string DesktopHint = "Click the view to fly   WASD move   Space / Shift up / down   Esc release   Enter chat   M map zoom   F3 debug   Click a player in the list for actions";
+    private const string HeadsetHint = "Left stick fly   Right stick turn / up / down   Grips go fast   Trigger on a player or the map   X hide this panel   Y leaves";
+
+    /// <summary>True while the HUD is a panel floating in a headset: its hint tells what the controllers do (there is no mouse, keyboard or pointer lock).</summary>
+    public bool HeadsetMode
+    {
+        get => _headset;
+        set
+        {
+            _headset = value;
+            if (_hint != null) _hint.Text = value ? HeadsetHint : DesktopHint;
+        }
+    }
+    private bool _headset;
+
+    /// <summary>Whether this pixel of the HUD is on the minimap.</summary>
+    public bool OverMinimap(float x, float y) => _minimap != null && _minimap.HitTest(new System.Numerics.Vector2(x, y)) != null;
+
+    /// <summary>A controller points at this pixel of the HUD (a dot shows it), or at nothing.</summary>
+    public void SetPointer(float x, float y, bool visible)
+    {
+        if (_pointerDot == null) return;
+        _pointerDot.Visible = visible;
+        _pointerDot.X = x - _pointerDot.Width / 2f;
+        _pointerDot.Y = y - _pointerDot.Height / 2f;
+    }
+
+    // The dot is only to look at: it takes no clicks
+    private sealed class PointerDot : UIPanel
+    {
+        public override UIElement? HitTest(System.Numerics.Vector2 screenPos) => null;
+    }
+
+    /// <summary>The minimap zoom, 1..3 (64, 128, 256 blocks to an edge): the next one, round to the first.</summary>
+    public void CycleMinimapZoom() => _minimapZoom = _minimapZoom % MaxMinimapZoom + 1;
+
     /// <summary>False: the HUD is neither updated nor drawn (a clean frame). Input already queued is dropped with it.</summary>
     public bool Visible { get; set; } = true;
 
     public void Init(GPUDevice device, GPUQueue queue, string canvasFormat, int width, int height)
     {
+        // A headset session starts a world (and so inits the page's HUD) each time it is entered: the screen and what it holds (the chat so far) stay
+        if (_root != null && _ui.IsInitialized) { _ui.SetViewport(width, height); return; }
         UITheme.Current = UITheme.AubsCraft;
         _ui.Init(device, queue, canvasFormat, width, height);
         BuildScreen(width, height);
@@ -112,7 +151,7 @@ public sealed class ViewerHud
 
         _hint = new UILabel
         {
-            Text = "Click the view to fly   WASD move   Space / Shift up / down   Esc release   Enter chat   M map zoom   F3 debug   Click a player in the list for actions",
+            Text = _headset ? HeadsetHint : DesktopHint,
             FontSize = FontSize.Caption,
             Color = theme.TextPrimary,
             OutlineWidth = 0.12f,
@@ -125,6 +164,10 @@ public sealed class ViewerHud
         // Last, so it is on top of everything and gets a click first
         _menu = new UIContextMenu { Visible = false, MenuWidth = MenuWidth };
         _root.AddChild(_menu);
+
+        // Where a headset's controller points; over the menu, and never in the way of a click
+        _pointerDot = new PointerDot { Width = 14, Height = 14, CornerRadius = 7, BorderWidth = 2, BackgroundColor = Color.FromArgb(230, 255, 255, 255), BorderColor = Color.FromArgb(255, 40, 140, 255), Visible = false };
+        _root.AddChild(_pointerDot);
 
         _ui.Screens.Register(ScreenName, _root);
     }
@@ -145,7 +188,9 @@ public sealed class ViewerHud
 
         _menu.ClearItems();
         _menu.AddItem("Go to " + name, () => OnPlayerAction?.Invoke(name, PlayerAction.GoTo));
-        if (string.Equals(_followName, name, StringComparison.OrdinalIgnoreCase))
+        // In a headset the camera is the head: there is nothing to follow or look through
+        if (_headset) { }
+        else if (string.Equals(_followName, name, StringComparison.OrdinalIgnoreCase))
             _menu.AddItem("Stop following " + name, () => OnPlayerAction?.Invoke(name, PlayerAction.StopFollowing));
         else
         {
@@ -379,7 +424,7 @@ public sealed class ViewerHud
         _minimap.Coordinates = string.Create(CultureInfo.InvariantCulture, $"{d.CamX:F0}, {d.CamZ:F0}");
         _minimap.ZoomLevel = _minimapZoom;
         _crosshair.Visible = _pointerLocked;
-        _hint.Visible = !_pointerLocked;
+        _hint.Visible = _headset || !_pointerLocked;
 
         _textTimer += dt;
         if (_textTimer >= TextRefreshSeconds)

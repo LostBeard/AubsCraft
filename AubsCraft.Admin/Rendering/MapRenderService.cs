@@ -278,9 +278,9 @@ public sealed class MapRenderService : IDisposable
 
     /// <summary>
     /// Draw the world once from <paramref name="view"/> into the canvas (a headset's eye: the caller copies the canvas on to the headset's layer right after), at the canvas's
-    /// current size, with no HUD. Does nothing without a canvas or a world. <paramref name="width"/> and <paramref name="height"/> are the canvas's size in pixels.
+    /// current size, with no HUD of its own (<paramref name="overlay"/> draws over the finished eye in the same encoder: a headset's floating panel). Does nothing without a canvas or a world. <paramref name="width"/> and <paramref name="height"/> are the canvas's size in pixels.
     /// </summary>
-    public VoxelFrameStats? RenderView(in ViewSetup view, int width, int height)
+    public VoxelFrameStats? RenderView(in ViewSetup view, int width, int height, Action<GPUCommandEncoder, GPUTextureView>? overlay = null)
     {
         if (Voxel is not { } voxel || _device == null || _context == null) return null;
         _canvasWidth = width;
@@ -291,6 +291,7 @@ public sealed class MapRenderService : IDisposable
         var light = DayLighting.At(TimeOfDay, RainLevel, ThunderLevel);
         voxel.TimeOfDay = TimeOfDay; voxel.Rain = RainLevel; voxel.Thunder = ThunderLevel;
         var stats = voxel.Render(encoder, colorView, width, height, in view, in light, DrawDistance);
+        overlay?.Invoke(encoder, colorView);
         using var commandBuffer = encoder.Finish();
         _submitArray[0] = commandBuffer;
         _queue!.Submit(_submitArray);

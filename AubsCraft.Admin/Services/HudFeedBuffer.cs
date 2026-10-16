@@ -15,12 +15,21 @@ public sealed class HudFeedBuffer
     private string[]? _players;          // the list last given to the HUD
     private string[]? _pendingPlayers;   // a new list not yet taken
 
+    /// <summary>Lines kept for a HUD that starts late (a headset's).</summary>
+    public const int MaxRecentChat = 30;
+    private readonly List<(string sender, string text)> _recent = new();
+
     public void AddChat(string playerName, string message)
     {
         if (string.IsNullOrWhiteSpace(message)) return;
         _chat.Add((playerName ?? "", message));
         if (_chat.Count > MaxPendingChat) _chat.RemoveAt(0);
+        _recent.Add((playerName ?? "", message));
+        if (_recent.Count > MaxRecentChat) _recent.RemoveAt(0);
     }
+
+    /// <summary>The newest chat lines, oldest first, taken or not.</summary>
+    public (string sender, string text)[] RecentChat => _recent.ToArray();
 
     /// <summary>Turns a server activity event into a notice (or ignores it: chat has its own path, the rest is admin noise).</summary>
     public void AddActivity(ActivityEventDto e)
@@ -53,10 +62,14 @@ public sealed class HudFeedBuffer
         _pendingPlayers = sorted;
     }
 
+    /// <summary>The players online as last set (taken or not): what a HUD that starts late (a headset's) begins with.</summary>
+    public string[]? CurrentPlayers => _pendingPlayers ?? _players;
+
     /// <summary>Forget everything and make the next player list count as new (a different server, a new viewer).</summary>
     public void Reset()
     {
         _chat.Clear();
+        _recent.Clear();
         _toasts.Clear();
         _players = null;
         _pendingPlayers = null;

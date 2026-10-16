@@ -26,7 +26,17 @@ public class ViewerXrTests
     // window.__xr.left / .right / .exit steer the controllers; window.__xr.frames counts frames. Each frame is mirrored onto #xr-mirror after the page drew it.
     private const string MockXr = """
         (() => {
-          const xr = window.__xr = { left: [0, 0], right: [0, 0], exit: false, frames: 0, ended: false, mode: null, blend: 'opaque' };
+          const xr = window.__xr = { left: [0, 0], right: [0, 0], exit: false, x: false, trigger: false, frames: 0, ended: false, mode: null, blend: 'opaque',
+            rayRight: { p: [0.25, 1.3, -0.2], q: [0, 0, 0, 1] }, rayLeft: { p: [-0.25, 1.3, -0.2], q: [-0.7071068, 0, 0, 0.7071068] } };
+          // The right controller points from where it is at a point of the room (the left one points at the floor)
+          xr.aimAt = (tx, ty, tz) => {
+            const p = xr.rayRight.p; let dx = tx - p[0], dy = ty - p[1], dz = tz - p[2];
+            const len = Math.hypot(dx, dy, dz); dx /= len; dy /= len; dz /= len;
+            // the rotation taking (0,0,-1) to d: axis = (0,0,-1) x d = (dy, -dx, 0), angle = acos(-dz)
+            const angle = Math.acos(Math.max(-1, Math.min(1, -dz))); const ax = dy, ay = -dx; const al = Math.hypot(ax, ay) || 1;
+            const s = Math.sin(angle / 2);
+            xr.rayRight.q = [ax / al * s, ay / al * s, 0, Math.cos(angle / 2)];
+          };
           const f = 1 / Math.tan(Math.PI / 4); // 90 degree vertical field of view, square eyes
           const near = 0.05, far = 3000;
           const proj = new Float32Array([f,0,0,0, 0,f,0,0, 0,0,-(far+near)/(far-near),-1, 0,0,-2*far*near/(far-near),0]);
@@ -65,15 +75,16 @@ public class ViewerXrTests
               xr.frames++;
               const frame = {
                 session: s,
+                getPose: (space) => { const r = space.hand === 'left' ? xr.rayLeft : xr.rayRight; return { transform: { position: { x: r.p[0], y: r.p[1], z: r.p[2], w: 1 }, orientation: { x: r.q[0], y: r.q[1], z: r.q[2], w: r.q[3] } } }; },
                 getViewerPose: () => ({ transform: { position: { x: 0, y: 1.7, z: 0, w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } }, views: [pose(-0.032, 'left'), pose(0.032, 'right')] }),
               };
               cb(performance.now(), frame);
               mirror();
             }, 16); return handle; };
-            const pad = (stick, extraPressed) => ({ axes: [0, 0, stick[0], stick[1]], buttons: [0,1,2,3,4,5].map(i => ({ pressed: i === 5 && extraPressed, touched: false, value: 0 })) });
+            const pad = (stick, down) => ({ axes: [0, 0, stick[0], stick[1]], buttons: [0,1,2,3,4,5].map(i => ({ pressed: !!down[i], touched: false, value: 0 })) });
             Object.defineProperty(s, 'inputSources', { get: () => [
-              { handedness: 'left', gamepad: pad(xr.left, false) },
-              { handedness: 'right', gamepad: pad(xr.right, xr.exit) },
+              { handedness: 'left', targetRaySpace: { hand: 'left' }, gamepad: pad(xr.left, { 4: xr.x }) },
+              { handedness: 'right', targetRaySpace: { hand: 'right' }, gamepad: pad(xr.right, { 5: xr.exit, 0: xr.trigger }) },
             ] });
             s.end = async () => { xr.ended = true; clearTimeout(timer); s.dispatchEvent(new Event('end')); };
             return s;
@@ -228,6 +239,129 @@ public class ViewerXrTests
         finally
         {
             try { File.WriteAllLines(Path.Combine(_outDir, "console-ar.log"), log); } catch { }
+            await page.CloseAsync();
+        }
+    }
+
+    // The panel is in the room: 1.3 m in front of the head (which the mock puts at (0, 1.7, 0) facing -Z), 12 cm below the eyes, 1.5 x 0.9375 m, 800 x 500 pixels
+    private static (double X, double Y, double Z) PanelSpot(double px, double py)
+        => ((px / 800 - 0.5) * 1.5, 1.58 + (0.5 - py / 500) * 0.9375, -1.3);
+
+    // Where a room point falls in the left eye of the mock (90 degrees, square, 1024 px, the eye 3.2 cm left of the head)
+    private static (int X, int Y) InLeftEye(double x, double y, double z)
+        => ((int)((1 + (x + 0.032) / -z) * 512), (int)((1 - (y - 1.7) / -z) * 512));
+
+    private static string Num(double v) => v.ToString(CultureInfo.InvariantCulture);
+
+    private async Task<Bitmap> LeftEyeAsync(IPage page, string name)
+    {
+        var url = await page.EvaluateAsync<string>("document.getElementById('xr-mirror').toDataURL('image/png')");
+        var file = Path.Combine(_outDir, name + ".png");
+        File.WriteAllBytes(file, Convert.FromBase64String(url[(url.IndexOf(',') + 1)..]));
+        using var all = new Bitmap(file);
+        return all.Clone(new Rectangle(0, 0, 1024, 1024), all.PixelFormat);
+    }
+
+    // The share of sampled pixels in a box of an eye whose brightness differs by more than 25 between two shots
+    private static double Changed(Bitmap a, Bitmap b, Rectangle box)
+    {
+        int n = 0, d = 0;
+        for (int y = box.Top; y < box.Bottom; y += 2)
+            for (int x = box.Left; x < box.Right; x += 2)
+            {
+                var p = a.GetPixel(x, y); var q = b.GetPixel(x, y);
+                if (Math.Abs((0.3 * p.R + 0.59 * p.G + 0.11 * p.B) - (0.3 * q.R + 0.59 * q.G + 0.11 * q.B)) > 25) d++;
+                n++;
+            }
+        return (double)d / n;
+    }
+
+    private static async Task AimAsync(IPage page, (double X, double Y, double Z) at)
+        => await page.EvaluateAsync($"window.__xr.aimAt({Num(at.X)}, {Num(at.Y)}, {Num(at.Z)})");
+
+    private static async Task PressAsync(IPage page, string what)
+    {
+        await page.EvaluateAsync($"window.__xr.{what} = true");
+        await Task.Delay(500);
+        await page.EvaluateAsync($"window.__xr.{what} = false");
+        await Task.Delay(800);
+    }
+
+    [Test]
+    public async Task TheHud_FloatsInFrontInVr_XHidesIt_AndTheControllerPointsAtIt()
+    {
+        var page = await _rig.Context.NewPageAsync();
+        var log = new List<string>();
+        var errors = new List<string>();
+        page.Console += (_, m) => { log.Add(m.Text); if (m.Type == "error") errors.Add(m.Text); };
+        page.PageError += (_, e) => errors.Add(e);
+        await page.AddInitScriptAsync(MockXr);
+        try
+        {
+            await page.GotoAsync(_rig.BaseUrl + "/map?hud=0&hudfeed=demo&time=6000&cam=" + Cam, new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await ViewerShotTests.WaitForSettledAsync(page, minSections: 100, quietSeconds: 5, maxSeconds: 90);
+            var enter = page.GetByRole(AriaRole.Button, new() { Name = "Enter VR" });
+            await enter.WaitForAsync(new() { Timeout = 30_000 });
+            await enter.ClickAsync();
+            for (int i = 0; i < 90 && !log.Any(l => l.Contains("[Xr] world started")); i++) await Task.Delay(1000);
+            Assert.That(log.Any(l => l.Contains("[Xr] world started")), Is.True, "the headset world started");
+            await Task.Delay(12_000);
+
+            // The right controller points at the sky above the panel: no dot
+            await page.EvaluateAsync("window.__xr.aimAt(0.25, 3.5, -1.3)");
+            await Task.Delay(1000);
+            using var shown = await LeftEyeAsync(page, "hud-shown");
+
+            // X hides it
+            await PressAsync(page, "x");
+            Assert.That(log.Any(l => l.Contains("[Xr] HUD panel hidden")), Is.True, "X hid the panel");
+            using var hidden = await LeftEyeAsync(page, "hud-hidden");
+
+            var tl = InLeftEye(-0.75, 2.049, -1.3); var br = InLeftEye(0.75, 1.111, -1.3);
+            var panelBox = new Rectangle(tl.X + 4, tl.Y + 4, br.X - tl.X - 8, br.Y - tl.Y - 8);
+            double inside = Changed(shown, hidden, panelBox);
+            double below = Changed(shown, hidden, new Rectangle(0, br.Y + 40, 1024, 1024 - br.Y - 60));
+            TestContext.Progress.WriteLine($"[xr] panel box {panelBox}; changed inside {inside:P1}, below it {below:P1}");
+            Assert.That(inside, Is.GreaterThan(0.05), "the panel is drawn where the person looks (the picture changes inside it when it is hidden)");
+            Assert.That(inside, Is.GreaterThan(below * 3), "and not elsewhere");
+
+            // X again: it comes back
+            await PressAsync(page, "x");
+            Assert.That(log.Count(l => l.Contains("[Xr] HUD panel shown")), Is.EqualTo(1), "X showed it again");
+            using var back = await LeftEyeAsync(page, "hud-back");
+            Assert.That(Changed(back, hidden, panelBox), Is.GreaterThan(0.05), "the panel is back");
+
+            // The controller points at the middle of the panel: a dot shows there
+            var middle = PanelSpot(400, 250);
+            await AimAsync(page, middle);
+            await Task.Delay(1000);
+            using var pointing = await LeftEyeAsync(page, "hud-pointing");
+            var dot = InLeftEye(middle.X, middle.Y, middle.Z);
+            double dotChange = Changed(pointing, back, new Rectangle(dot.X - 10, dot.Y - 10, 20, 20));
+            TestContext.Progress.WriteLine($"[xr] dot at {dot}: {dotChange:P1} of its box changed");
+            Assert.That(dotChange, Is.GreaterThan(0.08), "a dot shows where the controller points");
+
+            // The trigger on the minimap cycles its zoom, and says so
+            await AimAsync(page, PanelSpot(704, 96));
+            await Task.Delay(500);
+            await PressAsync(page, "trigger");
+            Assert.That(log.Any(l => Regex.IsMatch(l, @"\[Xr\] HUD trigger at \(\d{3}, \d+\) on the minimap")), Is.True, "the trigger landed on the minimap:\n" + string.Join("\n", log.Where(l => l.Contains("HUD"))));
+            using var zoomed = await LeftEyeAsync(page, "hud-minimap-zoom");
+
+            // A player in the list: the trigger opens its menu
+            await AimAsync(page, PanelSpot(700, 272));
+            await Task.Delay(500);
+            await PressAsync(page, "trigger");
+            using var menu = await LeftEyeAsync(page, "hud-menu");
+
+            await page.EvaluateAsync("window.__xr.exit = true");
+            for (int i = 0; i < 20 && !log.Any(l => l.Contains("[Xr] session ended")); i++) await Task.Delay(500);
+            Assert.That(log.Any(l => l.Contains("[Xr] session ended")), Is.True, "the session ended");
+            Assert.That(errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", errors));
+        }
+        finally
+        {
+            try { File.WriteAllLines(Path.Combine(_outDir, "console-hud.log"), log); } catch { }
             await page.CloseAsync();
         }
     }
