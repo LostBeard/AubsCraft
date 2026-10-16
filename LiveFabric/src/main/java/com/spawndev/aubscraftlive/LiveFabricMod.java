@@ -196,6 +196,9 @@ public final class LiveFabricMod implements DedicatedServerModInitializer {
             if (le.isSleeping()) flags |= Frames.FLAG_SLEEPING;
             if (le.isBaby()) flags |= Frames.FLAG_BABY;
             if (le.isDeadOrDying()) flags |= Frames.FLAG_DEAD;
+            // Using what is held (eating, drinking, a bow drawn); an arm swinging
+            if (le.isUsingItem()) flags |= Frames.FLAG_USING;
+            if (le.swinging) flags |= Frames.FLAG_SWINGING;
             body = le.yBodyRot;
         }
         String name = null;

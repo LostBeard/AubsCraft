@@ -46,5 +46,9 @@ public sealed record LivePlayer(int EntityId, string Uuid, string Name, string S
 public static class LiveFlags
 {
     public const int OnGround = 1, Sneaking = 2, Sprinting = 4, Swimming = 8, Gliding = 16, Sleeping = 32, Baby = 64, Burning = 128,
-        Glowing = 256, Invisible = 512, HasName = 1024, Player = 2048, Riding = 4096, Dead = 8192;
+        Glowing = 256, Invisible = 512, HasName = 1024, Player = 2048, Riding = 4096, Dead = 8192,
+        /// <summary>Its arm is swinging (it hits, mines, places).</summary>
+        Swinging = 16384,
+        /// <summary>It is using what it holds (eating, drinking, drawing a bow, blocking with a shield).</summary>
+        Using = 32768;
 }

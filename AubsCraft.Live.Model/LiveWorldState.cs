@@ -14,6 +14,8 @@ public readonly record struct LiveEntityView(
     public bool IsPlayer => (Flags & LiveFlags.Player) != 0;
     public bool Riding => (Flags & LiveFlags.Riding) != 0;
     public bool Dead => (Flags & LiveFlags.Dead) != 0;
+    public bool Swinging => (Flags & LiveFlags.Swinging) != 0;
+    public bool Using => (Flags & LiveFlags.Using) != 0;
 }
 
 /// <summary>

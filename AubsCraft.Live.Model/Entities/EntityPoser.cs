@@ -130,7 +130,8 @@ public static class EntityPoser
     /// <param name="sleepYaw">A creature asleep lies along its bed: the yaw the bed faces (the game's own numbers: south 0, west 90, north 180, east 270); null: along the way it faces.</param>
     /// <param name="holding">The creature holds something in its right hand: the arm is raised a little to carry it.</param>
     /// <returns>The matrix that takes the right arm's own space (model pixels, the origin at its shoulder) to the world, for whatever is held in that hand; null when the model has no right arm (or it was left out).</returns>
-    public static Matrix4x4? Pose(in LiveEntityView view, EntityModel model, float ageTicks, List<PartDraw> output, string? texture = null, bool coarse = false, float? sleepYaw = null, bool holding = false)
+    /// <param name="heldItem">What it holds (its name), when that decides how it stands: a bow is drawn with both arms forward.</param>
+    public static Matrix4x4? Pose(in LiveEntityView view, EntityModel model, float ageTicks, List<PartDraw> output, string? texture = null, bool coarse = false, float? sleepYaw = null, bool holding = false, string? heldItem = null)
     {
         Matrix4x4? rightArm = null;
         float scale = (view.Baby ? model.BabyScale : 1f) * model.Scale;
@@ -171,6 +172,7 @@ public static class EntityPoser
             if (part.Role == PartRole.Head && stance is Stance.Swimming or Stance.Gliding) rot.X = part.Rotation.X;
             // An arm that carries something is held a little forward, its swing halved
             if (holding && part.Role == PartRole.RightArm && stance is Stance.Upright or Stance.Sneaking) rot.X = rot.X * 0.5f - 0.3142f;
+            if (stance is Stance.Upright or Stance.Sneaking && part.Role is PartRole.RightArm or PartRole.LeftArm) rot = Action(rot, part.Role, view, heldItem, headPitch, headYaw, ageTicks);
             var local = Matrix4x4.CreateRotationX(rot.X) * Matrix4x4.CreateRotationY(rot.Y) * Matrix4x4.CreateRotationZ(rot.Z)
                         * Matrix4x4.CreateTranslation(part.Pivot + shift);
             if (part.PoseScale is { } poseScale) local = Matrix4x4.CreateScale(poseScale) * local;   // the game scales before it rotates and moves
@@ -197,6 +199,30 @@ public static class EntityPoser
             }
         }
         return rightArm;
+    }
+
+    private static bool IsBow(string? item) => item is "bow" or "crossbow" or "minecraft:bow" or "minecraft:crossbow";
+
+    // What an arm does while its creature hits or uses what it holds. A swing is the game's own (HumanoidModel.setupAttackAnimation, the progress looped over six ticks, the time a swing takes);
+    // a drawn bow has both arms out along the look; anything else used (food, a potion) is brought up toward the face.
+    private static Vector3 Action(Vector3 rot, PartRole role, in LiveEntityView view, string? heldItem, float headPitch, float headYaw, float age)
+    {
+        bool right = role == PartRole.RightArm;
+        if (view.Using)
+        {
+            if (IsBow(heldItem)) return right ? new Vector3(-MathF.PI / 2f + headPitch, -0.1f + headYaw, rot.Z) : new Vector3(-MathF.PI / 2f + headPitch, 0.5f + headYaw, rot.Z);
+            if (right) return new Vector3(-1.25f - headPitch * 0.3f, -0.4f, rot.Z);
+            return rot;
+        }
+        if (view.Swinging && right)
+        {
+            float t = age % 6f / 6f;
+            float f = 1f - (1f - t) * (1f - t) * (1f - t);
+            float f1 = MathF.Sin(f * MathF.PI);
+            float f2 = MathF.Sin(t * MathF.PI) * -(headPitch - 0.7f) * 0.75f;
+            return new Vector3(rot.X - (f1 * 1.2f + f2), rot.Y, rot.Z - MathF.Sin(t * MathF.PI) * 0.4f);
+        }
+        return rot;
     }
 
     // The rotation a part gets on top of its rest rotation (radians about x, y, z)

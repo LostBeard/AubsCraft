@@ -114,4 +114,67 @@ public class ViewerStanceTests
             await page.CloseAsync();
         }
     }
+
+    [Test]
+    public async Task Players_SwingTheirArms_DrawBows_AndEat()
+    {
+        const int P = LiveFlags.Player | LiveFlags.OnGround;
+        var acts = new (string name, int flags, string held)[]
+        {
+            ("swinging", P | LiveFlags.Swinging, "iron_pickaxe"),
+            ("bow", P | LiveFlags.Using, "bow"),
+            ("eating", P | LiveFlags.Using, "apple"),
+        };
+        var entities = new List<LiveEntity>();
+        var players = new List<LivePlayer>();
+        for (int i = 0; i < acts.Length; i++)
+        {
+            entities.Add(new LiveEntity(430 + i, "player", -2.4f + i * 2.4f, 118.0f, 0.5f, 0f, 0f, 0f, acts[i].flags, 0f, 0f, 0f, null, null));
+            players.Add(new LivePlayer(430 + i, $"00000000-0000-4000-8000-0000000004{30 + i}", acts[i].name, "", i == 1, 0, acts[i].held, 1f));
+        }
+        long tick = 1_000_000;
+        byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
+        {
+            FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
+            Worlds = [new LiveWorld { Name = "world", Entities = entities, Players = players }],
+        });
+        var page = await _rig.Context.NewPageAsync();
+        var errors = new List<string>();
+        var log = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        page.Console += (_, m) => { log.Enqueue(m.Text); if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.Worker += (_, w) => w.Console += (_, m) => { log.Enqueue(m.Text); if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.PageError += (_, e) => errors.Add(e);
+        using var stop = new CancellationTokenSource();
+        Task? poster = null;
+        try
+        {
+            await page.GotoAsync($"{_rig.BaseUrl}/map?hud=0&time=6000&dd=6&cam=0.0,119.3,4.4,0,-90", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            for (int i = 0; i < 40 && !log.ToArray().Any(l => l.Contains("[Items] Item assets:")); i++) await Task.Delay(1000);
+            poster = Task.Run(async () =>
+            {
+                while (!stop.IsCancellationRequested)
+                {
+                    int status = await _rig.PostLiveFrameAsync(Frame());
+                    if (status != 204) throw new InvalidOperationException($"The panel answered {status} to a live frame");
+                    tick += 4;
+                    await Task.Delay(200);
+                }
+            });
+            for (int i = 0; i < 30 && !log.ToArray().Any(l => Regex.IsMatch(l, @"creatures 3 drawn")); i++) await Task.Delay(1000);
+            // Several frames: the swing moves
+            for (int i = 0; i < 3; i++)
+            {
+                await Task.Delay(1100);
+                await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, $"actions-{i}.png") });
+            }
+            Assert.That(log.ToArray().Any(l => Regex.IsMatch(l, @"creatures 3 drawn")), Is.True, "all three are drawn");
+            Assert.That(errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", errors));
+        }
+        finally
+        {
+            stop.Cancel();
+            try { if (poster != null) await poster; } catch (OperationCanceledException) { }
+            await page.CloseAsync();
+        }
+    }
 }

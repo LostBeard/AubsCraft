@@ -29,7 +29,7 @@ final class Frames {
 
     static final int FLAG_ON_GROUND = 1, FLAG_SNEAKING = 2, FLAG_SPRINTING = 4, FLAG_SWIMMING = 8, FLAG_GLIDING = 16, FLAG_SLEEPING = 32,
             FLAG_BABY = 64, FLAG_BURNING = 128, FLAG_GLOWING = 256, FLAG_INVISIBLE = 512, FLAG_HAS_NAME = 1024, FLAG_PLAYER = 2048,
-            FLAG_RIDING = 4096, FLAG_DEAD = 8192;
+            FLAG_RIDING = 4096, FLAG_DEAD = 8192, FLAG_SWINGING = 16384, FLAG_USING = 32768;
 
     record EntitySample(int id, String type, double x, double y, double z, float yaw, float pitch, float bodyYaw, int flags,
                         double vx, double vy, double vz, String name, String variant) {}

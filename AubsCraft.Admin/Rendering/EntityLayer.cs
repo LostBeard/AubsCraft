@@ -313,7 +313,7 @@ public sealed class EntityLayer : IDisposable
 
         int first = _draws.Count;
         float? sleepYaw = v.Sleeping ? BlockEntities?.BedFacingNear(v.X, v.Y, v.Z) : null;
-        var hand = EntityPoser.Pose(v, model, ageTicks, _draws, texture, coarse: distSq > CoarseRange * CoarseRange, sleepYaw: sleepYaw, holding: held != null);
+        var hand = EntityPoser.Pose(v, model, ageTicks, _draws, texture, coarse: distSq > CoarseRange * CoarseRange, sleepYaw: sleepYaw, holding: held != null, heldItem: held == null ? null : EntityModels.Normalise(held));
         if (held != null && hand is { } arm && distSq <= ItemRange * ItemRange) Items?.AddHeld(arm, EntityModels.Normalise(held), distSq);
         if (fallback)
         {

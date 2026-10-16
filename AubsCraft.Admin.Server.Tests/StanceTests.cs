@@ -143,4 +143,65 @@ public class StanceTests
         var list = new List<PartDraw>();
         Assert.That(EntityPoser.Pose(View("pig", LiveFlags.OnGround), model, 0, list), Is.Null, "a pig has no right arm to hold anything");
     }
+
+    // The right arm's matrix: the player's right arm (a part of the model that moves with the animation)
+    private static Matrix4x4 RightArm(int flags, float age, string? held = "air", float pitch = 0f)
+    {
+        var model = EntityModels.Get("player")!;
+        var list = new List<PartDraw>();
+        var arm = EntityPoser.Pose(View("player", flags, pitch: pitch), model, age, list, null, false, null, holding: held != "air", heldItem: held);
+        return arm!.Value;
+    }
+
+    private static Vector3 HandWorld(Matrix4x4 arm) => Vector3.Transform(new Vector3(0f, 10f, 0f), arm);
+
+    [Test]
+    public void ASwingingArm_SwingsAndComesBack_OverASixTickSwing()
+    {
+        var rest = HandWorld(RightArm(Standing, 0f, "diamond_pickaxe"));
+        var seen = new List<Vector3>();
+        for (int tick = 0; tick < 6; tick++) seen.Add(HandWorld(RightArm(Standing | LiveFlags.Swinging, tick, "diamond_pickaxe")));
+        Assert.That(seen.Max(h => Vector3.Distance(h, rest)), Is.GreaterThan(0.25f), "the hand goes a good way");
+        Assert.That(seen.Select(h => MathF.Round(h.Z, 2)).Distinct().Count(), Is.GreaterThan(3), "and not in one jump: the swing is a movement");
+        // The swing repeats every six ticks
+        Assert.That(HandWorld(RightArm(Standing | LiveFlags.Swinging, 7f, "diamond_pickaxe")), Is.EqualTo(seen[1]).Using<Vector3>((a, b) => Vector3.Distance(a, b) < 0.02f ? 0 : 1));
+        // A creature that is not a player's arm (a pig) has none to swing
+        var pigList = new List<PartDraw>();
+        Assert.That(EntityPoser.Pose(View("pig", LiveFlags.OnGround | LiveFlags.Swinging), EntityModels.Get("pig")!, 0, pigList), Is.Null);
+    }
+
+    [Test]
+    public void ADrawnBow_HoldsBothArmsOutAlongTheLook()
+    {
+        var model = EntityModels.Get("player")!;
+        var plain = new List<PartDraw>();
+        EntityPoser.Pose(View("player", Standing), model, 0, plain, null, false, null, true, "bow");
+        var drawn = new List<PartDraw>();
+        EntityPoser.Pose(View("player", Standing | LiveFlags.Using), model, 0, drawn, null, false, null, true, "bow");
+        // The two arms are the 5th and 7th boxes (right arm, left arm; the sleeves follow each): facing south both reach forward (+z) when the bow is drawn
+        float Reach(List<PartDraw> d, int i) => Centre(d[i]).Z - 10f;
+        Assert.That(Reach(drawn, 4), Is.GreaterThan(Reach(plain, 4) + 0.12f), "the right arm comes forward");
+        Assert.That(Reach(drawn, 6), Is.GreaterThan(Reach(plain, 6) + 0.12f), "and the left");
+    }
+
+    [Test]
+    public void AnythingElseUsed_IsBroughtUpTowardTheFace()
+    {
+        var rest = HandWorld(RightArm(Standing, 0f, "apple"));
+        var eating = HandWorld(RightArm(Standing | LiveFlags.Using, 0f, "apple"));
+        Assert.That(eating.Y, Is.GreaterThan(rest.Y + 0.2f), "the hand comes up");
+        Assert.That(eating.Z, Is.GreaterThan(rest.Z + 0.2f), "and out in front");
+    }
+
+    [Test]
+    public void TheFlags_FitTheFramesSixteenBits()
+    {
+        Assert.That(LiveFlags.Swinging, Is.EqualTo(16384));
+        Assert.That(LiveFlags.Using, Is.EqualTo(32768));
+        Assert.That(LiveFlags.Using, Is.LessThanOrEqualTo(ushort.MaxValue));
+        var e = new LiveEntity(1, "player", 0, 0, 0, 0, 0, 0, LiveFlags.Swinging | LiveFlags.Using | LiveFlags.Player, 0, 0, 0, null, null);
+        var frame = new LiveFrame { FullTime = 1, DayTime = 1, Worlds = [new LiveWorld { Name = "w", Entities = [e], Players = System.Array.Empty<LivePlayer>() }] };
+        var back = LiveFrameCodec.Parse(LiveFrameCodec.Write(frame));
+        Assert.That(back.Worlds[0].Entities[0].Flags, Is.EqualTo(LiveFlags.Swinging | LiveFlags.Using | LiveFlags.Player));
+    }
 }

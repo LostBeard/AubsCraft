@@ -57,6 +57,8 @@ public final class LivePlugin extends JavaPlugin {
     private String secret;
     private int maxEntities;
     private boolean includeItems;
+    /// <summary>When each player's last arm swing stops showing (System.nanoTime): a swing takes about a third of a second, a player who mines swings again and again.</summary>
+    private static final java.util.concurrent.ConcurrentHashMap<Integer, Long> SWING_UNTIL = new java.util.concurrent.ConcurrentHashMap<>();
     private int maxItems;
     private BukkitTask task;
     private final AtomicBoolean inFlight = new AtomicBoolean();
@@ -80,6 +82,13 @@ public final class LivePlugin extends JavaPlugin {
         }
         endpoint = URI.create(panel.replaceAll("/+$", "") + "/api/live/ingest/" + serverId);
         http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
+        // A player's arm swing (hitting, mining, placing, using): remembered for a third of a second, which is what a swing takes
+        getServer().getPluginManager().registerEvents(new org.bukkit.event.Listener() {
+            @org.bukkit.event.EventHandler(priority = org.bukkit.event.EventPriority.MONITOR, ignoreCancelled = false)
+            public void onSwing(org.bukkit.event.player.PlayerAnimationEvent event) {
+                SWING_UNTIL.put(event.getPlayer().getEntityId(), System.nanoTime() + 330_000_000L);
+            }
+        }, this);
         // Entities may only be touched from the main thread: a synchronous repeating task, never an async one
         task = getServer().getScheduler().runTaskTimer(this, this::sample, 40L, interval);
         getLogger().info("Sending the world's activity to " + endpoint + " every " + interval + " ticks");
@@ -168,6 +177,9 @@ public final class LivePlugin extends JavaPlugin {
         if (e instanceof Player) flags |= Frames.FLAG_PLAYER;
         if (e.isInsideVehicle()) flags |= Frames.FLAG_RIDING;
         if (e instanceof LivingEntity le2 && le2.isDead()) flags |= Frames.FLAG_DEAD;
+        // Using what is held (eating, drinking, a bow drawn, a shield up); an arm swinging (a player's, from their last swing)
+        if (e instanceof LivingEntity le4 && le4.isHandRaised()) flags |= Frames.FLAG_USING;
+        if (e instanceof Player sp && System.nanoTime() < SWING_UNTIL.getOrDefault(sp.getEntityId(), 0L)) flags |= Frames.FLAG_SWINGING;
         String name = customName(e);
         if (name != null) flags |= Frames.FLAG_HAS_NAME;
         // The location's yaw is the head's; a living entity's body has its own
