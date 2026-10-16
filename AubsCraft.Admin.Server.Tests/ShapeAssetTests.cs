@@ -280,6 +280,25 @@ public class ShapeAssetTests
     }
 
     [Test]
+    public async Task TheRealLeafLitter_IsAPlateASixteenthOverTheGround_NotOnIt()
+    {
+        // The game puts the litter 0.1/16 up; whole sixteenths round that to the ground itself, where it fights the block under it for every pixel (it flickered as the head moved)
+        var r = await RealAsync();
+        foreach (var state in new[] { "facing=north,segment_amount=1", "facing=east,segment_amount=2", "facing=south,segment_amount=3", "facing=west,segment_amount=4" })
+        {
+            var boxes = VoxelBlockTables.ShapeBoxesOf("minecraft:leaf_litter[" + state + "]", r.Assets);
+            Assert.That(boxes, Is.Not.Null.And.Not.Empty, state);
+            foreach (var box in boxes!) Assert.That((box.Y0, box.Y1), Is.EqualTo((0, 1)), state + ": its top is a sixteenth up, not on the ground");
+        }
+        // Everything else flat on the ground, redstone wire and the coral fans, is lifted the same; a plane through the middle of a cell (a candle's wick plane, a plant) stays a plane
+        foreach (var block in new[] { "redstone_wire[east=side,north=side,south=side,west=side]", "tube_coral_fan" })
+        {
+            var boxes = VoxelBlockTables.ShapeBoxesOf("minecraft:" + block, r.Assets);
+            if (boxes == null) continue;   // not drawn as boxes in this version
+            foreach (var box in boxes) Assert.That(box.Y0 == 0 && box.Y1 == 0, Is.False, block);
+        }
+    }
+    [Test]
     public void ANameThatIsNotShaped_IsUntouchedByTheShapeTable()
     {
         var r = Build(StairsJar().SimpleCube("stone", 100, 100, 100));

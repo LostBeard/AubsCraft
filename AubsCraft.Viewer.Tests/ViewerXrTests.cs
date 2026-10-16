@@ -1,3 +1,4 @@
+using System.Text;
 using System.Drawing;
 using System.Globalization;
 using System.Text.RegularExpressions;
@@ -26,7 +27,7 @@ public class ViewerXrTests
     // window.__xr.left / .right / .exit steer the controllers; window.__xr.frames counts frames. Each frame is mirrored onto #xr-mirror after the page drew it.
     private const string MockXr = """
         (() => {
-          const xr = window.__xr = { left: [0, 0], right: [0, 0], exit: false, x: false, trigger: false, leftTrigger: false, leftThumb: false, rightThumb: false, rightA: false, frames: 0, ended: false, mode: null, blend: 'opaque',
+          const xr = window.__xr = { jitter: 0, left: [0, 0], right: [0, 0], exit: false, x: false, trigger: false, leftTrigger: false, leftThumb: false, rightThumb: false, rightA: false, frames: 0, ended: false, mode: null, blend: 'opaque',
             rayRight: { p: [0.25, 1.3, -0.2], q: [0, 0, 0, 1] }, rayLeft: { p: [-0.25, 1.3, -0.2], q: [-0.7071068, 0, 0, 0.7071068] } };
           // The right controller points from where it is at a point of the room (the left one points at the floor)
           xr.aimAt = (tx, ty, tz) => {
@@ -61,7 +62,8 @@ public class ViewerXrTests
             const gl = xr.glCanvas;
             if (gl && gl.width) { m.width = gl.width; m.height = gl.height; m.getContext('2d').drawImage(gl, 0, 0); }
           };
-          const pose = (x, eye) => ({ eye, projectionMatrix: proj, transform: { position: { x, y: 1.7, z: 0, w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } }, isFirstPersonObserver: false });
+          const wob = () => { const t = xr.frames * 0.37; return { x: xr.jitter * Math.cos(t * 1.3), y: xr.jitter * Math.sin(t), z: xr.jitter * Math.sin(t * 0.7) }; };
+          const pose = (x, eye) => { const w = wob(); return { eye, projectionMatrix: proj, transform: { position: { x: x + w.x, y: 1.7 + w.y, z: w.z, w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } }, isFirstPersonObserver: false }; };
           const makeSession = (mode) => {
             const s = new EventTarget();
             xr.mode = mode; xr.ended = false;
@@ -77,7 +79,7 @@ public class ViewerXrTests
               const frame = {
                 session: s,
                 getPose: (space) => { const r = space.hand === 'left' ? xr.rayLeft : xr.rayRight; return { transform: { position: { x: r.p[0], y: r.p[1], z: r.p[2], w: 1 }, orientation: { x: r.q[0], y: r.q[1], z: r.q[2], w: r.q[3] } } }; },
-                getViewerPose: () => ({ transform: { position: { x: 0, y: 1.7, z: 0, w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } }, views: [pose(-0.032, 'left'), pose(0.032, 'right')] }),
+                getViewerPose: () => { const w = wob(); return { transform: { position: { x: w.x, y: 1.7 + w.y, z: w.z, w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } }, views: [pose(-0.032, 'left'), pose(0.032, 'right')] }; },
               };
               cb(performance.now(), frame);
               mirror();
@@ -609,12 +611,12 @@ public class ViewerXrTests
     // The sky's clouds drift; the ground (the lower part of the eyes) is what must not move
     private const int GroundFromRow = 330;
 
-    private static int Changed(string a, string b)
+    private static int Changed(string a, string b, int fromRow = GroundFromRow, int toRow = int.MaxValue, int toColumn = int.MaxValue)
     {
         using var x = new Bitmap(a); using var y = new Bitmap(b);
         int n = 0;
-        for (int j = GroundFromRow; j < x.Height; j += 1)
-            for (int i = 0; i < x.Width; i += 1)
+        for (int j = fromRow; j < Math.Min(x.Height, toRow); j += 1)
+            for (int i = 0; i < Math.Min(x.Width, toColumn); i += 1)
             {
                 var p = x.GetPixel(i, j); var q = y.GetPixel(i, j);
                 if (Math.Abs(p.R - q.R) + Math.Abs(p.G - q.G) + Math.Abs(p.B - q.B) > 40) n++;
@@ -622,11 +624,11 @@ public class ViewerXrTests
         return n;
     }
 
-    private static void MarkChanges(string a, string b, string output)
+    private static void MarkChanges(string a, string b, string output, int fromRow = GroundFromRow)
     {
         using var x = new Bitmap(a); using var y = new Bitmap(b);
         using var o = new Bitmap(y);
-        for (int j = GroundFromRow; j < x.Height; j++)
+        for (int j = fromRow; j < x.Height; j++)
             for (int i = 0; i < x.Width; i++)
             {
                 var p = x.GetPixel(i, j); var q = y.GetPixel(i, j);
@@ -697,5 +699,79 @@ public class ViewerXrTests
                 if (Math.Abs(p.R - 0xf0) + Math.Abs(p.G) + Math.Abs(p.B - 0xf0) > 90) return true;   // not the mirror's magenta backdrop
             }
         return false;
+    }
+
+    // A forest floor as the plugin sends it: grass with leaf litter (1.21.5 puts it under trees), tall grass, trunks and canopies
+    private static byte[] ForestChunk()
+    {
+        const int top = 20;
+        var palette = new[] { "minecraft:air", "minecraft:stone", "minecraft:grass_block[snowy=false]", "minecraft:oak_log[axis=y]", "minecraft:oak_leaves[distance=1,persistent=false]",
+            "minecraft:leaf_litter[facing=north,segment_amount=1]", "minecraft:leaf_litter[facing=east,segment_amount=2]", "minecraft:leaf_litter[facing=south,segment_amount=3]", "minecraft:leaf_litter[facing=west,segment_amount=4]", "minecraft:short_grass", "minecraft:fern", "minecraft:sand" };
+        using var ms = new MemoryStream();
+        void U8(int v) => ms.WriteByte((byte)v);
+        void U16(int v) { ms.WriteByte((byte)v); ms.WriteByte((byte)(v >> 8)); }
+        U8(1); U8(0); U16(top); U16(palette.Length);
+        foreach (var p in palette) { var b = Encoding.UTF8.GetBytes(p); U16(b.Length); ms.Write(b); }
+        var trunks = new (int x, int z)[] { (3, 3), (11, 4), (6, 11), (13, 13) };
+        for (int y = 0; y < top; y++)
+            for (int z = 0; z < 16; z++)
+                for (int x = 0; x < 16; x++)
+                {
+                    int wy = y - 64;
+                    int id = wy < -61 ? 1 : wy == -61 ? (x < 8 ? 11 : 2) : 0;   // a sandy edge on one side
+                    int h = (x * 7 + z * 13) % 11;
+                    if (wy == -60 && id == 0) id = h < 4 ? 5 + h : h < 6 ? 9 : h == 6 ? 10 : 0;
+                    foreach (var (tx, tz) in trunks)
+                    {
+                        if (x == tx && z == tz && wy >= -60 && wy <= -56) id = 3;
+                        if (wy >= -57 && wy <= -55 && Math.Abs(x - tx) + Math.Abs(z - tz) <= 3 && id == 0) id = 4;
+                    }
+                    U16(id);
+                }
+        for (int i = 0; i < 256 * top; i++) U8(0xF0);
+        for (int i = 0; i < 256; i++) U16(4);
+        U16(0); U16(0);
+        return ms.ToArray();
+    }
+
+    // Under trees, in a headset that does not keep perfectly still: the ground must not flicker
+    [TestCase("Enter VR")]
+    [TestCase("Enter AR")]
+    public async Task AForestFloor_DoesNotFlicker_InTheHeadset(string button)
+    {
+        Assert.That(await _rig.PostLiveChunkAsync(-1, 0, ForestChunk()), Is.EqualTo(204), "the panel took the forest");
+        var page = await _rig.Context.NewPageAsync();
+        var log = new List<string>();
+        page.Console += (_, m) => log.Add(m.Text);
+        await page.AddInitScriptAsync(MockXr);
+        var tag = button.Replace(' ', '-');
+        try
+        {
+            await page.GotoAsync(_rig.BaseUrl + "/map?hud=0&time=6000&cam=" + (Environment.GetEnvironmentVariable("AUBS_FOREST_CAM") ?? "-8.5,-58.0,8.5,-55,0"), new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await ViewerShotTests.WaitForSettledAsync(page, minSections: 20, quietSeconds: 4, maxSeconds: 60);
+            var enter = page.GetByRole(AriaRole.Button, new() { Name = button });
+            await enter.WaitForAsync(new() { Timeout = 30_000 });
+            await enter.ClickAsync();
+            for (int i = 0; i < 90 && !log.Any(l => l.Contains("[Xr] world started")); i++) await Task.Delay(1000);
+            await Task.Delay(10_000);
+            await page.EvaluateAsync("window.__xr.jitter = " + (Environment.GetEnvironmentVariable("AUBS_XR_JITTER") ?? "0.01"));
+            var frames = new List<string>();
+            for (int i = 0; i < 16; i++)
+            {
+                var file = Path.Combine(_outDir, $"forest-{tag}-{i:00}.png");
+                await page.ScreenshotAsync(new PageScreenshotOptions { Path = file, Clip = new Clip { X = 0, Y = 0, Width = 1024, Height = 512 } });
+                frames.Add(file);
+            }
+            var counts = new List<int>(); int worst = 0, at = 1;
+            for (int i = 1; i < frames.Count; i++) { int c = Changed(frames[i - 1], frames[i], 0); counts.Add(c); if (c > worst) { worst = c; at = i; } }
+            TestContext.Progress.WriteLine($"[xr] forest {button}: pixels changed between frames: {string.Join(" ", counts)} (worst {worst})");
+            // The far ground (a band of the left eye) barely moves with a head this still: what changes there is the texture sparkling
+            var far = new List<int>();
+            for (int i = 1; i < frames.Count; i++) far.Add(Changed(frames[i - 1], frames[i], 255, 290, 512));
+            TestContext.Progress.WriteLine($"[xr] forest {button}: far ground changed: {string.Join(" ", far)} (mean {far.Average():F0})");
+            if (worst > 0) MarkChanges(frames[at - 1], frames[at], Path.Combine(_outDir, $"forest-{tag}-diff.png"), 0);
+            Assert.That(worst, Is.LessThan(200), "the same picture, frame after frame");
+        }
+        finally { await page.CloseAsync(); }
     }
 }

@@ -194,7 +194,9 @@ public static class VoxelBlockTables
                 var face = box.Faces[f];
                 faces[f] = face.Tile < 0 ? ShapeFace.None : new ShapeFace(face.Tile, face.U0, face.V0, face.U1, face.V1, face.Turns, face.Tint);
             }
-            boxes.Add(new ShapeBox(box.X0, box.Y0, box.Z0, box.X1, box.Y1, box.Z1, faces));
+            // A flat plate lying on the ground (leaf litter, redstone wire, a coral fan: the game puts it 0.1/16 up, which whole sixteenths round to nothing) would sit exactly on the top of the block under it, and the two faces fight for the pixel: it flickers as the head moves. A sixteenth up it does not.
+            int y1 = box.Y0 == 0 && box.Y1 == 0 ? 1 : box.Y1;
+            boxes.Add(new ShapeBox(box.X0, box.Y0, box.Z0, box.X1, y1, box.Z1, faces));
         }
         return boxes;
     }
