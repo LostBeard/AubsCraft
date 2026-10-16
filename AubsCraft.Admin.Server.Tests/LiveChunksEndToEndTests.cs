@@ -311,6 +311,40 @@ public class LiveChunksEndToEndTests
     }
 
     [Test]
+    public async Task AnEditFarFromEveryPlayer_ReachesThePanel_EvenWhenNoOneKeepsThatChunkLoaded()
+    {
+        // Found on the real server: a viewer builds where no player is, the plugin applies the edit (Paper loads the chunk for a moment) and answers placed:1,
+        // but the chunk had gone again by the time it was to be sent to the panel, so it was skipped and the viewer never saw the block
+        await using var rcon = await TestServers.RconAsync(_paper);
+        await WaitForPluginAsync();
+        var status = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Get, "/api/world/edit/status?server=lc") { Headers = { { "Cookie", _cookie } } });
+        for (int i = 0; i < 40 && !(await status.Content.ReadAsStringAsync()).Contains("true"); i++)
+        {
+            await Task.Delay(500);
+            status = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Get, "/api/world/edit/status?server=lc") { Headers = { { "Cookie", _cookie } } });
+        }
+        // 3,200 blocks from anything the server has loaded
+        const int x = 3200, z = 3200;
+        var before = await rcon.SendCommandAsync($"execute if block {x} -60 {z} minecraft:air");
+        TestContext.Progress.WriteLine($"[far] before the edit: {before.Trim()}");
+        var (code, result, body) = await PostEditAsync("/api/world/edit?server=lc", new { label = "far stone", ops = new[] { new { op = "set", at = new[] { x, -60, z }, block = "minecraft:stone" } } });
+        Assert.That(code, Is.EqualTo(System.Net.HttpStatusCode.OK), body);
+        Assert.That(result!.Ok && result.Placed == 1, Is.True, body);
+        TestContext.Progress.WriteLine($"[far] right after: {(await rcon.SendCommandAsync($"execute if block {x} -60 {z} minecraft:stone")).Trim()}");
+        // The panel's copy of that chunk has the block (the plugin read it back and sent it)
+        ushort[] ids = [];
+        string[] names = [];
+        for (int i = 0; i < 20; i++)
+        {
+            await Task.Delay(500);
+            ids = await ChunkIdsAsync(x >> 4, z >> 4);
+            names = await BlockNamesAsync();
+            if (names[ids[(x & 15) + (z & 15) * 16 + 4 * 256]] == "minecraft:stone") break;
+        }
+        Assert.That(names[ids[(x & 15) + (z & 15) * 16 + 4 * 256]], Is.EqualTo("minecraft:stone"), "the panel serves the edited chunk:\n" + string.Join("\n", _paper.OutputTail(20)));
+        await PostEditAsync($"/api/world/edit/undo?server=lc&edit={result.Edit}", null);
+    }
+    [Test]
     public async Task AFillOnlyWhereThereIsStone_AndAHollowBox_DoWhatTheyAreAskedTo()
     {
         await using var rcon = await TestServers.RconAsync(_paper);

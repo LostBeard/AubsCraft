@@ -241,10 +241,12 @@ final class ChunkWatcher implements Listener {
             if (tick - d.last < QUIET_TICKS && tick - d.first < MAX_WAIT_TICKS) continue;
             int cx = unpackX(entry.getKey()), cz = unpackZ(entry.getKey());
             it.remove();
-            if (!world.isChunkLoaded(cx, cz)) { skipped++; continue; }
             try {
                 long t0 = System.nanoTime();
+                // A viewer's edit far from every player: Paper loaded the chunk for the edit and let it go again (the change was saved with it), so it may not be loaded now. It is read anyway
+                // (loading it): skipping it left the panel, and every viewer, without a block the server reported as placed.
                 Chunk chunk = world.getChunkAt(cx, cz, false);
+                if (chunk == null) { skipped++; continue; }
                 byte[] body = encode(world, chunk, d.borderMask);
                 long took = System.nanoTime() - t0;
                 encodeNanos += took;

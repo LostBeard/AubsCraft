@@ -95,12 +95,14 @@ internal sealed class FakePlugin
             for (int i = 0; i < palette.Length; i++) palette[i] = Str();
             int ops = U16();
             var journal = new List<((int, int, int), string)>();
-            int placed = 0;
+            int placed = 0, outside = 0;
             for (int i = 0; i < ops; i++)
             {
                 int type = U8();
                 void Put(int x, int y, int z, string block)
                 {
+                    // The fake world is the one chunk it posts: an edit anywhere else would be counted and never drawn
+                    if (x < -16 || x > -1 || z < 0 || z > 15) { outside++; return; }
                     journal.Add(((x, y, z), _blocks.TryGetValue((x, y, z), out var old) ? old : (y == -61 ? "minecraft:grass_block[snowy=false]" : y < -61 ? "minecraft:stone" : "minecraft:air")));
                     if (block == "minecraft:air" && y > -61) _blocks.Remove((x, y, z)); else _blocks[(x, y, z)] = block;
                     placed++;
@@ -139,7 +141,9 @@ internal sealed class FakePlugin
             }
             _journals[id] = journal;
             Edits.Add(id);
-            result = $"{{\"id\":\"{id}\",\"ok\":true,\"edit\":\"{id}\",\"placed\":{placed},\"skipped\":0,\"applied\":true}}";
+            result = placed == 0 && outside > 0
+                ? $"{{\"id\":\"{id}\",\"ok\":false,\"error\":\"The test world is one floor of 16 x 16 blocks (x -16 to -1, z 0 to 15): build there\"}}"
+                : $"{{\"id\":\"{id}\",\"ok\":true,\"edit\":\"{id}\",\"placed\":{placed},\"skipped\":{outside},\"applied\":true}}";
         }
         else
         {
