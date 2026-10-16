@@ -94,6 +94,7 @@ public static class VoxelBlockTables
         }
 
         uint flags = BlockMaterial.TintFaces(block.TintFaces);
+        if (EmissiveBlocks.Is(name)) flags |= BlockMaterial.FlagEmissive;
         if (block.TintFaces != 0 || block.Kind == BlockKinds.Water) flags |= TintKindOf(block.Tint);
         // A thin block is a squashed cube; a shaped block is drawn as its boxes (and, far away, as a plain cube): no squash
         if (block.Kind == BlockKinds.Shape && !block.Shaped) flags |= BlockMaterial.Thickness(block.Thickness) | BlockMaterial.Slope(block.Slope);

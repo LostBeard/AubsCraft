@@ -304,6 +304,10 @@ public class SceneBuilderTests
         }
         await Cmd($"data merge block 14 {y} {modelZ + 12} {{front_text:{{messages:['\"Glowing\"','\"blue\"','\"text\"','\"!\"'],color:'blue',has_glowing_text:1b}}}}");
         Item("be-signs", 6, y, modelZ + 13);
+        // Blocks that make their own light, in a row (a gate shoots them at midnight: they should be the only bright things)
+        string[] lights = ["glowstone", "sea_lantern", "shroomlight", "magma_block", "jack_o_lantern[facing=south]", "torch", "ochre_froglight", "soul_lantern"];
+        for (int i = 0; i < lights.Length; i++) await Set(30 + i * 2, y, 56, $"minecraft:{lights[i]}");
+        Item("emissive", 36, y, 56);
         // A wall facing south, the backdrop of the gate that hangs paintings and item frames on it (entities come from the live feed, not the world files)
         await Cmd($"fill 0 {y} 88 26 {y + 4} 88 minecraft:stone_bricks");
         Item("be-hanging", 10, y, 90);
