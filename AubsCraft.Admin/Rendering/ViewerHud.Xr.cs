@@ -9,23 +9,27 @@ namespace AubsCraft.Admin.Rendering;
 /// The HUD's second screen, made for a headset (VR and AR): the same widgets and the same logic as the desktop one (the palette, the blueprints, the players, the phrases), laid out as small
 /// SURFACES on one atlas - a MENU of tiles for what can be done now, a WINDOW with tabs for one thing at a time, a BAR with the blocks in hand while building, and a FEED of chat and notices.
 /// The headset puts each surface where it belongs in the room (<c>XrSurfaces</c>); nothing hangs in view while exploring, so a controller's ray reaches the world.
+///
+/// Building works as in QuestCraft's creative mode: the blocks in hand are on the left arm, the right trigger places, the left trigger breaks, the inventory (every block) is a window, and the rest
+/// (marking an area, blueprints, fill, copy, paste) is in the Tools page, away from the way a block is put down.
 /// </summary>
 public sealed partial class ViewerHud
 {
     private const string XrScreenName = "xr";
-    private const int XrAtlasWidth = 1100, XrAtlasHeight = 830;
+    private const int XrAtlasWidth = 1100, XrAtlasHeight = 840;
 
-    private enum XrPage { None, Blocks, Blueprints, Players, Say, Map, World, Settings }
+    private enum XrPage { None, Inventory, Tools, Blueprints, Players, Say, Map, World, Settings }
 
     private bool _xrBuilt, _xrActive;
     private UIPanel _xrRoot = null!, _xrMenu = null!, _xrWindow = null!, _xrBar = null!, _xrFeed = null!;
-    private UIPanel _xrMapPage = null!, _xrSettingsPage = null!;
-    private UILabel _xrMenuMode = null!, _xrMenuWhere = null!;
+    private UIPanel _xrMapPage = null!, _xrSettingsPage = null!, _xrToolsPage = null!;
+    private UILabel _xrMenuMode = null!, _xrMenuWhere = null!, _xrToolsHint = null!;
     private UIButton _xrClose = null!;
     private readonly List<(XrPage Page, UIButton Tab)> _xrTabs = new();
     private readonly Dictionary<string, UIButton> _xrTile = new();
+    private readonly Dictionary<string, UIButton> _xrTool = new();
     private readonly List<UIButton> _phraseButtons = new();
-    private bool _xrMenuOpen, _xrMapOpen, _xrPlayersOpen, _xrSettingsOpen;
+    private bool _xrMenuOpen, _xrMapOpen, _xrPlayersOpen, _xrSettingsOpen, _xrToolsOpen;
     private float _feedAge = 1000f;
     private string[] _lastPlayers = [];
 
@@ -40,7 +44,7 @@ public sealed partial class ViewerHud
     public bool XrMenuOpen { get => _xrMenuOpen; set { if (_xrMenuOpen == value) return; _xrMenuOpen = value; LayoutXrMenu(); } }
 
     /// <summary>Some page of the window is open.</summary>
-    public bool XrWindowOpen => _xrBuilt && (IsPaletteOpen || IsBlueprintsOpen || IsPhrasesOpen || IsWorldPanelOpen || _xrMapOpen || _xrPlayersOpen || _xrSettingsOpen);
+    public bool XrWindowOpen => _xrBuilt && (IsPaletteOpen || IsBlueprintsOpen || IsPhrasesOpen || IsWorldPanelOpen || _xrMapOpen || _xrPlayersOpen || _xrSettingsOpen || _xrToolsOpen);
 
     /// <summary>A page with a list is open (blocks, blueprints, players): the right stick scrolls it.</summary>
     public bool XrListOpen => _xrBuilt && (IsPaletteOpen || IsBlueprintsOpen || _xrPlayersOpen);
@@ -57,8 +61,12 @@ public sealed partial class ViewerHud
     /// <summary>The world draws the minimap texture: always on the desktop, in a headset only while the map page is open.</summary>
     public bool WantsMinimap => !_xrActive || _xrMapOpen;
 
-    /// <summary>Menu tiles that hand the person back to the world (the menu closes on them).</summary>
-    private static readonly HashSet<string> ClosingTiles = ["enter", "leave", "select", "paste", "cancel", "exit"];
+    /// <summary>The inventory (every block) opens, or closes if it is the page showing: the Y button.</summary>
+    public void ToggleXrInventory()
+    {
+        if (!_xrBuilt || !_ctxEditing) return;
+        if (IsPaletteOpen) CloseXrWindow(); else OpenXrPage(XrPage.Inventory);
+    }
 
     // ---- the look: a dark glass with a cool accent, big targets ----
 
@@ -73,6 +81,7 @@ public sealed partial class ViewerHud
     private static readonly Color TileOnHover = Color.FromArgb(255, 38, 150, 96);
     private static readonly Color TileDanger = Color.FromArgb(255, 112, 34, 42);
     private static readonly Color TileDangerHover = Color.FromArgb(255, 156, 48, 58);
+    private static readonly Color HandleColor = Color.FromArgb(255, 44, 62, 80);
 
     private static UITheme CreateXrTheme() => new()
     {
@@ -144,23 +153,40 @@ public sealed partial class ViewerHud
         e.X = x; e.Y = y;
     }
 
+    // The strip at the bottom of a surface that can be moved: pointed at with the trigger held, it takes the surface along (the headset does that; this only draws it)
+    private static UIPanel Handle(float width, float y)
+    {
+        var handle = new UIPanel { X = 12, Y = y, Width = width - 24, Height = 22, BackgroundColor = HandleColor, BorderColor = Color.Transparent, BorderWidth = 0, CornerRadius = 11, Padding = 0 };
+        handle.AddChild(new UILabel { Text = "hold the trigger here to move", FontSize = FontSize.Caption, Color = Color.FromArgb(255, 170, 190, 205), Align = TextAlign.Center, X = 0, Y = 3, Width = width - 24 });
+        return handle;
+    }
+
     private void BuildXrScreen()
     {
         var theme = UITheme.Current;
         _xrRoot = new UIPanel { Width = XrAtlasWidth, Height = XrAtlasHeight, BackgroundColor = Color.Transparent, BorderColor = Color.Transparent, BorderWidth = 0, CornerRadius = 0, Padding = 0 };
 
         // ---- the menu ----
-        _xrMenu = Surface(0, 0, 330, 560);
+        _xrMenu = Surface(0, 0, 330, 592);
         _xrRoot.AddChild(_xrMenu);
+        _xrMenu.AddChild(Handle(330, 562));
         _xrMenuMode = new UILabel { Text = "Exploring", FontSize = FontSize.Heading, Color = theme.TextPrimary, X = 16, Y = 8 };
         _xrMenu.AddChild(_xrMenuMode);
         _xrMenuWhere = new UILabel { Text = "", FontSize = FontSize.Caption, Color = theme.TextSecondary, X = 16, Y = 38 };
         _xrMenu.AddChild(_xrMenuWhere);
+
+        // The tools of the editor (marking an area, blueprints, fill, copy, paste) are the Tools page's: they leave the menu
+        string[] toolIds = ["select", "blueprints", "undo", "redo", "fill", "clear", "copy", "cut", "paste", "save", "turn", "mirror", "cancel"];
+        UIButton? snap = null;
         foreach (var (id, button) in _toolButtons)
         {
             _root.RemoveChild(button);
-            _xrMenu.AddChild(button);
-            _xrTile[id] = button;
+            var captured = id;
+            button.FontSize = FontSize.Body;
+            button.OnClick = () => OnXrTile(captured);
+            if (id == "snap") snap = button;
+            else if (toolIds.Contains(id)) _xrTool[id] = button;
+            else { _xrMenu.AddChild(button); _xrTile[id] = button; }
         }
         foreach (var (id, button) in _tableButtons)
         {
@@ -168,9 +194,10 @@ public sealed partial class ViewerHud
             _xrMenu.AddChild(button);
             _xrTile[id] = button;
             var captured = id;
+            button.FontSize = FontSize.Body;
             button.OnClick = () => OnTableAction?.Invoke(captured);
         }
-        foreach (var (id, label) in new[] { ("players", "Players"), ("map", "Map"), ("world", "World"), ("settings", "Settings"), ("exit", "Leave") })
+        foreach (var (id, label) in new[] { ("players", "Players"), ("map", "Map"), ("world", "World"), ("settings", "Settings"), ("tools", "Tools"), ("exit", "Leave") })
         {
             var captured = id;
             var button = new UIButton { Text = label, FontSize = FontSize.Body, Visible = false, PaddingX = 4, PaddingY = 4 };
@@ -178,28 +205,23 @@ public sealed partial class ViewerHud
             _xrMenu.AddChild(button);
             _xrTile[id] = button;
         }
-        // The existing tiles act the way the headset wants them to
-        foreach (var (id, button) in _toolButtons)
-        {
-            var captured = id;
-            button.FontSize = FontSize.Body;
-            button.OnClick = () => OnXrTile(captured);
-        }
         _xrTile["chat"].Text = "Say";
-        _xrTile["enter"].Text = "Build";
-        _xrTile["leave"].Text = "Stop building";
+        _xrTile["enter"].Text = "Creative: off";
+        _xrTile["leave"].Text = "Creative: ON";
+        _xrTile["blocks"].Text = "Inventory";
         _xrTile["exit"].Text = "Leave";
-        foreach (var id in new[] { "enter", "leave", "blocks", "select", "blueprints" }) Style(_xrTile[id], TileAccent, TileAccentHover);
-        Style(_xrTile["leave"], TileDanger, TileDangerHover);
+        Style(_xrTile["enter"], TileColor, TileHover);
+        Style(_xrTile["leave"], TileOn, TileOnHover);
+        foreach (var id in new[] { "blocks", "tools" }) Style(_xrTile[id], TileAccent, TileAccentHover);
         Style(_xrTile["exit"], TileDanger, TileDangerHover);
-        foreach (var (_, button) in _tableButtons) button.FontSize = FontSize.Body;
 
         // ---- the window ----
-        _xrWindow = Surface(340, 0, 760, 540);
+        _xrWindow = Surface(340, 0, 760, 582);
         _xrRoot.AddChild(_xrWindow);
+        _xrWindow.AddChild(Handle(760, 552));
         foreach (var (page, label, width) in new[]
         {
-            (XrPage.Blocks, "Blocks", 84f), (XrPage.Blueprints, "Blueprints", 124f), (XrPage.Players, "Players", 96f), (XrPage.Say, "Say", 64f),
+            (XrPage.Inventory, "Inventory", 120f), (XrPage.Tools, "Tools", 80f), (XrPage.Players, "Players", 96f), (XrPage.Say, "Say", 64f),
             (XrPage.Map, "Map", 64f), (XrPage.World, "World", 84f), (XrPage.Settings, "Settings", 104f),
         })
         {
@@ -212,20 +234,20 @@ public sealed partial class ViewerHud
         Style(_xrClose, TileDanger, TileDangerHover);
         _xrWindow.AddChild(_xrClose);
 
-        BuildXrPages(theme);
+        BuildXrPages(theme, snap!);
 
         // ---- the bar of blocks in hand ----
-        _xrBar = Surface(0, 570, 760, 96);
+        _xrBar = Surface(0, 600, 760, 96);
         _xrRoot.AddChild(_xrBar);
         MoveTo(_editLabel, _xrBar, 16, 6);
         _editLabel.FontSize = FontSize.Body;
         _editLabel.Visible = true;
-        MoveTo(_editBar, _xrBar, 64, 32);
+        MoveTo(_editBar, _xrBar, 74, 32);
         _editBar.SlotSize = 64;
         _editBar.Visible = true;
 
         // ---- the feed ----
-        _xrFeed = Surface(770, 570, 330, 240, background: false);
+        _xrFeed = Surface(770, 600, 330, 240, background: false);
         _xrRoot.AddChild(_xrFeed);
         MoveTo(_chat, _xrFeed, 0, 30);
         _chat.Width = 330; _chat.Height = 210;
@@ -246,13 +268,13 @@ public sealed partial class ViewerHud
     }
 
     // The pages the window holds: the HUD's own panels, moved in and made bigger
-    private void BuildXrPages(UITheme theme)
+    private void BuildXrPages(UITheme theme, UIButton snap)
     {
-        const float x = 10, y = 64, w = 740, h = 468;
+        const float x = 10, y = 64, w = 740, h = 478;
         foreach (var page in new UIElement[] { _palette, _blueprints, _phrases, _worldPanel, _playersPanel, _namePrompt })
             MoveTo(page, _xrWindow, x, y);
 
-        // The blocks: a search that chips fill in, and a list with big rows
+        // The inventory: a search that chips fill in, and a list with big rows
         _palette.Width = w; _palette.Height = h; _palette.Visible = false;
         foreach (var child in _palette.Children) if (child is UILabel label) label.Visible = false;
         _paletteSearch.X = 12; _paletteSearch.Y = 8; _paletteSearch.Width = w - 24; _paletteSearch.Height = 40;
@@ -315,15 +337,31 @@ public sealed partial class ViewerHud
         _xrWindow.AddChild(_xrSettingsPage);
         _xrSettingsPage.AddChild(new UILabel { Text = "Turning", FontSize = FontSize.Body, Color = theme.TextPrimary, X = 20, Y = 24 });
         _xrSettingsPage.AddChild(new UILabel { Text = "The right stick turns smoothly, or in steps", FontSize = FontSize.Caption, Color = theme.TextSecondary, X = 20, Y = 54 });
-        var snap = _xrTile["snap"];
         _xrMenu.RemoveChild(snap);
-        _xrTile.Remove("snap");   // it is a button of this page now, not a tile of the menu
         _xrSettingsPage.AddChild(snap);
         snap.FontSize = FontSize.Body;
         snap.X = 440; snap.Y = 14; snap.Width = 280; snap.Height = 56;
         snap.Visible = true;
         Style(snap, TileAccent, TileAccentHover);
         snap.OnClick = () => OnTurnToggle?.Invoke();
+
+        BuildXrToolsPage(theme, x, y, w, h);
+    }
+
+    // The Tools page: the editor's bigger jobs, with what the triggers do in each
+    private void BuildXrToolsPage(UITheme theme, float x, float y, float w, float h)
+    {
+        _xrToolsPage = new UIPanel { X = x, Y = y, Width = w, Height = h, BackgroundColor = Color.Transparent, BorderColor = Color.Transparent, BorderWidth = 0, Visible = false };
+        _xrWindow.AddChild(_xrToolsPage);
+        _xrToolsPage.AddChild(new UILabel { Text = "Tools for bigger jobs", FontSize = FontSize.Body, Color = theme.TextPrimary, X = 16, Y = 10 });
+        _xrToolsHint = new UILabel { Text = "", FontSize = FontSize.Caption, Color = theme.TextSecondary, X = 16, Y = 40 };
+        _xrToolsPage.AddChild(_xrToolsHint);
+        foreach (var button in _xrTool.Values) _xrToolsPage.AddChild(button);
+        Style(_xrTool["select"], TileAccent, TileAccentHover);
+        Style(_xrTool["blueprints"], TileAccent, TileAccentHover);
+        _xrTool["blueprints"].Text = "Blueprints";
+        _xrTool["cancel"].Text = "Stop placing";
+        _xrTool["save"].Text = "Save as blueprint";
     }
 
     private void RebuildWorldPanelForXr(UITheme theme, float w, float h)
@@ -355,28 +393,34 @@ public sealed partial class ViewerHud
         switch (id)
         {
             case "chat": OpenXrPage(XrPage.Say); break;
+            case "blocks": OpenXrPage(XrPage.Inventory); break;
+            case "tools": OpenXrPage(XrPage.Tools); break;
             case "players": OpenXrPage(XrPage.Players); break;
             case "map": OpenXrPage(XrPage.Map); break;
             case "world": OpenXrPage(XrPage.World); break;
             case "settings": OpenXrPage(XrPage.Settings); break;
+            case "blueprints": OpenXrPage(XrPage.Blueprints); break;
             case "mic": OnMicToggle?.Invoke(); break;
             case "exit": OnXrLeave?.Invoke(); break;
             default: OnEditAction?.Invoke(id); break;
         }
-        if (ClosingTiles.Contains(id)) XrMenuOpen = false;
     }
 
     private void CloseAllPagesButKeep(XrPage keep)
     {
-        if (keep != XrPage.Blocks) OpenPalette(false);
+        bool leavingTools = _xrToolsOpen && keep is not (XrPage.Tools or XrPage.Blueprints);
+        if (keep != XrPage.Inventory) OpenPalette(false);
         if (keep != XrPage.Blueprints) OpenBlueprints(false);
         if (keep != XrPage.Say) OpenPhrases(false);
         if (keep != XrPage.World) OpenWorldPanel(false);
         if (keep != XrPage.Players) { _xrPlayersOpen = false; _playersPanel.Visible = false; }
         if (keep != XrPage.Map) { _xrMapOpen = false; _xrMapPage.Visible = false; }
         if (keep != XrPage.Settings) { _xrSettingsOpen = false; _xrSettingsPage.Visible = false; }
+        if (keep is not (XrPage.Tools or XrPage.Blueprints)) { _xrToolsOpen = false; _xrToolsPage.Visible = false; }
         OpenNamePrompt(false);
         _menu.Visible = false;
+        // Done with the tools: the triggers place and break blocks again (a person left in "mark an area" could do nothing else: found on a real headset)
+        if (leavingTools && (_ctxSelecting || _ctxPasting)) OnEditAction?.Invoke("tool-build");
     }
 
     private void OpenXrPage(XrPage page)
@@ -384,13 +428,14 @@ public sealed partial class ViewerHud
         CloseAllPagesButKeep(page);
         switch (page)
         {
-            case XrPage.Blocks: if (!IsPaletteOpen) OnEditAction?.Invoke("blocks"); break;
-            case XrPage.Blueprints: if (!IsBlueprintsOpen) OnEditAction?.Invoke("blueprints"); break;
+            case XrPage.Inventory: if (!IsPaletteOpen) OnEditAction?.Invoke("blocks"); break;
+            case XrPage.Blueprints: _xrToolsOpen = true; if (!IsBlueprintsOpen) OnEditAction?.Invoke("blueprints"); break;
             case XrPage.Say: OpenPhrases(true); break;
             case XrPage.World: OpenWorldPanel(true); break;
             case XrPage.Players: _xrPlayersOpen = true; _playersPanel.Visible = true; break;
             case XrPage.Map: _xrMapOpen = true; _xrMapPage.Visible = true; break;
             case XrPage.Settings: _xrSettingsOpen = true; _xrSettingsPage.Visible = true; break;
+            case XrPage.Tools: _xrToolsOpen = true; _xrToolsPage.Visible = true; LayoutXrTools(); break;
         }
         LayoutXrTabs();
     }
@@ -403,24 +448,58 @@ public sealed partial class ViewerHud
         LayoutXrTabs();
     }
 
-    private XrPage CurrentXrPage => IsPaletteOpen ? XrPage.Blocks : IsBlueprintsOpen ? XrPage.Blueprints : IsPhrasesOpen ? XrPage.Say : IsWorldPanelOpen ? XrPage.World
-        : _xrPlayersOpen ? XrPage.Players : _xrMapOpen ? XrPage.Map : _xrSettingsOpen ? XrPage.Settings : XrPage.None;
+    private XrPage CurrentXrPage => IsPaletteOpen ? XrPage.Inventory : IsBlueprintsOpen ? XrPage.Blueprints : IsPhrasesOpen ? XrPage.Say : IsWorldPanelOpen ? XrPage.World
+        : _xrPlayersOpen ? XrPage.Players : _xrMapOpen ? XrPage.Map : _xrSettingsOpen ? XrPage.Settings : _xrToolsOpen ? XrPage.Tools : XrPage.None;
 
     // The tabs that make sense now, in a row, the open page lit
     private void LayoutXrTabs()
     {
         if (!_xrBuilt) return;
         var current = CurrentXrPage;
+        if (current == XrPage.Blueprints) current = XrPage.Tools;   // the blueprints are reached from the tools
         float x = 12;
         foreach (var (page, tab) in _xrTabs)
         {
-            bool show = page switch { XrPage.Blocks or XrPage.Blueprints => _ctxEditing, XrPage.World => IsAdmin, _ => true };
+            bool show = page switch { XrPage.Inventory or XrPage.Tools => _ctxEditing, XrPage.World => IsAdmin, _ => true };
             tab.Visible = show;
             if (!show) continue;
             tab.X = x; tab.Y = 10;
             x += tab.Width + 6;
             if (page == current) Style(tab, TileOn, TileOnHover); else Style(tab, TileColor, TileHover);
         }
+    }
+
+    // ---- the tools page ----
+
+    private void LayoutXrTools()
+    {
+        if (!_xrBuilt) return;
+        foreach (var button in _xrTool.Values) button.Visible = false;
+        float y = 76;
+        void Row(string[] ids, float width)
+        {
+            float x = 16;
+            foreach (var id in ids)
+            {
+                var b = _xrTool[id];
+                b.Visible = true; b.Width = width; b.Height = 52; b.X = x; b.Y = y;
+                x += width + 8;
+            }
+            y += 64;
+        }
+        _xrTool["select"].Text = _ctxSelecting ? "Marking: stop" : "Mark an area";
+        if (_ctxSelecting) Style(_xrTool["select"], TileOn, TileOnHover); else Style(_xrTool["select"], TileAccent, TileAccentHover);
+        Row(["select", "blueprints", "undo", "redo"], 172);
+        if (_ctxPasting) Row(["turn", "mirror", "cancel"], 172);
+        else
+        {
+            if (_ctxHasSelection) Row(["fill", "clear", "copy", "cut"], 172);
+            if (_ctxHasSelection) Row(["save"], 220);
+            if (_ctxHasClipboard) Row(["paste"], 172);
+        }
+        _xrToolsHint.Text = _ctxPasting ? "Right trigger puts it down   left trigger stops placing"
+            : _ctxSelecting ? "Right trigger marks the two corners   left trigger clears   then Fill, Copy, Cut or Save"
+            : "Mark an area to fill, copy or save it as a blueprint; a blueprint is put down by choosing it";
     }
 
     // ---- the menu: the tiles of now ----
@@ -448,28 +527,20 @@ public sealed partial class ViewerHud
             y += ((shown.Length + columns - 1) / columns) * (tileH + gap) + 6;
         }
 
-        if (_ctxEditing)
-        {
-            Grid(["leave", "blocks", "select", "blueprints", "undo", "redo"], 2);
-            if (_ctxPasting) Grid(["turn", "mirror", "cancel"], 3);
-            else
-            {
-                if (_ctxHasSelection) Grid(["fill", "clear", "copy", "cut", "save"], 3);
-                if (_ctxHasClipboard) Grid(["paste"], 3);
-            }
-        }
-        else Grid(["enter"], 1);
+        // Creative: on or off (a toggle), then what it opens
+        Grid([_ctxEditing ? "leave" : "enter"], 1);
+        if (_ctxEditing) Grid(["blocks", "tools"], 2);
         if (_ctxAr) Grid(_ctxTabletop ? ["table", "bigger", "smaller", "bring"] : ["table"], 2);
         Grid(IsAdmin ? ["players", "chat", "map", "mic", "settings", "world"] : ["players", "chat", "map", "mic", "settings"], 3);
 
         var exit = _xrTile["exit"];
         exit.Visible = true;
         exit.Width = 330 - 2 * padX; exit.Height = tileH;
-        exit.X = padX; exit.Y = 560 - tileH - 12;
+        exit.X = padX; exit.Y = 562 - 6 - tileH - 8;
         LayoutXrTabs();
     }
 
-    private string XrModeText => !_ctxEditing ? "Exploring" : _ctxPasting ? "Placing" : _ctxSelecting ? "Selecting" : "Building";
+    private string XrModeText => !_ctxEditing ? "Exploring" : _ctxPasting ? "Placing" : _ctxSelecting ? "Marking" : "Creative";
 
     // ---- the menu's state, from the editor, the table and the voice ----
 
@@ -477,9 +548,9 @@ public sealed partial class ViewerHud
     {
         _ctxEditing = editing; _ctxHasSelection = hasSelection; _ctxPasting = pasting; _ctxHasClipboard = hasClipboard; _ctxSelecting = selecting;
         if (!_xrBuilt) return;
-        _xrTile["select"].Text = selecting ? "Build" : "Select";
         _xrMenuMode.Text = XrModeText;
         LayoutXrMenu();
+        LayoutXrTools();
     }
 
     private void XrTableContext(bool ar, bool tabletop)
@@ -531,7 +602,7 @@ public sealed partial class ViewerHud
         _playerList.X = 10;
         _playerList.Y = 50;
         _playerList.Width = 720;
-        _playerList.Height = 468 - 50 - 10;
-        _playersPanel.Height = 468;
+        _playerList.Height = 478 - 50 - 10;
+        _playersPanel.Height = 478;
     }
 }

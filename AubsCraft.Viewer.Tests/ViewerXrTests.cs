@@ -285,6 +285,15 @@ public class ViewerXrTests
     private static async Task AimAsync(IPage page, (double X, double Y, double Z) at)
         => await page.EvaluateAsync($"window.__xr.aimAt({Num(at.X)}, {Num(at.Y)}, {Num(at.Z)})");
 
+    // A quick press (a held trigger keeps placing blocks: a quarter of a second is one)
+    private static async Task TapAsync(IPage page, string what)
+    {
+        await page.EvaluateAsync($"window.__xr.{what} = true");
+        await Task.Delay(250);
+        await page.EvaluateAsync($"window.__xr.{what} = false");
+        await Task.Delay(800);
+    }
+
     private static async Task PressAsync(IPage page, string what)
     {
         await page.EvaluateAsync($"window.__xr.{what} = true");
@@ -334,18 +343,23 @@ public class ViewerXrTests
         return new Rectangle(pa.X + margin, pa.Y + margin, Math.Max(1, pb.X - pa.X - 2 * margin), Math.Max(1, pb.Y - pa.Y - 2 * margin));
     }
 
-    // A tile of the menu while exploring (see ViewerHud.Xr.cs: the Build tile, then Players / Say / Map, then Mic / Settings, 330 x 560 px) or while building (Stop building, Blocks, Select, Blueprints, Undo, Redo, then the same)
-    private static (double X, double Y, double Z) MenuTile(string name) => SurfaceSpot(AubsCraft.Admin.Xr.XrSurfaces.Menu, name switch
+    // A tile of the menu (330 x 592 px). Without the editor's plugin creative mode cannot start (the menu shows "Creative: off", then Players / Say / Map and Mic / Settings / World); with it (an admin starts in
+    // creative mode) the menu shows "Creative: ON", Inventory and Tools first and everything else a row lower. Leave is at the bottom.
+    private static (double X, double Y, double Z) MenuTile(string name, bool creative = false)
     {
-        "build" => 165, "players" => 61, "say" => 165, "map" => 269, "mic" => 61, "settings" => 165,
-        "stop" => 87, "blocks" => 243, "table" => 87,
-        _ => throw new ArgumentException(name),
-    }, name switch
-    {
-        "build" => 89, "players" or "say" or "map" or "table" => 147, "mic" or "settings" => 199, "stop" or "blocks" => 89,
-        _ => throw new ArgumentException(name),
-    });
-
+        double lower = creative ? 58 : 0;
+        var (x, y) = name switch
+        {
+            "creative" => (165.0, 89.0),
+            "blocks" => (87.0, 147.0), "tools" => (243.0, 147.0),
+            "players" => (61.0, 147.0 + lower), "say" => (165.0, 147.0 + lower), "map" => (269.0, 147.0 + lower),
+            "mic" => (61.0, 199.0 + lower), "settings" => (165.0, 199.0 + lower), "world" => (269.0, 199.0 + lower),
+            "table" => (87.0, 147.0),
+            "exit" => (165.0, 525.0),
+            _ => throw new ArgumentException(name),
+        };
+        return SurfaceSpot(AubsCraft.Admin.Xr.XrSurfaces.Menu, x, y);
+    }
     private async Task<IPage> StartSessionAsync(string button, string query, List<string> log, List<string> errors, int settleMs = 6000)
     {
         var page = await _rig.Context.NewPageAsync();
@@ -385,7 +399,7 @@ public class ViewerXrTests
         var page = await StartSessionAsync("Enter VR", "/map?hud=0&hudfeed=demo&time=6000&cam=" + Cam, log, errors, 10_000);
         try
         {
-            // Exploring: nothing hangs in the view, so the controllers' rays reach the world
+            // Nothing hangs in the view, so the controllers' rays reach the world
             await page.EvaluateAsync("window.__xr.aimAt(0.25, 3.5, -1.3)");
             await Task.Delay(800);
             using var exploring = await LeftEyeAsync(page, "ui-exploring");
@@ -433,7 +447,46 @@ public class ViewerXrTests
     }
 
     [Test]
-    public async Task InVr_YStartsBuilding_TheControllersBuild_AndTheMenuReachesTheRest()
+    public async Task TheMenusAndTheWindowCanBeMovedByTheirHandle()
+    {
+        var log = new List<string>(); var errors = new List<string>();
+        var page = await StartSessionAsync("Enter VR", "/map?hud=0&time=6000&cam=" + Cam, log, errors, 8000);
+        try
+        {
+            await page.EvaluateAsync("window.__xr.aimAt(0.25, 3.5, -1.3)");
+            await PressAsync(page, "x");
+            await Task.Delay(800);
+            var spec = AubsCraft.Admin.Xr.XrSurfaces.Menu;
+            var box = SurfaceBox(spec);
+            using var before = await LeftEyeAsync(page, "ui-grab-before");
+
+            // The trigger held on the handle at the bottom, the hand moved to the right, the trigger let go
+            await AimAsync(page, SurfaceSpot(spec, 165, 573));
+            await Task.Delay(700);
+            await page.EvaluateAsync("window.__xr.trigger = true");
+            await Task.Delay(600);
+            Assert.That(log.ToArray().Any(l => l.Contains("[Xr] taking the menu by its handle")), Is.True, "the handle took hold");
+            var there = SurfaceSpot(spec, 165, 573);
+            await AimAsync(page, (there.X + 0.45, there.Y + 0.05, there.Z));
+            await Task.Delay(1200);
+            await page.EvaluateAsync("window.__xr.trigger = false");
+            await Task.Delay(800);
+            using var after = await LeftEyeAsync(page, "ui-grab-after");
+            // Where it was is empty now, and it stands to the right of there
+            var moved = new Rectangle(box.X + 330, box.Y, box.Width, box.Height);
+            double leftBehind = Changed(before, after, new Rectangle(box.X, box.Y + 20, 40, box.Height - 40));
+            double arrived = Changed(before, after, new Rectangle(moved.X, moved.Y + 20, 60, moved.Height - 40));
+            TestContext.Progress.WriteLine($"[xr] the menu moved: left behind {leftBehind:P1}, arrived {arrived:P1}");
+            Assert.That(leftBehind, Is.GreaterThan(0.15), "the menu left where it was");
+            // A trigger on a tile after the move still works where the menu is now (the HUD was not pressed by the grab)
+            Assert.That(log.ToArray().Any(l => l.Contains("HUD trigger") && l.Contains("on the menu") && !l.Contains("taking")), Is.False, "the grab pressed nothing on the HUD");
+            await LeaveAsync(page, log, errors);
+        }
+        finally { await page.CloseAsync(); }
+    }
+
+    [Test]
+    public async Task InVr_CreativeAsInQuestCraft_TriggersPlaceAndBreak_AIsPick_BUndoes_GripsPickTheBlock()
     {
         var plugin = new FakePlugin(_rig);
         plugin.Start();
@@ -442,20 +495,18 @@ public class ViewerXrTests
         var page = await StartSessionAsync("Enter VR", "/map?hud=0&time=6000&dd=6&light=0&cam=-8.5,-58.0,8.5,-90,0", log, errors);
         try
         {
-            // Y turns building on; the right controller points down at the floor, the left hand is held up in front
+            // An admin starts in creative mode: nothing to turn on. The right controller points down at the floor, the left hand is held up in front
+            for (int i = 0; i < 20 && !log.ToArray().Any(l => l.Contains("[Edit] edit mode on")); i++) await Task.Delay(300);
+            Assert.That(log.ToArray().Any(l => l.Contains("[Edit] edit mode on")), Is.True, "creative mode was on from the start:\n" + string.Join("\n", log.ToArray().Where(l => l.Contains("Edit") || l.Contains("Xr")).TakeLast(8)));
             await page.EvaluateAsync("window.__xr.aimAt(0.25, -0.5, -1.0)");
             await page.EvaluateAsync($"window.__xr.rayLeft.p = [{Num(LeftHand.X)}, {Num(LeftHand.Y)}, {Num(LeftHand.Z)}]");
-            await Task.Delay(1500);
-            using var beforeY = await LeftEyeAsync(page, "vr-edit-before");
-            await PressAsync(page, "leftY");
-            for (int i = 0; i < 20 && !log.ToArray().Any(l => l.Contains("[Edit] edit mode on")); i++) await Task.Delay(300);
-            Assert.That(log.ToArray().Any(l => l.Contains("[Edit] edit mode on")), Is.True, "Y turned building on:\n" + string.Join("\n", log.ToArray().Where(l => l.Contains("Edit") || l.Contains("Xr")).TakeLast(8)));
             await Task.Delay(2500);   // what the controller points at is asked of the panel
             using var pointing = await LeftEyeAsync(page, "vr-edit-pointing");
-            Assert.That(Changed(beforeY, pointing, ArmBarBox()), Is.GreaterThan(0.1), "the armband of the blocks in hand appeared over the left hand");
+            using var armband = await LeftEyeAsync(page, "vr-edit-armband");
+            Assert.That(Changed(pointing, armband, ArmBarBox()), Is.Zero, "(the armband holds still)");
 
-            // The right trigger places the block in hand on the floor, in front of the head (the menu is closed: the ray goes to the world)
-            await PressAsync(page, "trigger");
+            // The right trigger places the block in hand on the floor, in front of the head (nothing is in the way: the ray goes to the world)
+            await TapAsync(page, "trigger");
             for (int i = 0; i < 30 && plugin.Received.Count == 0; i++) await Task.Delay(200);
             Assert.That(plugin.Received.Count, Is.GreaterThanOrEqualTo(1), "the trigger placed a block:\n" + string.Join("\n", log.ToArray().Where(l => l.Contains("Edit")).TakeLast(8)));
             var placed = plugin.Received[0];
@@ -465,11 +516,11 @@ public class ViewerXrTests
             await Task.Delay(2500);
             using var built = await LeftEyeAsync(page, "vr-edit-placed");
 
-            // A breaks what is pointed at (the stone just put there); B undoes it
-            await PressAsync(page, "rightA");
+            // The LEFT trigger breaks what is pointed at (the stone just put there); B undoes it
+            await TapAsync(page, "leftTrigger");
             for (int i = 0; i < 30 && plugin.Received.Count < 2; i++) await Task.Delay(200);
             Assert.That(plugin.Received.Count, Is.GreaterThanOrEqualTo(2));
-            Assert.That(plugin.Received[1].Block, Is.EqualTo("minecraft:air"));
+            Assert.That(plugin.Received[1].Block, Is.EqualTo("minecraft:air"), "the left trigger broke it");
             Assert.That(plugin.Received[1].At, Is.EqualTo(placed.At), "the block that was put there");
             await Task.Delay(2000);
             await PressAsync(page, "rightB");
@@ -477,51 +528,85 @@ public class ViewerXrTests
             Assert.That(plugin.Received.Count, Is.GreaterThanOrEqualTo(3));
             Assert.That(plugin.Received[2].Kind, Is.EqualTo("undo"), "B undid it");
 
-            // The right grip picks the next block in hand (the second one is cobblestone), the left one the one before
-            await PressAsync(page, "rightGrip");
+            // A picks the block pointed at (the pavement far ahead, not the stone or the grass) into the hand, and the trigger then places it
+            await page.EvaluateAsync("window.__xr.aimAt(0.25, 1.0, -4.0)");
+            await Task.Delay(2500);
+            await PressAsync(page, "rightA");
             await Task.Delay(1500);
             int before = plugin.Received.Count;
-            await PressAsync(page, "trigger");
+            await TapAsync(page, "trigger");
             for (int i = 0; i < 30 && plugin.Received.Count == before; i++) await Task.Delay(200);
-            Assert.That(plugin.Received.Count, Is.GreaterThan(before), "the trigger placed the next block");
+            Assert.That(plugin.Received.Count, Is.GreaterThan(before));
+            var pickedBlock = plugin.Received[^1].Block;
+            TestContext.Progress.WriteLine($"[xr-edit] A picked {pickedBlock}");
+            Assert.That(pickedBlock, Is.Not.EqualTo("minecraft:stone").And.Not.Contain("grass"), "A picked the block the controller pointed at (the pavement)");
+            await Task.Delay(1500);
+
+            // The right grip picks the next block in hand (the grass took the first one's place: the second is cobblestone), the left grip the one before
+            await PressAsync(page, "rightGrip");
+            await Task.Delay(1500);
+            before = plugin.Received.Count;
+            await TapAsync(page, "trigger");
+            for (int i = 0; i < 30 && plugin.Received.Count == before; i++) await Task.Delay(200);
             Assert.That(plugin.Received[^1].Block, Is.EqualTo("minecraft:cobblestone"), "the right grip chose the next block in hand");
             await Task.Delay(1500);
             await PressAsync(page, "leftGrip");
             await Task.Delay(1000);
             before = plugin.Received.Count;
-            await PressAsync(page, "trigger");
+            await TapAsync(page, "trigger");
             for (int i = 0; i < 30 && plugin.Received.Count == before; i++) await Task.Delay(200);
-            Assert.That(plugin.Received[^1].Block, Is.EqualTo("minecraft:stone"), "the left grip went back to the block before");
+            Assert.That(plugin.Received[^1].Block, Is.EqualTo(pickedBlock), "the left grip went back to the block before (the one that was picked)");
             await Task.Delay(1500);
 
-            // The menu (X): "Blocks" opens the palette in the window; no keyboard in a headset, so a chip fills the search in ("glass") and the first block of the list is picked
+            // Held, the trigger keeps placing
+            before = plugin.Received.Count;
+            await page.EvaluateAsync("window.__xr.trigger = true");
+            await Task.Delay(1500);
+            await page.EvaluateAsync("window.__xr.trigger = false");
+            await Task.Delay(800);
+            TestContext.Progress.WriteLine($"[xr-edit] held for 1.5 s: {plugin.Received.Count - before} more blocks");
+            Assert.That(plugin.Received.Count - before, Is.GreaterThanOrEqualTo(3), "a held trigger kept placing");
+
+            // Y opens the inventory (every block); no keyboard in a headset, so a chip fills the search in ("glass") and the first block of the list is picked
             await page.EvaluateAsync("window.__xr.aimAt(0.25, 3.5, -1.3)");
-            await PressAsync(page, "x");
-            await Task.Delay(500);
-            using var menu = await LeftEyeAsync(page, "vr-edit-menu");
-            await ClickAtAsync(page, MenuTile("blocks"));
-            for (int i = 0; i < 20 && !log.ToArray().Any(l => l.Contains("[Edit] tool blocks")); i++) await Task.Delay(300);
-            Assert.That(log.ToArray().Any(l => l.Contains("[Edit] tool blocks")), Is.True, "the menu's Blocks tile was pressed:\n" + string.Join("\n", log.ToArray().Where(l => l.Contains("Edit") || l.Contains("HUD")).TakeLast(8)));
-            await Task.Delay(1000);
+            await PressAsync(page, "leftY");
+            Assert.That(log.ToArray().Any(l => l.Contains("[Xr] inventory toggled")), Is.True);
+            await Task.Delay(1200);
             using var palette = await LeftEyeAsync(page, "vr-edit-palette");
             await ClickAtAsync(page, SurfaceSpot(AubsCraft.Admin.Xr.XrSurfaces.Window, 384, 141));   // the "glass" chip
             await Task.Delay(800);
             using var chipped = await LeftEyeAsync(page, "vr-edit-chip");
             await ClickAtAsync(page, SurfaceSpot(AubsCraft.Admin.Xr.XrSurfaces.Window, 380, 241));   // the first block of the list
             await Task.Delay(1200);
-            // The window closes by itself once a block is chosen; the menu is still there, and the ray goes to the world again where there is neither
+            // The window closes by itself once a block is chosen; the ray goes to the world again
             await page.EvaluateAsync("window.__xr.aimAt(0.25, -0.5, -1.0)");
             await Task.Delay(2500);
-            int beforeGlass = plugin.Received.Count;
-            await PressAsync(page, "trigger");
-            for (int i = 0; i < 30 && plugin.Received.Count == beforeGlass; i++) await Task.Delay(200);
-            Assert.That(plugin.Received.Count, Is.GreaterThan(beforeGlass), "a block was placed after choosing from the palette");
+            before = plugin.Received.Count;
+            await TapAsync(page, "trigger");
+            for (int i = 0; i < 30 && plugin.Received.Count == before; i++) await Task.Delay(200);
+            Assert.That(plugin.Received.Count, Is.GreaterThan(before), "a block was placed after choosing from the inventory");
             Assert.That(plugin.Received[^1].Block, Does.Contain("glass"), "the chip's search and the list's first block: some glass");
 
-            // Y again leaves building
-            await PressAsync(page, "leftY");
-            for (int i = 0; i < 20 && !log.ToArray().Any(l => l.Contains("[Edit] edit mode off")); i++) await Task.Delay(300);
-            Assert.That(log.ToArray().Any(l => l.Contains("[Edit] edit mode off")), Is.True, "Y turned building off");
+            // The Tools page (from the menu): "Mark an area" makes the triggers mark corners; closing the window puts them back to placing and breaking
+            await page.EvaluateAsync("window.__xr.aimAt(0.25, 3.5, -1.3)");
+            await PressAsync(page, "x");
+            await Task.Delay(500);
+            await ClickAtAsync(page, MenuTile("tools", creative: true));
+            await Task.Delay(1000);
+            using var tools = await LeftEyeAsync(page, "vr-edit-tools");
+            await ClickAtAsync(page, SurfaceSpot(AubsCraft.Admin.Xr.XrSurfaces.Window, 112, 166));   // "Mark an area": the first button of the Tools page
+            for (int i = 0; i < 20 && !log.ToArray().Any(l => l.Contains("[Edit] tool select")); i++) await Task.Delay(300);
+            Assert.That(log.ToArray().Any(l => l.Contains("[Edit] tool select")), Is.True, "the Tools page's Mark an area was pressed");
+            await ClickAtAsync(page, SurfaceSpot(AubsCraft.Admin.Xr.XrSurfaces.Window, 711, 32));   // Close
+            for (int i = 0; i < 20 && !log.ToArray().Any(l => l.Contains("[Edit] tool tool-build")); i++) await Task.Delay(300);
+            Assert.That(log.ToArray().Any(l => l.Contains("[Edit] tool tool-build")), Is.True, "closing the tools put the triggers back to building");
+            await PressAsync(page, "x");   // the menu away
+            await page.EvaluateAsync("window.__xr.aimAt(0.25, -0.5, -1.0)");
+            await Task.Delay(2500);
+            before = plugin.Received.Count;
+            await TapAsync(page, "trigger");
+            for (int i = 0; i < 30 && plugin.Received.Count == before; i++) await Task.Delay(200);
+            Assert.That(plugin.Received.Count, Is.GreaterThan(before), "the trigger places blocks again after the tools");
             await LeaveAsync(page, log, errors);
         }
         finally
@@ -624,18 +709,18 @@ public class ViewerXrTests
         var page = await StartSessionAsync("Enter VR", "/map?hud=0&time=6000&cam=" + Cam, log, errors);
         try
         {
-            // Y and B are free: neither ends the session (Y starts building, B undoes)
+            // Y and B are free: neither ends the session (Y opens the inventory, B undoes)
             await page.EvaluateAsync("window.__xr.aimAt(0.25, 3.5, -1.3)");
             await PressAsync(page, "rightB");
             await PressAsync(page, "leftY");
             await Task.Delay(1500);
             Assert.That(log.ToArray().Any(l => l.Contains("[Xr] session ended")), Is.False, "Y and B do not leave");
-            await PressAsync(page, "leftY");   // building off again
+            await PressAsync(page, "leftY");   // the inventory away again
 
             // The menu's Leave tile does
             await PressAsync(page, "x");
             await Task.Delay(500);
-            await ClickAtAsync(page, SurfaceSpot(AubsCraft.Admin.Xr.XrSurfaces.Menu, 165, 525));
+            await ClickAtAsync(page, MenuTile("exit"));
             for (int i = 0; i < 20 && !log.ToArray().Any(l => l.Contains("[Xr] session ended")); i++) await Task.Delay(500);
             Assert.That(log.ToArray().Any(l => l.Contains("[Xr] session ended")), Is.True, "the Leave tile ended the session:\n" + string.Join("\n", log.ToArray().Where(l => l.Contains("Xr")).TakeLast(6)));
         }

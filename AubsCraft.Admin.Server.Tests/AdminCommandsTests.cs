@@ -94,4 +94,12 @@ public class AdminCommandsTests
         Assert.That(AdminJson.Read("""{"error":"That is not a player name"}"""), Is.EqualTo(new AdminReply(false, "That is not a player name")));
         Assert.That(AdminJson.Read("not json").Ok, Is.False);
     }
-}
+
+    [Test]
+    public void TheCommandsRunAsTheGamesOwn_SoACommandsPluginOnTheConsoleCannotAnswerInstead()
+    {
+        // Essentials answers `weather clear` from the console with "usage is: /weather <world> <storm/sun>": the panel said it was done and nothing changed (found on the real server)
+        Assert.That(AubsCraft.Admin.Server.AdminEndpoints.Vanilla("weather clear"), Is.EqualTo("minecraft:weather clear"));
+        Assert.That(AubsCraft.Admin.Server.AdminEndpoints.Vanilla("time set day"), Is.EqualTo("minecraft:time set day"));
+        Assert.That(AubsCraft.Admin.Server.AdminEndpoints.Vanilla("minecraft:tp Steve 1 2 3"), Is.EqualTo("minecraft:tp Steve 1 2 3"), "already the game's");
+    }}

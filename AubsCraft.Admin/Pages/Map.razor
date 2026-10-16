@@ -290,6 +290,8 @@ else
         if (status.TimeTicks >= 0) _lastTicks = status.TimeTicks;
         if (_timeLinked == null && status.TimeTicks >= 0 && _renderService != null)
             _ = _renderService.SetTimeOfDay(status.TimeTicks);
+        // The headset's world is a second one on this page: it follows the server's clock too (it was told the time once, when the session began)
+        if (_timeLinked == null && status.TimeTicks >= 0) Xr.SetServerTime(status.TimeTicks);
         if (status.Connected) _hudFeed.SetPlayers(status.Players);
     }
 

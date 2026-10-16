@@ -11,7 +11,13 @@ namespace AubsCraft.Admin.Server;
 /// </summary>
 public static class AdminEndpoints
 {
-    private static readonly string[] FailureMarks = ["No player was found", "Unknown or incomplete command", "Incorrect argument", "Expected ", "Unknown item", "That player cannot be found", "is not online"];
+    private static readonly string[] FailureMarks = ["No player was found", "Unknown or incomplete command", "Incorrect argument", "Expected ", "Unknown item", "That player cannot be found", "is not online", "Error:", "usage is", "Usage:"];
+
+    /// <summary>
+    /// The game's own command, by its namespace: a server with a commands plugin (Essentials) answers <c>weather</c>, <c>time</c>, <c>gamemode</c>, <c>tp</c> and more from the console with its own,
+    /// which wants a world ("usage is: /weather &lt;world&gt; &lt;storm/sun&gt;") and does nothing here. <c>minecraft:weather clear</c> is always the game's.
+    /// </summary>
+    public static string Vanilla(string command) => command.StartsWith("minecraft:", StringComparison.Ordinal) ? command : "minecraft:" + command;
 
     public static void MapAdminEndpoints(this WebApplication app)
     {
@@ -37,7 +43,7 @@ public static class AdminEndpoints
 
             var replies = new List<string>();
             foreach (var command in commands)
-                replies.Add(MinecraftText.StripColorCodes(await instance.Rcon.SendCommandAsync(command, ctx.RequestAborted)).Trim());
+                replies.Add(MinecraftText.StripColorCodes(await instance.Rcon.SendCommandAsync(Vanilla(command), ctx.RequestAborted)).Trim());
             message = string.Join(" ", replies.Where(r => r.Length > 0));
             bool ok = !FailureMarks.Any(m => message.Contains(m, StringComparison.OrdinalIgnoreCase));
             if (ok)

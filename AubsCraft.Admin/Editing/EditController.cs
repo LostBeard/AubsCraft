@@ -160,7 +160,12 @@ public sealed class EditController
         if (!Session.Active) return;
         if (Session.Paste != null) _ = PasteAsync();
         else if (Session.Tool == EditSession.Tools.Select) Session.ClickSelect();
-        else Send(Session.PlanPlace(cameraYawDegrees));
+        else
+        {
+            var plan = Session.PlanPlace(cameraYawDegrees);
+            Console.WriteLine(plan == null ? $"[Edit] place: nothing to place ({(Session.Target == null ? "nothing is pointed at" : "no block in hand or the place is not free")})" : "[Edit] place");
+            Send(plan);
+        }
     }
 
     /// <summary>The other button: breaks the block (building), clears the selection (selecting), stops placing.</summary>
@@ -169,16 +174,27 @@ public sealed class EditController
         if (!Session.Active) return;
         if (Session.Paste != null) Session.CancelPaste();
         else if (Session.Tool == EditSession.Tools.Select) Session.ClearSelection();
-        else Send(Session.PlanBreak());
+        else
+        {
+            var plan = Session.PlanBreak();
+            Console.WriteLine(plan == null ? $"[Edit] break: {(Session.Target == null ? "nothing is pointed at" : "that block cannot be broken")}" : "[Edit] break");
+            Send(plan);
+        }
     }
 
     /// <summary>Take the block pointed at into the hand.</summary>
     public void Eyedrop()
     {
-        if (Session.Active && Session.PickBlock()) RefreshHud(slots: true);
+        if (!Session.Active) return;
+        bool picked = Session.PickBlock();
+        Console.WriteLine(picked ? $"[Edit] pick: {Session.Target?.Block} is in hand now" : $"[Edit] pick: {(Session.Target == null ? "nothing is pointed at" : "that is not a block to place")}");
+        if (picked) RefreshHud(slots: true);
     }
 
     public void UndoNow() { if (Session.Active) _ = UndoAsync(); }
+
+    /// <summary>Holding the trigger may keep going (placing and breaking blocks one after another): only with the build tool and nothing being put down.</summary>
+    public bool CanRepeat => Session.Active && Session.Paste == null && Session.Tool == EditSession.Tools.Build;
 
     /// <summary>The next block in hand (+1) or the one before (-1), round the nine.</summary>
     public void CycleSlot(int step)
@@ -198,6 +214,7 @@ public sealed class EditController
         Console.WriteLine($"[Edit] tool {id}");
         switch (id)
         {
+            case "tool-build": s.Tool = EditSession.Tools.Build; s.CancelPaste(); break;
             case "blocks": _hud.OpenBlueprints(false); _hud.OpenPalette(!_hud.IsPaletteOpen); break;
             case "select": s.Tool = s.Tool == EditSession.Tools.Select ? EditSession.Tools.Build : EditSession.Tools.Select; s.CancelPaste(); break;
             case "blueprints": _ = OpenBlueprintsAsync(); break;
@@ -550,6 +567,7 @@ public sealed class EditController
     {
         if (!Session.Active) return;
         if (slots) for (int i = 0; i < Session.Hotbar.Length; i++) _hud.SetEditSlot(i, EditSession.DisplayName(Session.Hotbar[i]));
+        _hud.SelectEditSlot(Session.Selected);   // the lit slot is the one in hand, whatever changed it (a grip, a pick, a number key)
         int hint = Session.Paste != null ? 2 : Session.Tool == EditSession.Tools.Select ? 1 : 0;
         if (hint != _lastHint) { _lastHint = hint; _hud.SetEditHint(hint); }
 

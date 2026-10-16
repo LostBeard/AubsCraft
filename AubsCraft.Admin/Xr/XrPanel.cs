@@ -23,6 +23,8 @@ public sealed record XrPanelSpec(string Name, float WidthMeters, float HeightMet
     public float FollowRate { get; init; } = 4f;
     /// <summary>True: the surface rides over the left hand (an armband of the blocks in hand), put by <see cref="XrPanel.PlaceOverHand"/> each frame; it is not shown while that hand is not tracked.</summary>
     public bool OverLeftHand { get; init; }
+    /// <summary>Pixels at the bottom of the surface that are its handle: pointed at with the trigger held, they take the surface along (0: it cannot be moved).</summary>
+    public int GrabBand { get; init; }
 }
 
 /// <summary>
@@ -55,6 +57,33 @@ public sealed class XrPanel
     public Vector3 Center { get; private set; }
 
     private Vector3? _right, _up;
+    private Vector3 _grabOffset;
+    private float _grabDistance;
+
+    /// <summary>The surface is being carried by a controller.</summary>
+    public bool Grabbed { get; private set; }
+
+    /// <summary>Take hold at the point of the surface the ray meets (<paramref name="distance"/> along it): the surface keeps its place under the ray as the hand moves.</summary>
+    public void BeginGrab(Vector3 origin, Vector3 direction, float distance)
+    {
+        Grabbed = true;
+        _grabDistance = distance;
+        _grabOffset = Center - (origin + direction * distance);
+    }
+
+    /// <summary>Carry it: it follows the ray at the distance it was taken at (<paramref name="pushed"/> metres more or less), and faces the head.</summary>
+    public void UpdateGrab(Vector3 origin, Vector3 direction, Vector3 head, float pushed = 0f)
+    {
+        if (!Grabbed) return;
+        _grabDistance = Math.Clamp(_grabDistance + pushed, 0.3f, 3f);
+        Center = origin + direction * _grabDistance + _grabOffset;
+        _right = null; _up = null;
+        var toSurface = Center - head;
+        if (HeadingOf(toSurface) is { } heading) Heading = heading;
+        _placed = true;
+    }
+
+    public void EndGrab() => Grabbed = false;
 
     /// <summary>Its own right (its pixels' x).</summary>
     public Vector3 Right => _right ?? new(MathF.Cos(Heading), 0f, -MathF.Sin(Heading));
@@ -68,13 +97,14 @@ public sealed class XrPanel
     /// <summary>The surface rides over a hand: where, from where the hand is, the way it points and where the head is. Pure.</summary>
     public static (Vector3 Center, Vector3 Right, Vector3 Up) OverHand(Vector3 hand, Vector3 handDirection, Vector3 head)
     {
-        // A hand of palm-down or pointing: the strip floats a hand's breadth above it and a little toward the viewer, turned to face the viewer with its text level
+        // A hand of palm-down or pointing: the strip floats a hand's breadth above it and a little toward the viewer, turned to face the viewer with its text level; it is shifted toward the middle
+        // of the body so the arm held out to the left does not carry it out of the corner of the view
         var center = hand + Vector3.UnitY * 0.11f;
         var toHead = Vector3.Normalize(head - center);
         var right = Vector3.Cross(Vector3.UnitY, toHead);
         right = right.LengthSquared() < 1e-6f ? Vector3.UnitX : Vector3.Normalize(right);
         var up = Vector3.Normalize(Vector3.Cross(toHead, right));
-        return (center + toHead * 0.04f, right, up);
+        return (center + toHead * 0.04f + right * 0.12f, right, up);
     }
 
     /// <summary>Put the surface over a hand (see <see cref="OverHand"/>); the surface is then facing the viewer wherever the hand is.</summary>
@@ -168,18 +198,18 @@ public sealed class XrPanel
 public static class XrSurfaces
 {
     /// <summary>The HUD's layout size in pixels: every surface is a rectangle of it.</summary>
-    public const int AtlasWidth = 1100, AtlasHeight = 830;
+    public const int AtlasWidth = 1100, AtlasHeight = 840;
     /// <summary>The atlas texture has this many pixels to each of the layout's (text is sharp up close; mips keep it steady far away).</summary>
     public const float TextureScale = 1.5f;
 
     /// <summary>The menu: tiles for what can be done now. Put where the head looks when it opens, a little to the left, and left there.</summary>
-    public static XrPanelSpec Menu => new("menu", 0.34f, 0.577f, 0.75f, 0.04f, -0.34f, false, 0, 0, 330, 560);
+    public static XrPanelSpec Menu => new("menu", 0.34f, 0.610f, 0.75f, 0.04f, -0.34f, false, 0, 0, 330, 592) { GrabBand = 40 };
     /// <summary>The window: one page of a bigger thing (blocks, blueprints, players, what to say, the map, the world), in front.</summary>
-    public static XrPanelSpec Window => new("window", 0.84f, 0.597f, 0.95f, 0.08f, 0.22f, false, 340, 0, 760, 540);
+    public static XrPanelSpec Window => new("window", 0.84f, 0.643f, 0.95f, 0.08f, 0.22f, false, 340, 0, 760, 582) { GrabBand = 40 };
     /// <summary>The bar: the blocks in hand and what is being done, an armband over the left hand (only while building); the grips switch the block.</summary>
-    public static XrPanelSpec Bar => new("bar", 0.38f, 0.048f, 0.95f, 0.46f, 0f, true, 0, 570, 760, 96) { OverLeftHand = true };
+    public static XrPanelSpec Bar => new("bar", 0.34f, 0.0430f, 0.95f, 0.46f, 0f, true, 0, 600, 760, 96) { OverLeftHand = true };
     /// <summary>The feed: chat and notices, small, low and to the left.</summary>
-    public static XrPanelSpec Feed => new("feed", 0.40f, 0.29f, 1.05f, 0.55f, -0.72f, true, 770, 570, 330, 240);
+    public static XrPanelSpec Feed => new("feed", 0.40f, 0.29f, 1.05f, 0.55f, -0.72f, true, 770, 600, 330, 240);
 
     public static XrPanelSpec[] All => [Window, Menu, Bar, Feed];
 }

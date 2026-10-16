@@ -40,6 +40,12 @@ public sealed class XrViewerHost : IDisposable
     private XrPanelRenderer? _panelGpu;
     private bool _xWasDown = true, _yWasDown = true, _bWasDown = true, _pressedOnPanel, _pointerWasOnPanel;
     private XrPanel? _pointerSurface;
+    // A surface carried by its handle, and by which hand
+    private XrPanel? _grabSurface;
+    private bool _grabRight;
+    // Holding a trigger on the world keeps placing / breaking: when the next one is due
+    private float _placeNext, _breakNext;
+    private const float RepeatFirstSeconds = 0.45f, RepeatSeconds = 0.25f;
     private (Vector3 Spot, float YawDegrees)? _pendingTeleport;
     private bool _pointerOnPanel;
     // Augmented reality: the world is a model on the table (the sticks pan, zoom and turn it); "Life size" puts the person back in it
@@ -119,6 +125,8 @@ public sealed class XrViewerHost : IDisposable
             await _world.StartAsync(serverId, cameraPosition.X, cameraPosition.Y, cameraPosition.Z, pitchDegrees, yawDegrees);
             if (serverTicks >= 0) await _world.SetTimeOfDay(serverTicks);
             await _world.SetAdminAsync(isAdmin);
+            // As QuestCraft's creative mode: an admin can build from the start (the first press of a trigger on the world places a block); it is undoable, and the menu turns it off
+            if (isAdmin && _world.Edit is { } creative) _ = creative.SetActiveAsync(true);
             StartHudPanel();
         }
         catch (Exception ex)
@@ -132,6 +140,12 @@ public sealed class XrViewerHost : IDisposable
     }
 
     public Task ExitAsync() => _session.ExitAsync();
+
+    /// <summary>The server's time of day (ticks), as the status says every few seconds: the headset's sky follows it.</summary>
+    public void SetServerTime(int ticks)
+    {
+        if (_world != null && _session.IsActive) _ = _world.SetTimeOfDay(ticks);
+    }
 
     /// <summary>What SignalR delivered (chat, players, notices) for the headset's HUD: the page feeds the worker's HUD and, while a session runs, this one.</summary>
     public void FeedHud(HudFeed feed)
@@ -213,13 +227,34 @@ public sealed class XrViewerHost : IDisposable
     }
 
     // The controllers' rays on the surfaces: the pointer dot, hover, and the trigger as a click (on the minimap it cycles the zoom). The right hand wins where both point at one.
-    private void UpdatePointer(XrFrameData f)
+    private void UpdatePointer(XrFrameData f, float dt)
     {
-        bool hit = false, trigger = false;
+        // Carrying a surface by its handle: it follows the hand until the trigger is let go (the stick pushes it away or draws it near)
+        if (_grabSurface != null)
+        {
+            bool held = _grabRight ? f.RightTrigger : f.LeftTrigger;
+            bool tracked = _grabRight ? f.RightHasRay : f.LeftHasRay;
+            if (!held || !tracked)
+            {
+                _grabSurface.EndGrab();
+                _grabSurface = null;
+                _pressedOnPanel = false;
+            }
+            else
+            {
+                var stick = XrLocomotion.ApplyDeadzone(_grabRight ? f.RightStick : f.LeftStick);
+                _grabSurface.UpdateGrab(_grabRight ? f.RightRayOrigin : f.LeftRayOrigin, _grabRight ? f.RightRayDirection : f.LeftRayDirection, f.HeadPosition, -stick.Y * 1.2f * dt);
+                _hud.SetPointer(0, 0, false);
+                _pointerOnPanel = true;
+                _pointerWasOnPanel = true;
+                return;
+            }
+        }
+        bool hit = false, trigger = false, fromRight = false;
         float x = 0, y = 0;
         float distance = 0;
         XrPanel? surface = null;
-        if (f.RightHasRay && NearestSurface(f.RightRayOrigin, f.RightRayDirection, out surface, out x, out y, out distance)) { hit = true; trigger = f.RightTrigger; }
+        if (f.RightHasRay && NearestSurface(f.RightRayOrigin, f.RightRayDirection, out surface, out x, out y, out distance)) { hit = true; trigger = f.RightTrigger; fromRight = true; }
         else if (f.LeftHasRay && NearestSurface(f.LeftRayOrigin, f.LeftRayDirection, out surface, out x, out y, out distance)) { hit = true; trigger = f.LeftTrigger; }
         _panelBeamLength = hit ? distance : 0f;
         _pointerSurface = hit ? surface : null;
@@ -229,6 +264,17 @@ public sealed class XrViewerHost : IDisposable
         if (hit)
         {
             _hud.Apply(new UiInputEvent(UiInputEvent.MouseMove, x, y));
+            if (trigger && !_pressedOnPanel && surface!.Spec.GrabBand > 0 && y - surface.Spec.RegionY >= surface.PixelHeight - surface.Spec.GrabBand)
+            {
+                // The trigger on the handle at the bottom: take the surface along (nothing is pressed on the HUD)
+                _pressedOnPanel = true;
+                _grabSurface = surface;
+                _grabRight = fromRight;
+                surface.BeginGrab(fromRight ? f.RightRayOrigin : f.LeftRayOrigin, fromRight ? f.RightRayDirection : f.LeftRayDirection, distance);
+                Console.WriteLine($"[Xr] taking the {surface.Spec.Name} by its handle");
+                _pointerWasOnPanel = true;
+                return;
+            }
             if (trigger && !_pressedOnPanel)
             {
                 _pressedOnPanel = true;
@@ -306,10 +352,10 @@ public sealed class XrViewerHost : IDisposable
         var gaze = Vector3.TransformNormal(Vector3.Transform(-Vector3.UnitZ, f.HeadOrientation), _worldFromRoom.Value);
         (_world.Camera.Yaw, _world.Camera.Pitch) = XrMath.AnglesOf(gaze);
 
-        // X opens and closes the menu; Y turns building on and off
+        // X opens and closes the menu; Y the inventory (every block), as the creative inventory of QuestCraft
         if (f.LeftPrimary && !_xWasDown) { _hud.XrMenuOpen = !_hud.XrMenuOpen; Console.WriteLine($"[Xr] menu {(_hud.XrMenuOpen ? "opened" : "closed")}"); }
         _xWasDown = f.LeftPrimary;
-        if (f.LeftSecondary && !_yWasDown && _world.Edit is { } building) _ = building.SetActiveAsync(!building.Active);
+        if (f.LeftSecondary && !_yWasDown) { _hud.ToggleXrInventory(); Console.WriteLine("[Xr] inventory toggled"); }
         _yWasDown = f.LeftSecondary;
 
         // Which surfaces are shown (the HUD knows what is open); each is put where the head looks when it appears
@@ -326,7 +372,7 @@ public sealed class XrViewerHost : IDisposable
             else surface.Update(dt, f.HeadPosition, f.HeadOrientation);
         }
         _world.XrHudActive = anySurface;
-        if (anySurface) UpdatePointer(f);
+        if (anySurface) UpdatePointer(f, dt);
         else if (_pointerWasOnPanel || _pressedOnPanel)
         {
             _hud.SetPointer(0, 0, false);
@@ -342,7 +388,7 @@ public sealed class XrViewerHost : IDisposable
         _world.XrFrame(dt);
         foreach (var line in _hud.TakeOutgoingChat()) ChatSent?.Invoke(line);
         if (!_world.WorldReady) return;
-        UpdateEditing(f);
+        UpdateEditing(f, dt);
         if (anySurface) DrawPanelTexture();
 
         var shown = _surfaces.Where(surface => surface.Visible).ToArray();
@@ -440,10 +486,10 @@ public sealed class XrViewerHost : IDisposable
         }
     }
     // ---- building with the controllers ----
-    // Y turns building on and off (or the menu's Build tile). While building the right controller points (a beam is drawn; the block it points at is outlined): the right trigger is the main button (place a
-    // block, make a selection corner, put a blueprint down), A the other (break, clear the selection, stop placing), B undoes, the left trigger copies the block pointed at, the grips pick the next and the
+    // Y turns building on and off (or the menu's Build tile). While building the right controller points (a beam is drawn; the block it points at is outlined): the right trigger places a block (held, it keeps
+    // placing; with the Tools: makes a selection corner, puts a blueprint down), the left trigger breaks one (held, keeps breaking; with the Tools: clears the selection, stops placing), A picks the block pointed at into the hand, B undoes, the grips pick the next and the
     // previous block in hand (the bar of them is on the left arm; a pressed-in stick is the fast fly while building). Pointing at a surface of the HUD, the trigger is the surface's (UpdatePointer). Everything else - blocks, blueprints, fill, copy, paste - is a tile of the menu (X).
-    private void UpdateEditing(XrFrameData f)
+    private void UpdateEditing(XrFrameData f, float dt)
     {
         var edit = _world?.Edit;
         if (edit == null || _worldFromRoom is not { } toWorld) return;
@@ -472,10 +518,21 @@ public sealed class XrViewerHost : IDisposable
 
         if (!_pointerOnPanel)
         {
-            if (f.RightTrigger && !_rightTriggerWas) edit.Primary(_world!.Camera.Yaw);
-            if (f.RightPrimary && !_rightAWas) edit.Alternate();
+            // The right trigger places (held, it keeps placing), the left trigger breaks (held, it keeps breaking), A picks the block pointed at into the hand
+            if (f.RightTrigger)
+            {
+                _placeNext -= dt;
+                if (!_rightTriggerWas) { edit.Primary(_world!.Camera.Yaw); _placeNext = RepeatFirstSeconds; }
+                else if (_placeNext <= 0f && edit.CanRepeat) { edit.Primary(_world!.Camera.Yaw); _placeNext = RepeatSeconds; }
+            }
+            if (f.LeftTrigger)
+            {
+                _breakNext -= dt;
+                if (!_leftTriggerWas) { edit.Alternate(); _breakNext = RepeatFirstSeconds; }
+                else if (_breakNext <= 0f && edit.CanRepeat) { edit.Alternate(); _breakNext = RepeatSeconds; }
+            }
+            if (f.RightPrimary && !_rightAWas) edit.Eyedrop();
         }
-        if (f.LeftTrigger && !_leftTriggerWas) edit.Eyedrop();
         if (f.RightSecondary && !_bWasDown) edit.UndoNow();
         // The grips pick the block in hand: the right one the next, the left one the one before (the bar is on the left arm)
         if (f.RightGrip && !_rightGripWas) edit.CycleSlot(1);

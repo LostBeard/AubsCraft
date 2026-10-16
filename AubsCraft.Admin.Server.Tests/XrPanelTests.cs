@@ -269,7 +269,7 @@ public class XrPanelTests
         Assert.That((panel.Center - hand).Length(), Is.LessThan(0.25f));
         // Facing the viewer: the normal points at the head; the text runs level
         var toHead = Vector3.Normalize(Head - panel.Center);
-        Assert.That(Vector3.Dot(-panel.Forward, toHead), Is.GreaterThan(0.999f));
+        Assert.That(Vector3.Dot(-panel.Forward, toHead), Is.GreaterThan(0.95f), "faces the viewer (a little turned, it is shifted toward the middle of the body)");
         Assert.That(panel.Right.Y, Is.EqualTo(0f).Within(1e-4), "the text is level");
         Assert.That(Vector3.Dot(panel.Right, panel.Up), Is.EqualTo(0f).Within(1e-4));
         // A ray from the head at its middle meets it at the middle pixel
@@ -283,4 +283,37 @@ public class XrPanelTests
         // A heading puts a surface level again
         panel.Update(0.016f, Head, Quaternion.Identity);
         Near(panel.Up, Vector3.UnitY);
+    }
+
+    [Test]
+    public void ASurfaceTakenByItsHandle_FollowsTheRay_FacesTheHead_AndStaysWhereItIsLeft()
+    {
+        Assert.That(XrSurfaces.Menu.GrabBand, Is.GreaterThan(0));
+        Assert.That(XrSurfaces.Window.GrabBand, Is.GreaterThan(0));
+        Assert.That(XrSurfaces.Bar.GrabBand, Is.Zero, "the armband is not moved by hand");
+        var panel = Shown(Fixed);
+        panel.Update(0.016f, Head, Quaternion.Identity);
+        var hand = Head + new Vector3(0.3f, -0.4f, -0.2f);
+        var ray = Vector3.Normalize(panel.Center - hand);
+        Assert.That(panel.Hit(hand, ray, out _, out _, out float d), Is.True);
+        panel.BeginGrab(hand, ray, d);
+        Assert.That(panel.Grabbed, Is.True);
+        var start = panel.Center;
+        // The hand moves 0.4 m to the right and the ray follows: the surface goes a good way to the right, at about the same distance
+        var moved = hand + new Vector3(0.4f, 0f, 0f);
+        panel.UpdateGrab(moved, ray, Head);
+        Assert.That(panel.Center.X - start.X, Is.EqualTo(0.4f).Within(1e-3));
+        Assert.That((panel.Center - start).Length(), Is.EqualTo(0.4f).Within(1e-3), "it was carried, not turned about");
+        // It faces the head
+        var toHead = Vector3.Normalize(Head - panel.Center);
+        Assert.That(Vector3.Dot(-panel.Forward, toHead), Is.GreaterThan(0.99f));
+        // Pushed away: farther along the ray
+        var before = panel.Center;
+        panel.UpdateGrab(moved, ray, Head, 0.5f);
+        Assert.That((panel.Center - moved).Length(), Is.GreaterThan((before - moved).Length() + 0.4f));
+        // Let go: it stays, and a head that turns does not take it along (it is fixed)
+        panel.EndGrab();
+        var left = panel.Center;
+        for (int i = 0; i < 100; i++) panel.Update(0.016f, Head, Facing(60));
+        Near(panel.Center, left);
     }}
