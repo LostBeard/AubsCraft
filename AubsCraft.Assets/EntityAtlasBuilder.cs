@@ -14,7 +14,7 @@ public sealed record EntityAtlasResult(EntityAssets Assets, byte[] StaticRgba, s
 /// </summary>
 public sealed class EntityAtlasBuilder
 {
-    public const int AtlasWidth = 1024, AtlasHeight = 1024, StaticLimit = 512, SkinSize = 64;
+    public const int AtlasWidth = 1024, AtlasHeight = 2048, StaticLimit = 1536, SkinSize = 64;
     public const string White = "white";
 
     private readonly ClientJar _jar;

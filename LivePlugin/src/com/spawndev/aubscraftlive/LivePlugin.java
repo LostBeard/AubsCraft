@@ -6,6 +6,10 @@ import org.bukkit.entity.Cat;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Fox;
+import org.bukkit.entity.Horse;
+import org.bukkit.entity.Llama;
+import org.bukkit.entity.MushroomCow;
+import org.bukkit.entity.Parrot;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Pose;
@@ -190,6 +194,11 @@ public final class LivePlugin extends JavaPlugin {
         if (e instanceof Fox f) return f.getFoxType().name().toLowerCase();
         if (e instanceof Wolf w) return w.getVariant().getKey().getKey();
         if (e instanceof Villager v) return v.getProfession().getKey().getKey();
+        // A horse: "color/markings" (the viewer draws the coat and the markings over it); a llama or trader llama: its colour
+        if (e instanceof Horse h) return h.getColor().name().toLowerCase() + "/" + h.getStyle().name().toLowerCase();
+        if (e instanceof Llama l) return l.getColor().name().toLowerCase();
+        if (e instanceof Parrot p) return p.getVariant().name().toLowerCase();
+        if (e instanceof MushroomCow m) return m.getVariant().name().toLowerCase();
         return null;
     }
 }

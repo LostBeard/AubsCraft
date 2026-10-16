@@ -7,9 +7,12 @@ namespace AubsCraft.Live.Model.Entities;
 /// creature for the ones it only draws as a box. A creature with no model here is a coloured box of its real size (<see cref="Fallback"/>): a mod's creature,
 /// a mob the viewer does not model yet - still seen, still moving, never missing.
 /// </summary>
-public static class EntityModels
+public static partial class EntityModels
 {
     private static readonly Dictionary<string, EntityModel> Models = Build();
+
+    /// <summary>The creature types that have a model of their own.</summary>
+    public static IEnumerable<string> ModelledTypes => Models.Keys;
 
     /// <summary>The model of a creature type ("cow", "minecraft:cow" and "player" all work), or null when it has none.</summary>
     public static EntityModel? Get(string type, string? variant = null)
@@ -40,7 +43,11 @@ public static class EntityModels
         {
             if (model.Texture != "player") names.Add(model.Texture);
             foreach (var t in model.VariantTextures) names.Add(t);
-            foreach (var part in model.Parts) if (part.Texture != null) names.Add(part.Texture);
+            foreach (var part in model.Parts)
+            {
+                if (part.Texture != null) names.Add(part.Texture);
+                if (part.VariantTextureNames != null) foreach (var t in part.VariantTextureNames) names.Add(t);
+            }
         }
         foreach (var skin in DefaultSkinNames) { names.Add($"player/wide/{skin}"); names.Add($"player/slim/{skin}"); }
         return names;
@@ -77,8 +84,9 @@ public static class EntityModels
     }
 
     private static ModelPart P(string name, PartRole role, int parent, float px, float py, float pz, ModelBox[] boxes,
-        float rx = 0f, float ry = 0f, float rz = 0f, string? texture = null, bool dyed = false)
-        => new(name, role, parent, new Vector3(px, py, pz), new Vector3(rx, ry, rz), boxes, texture, dyed);
+        float rx = 0f, float ry = 0f, float rz = 0f, string? texture = null, bool dyed = false,
+        Func<string?, string?>? variantTexture = null, IReadOnlyList<string>? variantTextureNames = null)
+        => new(name, role, parent, new Vector3(px, py, pz), new Vector3(rx, ry, rz), boxes, texture, dyed, variantTexture, variantTextureNames);
 
     private static ModelBox B(float u, float v, float x, float y, float z, float w, float h, float d, float inflate = 0f, bool mirror = false)
         => new(u, v, x, y, z, w, h, d, inflate, mirror);
@@ -119,6 +127,8 @@ public static class EntityModels
         d["mooshroom"] = new EntityModel
         {
             Texture = "cow/red_mooshroom", Rig = d["cow"].Rig, Width = 0.9f, Height = 1.4f, Parts = d["cow"].Parts,
+            TextureByVariant = v => v == "brown" ? "cow/brown_mooshroom" : "cow/red_mooshroom",
+            VariantTextures = ["cow/brown_mooshroom"],
         };
         d["sheep"] = new EntityModel
         {
@@ -229,6 +239,7 @@ public static class EntityModels
         };
         d["player"] = Player(slim: false);
         d["player_slim"] = Player(slim: true);
+        AddMore(d);
         return d;
     }
 

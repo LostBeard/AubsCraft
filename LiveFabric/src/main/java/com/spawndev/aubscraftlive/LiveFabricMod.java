@@ -14,6 +14,13 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.animal.Cat;
+import net.minecraft.world.entity.animal.Fox;
+import net.minecraft.world.entity.animal.MushroomCow;
+import net.minecraft.world.entity.animal.Parrot;
+import net.minecraft.world.entity.animal.Rabbit;
+import net.minecraft.world.entity.animal.horse.Horse;
+import net.minecraft.world.entity.animal.horse.Llama;
 import net.minecraft.world.entity.animal.sheep.Sheep;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.phys.Vec3;
@@ -185,6 +192,14 @@ public final class LiveFabricMod implements DedicatedServerModInitializer {
 
     private static String variantOf(Entity e) {
         if (e instanceof Sheep s) return s.getColor().getName();
+        // The same variants as the Paper plugin sends (the viewer reads them as lowercase names)
+        if (e instanceof Cat c) return c.getVariant().unwrapKey().map(k -> k.location().getPath()).orElse(null);
+        if (e instanceof Rabbit r) return r.getVariant().name().toLowerCase();
+        if (e instanceof Fox f) return f.getVariant().name().toLowerCase();
+        if (e instanceof Horse h) return h.getVariant().name().toLowerCase() + "/" + h.getMarkings().name().toLowerCase();
+        if (e instanceof Llama l) return l.getVariant().name().toLowerCase();
+        if (e instanceof Parrot p) return p.getVariant().name().toLowerCase();
+        if (e instanceof MushroomCow m) return m.getVariant().name().toLowerCase();
         if (e instanceof Villager v) {
             ResourceLocation id = v.getVillagerData().profession().unwrapKey().map(k -> k.location()).orElse(null);
             return id == null ? null : id.getPath();

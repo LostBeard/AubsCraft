@@ -177,7 +177,7 @@ public class EntityPoserTests
             var coarse = new List<PartDraw>();
             EntityPoser.Pose(View(type), model, 3f, full);
             EntityPoser.Pose(View(type), model, 3f, coarse, coarse: true);
-            int expected = model.Parts.Where(p => p.Role is PartRole.Head or PartRole.Body).Sum(p => p.Boxes.Length);
+            int expected = model.Parts.Where(p => p.Role is PartRole.Head or PartRole.Body && p.VariantTexture == null).Sum(p => p.Boxes.Length);   // a layer only exists for a variant that has it
             Assert.That(coarse.Count, Is.EqualTo(expected), type);
             Assert.That(coarse.Count, Is.LessThan(full.Count), type);
             // Each coarse box is one of the full pose's, unmoved
@@ -384,5 +384,89 @@ public class EntityPoserTests
         Assert.That(EntityModels.IsNotACreature("arrow"), Is.True);
         Assert.That(EntityModels.IsNotACreature("cow"), Is.False);
         Assert.That(EntityModels.IsNotACreature("mymod:thing"), Is.False);
+    }
+
+    // ---- every model ----
+
+    /// <summary>Kinds that do not stand on the ground, by how far their lowest box is from it (blocks, negative = below): they hover, or hang their tentacles.</summary>
+    private static readonly Dictionary<string, (float min, float max)> Hovering = new()
+    {
+        ["ghast"] = (-3.5f, -2.4f), ["blaze"] = (0.1f, 0.5f),
+    };
+
+    [Test]
+    public void EveryModel_StandsOnTheGround_AndIsAboutAsTallAsItsHitbox()
+    {
+        var report = new List<string>();
+        var problems = new List<string>();
+        foreach (var type in EntityModels.ModelledTypes.Where(t => t is not ("player" or "player_slim")).OrderBy(t => t))
+        {
+            var model = EntityModels.Get(type)!;
+            var draws = Pose(type, View(type, y: 64));
+            var (minY, maxY) = VerticalExtent(draws);
+            float feet = minY - 64f, top = maxY - 64f;
+            report.Add($"{type}: feet {feet:F2}, top {top:F2}, hitbox {model.Height:F2}");
+            if (Hovering.TryGetValue(type, out var range))
+            {
+                if (feet < range.min || feet > range.max) problems.Add($"{type} should hang between {range.min} and {range.max} below its feet; it is {feet:F2}");
+            }
+            else if (feet < -0.08f || feet > 0.08f) problems.Add($"{type}: its lowest box is {feet:F2} from the ground");
+            // The model is as tall as the game's hitbox says, give or take (a head held high, ears, hats)
+            if (type != "rabbit" && (top < model.Height * 0.6f || top > model.Height * 1.45f + 0.25f)) problems.Add($"{type}: {top:F2} blocks tall against a hitbox of {model.Height:F2}");
+        }
+        TestContext.Progress.WriteLine(string.Join(Environment.NewLine, report));
+        Assert.That(problems, Is.Empty, string.Join(Environment.NewLine, problems));
+    }
+
+    [Test]
+    public void AHorse_WearsItsCoat_AndItsMarkingsOnlyWhereItHasThem()
+    {
+        var textures = (string? variant) => Pose("horse", View("horse", variant: variant)).Select(d => d.Texture).Distinct().ToList();
+        Assert.That(textures("chestnut/white_dots"), Is.EquivalentTo(new[] { "horse/horse_chestnut", "horse/horse_markings_whitedots" }));
+        Assert.That(textures("dark_brown/white_field"), Is.EquivalentTo(new[] { "horse/horse_darkbrown", "horse/horse_markings_whitefield" }));
+        Assert.That(textures("black/none"), Is.EquivalentTo(new[] { "horse/horse_black" }), "no markings: no markings layer");
+        Assert.That(textures("gray"), Is.EquivalentTo(new[] { "horse/horse_gray" }));
+        Assert.That(textures(null), Is.EquivalentTo(new[] { "horse/horse_brown" }), "an unknown coat is the brown one");
+    }
+
+    [Test]
+    public void AVillager_WearsItsTradesClothes_AndNoneWhenUnemployed()
+    {
+        var textures = (string? variant) => Pose("villager", View("villager", variant: variant)).Select(d => d.Texture).Distinct().ToList();
+        Assert.That(textures("farmer"), Is.EquivalentTo(new[] { "villager/villager", "villager/profession/farmer" }));
+        Assert.That(textures("none"), Is.EquivalentTo(new[] { "villager/villager" }));
+        Assert.That(textures(null), Is.EquivalentTo(new[] { "villager/villager" }));
+        var layers = Pose("villager", View("villager", variant: "mason"));
+        Assert.That(layers.Count, Is.GreaterThan(Pose("villager", View("villager")).Count));
+    }
+
+    [Test]
+    public void VariantsPickTheirTextures()
+    {
+        string Tex(string type, string? variant) => Pose(type, View(type, variant: variant))[0].Texture;
+        Assert.That(Tex("cat", "siamese"), Is.EqualTo("cat/siamese"));
+        Assert.That(Tex("cat", null), Is.EqualTo("cat/tabby"));
+        Assert.That(Tex("cat", "something_new"), Is.EqualTo("cat/tabby"));
+        Assert.That(Tex("rabbit", "black_and_white"), Is.EqualTo("rabbit/white_splotched"));
+        Assert.That(Tex("rabbit", "white_splotched"), Is.EqualTo("rabbit/white_splotched"));
+        Assert.That(Tex("fox", "snow"), Is.EqualTo("fox/snow_fox"));
+        Assert.That(Tex("fox", "red"), Is.EqualTo("fox/fox"));
+        Assert.That(Tex("llama", "gray"), Is.EqualTo("llama/gray"));
+        Assert.That(Tex("trader_llama", "white"), Is.EqualTo("llama/white"));
+        Assert.That(Tex("parrot", "yellow_blue"), Is.EqualTo("parrot/parrot_yellow_blue"));
+        Assert.That(Tex("parrot", "cyan"), Is.EqualTo("parrot/parrot_yellow_blue"));
+        Assert.That(Tex("mooshroom", "brown"), Is.EqualTo("cow/brown_mooshroom"));
+        Assert.That(Tex("mooshroom", null), Is.EqualTo("cow/red_mooshroom"));
+    }
+
+    [Test]
+    public void AGhast_IsDrawnAsBigAsTheGameDrawsIt()
+    {
+        // 16 px of body at 4.5 times: 4.5 blocks across
+        var draws = Pose("ghast", View("ghast"));
+        var body = draws[0];
+        var a = ToWorld(body, body.Origin);
+        var b = ToWorld(body, body.Origin + new Vector3(body.Size.X, 0, 0));
+        Assert.That(Vector3.Distance(a, b), Is.EqualTo(4.5f).Within(0.01f));
     }
 }

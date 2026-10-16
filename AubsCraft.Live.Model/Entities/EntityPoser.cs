@@ -48,7 +48,7 @@ public static class EntityPoser
     /// <param name="coarse">A creature far away: only its head and body are drawn (limbs and overlay layers are a few pixels there), a third of the boxes.</param>
     public static void Pose(in LiveEntityView view, EntityModel model, float ageTicks, List<PartDraw> output, string? texture = null, bool coarse = false)
     {
-        float scale = view.Baby ? model.BabyScale : 1f;
+        float scale = (view.Baby ? model.BabyScale : 1f) * model.Scale;
         var root = Root(view.X, view.Y, view.Z, view.BodyYaw, scale);
         float headYaw = HeadYawRelative(view.Yaw, view.BodyYaw) * Deg;
         float headPitch = Math.Clamp(view.Pitch, -90f, 90f) * Deg;
@@ -69,6 +69,8 @@ public static class EntityPoser
             world[i] = part.Parent >= 0 ? local * world[part.Parent] : local;
 
             var model2 = world[i] * root;
+            string? partTexture = part.Texture;
+            if (part.VariantTexture != null && (partTexture = part.VariantTexture(view.Variant)) == null) continue;   // this variant has no such layer
             foreach (var box in part.Boxes)
             {
                 output.Add(new PartDraw
@@ -78,7 +80,7 @@ public static class EntityPoser
                     Inflate = box.Inflate,
                     Size = new Vector3(box.W, box.H, box.D),
                     Mirror = box.Mirror,
-                    Texture = part.Texture ?? (texture != null && model.Texture == "player" ? texture : model.TextureByVariant?.Invoke(view.Variant) ?? model.Texture),
+                    Texture = partTexture ?? (texture != null && model.Texture == "player" ? texture : model.TextureByVariant?.Invoke(view.Variant) ?? model.Texture),
                     U = box.U,
                     V = box.V,
                     Tint = part.Dyed ? dye : Vector3.One,

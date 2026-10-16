@@ -107,8 +107,8 @@ public class EntityAtlasTests
     [Test]
     public void TooManyTextures_FailLoudly_NotByOverwritingTheSkinSlots()
     {
-        using var jar = Jar(Enumerable.Range(0, 20).Select(i => ($"big/b{i}", 512, 128, (byte)i, (byte)i, (byte)i)).ToArray());
-        var ex = Assert.Throws<InvalidOperationException>(() => Build(jar, Enumerable.Range(0, 20).Select(i => $"big/b{i}").ToArray()));
+        using var jar = Jar(Enumerable.Range(0, 40).Select(i => ($"big/b{i}", 512, 128, (byte)i, (byte)i, (byte)i)).ToArray());
+        var ex = Assert.Throws<InvalidOperationException>(() => Build(jar, Enumerable.Range(0, 40).Select(i => $"big/b{i}").ToArray()));
         Assert.That(ex!.Message, Does.Contain("do not fit"));
     }
 
@@ -138,17 +138,24 @@ public class EntityAtlasTests
 
         foreach (var name in EntityModels.TextureNames().Where(n => n != "white")) SizeOf(name);
 
-        foreach (var type in new[] { "pig", "cow", "mooshroom", "sheep", "chicken", "creeper", "zombie", "husk", "drowned", "zombified_piglin", "skeleton", "stray", "bogged",
-                     "wither_skeleton", "villager", "wolf", "spider", "cave_spider", "enderman" })
+        foreach (var type in EntityModels.ModelledTypes.Where(t => t is not ("player" or "player_slim")))
         {
             var model = EntityModels.Get(type)!;
             foreach (var part in model.Parts)
             {
-                var (tw, th) = SizeOf(part.Texture ?? model.Texture);
-                foreach (var b in part.Boxes)
+                // Every texture this part can be drawn in: its own, the variants', the model's
+                var textures = new List<string>();
+                if (part.Texture != null) textures.Add(part.Texture);
+                else if (part.VariantTexture == null) { textures.Add(model.Texture); textures.AddRange(model.VariantTextures); }
+                if (part.VariantTextureNames != null) textures.AddRange(part.VariantTextureNames);
+                foreach (var texture in textures)
                 {
-                    Assert.That(b.U + 2 * b.D + 2 * b.W, Is.LessThanOrEqualTo(tw), $"{type}/{part.Name}: the box's layout is wider than its {tw} px texture");
-                    Assert.That(b.V + b.D + b.H, Is.LessThanOrEqualTo(th), $"{type}/{part.Name}: the box's layout is taller than its {th} px texture");
+                    var (tw, th) = SizeOf(texture);
+                    foreach (var b in part.Boxes)
+                    {
+                        Assert.That(b.U + 2 * b.D + 2 * b.W, Is.LessThanOrEqualTo(tw), $"{type}/{part.Name} in {texture}: the box's layout is wider than its {tw} px texture");
+                        Assert.That(b.V + b.D + b.H, Is.LessThanOrEqualTo(th), $"{type}/{part.Name} in {texture}: the box's layout is taller than its {th} px texture");
+                    }
                 }
             }
         }
@@ -167,6 +174,69 @@ public class EntityAtlasTests
         var built = new EntityAtlasBuilder(jar, "1.21.5").Build(EntityModels.TextureNames());
         Assert.That(built.Report, Does.Not.Contain("MISSING"));
         Assert.That(built.Assets.Textures.Count, Is.EqualTo(EntityModels.TextureNames().Count()));
+    }
+
+    /// <summary>
+    /// A box's texture layout is a cross of six faces; a wrong offset puts them on empty or foreign parts of the texture. Where the texture has transparent areas (most
+    /// creature textures are mostly empty outside their layouts) most of every face must be painted. Only the creature's own texture is checked: a layer (markings,
+    /// clothes) is transparent where it has nothing to add.
+    /// </summary>
+    // Boxes whose layout the game leaves mostly empty on purpose (a chicken's legs are thin lines, a skeleton horse has no tail)
+    private static readonly HashSet<string> SparseBoxes =
+    [
+        "chicken/right_leg", "chicken/left_leg", "parrot/left_leg", "parrot/right_leg",
+        "bee/left_antenna", "bee/right_antenna", "bee/right_wing", "bee/left_wing", "bee/front_legs", "bee/middle_legs", "bee/back_legs",
+        "zombified_piglin/left_ear",   // it has one ear
+        "skeleton_horse/head_parts", "skeleton_horse/mane", "skeleton_horse/tail", "skeleton_horse/left_ear", "skeleton_horse/right_ear",   // bones: no mane, no tail, no ears
+    ];
+
+    [Test]
+    public async Task EveryBoxFace_OfEveryModel_LiesOnPaintedPixels()
+    {
+        var jarPath = await JarLocator.FindOrDownloadAsync("1.21.5");
+        using var jar = ClientJar.Open(jarPath);
+        var images = new Dictionary<string, ImageResult>();
+        ImageResult Image(string name) => images.TryGetValue(name, out var i) ? i
+            : images[name] = ImageResult.FromMemory(jar.ReadBytes($"assets/minecraft/textures/entity/{name}.png"), ColorComponents.RedGreenBlueAlpha);
+
+        var problems = new List<string>();
+        foreach (var type in EntityModels.ModelledTypes.Where(t => t is not ("player" or "player_slim")))
+        {
+            var model = EntityModels.Get(type)!;
+            foreach (var part in model.Parts)
+            {
+                if (part.VariantTexture != null) continue;   // a layer
+                var image = Image(part.Texture ?? model.Texture);
+                bool hasTransparency = false;
+                for (int i = 3; i < image.Data.Length && !hasTransparency; i += 4) hasTransparency = image.Data[i] == 0;
+                if (!hasTransparency) continue;
+                foreach (var b in part.Boxes)
+                {
+                    (string face, float x, float y, float w, float h)[] faces =
+                    [
+                        ("top", b.U + b.D, b.V, b.W, b.D), ("bottom", b.U + b.D + b.W, b.V, b.W, b.D),
+                        ("right", b.U, b.V + b.D, b.D, b.H), ("front", b.U + b.D, b.V + b.D, b.W, b.H),
+                        ("left", b.U + b.D + b.W, b.V + b.D, b.D, b.H), ("back", b.U + 2 * b.D + b.W, b.V + b.D, b.W, b.H),
+                    ];
+                    int painted = 0, total = 0;
+                    foreach (var (face, fx, fy, fw, fh) in faces)
+                    {
+                        for (int py = (int)fy; py < (int)Math.Ceiling(fy + fh) && py < image.Height; py++)
+                            for (int px = (int)fx; px < (int)Math.Ceiling(fx + fw) && px < image.Width; px++)
+                            {
+                                total++;
+                                if (image.Data[(py * image.Width + px) * 4 + 3] > 0) painted++;
+                            }
+                    }
+                    // A model leaves some faces unpainted (a snout's back, a leg's bottom); a box whose whole layout is on empty texture is in the wrong place
+                    if (total > 0 && painted < total * 0.85 && Environment.GetEnvironmentVariable("AUBS_SHOW_COVERAGE") != null)
+                        TestContext.Progress.WriteLine($"[coverage] {type}/{part.Name} box at ({b.U},{b.V}) {b.W}x{b.H}x{b.D} infl {b.Inflate}: {painted * 100 / total}% ({painted}/{total})");
+                    if (b.Inflate > 0f || SparseBoxes.Contains($"{type}/{part.Name}")) continue;   // an overlay (a hat, a jacket) is empty where it has nothing to add
+                    if (total > 0 && painted < total * 0.4) problems.Add($"{type}/{part.Name} box at ({b.U},{b.V}) {b.W}x{b.H}x{b.D}: {painted} of {total} px painted");
+                }
+            }
+        }
+        Assert.That(problems, Is.Empty, string.Join(Environment.NewLine, problems));
     }
 
     [Test]

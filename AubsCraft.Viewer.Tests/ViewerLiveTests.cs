@@ -384,6 +384,88 @@ public class ViewerLiveTests
         }
     }
 
+    /// <summary>Every modelled creature, six to a shot (a row facing the camera), each in a variant where it has them: the models for the eye, against the game.</summary>
+    [Test]
+    public async Task TheZoo_EveryModelledCreature_GroupsOfSix()
+    {
+        var (gx, gz, top) = await FindFlatGroundAsync();
+        float cx = gx + 0.5f, cz = gz + 0.5f, y = top;
+        var variants = new Dictionary<string, string>
+        {
+            ["cat"] = "siamese", ["rabbit"] = "gold", ["fox"] = "snow", ["horse"] = "chestnut/white_dots", ["llama"] = "brown", ["villager"] = "farmer",
+            ["zombie_villager"] = "librarian", ["parrot"] = "blue", ["sheep"] = "pink", ["wolf"] = "snowy",
+        };
+        var types = EntityModels_Types().Where(t => t is not ("player" or "player_slim")).OrderBy(t => t, StringComparer.Ordinal).ToList();
+        var groups = types.Chunk(6).ToList();
+        int group = 0;
+        var current = new List<LiveEntity>();
+        var lockObj = new object();
+        long tick = 400_000;
+        byte[] Frame()
+        {
+            LiveEntity[] entities; lock (lockObj) entities = current.ToArray();
+            return LiveFrameCodec.Write(new LiveFrame
+            {
+                FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
+                Worlds = [new LiveWorld { Name = "world", Entities = entities, Players = [] }],
+            });
+        }
+        void Place(IReadOnlyList<string> row)
+        {
+            var list = new List<LiveEntity>();
+            for (int i = 0; i < row.Count; i++)
+            {
+                float x = cx - 6.5f + i * 2.6f, z = cz;
+                variants.TryGetValue(row[i], out var variant);
+                list.Add(new LiveEntity(1000 + group * 20 + i, row[i], x, y, z, 180f, 0f, 180f, LiveFlags.OnGround, 0f, 0f, 0f, null, variant));
+            }
+            lock (lockObj) current = list;
+        }
+        Place(groups[0]);
+
+        var page = await _rig.Context.NewPageAsync();
+        var errors = new List<string>();
+        page.Console += (_, m) => { if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.PageError += (_, e) => errors.Add(e);
+        using var stop = new CancellationTokenSource();
+        Task? poster = null;
+        try
+        {
+            string F(float v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            await page.SetViewportSizeAsync(1920, 1080);   // big, so the models can be judged
+            await page.GotoAsync($"{_rig.BaseUrl}/map?hud=0&time=6000&dd=8&cam={F(cx)},{F(top + 2.6f)},{F(cz - 7.5f)},-9,90",
+                new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await ViewerShotTests.WaitForSettledAsync(page, minSections: 60, quietSeconds: 5, maxSeconds: 80);
+            poster = Task.Run(async () =>
+            {
+                while (!stop.IsCancellationRequested)
+                {
+                    int status = await _rig.PostLiveFrameAsync(Frame());
+                    if (status != 204) throw new InvalidOperationException($"The panel answered {status} to a live frame");
+                    tick += 4;
+                    await Task.Delay(200);
+                }
+            });
+            for (group = 0; group < groups.Count; group++)
+            {
+                Place(groups[group]);
+                await Task.Delay(6500);
+                var file = Path.Combine(_outDir, $"zoo-{group + 1:00}-{groups[group][0]}-to-{groups[group][^1]}.png");
+                await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = file });
+                TestContext.Progress.WriteLine($"[zoo] {group + 1}: {string.Join(", ", groups[group])}");
+            }
+            Assert.That(errors, Is.Empty, "The page logged errors");
+        }
+        finally
+        {
+            stop.Cancel();
+            try { if (poster != null) await poster; } catch (OperationCanceledException) { }
+            await page.CloseAsync();
+        }
+    }
+
+    private static IEnumerable<string> EntityModels_Types() => AubsCraft.Live.Model.Entities.EntityModels.ModelledTypes;
+
     // The share of sampled pixels that differ by more than a few levels between the two images
     private static double ChangedFraction(Bitmap a, Bitmap b)
     {
