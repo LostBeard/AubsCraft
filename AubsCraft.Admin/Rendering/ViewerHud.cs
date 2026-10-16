@@ -210,14 +210,14 @@ public sealed class ViewerHud
     {
         foreach (var (id, label) in new[]
         {
-            ("enter", "Edit mode"), ("blocks", "Blocks"), ("select", "Select"), ("blueprints", "Blueprints"), ("undo", "Undo"), ("redo", "Redo"),
+            ("chat", "Say something"), ("enter", "Edit mode"), ("blocks", "Blocks"), ("select", "Select"), ("blueprints", "Blueprints"), ("undo", "Undo"), ("redo", "Redo"),
             ("fill", "Fill"), ("clear", "Clear"), ("copy", "Copy"), ("cut", "Cut"), ("paste", "Paste"), ("save", "Save as blueprint"),
             ("turn", "Turn"), ("mirror", "Mirror"), ("cancel", "Stop placing"), ("leave", "Leave edit mode"),
         })
         {
             var button = new UIButton { Text = label, FontSize = FontSize.Caption, Width = 112, Height = 26, PaddingX = 4, PaddingY = 3, Visible = false };
             var captured = id;
-            button.OnClick = () => OnEditAction?.Invoke(captured);
+            button.OnClick = () => { if (captured == "chat") OpenPhrases(!IsPhrasesOpen); else OnEditAction?.Invoke(captured); };
             _toolButtons.Add((id, button));
             button.X = 8; button.Y = 118;
             _root.AddChild(button);
@@ -232,7 +232,7 @@ public sealed class ViewerHud
         foreach (var (id, button) in _toolButtons)
         {
             // In a headset the way into edit mode is a button (a hand has no thumbstick to press); everything else shows in edit mode
-            bool show = id == "enter" ? !editing && _headset : editing && id switch
+            bool show = id == "chat" ? _headset : id == "enter" ? !editing && _headset : editing && id switch
             {
                 "blocks" or "select" or "blueprints" or "undo" or "redo" or "leave" => !pasting || id is "leave" or "undo" or "redo",
                 "fill" or "clear" or "copy" or "cut" or "save" => hasSelection && !pasting,
@@ -282,6 +282,33 @@ public sealed class ViewerHud
             button.X = 8 + 2 * 118; button.Y = 118 + row * 30;
             row++;
         }
+    }
+    // ---- quick things to say, for where there is no keyboard (a headset) ----
+
+    private UIPanel _phrases = null!;
+    private static readonly string[] QuickPhrases =
+    [
+        "Hi everyone!", "Come and see what I built", "Nice build!", "Do you need any help?",
+        "Thank you!", "Be right back", "Look up!", "Good night!",
+    ];
+
+    public bool IsPhrasesOpen => _phrases != null && _phrases.Visible;
+
+    private void BuildPhrases(UITheme theme)
+    {
+        _phrases = new UIPanel { Width = 280, Height = 40 + QuickPhrases.Length * 30, Visible = false };
+        _phrases.AddChild(new UILabel { Text = "Say something", FontSize = FontSize.Caption, Color = theme.TextPrimary, X = 12, Y = 10 });
+        for (int i = 0; i < QuickPhrases.Length; i++)
+        {
+            var phrase = QuickPhrases[i];
+            _phrases.AddChild(new UIButton { Text = phrase, FontSize = FontSize.Caption, X = 10, Y = 34 + i * 30, Width = 260, Height = 26, PaddingX = 6, PaddingY = 3, OnClick = () => { _outgoingChat.Add(phrase); OpenPhrases(false); } });
+        }
+        _root.AddAnchored(_phrases, Anchor.Center, 0, -10);
+    }
+
+    public void OpenPhrases(bool open)
+    {
+        if (_phrases != null && _phrases.Visible != open) _phrases.Visible = open;
     }
     // ---- the block palette: every block of the game, searched by name ----
 
@@ -545,6 +572,7 @@ public sealed class ViewerHud
         _root.AddAnchored(_editLabel, Anchor.BottomCenter, 0, -132);
 
         BuildPalette(theme);
+        BuildPhrases(theme);
         BuildToolbar();
         BuildTableButtons();
         BuildWorldPanel(theme);
@@ -620,7 +648,7 @@ public sealed class ViewerHud
     {
         if (_menu == null || !Visible) return [];
         // A menu is open (the player menu, the blocks, the blueprints, a name being asked, the world panel): the whole view is the HUD's until it closes
-        if (_menu.Visible || IsPaletteOpen || IsBlueprintsOpen || IsNamePromptOpen || IsWorldPanelOpen) return [0, 0, _root.Width, _root.Height];
+        if (_menu.Visible || IsPaletteOpen || IsBlueprintsOpen || IsNamePromptOpen || IsWorldPanelOpen || IsPhrasesOpen) return [0, 0, _root.Width, _root.Height];
         var b = _playersPanel.ScreenBounds;
         return [b.X, b.Y, b.Width, b.Height];
     }

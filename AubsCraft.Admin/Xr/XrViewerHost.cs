@@ -64,6 +64,9 @@ public sealed class XrViewerHost : IDisposable
     }
 
     public bool IsActive => _session.IsActive;
+
+    /// <summary>A line the user said from the headset (a quick phrase of the panel): the page sends it to the server's chat.</summary>
+    public event Action<string>? ChatSent;
     public string? Mode => _session.Mode;
 
     /// <summary>Raised when the session has ended: where the head was (the fly camera's yaw and pitch, degrees), so the desktop view can take over from there.</summary>
@@ -161,7 +164,7 @@ public sealed class XrViewerHost : IDisposable
         // Whatever the controllers were doing in the headset is over: the page's HUD is not left in edit mode
         _hud.SetEditMode(false);
         _hud.SetEditToolbar(false, false, false, false, false);
-        _hud.OpenPalette(false); _hud.OpenBlueprints(false); _hud.OpenNamePrompt(false); _hud.OpenWorldPanel(false);
+        _hud.OpenPalette(false); _hud.OpenBlueprints(false); _hud.OpenNamePrompt(false); _hud.OpenWorldPanel(false); _hud.OpenPhrases(false);
         _hud.SetPointer(0, 0, false);
         _hud.OnPlayerAction = null;
         _hud.OnTableAction = null;
@@ -291,6 +294,7 @@ public sealed class XrViewerHost : IDisposable
         if (!_panel.Visible) _pointerOnPanel = false;
 
         _world.XrFrame(dt);
+        foreach (var line in _hud.TakeOutgoingChat()) ChatSent?.Invoke(line);
         if (!_world.WorldReady) return;
         UpdateEditing(f);
         if (_panel.Visible) DrawPanelTexture();

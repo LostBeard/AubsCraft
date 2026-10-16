@@ -212,6 +212,8 @@ else
             await _renderService.SetPausedAsync(true);
             Xr.Ended -= OnXrEnded;
             Xr.Ended += OnXrEnded;
+            Xr.ChatSent -= OnXrChat;
+            Xr.ChatSent += OnXrChat;
             await Xr.EnterAsync(mode, serverId, new System.Numerics.Vector3(s.CamX, s.CamY, s.CamZ), s.CamYaw, s.CamPitch, _lastTicks);
             Xr.SeedHud(_hudFeed.CurrentPlayers, _hudFeed.RecentChat);
         }
@@ -221,6 +223,14 @@ else
             await _renderService.SetPausedAsync(false);
         }
         finally { _xrBusy = false; StateHasChanged(); }
+    }
+
+    // A quick phrase said in the headset goes to the server's chat like one typed on the desktop
+    private void OnXrChat(string line)
+    {
+        System.Console.WriteLine($"[Map] said from the headset: {line}");
+        if (_hudDemo) _hudFeed.AddChat("You", line);
+        else _ = Hub.SayAsync(line);
     }
 
     private void OnXrEnded(System.Numerics.Vector3 head, float yaw, float pitch)
@@ -520,6 +530,7 @@ else
     public void Dispose()
     {
         Xr.Ended -= OnXrEnded;
+        Xr.ChatSent -= OnXrChat;
         Hub.OnServerStatusReceived -= OnServerStatus;
         Hub.OnChatMessageReceived -= OnHubChat;
         Hub.OnActivityEventReceived -= OnHubActivity;

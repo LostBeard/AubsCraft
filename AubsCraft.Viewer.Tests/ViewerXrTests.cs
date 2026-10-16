@@ -526,4 +526,42 @@ public class ViewerXrTests
             await page.CloseAsync();
         }
     }
+
+    [Test]
+    public async Task InVr_AQuickPhraseOnThePanelIsSaidInChat()
+    {
+        var page = await _rig.Context.NewPageAsync();
+        var log = new List<string>();
+        var errors = new List<string>();
+        page.Console += (_, m) => { lock (log) log.Add(m.Text); if (m.Type == "error") errors.Add(m.Text); };
+        page.PageError += (_, e) => errors.Add(e);
+        await page.AddInitScriptAsync(MockXr);
+        try
+        {
+            await page.GotoAsync(_rig.BaseUrl + "/map?hud=0&hudfeed=demo&time=6000&cam=" + Cam, new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await ViewerShotTests.WaitForSettledAsync(page, minSections: 100, quietSeconds: 5, maxSeconds: 90);
+            var enter = page.GetByRole(AriaRole.Button, new() { Name = "Enter VR" });
+            await enter.WaitForAsync(new() { Timeout = 30_000 });
+            await enter.ClickAsync();
+            for (int i = 0; i < 90 && !log.ToArray().Any(l => l.Contains("[Xr] world started")); i++) await Task.Delay(1000);
+            await Task.Delay(6000);
+
+            // "Say something" is the first button of the toolbar; the first phrase is the first button of its panel
+            await AimAsync(page, PanelSpot(64, 131));
+            await Task.Delay(800);
+            await PressAsync(page, "trigger");
+            await Task.Delay(1000);
+            using var open = await LeftEyeAsync(page, "vr-phrases");
+            await AimAsync(page, PanelSpot(400, 147));
+            await Task.Delay(800);
+            await PressAsync(page, "trigger");
+            for (int i = 0; i < 20 && !log.ToArray().Any(l => l.Contains("said from the headset")); i++) await Task.Delay(300);
+            Assert.That(log.ToArray().Any(l => l.Contains("[Map] said from the headset: Hi everyone!")), Is.True, string.Join("\n", log.ToArray().Where(l => l.Contains("Map") || l.Contains("HUD")).TakeLast(8)));
+
+            await page.EvaluateAsync("window.__xr.exit = true");
+            for (int i = 0; i < 20 && !log.ToArray().Any(l => l.Contains("[Xr] session ended")); i++) await Task.Delay(500);
+            Assert.That(errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", errors));
+        }
+        finally { await page.CloseAsync(); }
+    }
 }
