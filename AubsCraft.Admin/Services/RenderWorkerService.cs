@@ -125,6 +125,7 @@ public class RenderWorkerService : IRenderWorkerService
 
         // Building: an admin edits the world from here (edit mode, off until asked for)
         _edit = new AubsCraft.Admin.Editing.EditController(_js, _baseUrl, _serverQuery, _hud, _entities);
+        _admin = new AubsCraft.Admin.Editing.AdminController(_js, _baseUrl, _serverQuery, _hud, () => _renderer.Camera.Position);
 
         // Hook the render loop to load columns near the camera
         _renderer.OnUpdate = OnRenderFrame;
@@ -199,6 +200,7 @@ public class RenderWorkerService : IRenderWorkerService
         foreach (var e in events)
         {
             // Building: the number keys, the buttons and the wheel mean something else while edit mode is on (not while a chat line is being typed)
+            if (_admin != null && !_hud.IsTyping && _admin.Handle(e)) continue;
             if (_edit != null && !_hud.IsTyping && _edit.Handle(e, _renderer.Camera)) continue;
             _hud.Apply(e);
         }
@@ -206,6 +208,13 @@ public class RenderWorkerService : IRenderWorkerService
     }
 
     private AubsCraft.Admin.Editing.EditController? _edit;
+    private AubsCraft.Admin.Editing.AdminController? _admin;
+
+    public Task SetAdminAsync(bool isAdmin)
+    {
+        if (_admin != null) _admin.IsAdmin = isAdmin;
+        return Task.CompletedTask;
+    }
 
     public async Task<bool> SetEditModeAsync(bool on) => _edit != null && await _edit.SetActiveAsync(on);
 
@@ -393,7 +402,7 @@ public class RenderWorkerService : IRenderWorkerService
             _renderer.Camera.Pitch,
             _renderer.Camera.Yaw,
             _edit?.Active ?? false,
-            _edit?.WantsPointer ?? false
+            (_edit?.WantsPointer ?? false) || (_admin?.WantsPointer ?? false)
         ));
     }
 

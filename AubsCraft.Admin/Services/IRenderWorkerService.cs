@@ -25,6 +25,8 @@ public interface IRenderWorkerService : IAsyncDisposable
     Task SetDrawDistanceAsync(int chunks);
     /// <summary>Turns building on or off (an admin's edit mode: break, place, undo). Returns whether it is on afterwards - not when the server cannot take edits or the user may not edit.</summary>
     Task<bool> SetEditModeAsync(bool on);
+    /// <summary>Whether the user is an Owner or Admin: the player menu offers more, and the world panel (O) opens. The panel checks the role again on every request.</summary>
+    Task SetAdminAsync(bool isAdmin);
     /// <summary>Chat, the player list and notices from the page's SignalR connection, for the worker's HUD.</summary>
     Task PushHudFeedAsync(HudFeed feed);
     /// <summary>The lines the player typed into the HUD's chat since the last call (the page sends them to the server).</summary>

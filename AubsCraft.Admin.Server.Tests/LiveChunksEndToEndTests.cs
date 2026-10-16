@@ -473,4 +473,54 @@ public class LiveChunksEndToEndTests
         Assert.That((await SendAsync(HttpMethod.Get, "/api/world/edit/blueprints?server=lc")).Body, Does.Not.Contain("Stone wall"));
         await rcon.SendCommandAsync("fill 20 -60 40 22 -59 40 minecraft:air");
     }
+
+    // ---- an admin's hand on the world and the players ----
+
+    [Test]
+    public async Task AnAdminSetsTheTimeAndWeatherAndTalks_AndThePlayerActionsAreCheckedBeforeTheyRun()
+    {
+        await using var rcon = await TestServers.RconAsync(_paper);
+        AdminReply Reply(string body) => AdminJson.Read(body);
+
+        var time = await SendAsync(HttpMethod.Post, "/api/world/admin?server=lc", new { kind = "world", action = "time", value = "midnight" });
+        Assert.That(time.Status, Is.EqualTo(System.Net.HttpStatusCode.OK), time.Body);
+        Assert.That(Reply(time.Body).Ok, Is.True, time.Body);
+        Assert.That(await rcon.SendCommandAsync("time query daytime"), Does.Contain("18000"));
+
+        var weather = await SendAsync(HttpMethod.Post, "/api/world/admin?server=lc", new { kind = "world", action = "weather", value = "thunder" });
+        Assert.That(Reply(weather.Body).Ok, Is.True, weather.Body);
+        await SendAsync(HttpMethod.Post, "/api/world/admin?server=lc", new { kind = "world", action = "weather", value = "clear" });
+        await SendAsync(HttpMethod.Post, "/api/world/admin?server=lc", new { kind = "world", action = "time", value = "day" });
+
+        Assert.That(Reply((await SendAsync(HttpMethod.Post, "/api/world/admin?server=lc", new { kind = "world", action = "say", value = "hello from the viewer" })).Body).Ok, Is.True);
+        Assert.That(Reply((await SendAsync(HttpMethod.Post, "/api/world/admin?server=lc", new { kind = "world", action = "save" })).Body).Ok, Is.True);
+
+        // A player who is not on the server: the server says so, and so does the answer
+        var missing = await SendAsync(HttpMethod.Post, "/api/world/admin?server=lc", new { kind = "player", action = "gamemode", name = "NobodyHere", value = "creative" });
+        Assert.That(missing.Status, Is.EqualTo(System.Net.HttpStatusCode.OK));
+        Assert.That(Reply(missing.Body).Ok, Is.False, missing.Body);
+        Assert.That(Reply(missing.Body).Message, Does.Contain("No player was found"));
+
+        // Nothing that is not plain gets as far as the server
+        foreach (var bad in new object[]
+        {
+            new { kind = "player", action = "kick", name = "Aubs\nop Aubs" },
+            new { kind = "player", action = "kick", name = "@a" },
+            new { kind = "player", action = "gamemode", name = "Aubs", value = "creative Aubs" },
+            new { kind = "world", action = "time", value = "day\nstop" },
+            new { kind = "world", action = "stop" },
+            new { kind = "player", action = "op", name = "Aubs" },
+        })
+            Assert.That((await SendAsync(HttpMethod.Post, "/api/world/admin?server=lc", bad)).Status, Is.EqualTo(System.Net.HttpStatusCode.BadRequest), System.Text.Json.JsonSerializer.Serialize(bad));
+
+        // A friend may not
+        var auth = _factory.Services.GetRequiredService<AuthService>();
+        await auth.CreateFriendAsync("pal", "friend-password", "invite");
+        var login = await _http.PostAsJsonAsync("/api/auth/login", new { Username = "pal", Password = "friend-password" });
+        var friendCookie = string.Join("; ", login.Headers.GetValues("Set-Cookie").Select(c => c.Split(';')[0]));
+        var req = new HttpRequestMessage(HttpMethod.Post, "/api/world/admin?server=lc") { Content = JsonContent.Create(new { kind = "world", action = "time", value = "night" }) };
+        req.Headers.Add("Cookie", friendCookie);
+        Assert.That((await _http.SendAsync(req)).StatusCode, Is.EqualTo(System.Net.HttpStatusCode.Forbidden));
+        Assert.That(await rcon.SendCommandAsync("time query daytime"), Does.Not.Contain("13000"));
+    }
 }

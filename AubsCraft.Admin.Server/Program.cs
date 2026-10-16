@@ -330,6 +330,7 @@ api.MapGet("/servers/{id}/backups/{file}", (string id, string file, BackupServic
 // Every world endpoint takes ?server=<id> (default: the primary server).
 app.MapLiveEndpoints();
 app.MapEditEndpoints();
+app.MapAdminEndpoints();
 
 var world = app.MapGroup("/api/world").RequireAuthorization();
 

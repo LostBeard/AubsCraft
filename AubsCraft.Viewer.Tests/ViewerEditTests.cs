@@ -407,4 +407,35 @@ public class ViewerEditTests
             await page.CloseAsync();
         }
     }
+
+    [Test]
+    public async Task AnAdminsWorldPanelOpensWithO_AndItsButtonsSendTheRequest()
+    {
+        var page = await _rig.Context.NewPageAsync();
+        var errors = new List<string>();
+        var log = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        page.Console += (_, m) => { log.Enqueue(m.Text); if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.Worker += (_, w) => w.Console += (_, m) => { log.Enqueue(m.Text); if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.PageError += (_, e) => errors.Add(e);
+        try
+        {
+            await page.GotoAsync($"{_rig.BaseUrl}/map?time=6000&dd=6&light=0&cam=-8.5,-58.0,8.5,-90,0", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await ViewerShotTests.WaitForSettledAsync(page, minSections: 8, quietSeconds: 3, maxSeconds: 60);
+            await page.Locator("#map-canvas").ClickAsync();   // the camera takes the pointer
+            await Task.Delay(2000);
+            await page.Keyboard.PressAsync("KeyO");
+            await Task.Delay(1500);   // the page lets go of the pointer for the panel
+            await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "world-panel.png") });
+            // Night: as a hand does it - over the button first, then down, then up (a click in one breath is a press and a release in the same frame)
+            var box = (await page.Locator("#map-canvas").BoundingBoxAsync())!;   // the mouse is in the page's pixels, the panel's place is in the canvas's
+            await page.Mouse.MoveAsync(box.X + 547, box.Y + 242);
+            await Task.Delay(150);
+            await page.Mouse.DownAsync();
+            await Task.Delay(150);
+            await page.Mouse.UpAsync();
+            for (int i = 0; i < 30 && !log.ToArray().Any(l => l.Contains("[Admin] world time")); i++) await Task.Delay(200);
+            Assert.That(log.ToArray().Any(l => l.Contains("[Admin] world time  night")), Is.True, "the request went out:\n" + string.Join("\n", log.ToArray().Where(l => l.Contains("Admin")).TakeLast(5)));
+        }
+        finally { await page.CloseAsync(); }
+    }
 }

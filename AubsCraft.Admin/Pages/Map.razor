@@ -352,6 +352,7 @@ else
                     await _renderService.SetHudVisibleAsync(false);
 
                 await _renderService.StartAsync(serverId, camX, camY, camZ, pitch, yaw);
+                await _renderService.SetAdminAsync(Auth.Role is "Owner" or "Admin");
                 _lighting = LightingByLink(Nav.Uri) ?? ReadRememberedLighting();
                 await _renderService.SetLightingAsync(_lighting);
                 if (DrawDistanceByLink(Nav.Uri) is { } linkedDistance)

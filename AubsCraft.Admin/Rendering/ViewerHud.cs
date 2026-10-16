@@ -128,6 +128,74 @@ public sealed class ViewerHud
         }
     }
 
+    // ---- an admin's menus: more in the player menu, and a panel for the world ----
+
+    /// <summary>The user may act on players and the world (Owner or Admin): the player menu offers more, and the world panel opens. The panel decides again on every request.</summary>
+    public bool IsAdmin { get; set; }
+
+    /// <summary>An admin chose an action on a player (their name, the action, a value: a game mode).</summary>
+    public Action<string, string, string?>? OnAdminPlayerAction { get; set; }
+
+    /// <summary>An admin chose an action on the world (time, weather, save) with its value.</summary>
+    public Action<string, string?>? OnAdminWorldAction { get; set; }
+
+    private UIPanel _worldPanel = null!;
+
+    public bool IsWorldPanelOpen => _worldPanel != null && _worldPanel.Visible;
+
+    private void BuildWorldPanel(UITheme theme)
+    {
+        _worldPanel = new UIPanel { Width = 330, Height = 196, Visible = false };
+        _worldPanel.AddChild(new UILabel { Text = "The world   (O closes)", FontSize = FontSize.Caption, Color = theme.TextPrimary, X = 12, Y = 10 });
+        void Row(string title, float y, params (string Label, string Action, string Value)[] buttons)
+        {
+            _worldPanel.AddChild(new UILabel { Text = title, FontSize = FontSize.Caption, Color = theme.TextPrimary, X = 12, Y = y + 6 });
+            float x = 84;
+            foreach (var (label, action, value) in buttons)
+            {
+                var a = action; var v = value;
+                _worldPanel.AddChild(new UIButton { Text = label, FontSize = FontSize.Caption, X = x, Y = y, Width = 56, Height = 28, PaddingX = 4, PaddingY = 3, OnClick = () => OnAdminWorldAction?.Invoke(a, v) });
+                x += 60;
+            }
+        }
+        Row("Time", 40, ("Day", "time", "day"), ("Noon", "time", "noon"), ("Night", "time", "night"), ("Midnight", "time", "midnight"));
+        Row("Weather", 80, ("Clear", "weather", "clear"), ("Rain", "weather", "rain"), ("Thunder", "weather", "thunder"));
+        Row("Server", 120, ("Save", "save", ""));
+        _root.AddAnchored(_worldPanel, Anchor.Center, 0, -10);
+    }
+
+    public void OpenWorldPanel(bool open)
+    {
+        if (_worldPanel != null && _worldPanel.Visible != open && (!open || IsAdmin)) _worldPanel.Visible = open;
+    }
+
+    // What an admin may do to a player, added under the ordinary actions of the player menu
+    private void AddAdminItems(string name)
+    {
+        if (!IsAdmin) return;
+        _menu.AddSeparator();
+        _menu.AddItem("Bring " + name + " here", () => OnAdminPlayerAction?.Invoke(name, "teleport", null));
+        _menu.AddItem("Survival", () => OnAdminPlayerAction?.Invoke(name, "gamemode", "survival"));
+        _menu.AddItem("Creative", () => OnAdminPlayerAction?.Invoke(name, "gamemode", "creative"));
+        _menu.AddItem("Spectator", () => OnAdminPlayerAction?.Invoke(name, "gamemode", "spectator"));
+        _menu.AddItem("Heal " + name, () => OnAdminPlayerAction?.Invoke(name, "heal", null));
+        _menu.AddItem("Kick " + name, () => OnAdminPlayerAction?.Invoke(name, "kick", null));
+        _menu.AddItem("Ban " + name + "...", () => AskBan(name));
+    }
+
+    // A ban is for good and on every server: ask once more
+    private void AskBan(string name)
+    {
+        _menu.ClearItems();
+        _menu.AddItem("Yes: ban " + name + " from every server", () => OnAdminPlayerAction?.Invoke(name, "ban", null));
+        _menu.AddSeparator();
+        _menu.AddItem("No, leave them", null);
+        float x = Math.Clamp(_mouseX, 0, Math.Max(0, _root.Width - MenuWidth));
+        _menu.Show(new System.Numerics.Vector2(x, _mouseY));
+        float maxY = Math.Max(0, _root.Height - _menu.Height);
+        _menu.Y = Math.Min(_menu.Y, maxY);
+    }
+
     // ---- the block palette: every block of the game, searched by name ----
 
     private const int PaletteMaxRows = 400;
@@ -383,6 +451,7 @@ public sealed class ViewerHud
         _root.AddAnchored(_editLabel, Anchor.BottomCenter, 0, -132);
 
         BuildPalette(theme);
+        BuildWorldPanel(theme);
         BuildBlueprints(theme);
 
         // Last, so it is on top of everything and gets a click first
@@ -421,6 +490,7 @@ public sealed class ViewerHud
             _menu.AddItem("Follow " + name, () => OnPlayerAction?.Invoke(name, PlayerAction.Follow));
             _menu.AddItem("See through " + name + "'s eyes", () => OnPlayerAction?.Invoke(name, PlayerAction.Eyes));
         }
+        AddAdminItems(name);
         _menu.AddSeparator();
         _menu.AddItem("Close", null);
         // Under the click, kept inside the view
@@ -453,7 +523,8 @@ public sealed class ViewerHud
     public float[] ClickRects()
     {
         if (_menu == null || !Visible) return [];
-        if (_menu.Visible) return [0, 0, _root.Width, _root.Height];
+        // A menu is open (the player menu, the blocks, the blueprints, a name being asked, the world panel): the whole view is the HUD's until it closes
+        if (_menu.Visible || IsPaletteOpen || IsBlueprintsOpen || IsNamePromptOpen || IsWorldPanelOpen) return [0, 0, _root.Width, _root.Height];
         var b = _playersPanel.ScreenBounds;
         return [b.X, b.Y, b.Width, b.Height];
     }
