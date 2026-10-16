@@ -197,7 +197,37 @@ public sealed class RegionReader
             catch { } // Skip malformed sections
         }
 
-        return new ChunkResult(blocks, palette, biomes, blockEntities, RainHeights(root), SignTexts(root));
+        return new ChunkResult(blocks, palette, biomes, blockEntities, RainHeights(root), SignTexts(root), BannerLayersOf(root));
+    }
+
+    /// <summary>
+    /// The patterns of the column's banners, read from the chunk's block entities (<c>patterns</c>: a list of a pattern, as its name or as a definition with an asset id, and a dye). A banner with no
+    /// pattern, or with only patterns the viewer does not know, is left out.
+    /// </summary>
+    public static List<BannerLayers>? BannerLayersOf(NbtCompound root)
+    {
+        if (!root.ContainsKey("block_entities") || root["block_entities"] is not NbtList entities) return null;
+        List<BannerLayers>? banners = null;
+        foreach (var item in entities)
+        {
+            if (item is not NbtCompound entity || entity.GetString("id") != "minecraft:banner") continue;
+            if (!entity.ContainsKey("patterns") || entity["patterns"] is not NbtList patterns) continue;
+            var layers = new List<(byte, byte)>();
+            foreach (var layer in patterns)
+            {
+                if (layer is not NbtCompound l) continue;
+                string? id = l.ContainsKey("pattern") ? l["pattern"] switch { string s => s, NbtCompound c => c.GetString("asset_id"), _ => null } : null;
+                int pattern = id == null ? -1 : BannerPatterns.IndexOf(id);
+                int color = Array.IndexOf(BlockEntityKinds.Dyes, l.GetString("color"));
+                if (pattern < 0 || color < 0) continue;
+                layers.Add(((byte)pattern, (byte)color));
+                if (layers.Count >= BannerLayersCodec.MaxLayers) break;
+            }
+            if (layers.Count == 0) continue;
+            (banners ??= new()).Add(new BannerLayers(entity.GetInt("x") & 15, entity.GetInt("y"), entity.GetInt("z") & 15, layers.ToArray()));
+            if (banners.Count >= BannerLayersCodec.MaxPerColumn) break;
+        }
+        return banners;
     }
 
     /// <summary>
@@ -295,7 +325,7 @@ public sealed class RegionReader
 /// Result of reading a chunk column: block IDs and the chunk's palette. A palette entry is a block's name, with the properties that change its look when it has
 /// any (<see cref="BlockStateNamer"/>): <c>minecraft:oak_log[axis=x]</c>. Code that wants the plain name uses <see cref="BlockStateNamer.NameOf"/>.
 /// </summary>
-public record ChunkResult(ushort[] Blocks, List<string> Palette, byte[]? Biomes = null, List<BlockEntitySpot>? BlockEntities = null, ushort[]? RainHeights = null, List<SignText>? SignTexts = null);
+public record ChunkResult(ushort[] Blocks, List<string> Palette, byte[]? Biomes = null, List<BlockEntitySpot>? BlockEntities = null, ushort[]? RainHeights = null, List<SignText>? SignTexts = null, List<BannerLayers>? Banners = null);
 
 internal static class BinaryReaderExtensions
 {

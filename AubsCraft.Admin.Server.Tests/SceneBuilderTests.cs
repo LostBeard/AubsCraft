@@ -315,6 +315,13 @@ public class SceneBuilderTests
             await Set(24 + i * 3 + behind[i].dx, y, modelZ + 16 + behind[i].dz, "minecraft:stone_bricks");
             await Set(24 + i * 3, y, modelZ + 16, $"minecraft:green_wall_banner[facing={fourWays[i]}]");
         }
+        // Patterns on the standing banners and the wall ones: a creeper face, stripes, a circle, a flower
+        string[] patterned = ["creeper", "stripe_top", "circle", "flower"];
+        for (int i = 0; i < 4; i++)
+        {
+            await Cmd($"data merge block {24 + i * 3} {y} {modelZ + 12} {{patterns:[{{color:\"white\",pattern:\"minecraft:{patterned[i]}\"}},{{color:\"blue\",pattern:\"minecraft:border\"}}]}}");
+            await Cmd($"data merge block {24 + i * 3} {y} {modelZ + 16} {{patterns:[{{color:\"yellow\",pattern:\"minecraft:{patterned[(i + 1) % 4]}\"}}]}}");
+        }
         Item("be-banners", 28, y, modelZ + 13);
         // heads: skeleton, wither skeleton, zombie, creeper, player; floor ones turned a quarter each, and four on walls
         string[] heads = ["skeleton_skull", "wither_skeleton_skull", "zombie_head", "creeper_head", "player_head"];

@@ -31,6 +31,7 @@ public static class BlockEntityModels
         yield return "shulker/shulker";
         foreach (var wood in BlockEntityKinds.Woods) { yield return $"signs/{wood}"; yield return $"signs/hanging/{wood}"; }
         yield return "banner_base";
+        foreach (var t in BannerPatterns.TextureNames()) yield return t;
         yield return "skeleton/skeleton"; yield return "skeleton/wither_skeleton"; yield return "zombie/zombie"; yield return "creeper/creeper";
     }
 
@@ -143,6 +144,24 @@ public static class BlockEntityModels
                 Add(Parts(key), s.M, x, y, z, texture, Vector3.One, output);
                 break;
             }
+        }
+    }
+
+    /// <summary>
+    /// The layers of a banner's patterns, over its base: each the flag's boxes again in the layer's pattern texture, tinted the layer's dye, a hair thicker than the one before so it lies over it.
+    /// </summary>
+    public static void PoseBannerLayers(in BlockEntitySpot spot, float x, float y, float z, (byte Pattern, byte Color)[] layers, List<PartDraw> output)
+    {
+        float yaw = spot.Orient * Step;
+        var s = new Stack().Translate(0.5f, 0f, 0.5f).RotateY(-yaw).Scale(0.6666667f, -0.6666667f, -0.6666667f);
+        bool standing = spot.Part == 0;
+        var flag = Parts(standing ? "BannerFlagModel.createFlagLayer(1)#1" : "BannerFlagModel.createFlagLayer(1)");
+        for (int i = 0; i < layers.Length; i++)
+        {
+            if (layers[i].Pattern >= BannerPatterns.Names.Length) continue;
+            int before = output.Count;
+            Add(flag, s.M, x, y, z, BannerPatterns.TextureOf(layers[i].Pattern), EntityPoser.DyeColour(BlockEntityKinds.Dyes[layers[i].Color % 16]), output);
+            for (int d = before; d < output.Count; d++) { var draw = output[d]; draw.Inflate += 0.015f * (i + 1); output[d] = draw; }
         }
     }
 

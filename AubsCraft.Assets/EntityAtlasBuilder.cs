@@ -14,7 +14,7 @@ public sealed record EntityAtlasResult(EntityAssets Assets, byte[] StaticRgba, s
 /// </summary>
 public sealed class EntityAtlasBuilder
 {
-    public const int AtlasWidth = 1024, StaticLimit = 1536, SkinLimit = 2048, SkinSize = 64;
+    public const int AtlasWidth = 1024, StaticLimit = 1792, SkinLimit = 2304, SkinSize = 64;
     /// <summary>Under the skins, a band of slots for the writing on signs: each 192 x 48 (the writing on the left half), 5 across and 16 down.</summary>
     public const int TextWidth = 192, TextHeight = 48, TextColumns = AtlasWidth / TextWidth, TextRows = 16;
     public const int AtlasHeight = SkinLimit + TextRows * TextHeight;

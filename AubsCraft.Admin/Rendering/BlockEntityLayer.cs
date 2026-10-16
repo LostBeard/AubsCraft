@@ -19,6 +19,17 @@ public sealed class BlockEntityLayer
     private readonly Dictionary<(int cx, int cz), BlockEntitySpot[]> _columns = new();
     private readonly List<(float distSq, int cx, int cz, BlockEntitySpot spot)> _near = new();
     private readonly Dictionary<(int cx, int cz), Dictionary<(int x, int y, int z), SignText>> _texts = new();
+    private readonly Dictionary<(int cx, int cz), Dictionary<(int x, int y, int z), (byte Pattern, byte Color)[]>> _banners = new();
+
+    /// <summary>The patterns of a column's banners (replacing what it had).</summary>
+    public void SetBanners(int cx, int cz, IReadOnlyList<BannerLayers> banners)
+    {
+        _banners.Remove((cx, cz));
+        if (banners.Count == 0) return;
+        var map = new Dictionary<(int, int, int), (byte, byte)[]>(banners.Count);
+        foreach (var b in banners) map[(b.X, b.Y, b.Z)] = b.Layers;
+        _banners[(cx, cz)] = map;
+    }
 
     /// <summary>Past this many blocks a sign's writing is not drawn (it could not be read).</summary>
     public const float TextRange = 28f;
@@ -86,6 +97,7 @@ public sealed class BlockEntityLayer
     {
         if (_columns.Remove((cx, cz), out var old)) Known -= old.Length;
         if (_texts.Remove((cx, cz), out var texts)) KnownTexts -= texts.Count;
+        _banners.Remove((cx, cz));
     }
 
     /// <summary>Append the boxes of the blocks near the camera and in its view to <paramref name="output"/>.</summary>
@@ -114,6 +126,9 @@ public sealed class BlockEntityLayer
         foreach (var (d2, cx, cz, spot) in _near)
         {
             BlockEntityModels.Pose(spot, cx * 16 + spot.X, spot.Y, cz * 16 + spot.Z, output);
+            // The patterns on a banner
+            if (spot.Kind == BlockEntityKind.Banner && _banners.TryGetValue((cx, cz), out var banners) && banners.TryGetValue((spot.X, spot.Y, spot.Z), out var layers))
+                BlockEntityModels.PoseBannerLayers(spot, cx * 16 + spot.X, spot.Y, cz * 16 + spot.Z, layers, output);
             // The writing on a sign near enough to read
             if (Texts != null && d2 <= textSq && spot.Kind is BlockEntityKind.Sign or BlockEntityKind.HangingSign
                 && _texts.TryGetValue((cx, cz), out var column) && column.TryGetValue((spot.X, spot.Y, spot.Z), out var sign))
