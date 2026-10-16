@@ -668,15 +668,19 @@ public sealed class VoxelWorldRenderer : IDisposable
     /// </summary>
     public VoxelFrameStats Render(GPUCommandEncoder encoder, GPUTextureView colorView, int width, int height,
         FpsCamera camera, in DayLighting light, int drawDistanceChunks)
+        => Render(encoder, colorView, width, height, ViewSetup.Of(camera, (float)width / Math.Max(height, 1)), in light, drawDistanceChunks);
+
+    /// <summary>The same, from any view: the fly camera's, or one eye of a headset (<see cref="ViewSetup.FromXr"/>).</summary>
+    public VoxelFrameStats Render(GPUCommandEncoder encoder, GPUTextureView colorView, int width, int height,
+        in ViewSetup view, in DayLighting light, int drawDistanceChunks)
     {
         var recordTimer = System.Diagnostics.Stopwatch.StartNew();
         int drawCalls = 0;
         // The calls the pipeline really made (BindPass skips repeats): buffer binds and pipeline switches since this frame began
         long bindsBefore = _pipe.QuadBufferBinds + _pipe.PipelineSwitches;
         EnsureDepth(width, height);
-        float aspect = (float)width / Math.Max(height, 1);
-        float fovRad = camera.FovDegrees * MathF.PI / 180f;
-        var frustum = FrustumCuller.ExtractPlanes(camera.GetVpMatrix(aspect)); // plane extraction wants the standard-Z matrix
+        var frustum = FrustumCuller.ExtractPlanes(view.ViewProjectionStandard); // plane extraction wants the standard-Z matrix
+        var camera = view;   // the camera's place is all the rest needs from it
 
         // Under water everything fades into murk a few dozen blocks out, and the frame is cleared to it
         ProbeCamera(camera.Position);
@@ -687,7 +691,7 @@ public sealed class VoxelWorldRenderer : IDisposable
 
         _pipe.BeginFrame(new BlockFrameUniforms
         {
-            ViewProjection = camera.GetViewMatrix() * ReversedZHelper.CreateInfinitePerspective(fovRad, aspect, camera.NearPlane),
+            ViewProjection = view.ViewProjectionReversed,
             CameraPosition = new Vector4(camera.Position, 1f),
             SunDirection = new Vector4(light.SunDirection, 0f),
             SunColor = new Vector4(light.SunColor, light.SunStrength),
@@ -698,7 +702,7 @@ public sealed class VoxelWorldRenderer : IDisposable
         });
 
         // Creatures are posed for this moment and uploaded before the pass; nothing past the fog is posed
-        Entities?.Prepare(camera.Position, FarWindow.FogEndBlocks(drawDistanceChunks), camera.GetVpMatrix(aspect), width, height);
+        Entities?.Prepare(camera.Position, FarWindow.FogEndBlocks(drawDistanceChunks), view.ViewProjectionStandard, width, height);
 
         int camCX = (int)MathF.Floor(camera.Position.X / 16f);
         int camCZ = (int)MathF.Floor(camera.Position.Z / 16f);
