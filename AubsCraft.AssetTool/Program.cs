@@ -45,9 +45,14 @@ try
     var entities = new EntityAtlasBuilder(client, version).Build(AubsCraft.Live.Model.Entities.EntityModels.TextureNames());
     Write("mc-entities.json", JsonSerializer.SerializeToUtf8Bytes(entities.Assets, EntityAssetsJson.Default.EntityAssets));
     Write("mc-entity-atlas.rgba", entities.StaticRgba);
-    Write("mc-assets-report.txt", System.Text.Encoding.UTF8.GetBytes(result.Report + "\n" + entities.Report));
+    // The particle sprites (smoke, flames, sparks): every texture of the jar's particle folder, animations laid out as strips
+    var particles = new ParticleAtlasBuilder(client, version).Build();
+    Write("mc-particles.json", JsonSerializer.SerializeToUtf8Bytes(particles.Assets, ParticleAssetsJson.Default.ParticleAssets));
+    Write("mc-particle-atlas.rgba", particles.Rgba);
+    Write("mc-assets-report.txt", System.Text.Encoding.UTF8.GetBytes(result.Report + "\n" + entities.Report + "\n" + particles.Report));
     Console.WriteLine("[assets] " + result.Report.Split('\n')[1].Trim());
     Console.WriteLine("[assets] " + entities.Report.Split('\n')[1].Trim());
+    Console.WriteLine("[assets] " + particles.Report.Split('\n')[1].Trim());
     return 0;
 }
 catch (Exception ex)

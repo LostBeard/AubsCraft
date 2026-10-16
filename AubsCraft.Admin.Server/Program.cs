@@ -369,6 +369,9 @@ world.MapGet("/chunk-ids/{x:int}/{z:int}", (int x, int z, string? server, Server
 
     var ids = registry.ToGlobalIds(chunk);
     ctx.Response.Headers["X-Block-Registry-Count"] = registry.Count.ToString();
+    // The blocks of this column that give off smoke and flames: where the viewer's particles come from (a few bytes; the blocks themselves go to the GPU untouched)
+    var emitters = EmitterScan.Scan(chunk);
+    if (emitters.Count > 0) ctx.Response.Headers["X-Emitters"] = AubsCraft.Live.Model.Particles.EmitterCodec.Encode(emitters);
     return Results.Bytes(System.Runtime.InteropServices.MemoryMarshal.AsBytes<ushort>(ids).ToArray(), "application/octet-stream");
 });
 

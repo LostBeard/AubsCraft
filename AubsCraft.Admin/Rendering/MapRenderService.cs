@@ -264,7 +264,8 @@ public sealed class MapRenderService : IDisposable
             Console.WriteLine($"[Voxel] {Fps:F0} fps | frame CPU {LastVoxelFrameMs:F1} ms (record {stats.RecordMs:F1}, of it gather {stats.GatherMs:F1}) | {stats.DrawCalls} draws, {stats.BufferBinds} binds | " +
                 $"{stats.VisibleSections}/{stats.SectionsWithQuads} sections | {stats.Columns} columns+far | {stats.VisibleQuads / 1000}K/{stats.TotalQuads / 1000}K quads | " +
                 $"{voxel.MeshesDone} meshes ({voxel.RemeshesDone} re-meshes, {voxel.StaleCount} waiting) in {voxel.ArenaBlocks} quad buffers | far {voxel.FarMeshedCount}/{voxel.FarChunkCount} meshed" +
-                (voxel.Entities is { Known: > 0 } e ? $" | creatures {e.EntityCount}/{e.Known} {e.PartCount} parts {e.PrepareMs:F1} ms" : ""));
+                (voxel.Entities is { Known: > 0 } e ? $" | creatures {e.EntityCount}/{e.Known} {e.PartCount} parts {e.PrepareMs:F1} ms" : "") +
+                (voxel.Particles is { Known: > 0 } p ? $" | particles {p.DrawnCount}/{p.Known} emitters" : ""));
         }
     }
 

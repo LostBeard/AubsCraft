@@ -240,6 +240,21 @@ public class SceneBuilderTests
         await Set(68, y, doorZ, "minecraft:cactus");
         Item("small", 58, y, doorZ);
 
+        // ---- things that smoke and flicker: lit campfires, fire on netherrack, soul fire, a redstone torch ----
+        int smokeX = 20, smokeZ = 46;
+        await Set(smokeX, y, smokeZ, "minecraft:campfire[facing=north,lit=true]");
+        await Set(smokeX + 4, y, smokeZ, "minecraft:soul_campfire[facing=north,lit=true]");
+        await Set(smokeX + 8, y, smokeZ, "minecraft:campfire[facing=north,lit=false]");
+        Item("smoke-camp", smokeX + 4, y, smokeZ);
+        await Set(smokeX + 14, y - 1, smokeZ, "minecraft:netherrack");
+        await Set(smokeX + 14, y, smokeZ, "minecraft:fire");
+        await Set(smokeX + 18, y - 1, smokeZ, "minecraft:soul_sand");
+        await Set(smokeX + 18, y, smokeZ, "minecraft:soul_fire");
+        await Set(smokeX + 22, y, smokeZ, "minecraft:redstone_torch[lit=true]");
+        await Set(smokeX + 24, y, smokeZ, "minecraft:torch");
+        await Set(smokeX + 26, y, smokeZ, "minecraft:soul_torch");
+        Item("smoke-fire", smokeX + 18, y, smokeZ);
+
         await rcon.SendCommandAsync("save-all flush");
         await Task.Delay(3000);
         File.WriteAllLines(Path.Combine(Path.GetDirectoryName(outDir.TrimEnd('/'))!, "scene-items.txt"), items);

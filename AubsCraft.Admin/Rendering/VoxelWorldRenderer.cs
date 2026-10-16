@@ -127,6 +127,8 @@ public sealed class VoxelWorldRenderer : IDisposable
 
     /// <summary>The creatures of the live feed, drawn inside the world's render pass between the blocks and the water (null: none).</summary>
     public EntityLayer? Entities { get; set; }
+    /// <summary>The smoke and flames of campfires, furnaces, fire and torches (drawn after the creatures, before the water).</summary>
+    public ParticleLayer? Particles { get; set; }
 
     public bool HasColumn(int cx, int cz) => _columns.ContainsKey((cx, cz));
     public bool HasFarChunk(int cx, int cz) => _far.ContainsKey((cx, cz));
@@ -703,6 +705,7 @@ public sealed class VoxelWorldRenderer : IDisposable
 
         // Creatures are posed for this moment and uploaded before the pass; nothing past the fog is posed
         Entities?.Prepare(camera.Position, FarWindow.FogEndBlocks(drawDistanceChunks), view.ViewProjectionStandard, width, height);
+        Particles?.Prepare(camera.Position, view.ViewProjectionStandard);
 
         int camCX = (int)MathF.Floor(camera.Position.X / 16f);
         int camCZ = (int)MathF.Floor(camera.Position.Z / 16f);
@@ -744,6 +747,7 @@ public sealed class VoxelWorldRenderer : IDisposable
 
         // The creatures: depth tested against the ground, before the water so water in front of one blends over it
         Entities?.Draw(pass);
+        Particles?.Draw(pass);
 
         // Water last, farthest column first, so nearer water blends over farther water
         _waterOrder.Sort((a, b) => b.dist.CompareTo(a.dist));

@@ -1,0 +1,87 @@
+<link rel=preload> has an invalid `href` value
+[RenderWorker] Created with 959x592 canvas
+[RenderWorker] Created with 959x592 canvas
+[Map] Render worker created, transferring canvas...
+[Cache] Load camera error: A requested file or directory could not be found at the time an operation was processed.
+[Map] Starting at world spawn: (0, 0) known=True
+[Map] Camera from link: (24, -58, 54) pitch=12 yaw=-90
+[GpuContextService] Initialized: WebGPU
+[GpuContextService] Initialized: WebGPU
+[RenderWorker] Initialized: WebGPU
+[RenderWorker] Initialized: WebGPU
+[RenderWorker] Creating data worker: http://127.0.0.1:58003/data-worker.js
+[RenderWorker] Creating data worker: http://127.0.0.1:58003/data-worker.js
+[RenderWorker] Data worker created, GPU ready, requesting first chunk
+[RenderWorker] Data worker created, GPU ready, requesting first chunk
+[Live] Live feed connected
+[Live] Live feed connected
+[DataWorker] Initialized, connecting to ws://127.0.0.1:58003/api/world/ws?server=aubscraft&format=ids
+[DataWorker] Initialized, connecting to ws://127.0.0.1:58003/api/world/ws?server=aubscraft&format=ids
+[DataWorker] WebSocket connected
+[DataWorker] WebSocket connected
+[DataWorker] Chunk (0,0) received, total: 1
+[DataWorker] Chunk (0,0) received, total: 1
+[DataWorker] Chunk (1,3) received, total: 2
+[DataWorker] Chunk (1,3) received, total: 2
+[DataWorker] Chunk (2,3) received, total: 3
+[DataWorker] Chunk (2,3) received, total: 3
+[DataWorker] Chunk (10,12) received, total: 500
+[DataWorker] Chunk (10,12) received, total: 500
+[DataWorker] WebSocket closed: code=1000 reason=done
+[DataWorker] WebSocket closed: code=1000 reason=done
+[Particles] Particle assets: 74 sprites, 13 kinds
+[Particles] Particle assets: 74 sprites, 13 kinds
+[Live] Entity assets: 161 textures, 128 skin slots
+[Live] Entity assets: 161 textures, 128 skin slots
+[RenderWorker] Block assets for Minecraft 1.21.5: 1740 blocks, 1817 tiles, 72 animated
+[RenderWorker] Block assets for Minecraft 1.21.5: 1740 blocks, 1817 tiles, 72 animated
+[BlockColorMap] No color for minecraft:oak_fence_gate (renders magenta)
+[BlockColorMap] No color for minecraft:oak_fence_gate (renders magenta)
+[BlockColorMap] No color for minecraft:lantern (renders magenta)
+[BlockColorMap] No color for minecraft:lantern (renders magenta)
+[BlockColorMap] No color for minecraft:white_candle (renders magenta)
+[BlockColorMap] No color for minecraft:white_candle (renders magenta)
+[BlockColorMap] No color for minecraft:oak_door (renders magenta)
+[BlockColorMap] No color for minecraft:oak_door (renders magenta)
+[BlockColorMap] No color for minecraft:iron_door (renders magenta)
+[BlockColorMap] No color for minecraft:iron_door (renders magenta)
+[BlockColorMap] No color for minecraft:soul_campfire (renders magenta)
+[BlockColorMap] No color for minecraft:soul_campfire (renders magenta)
+[BlockColorMap] No color for minecraft:fire (renders magenta)
+[BlockColorMap] No color for minecraft:fire (renders magenta)
+[BlockColorMap] No color for minecraft:soul_fire (renders magenta)
+[BlockColorMap] No color for minecraft:soul_fire (renders magenta)
+[BlockColorMap] No color for minecraft:redstone_torch (renders magenta)
+[BlockColorMap] No color for minecraft:redstone_torch (renders magenta)
+[BlockColorMap] No color for minecraft:stone_brick_wall (renders magenta)
+[BlockColorMap] No color for minecraft:stone_brick_wall (renders magenta)
+[BlockColorMap] No color for minecraft:observer (renders magenta)
+[BlockColorMap] No color for minecraft:observer (renders magenta)
+[BlockColorMap] No color for minecraft:carved_pumpkin (renders magenta)
+[BlockColorMap] No color for minecraft:carved_pumpkin (renders magenta)
+[BlockColorMap] No color for minecraft:cauldron (renders magenta)
+[BlockColorMap] No color for minecraft:cauldron (renders magenta)
+[BlockColorMap] No color for minecraft:lever (renders magenta)
+[BlockColorMap] No color for minecraft:lever (renders magenta)
+[BlockColorMap] No color for minecraft:stone_button (renders magenta)
+[BlockColorMap] No color for minecraft:stone_button (renders magenta)
+[BlockColorMap] No color for minecraft:glass_pane (renders magenta)
+[BlockColorMap] No color for minecraft:glass_pane (renders magenta)
+[BlockColorMap] No color for minecraft:stripped_birch_log (renders magenta)
+[BlockColorMap] No color for minecraft:stripped_birch_log (renders magenta)
+[BlockColorMap] No color for minecraft:quartz_pillar (renders magenta)
+[BlockColorMap] No color for minecraft:quartz_pillar (renders magenta)
+[BlockColorMap] No color for minecraft:white_carpet (renders magenta)
+[BlockColorMap] No color for minecraft:white_carpet (renders magenta)
+[BlockColorMap] No color for minecraft:red_carpet (renders magenta)
+[BlockColorMap] No color for minecraft:red_carpet (renders magenta)
+[BlockColorMap] No color for minecraft:stone_pressure_plate (renders magenta)
+[BlockColorMap] No color for minecraft:stone_pressure_plate (renders magenta)
+[RenderWorker] 155 block names
+[RenderWorker] 155 block names
+[Voxel] 701 fps | frame CPU 0.4 ms (record 0.4, of it gather 0.2) | 83 draws, 6 binds | 77/172 sections | 1543 columns+far | 1K/16K quads | 1386 meshes (405 re-meshes, 498 waiting) in 1 quad buffers | far 279/841 meshed | particles 10/15 emitters
+[Voxel] 701 fps | frame CPU 0.4 ms (record 0.4, of it gather 0.2) | 83 draws, 6 binds | 77/172 sections | 1543 columns+far | 1K/16K quads | 1386 meshes (405 re-meshes, 498 waiting) in 1 quad buffers | far 279/841 meshed | particles 10/15 emitters
+[Voxel] 1177 fps | frame CPU 0.5 ms (record 0.4, of it gather 0.0) | 83 draws, 6 binds | 77/172 sections | 1543 columns+far | 1K/15K quads | 1880 meshes (899 re-meshes, 0 waiting) in 1 quad buffers | far 279/841 meshed | particles 10/15 emitters
+[Voxel] 1177 fps | frame CPU 0.5 ms (record 0.4, of it gather 0.0) | 83 draws, 6 binds | 77/172 sections | 1543 columns+far | 1K/15K quads | 1880 meshes (899 re-meshes, 0 waiting) in 1 quad buffers | far 279/841 meshed | particles 10/15 emitters
+[Voxel] 1326 fps | frame CPU 0.5 ms (record 0.5, of it gather 0.1) | 83 draws, 6 binds | 77/172 sections | 1543 columns+far | 1K/15K quads | 1880 meshes (899 re-meshes, 0 waiting) in 1 quad buffers | far 279/841 meshed | particles 10/15 emitters
+[Voxel] 1326 fps | frame CPU 0.5 ms (record 0.5, of it gather 0.1) | 83 draws, 6 binds | 77/172 sections | 1543 columns+far | 1K/15K quads | 1880 meshes (899 re-meshes, 0 waiting) in 1 quad buffers | far 279/841 meshed | particles 10/15 emitters

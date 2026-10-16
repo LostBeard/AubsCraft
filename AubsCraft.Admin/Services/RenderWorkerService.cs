@@ -26,6 +26,7 @@ public class RenderWorkerService : IRenderWorkerService
     private VoxelWorldRenderer? _voxel;
     /// <summary>The creatures of the live feed and the socket that feeds them.</summary>
     private EntityLayer? _entities;
+    private ParticleLayer? _particles;
     private LiveFeedClient? _liveFeed;
     /// <summary>Spreads the meshing of arriving columns over the frames, by how the frames are doing.</summary>
     private readonly IngestGovernor _ingest = new();
@@ -83,6 +84,10 @@ public class RenderWorkerService : IRenderWorkerService
         _entities = new EntityLayer(_js);
         _entities.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _voxel.FrameBuffer, pageOrigin);
         _voxel.Entities = _entities;
+        // The smoke and flames of campfires, furnaces, fire and torches (the server says where; the GPU places every particle from the clock)
+        _particles = new ParticleLayer(_js);
+        _particles.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _voxel.FrameBuffer, pageOrigin);
+        _voxel.Particles = _particles;
         // The HUD (GameUI) draws with the world's own device, into the same encoder, after the world pass.
         _hud.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _canvas!.Width, _canvas.Height);
         _hud.OnPlayerAction = OnPlayerAction;
@@ -111,6 +116,7 @@ public class RenderWorkerService : IRenderWorkerService
         // The block names wait for them: a block's class and material come from them
         _assetsLoad = LoadAssetsAsync();
         _ = LoadEntityAssetsAsync();
+        _ = LoadParticleAssetsAsync();
 
         // Create JS data worker and connect via MessageChannel
         // Render worker creates and controls the data worker (clean hierarchy)
@@ -469,6 +475,12 @@ public class RenderWorkerService : IRenderWorkerService
         }
     }
 
+    private async Task LoadParticleAssetsAsync()
+    {
+        try { await _particles!.LoadAssetsAsync(_renderer.Device!, _renderer.Queue!); }
+        catch (Exception ex) { Console.WriteLine($"[Particles] Particle assets load error: {ex.Message}"); }
+    }
+
     private async Task LoadEntityAssetsAsync()
     {
         try { await _entities!.LoadAssetsAsync(_renderer.Device!, _renderer.Queue!); }
@@ -654,7 +666,7 @@ public class RenderWorkerService : IRenderWorkerService
         foreach (var (cx, cz) in _voxel!.ColumnKeys.ToArray())
         {
             int dx = cx - camCX, dz = cz - camCZ;
-            if (dx * dx + dz * dz > limit) _voxel.RemoveColumn(cx, cz);
+            if (dx * dx + dz * dz > limit) { _voxel.RemoveColumn(cx, cz); _particles?.RemoveColumn(cx, cz); }
         }
     }
 
@@ -672,14 +684,19 @@ public class RenderWorkerService : IRenderWorkerService
 
             // The server says how many block names it knows; a column can use ids we have no name for yet
             int registryCount = 0;
+            string? emitterHeader;
             using (var headers = response.Headers)
+            {
                 int.TryParse(headers.Get("X-Block-Registry-Count"), out registryCount);
+                emitterHeader = headers.Get("X-Emitters");   // the blocks of this column that give off smoke and flames
+            }
             if (registryCount > _voxel!.NamesKnown) await RefreshVoxelBlockNamesAsync(registryCount);
 
             using var buffer = await response.ArrayBuffer();
             using var ids = new Uint8Array(buffer);
             if (!await _voxel.AddColumnAsync(cx, cz, ids))
                 Console.WriteLine($"[RenderWorker] Column ({cx},{cz}) dropped: no free section slots");
+            else _particles?.SetColumn(cx, cz, AubsCraft.Live.Model.Particles.EmitterCodec.Decode(emitterHeader));
         }
         catch (Exception ex)
         {
@@ -723,6 +740,7 @@ public class RenderWorkerService : IRenderWorkerService
         _liveFeed?.Dispose();
         _voxel?.Dispose();
         _entities?.Dispose();
+        _particles?.Dispose();
         _canvas?.Dispose();
         return ValueTask.CompletedTask;
     }
