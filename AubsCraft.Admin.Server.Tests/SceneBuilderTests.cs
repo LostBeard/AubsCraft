@@ -322,6 +322,10 @@ public class SceneBuilderTests
         await Set(56, y, 65, "minecraft:torch");
         await Set(55, y, 66, "minecraft:glowstone");
         Item("room", 49, y, 65);
+        // A second, dark room beside it: no torch, the sky shut out
+        await Cmd($"fill 62 {y} 62 68 {y + 4} 68 minecraft:stone_bricks");
+        await Cmd($"fill 63 {y} 63 67 {y + 3} 67 minecraft:air");
+        Item("dark-room", 65, y, 65);
         // A wall facing south, the backdrop of the gate that hangs paintings and item frames on it (entities come from the live feed, not the world files)
         await Cmd($"fill 0 {y} 88 26 {y + 4} 88 minecraft:stone_bricks");
         Item("be-hanging", 10, y, 90);

@@ -29,6 +29,8 @@ public class RenderWorkerService : IRenderWorkerService
     private ParticleLayer? _particles;
     private BlockEntityLayer? _blockEntities;
     private SkyLayer? _sky;
+    private LightField? _light;
+    private bool _lighting = true;
     private ItemLayer? _items;
     private LiveFeedClient? _liveFeed;
     /// <summary>Spreads the meshing of arriving columns over the frames, by how the frames are doing.</summary>
@@ -125,6 +127,12 @@ public class RenderWorkerService : IRenderWorkerService
         _renderer.OnUpdate = OnRenderFrame;
         if (!ManualFrames) _renderer.StartRenderLoop();
         _loadTimer.Start();
+
+        // The light of the world near the camera (sky and block light from the server), when the viewer's setting has it on
+        _light = new LightField(_js, _baseUrl, _serverQuery) { };
+        _light.Init(_renderer.Device!, _renderer.Queue!);
+        _light.Enabled = _lighting;
+        _voxel!.SetLight(_light.Volume);
 
         // Load the block assets (textures, animations, what each block looks like) in the worker - fetched directly, the pixels stay in JS.
         // The block names wait for them: a block's class and material come from them
@@ -293,6 +301,13 @@ public class RenderWorkerService : IRenderWorkerService
     public Task SetHudVisibleAsync(bool visible)
     {
         _hud.Visible = visible;
+        return Task.CompletedTask;
+    }
+
+    public Task SetLightingAsync(bool enabled)
+    {
+        _lighting = enabled;
+        if (_light != null) _light.Enabled = enabled;
         return Task.CompletedTask;
     }
 
@@ -654,6 +669,7 @@ public class RenderWorkerService : IRenderWorkerService
         // Trigger full 3D loading when camera moves to a new chunk
         var (camCX, camCZ) = CameraChunk();
         _voxel?.UpdateFarWindow(camCX, camCZ, _renderer.DrawDistance);
+        if (_voxel != null) _light?.Update(camCX, camCZ, _voxel.HasColumn);
         if (camCX != _lastStreamCX || camCZ != _lastStreamCZ) PostCameraToDataWorker();
         if (!_loadingFull && (_fullDirty || camCX != _lastFullCX || camCZ != _lastFullCZ))
         {
@@ -744,7 +760,7 @@ public class RenderWorkerService : IRenderWorkerService
         foreach (var (cx, cz) in _voxel!.ColumnKeys.ToArray())
         {
             int dx = cx - camCX, dz = cz - camCZ;
-            if (dx * dx + dz * dz > limit) { _voxel.RemoveColumn(cx, cz); _particles?.RemoveColumn(cx, cz); _blockEntities?.RemoveColumn(cx, cz); _sky?.Map.RemoveColumn(cx, cz); }
+            if (dx * dx + dz * dz > limit) { _voxel.RemoveColumn(cx, cz); _particles?.RemoveColumn(cx, cz); _blockEntities?.RemoveColumn(cx, cz); _sky?.Map.RemoveColumn(cx, cz); _light?.RemoveColumn(cx, cz); }
         }
     }
 
@@ -851,6 +867,7 @@ public class RenderWorkerService : IRenderWorkerService
         _entities?.Dispose();
         _particles?.Dispose();
         _sky?.Dispose();
+        _light?.Dispose();
         _items?.Dispose();
         _canvas?.Dispose();
         return ValueTask.CompletedTask;

@@ -36,6 +36,7 @@
             {
                 <button class="btn btn-sm btn-outline-success" disabled="@_xrBusy" @onclick="@(() => EnterXrAsync("immersive-ar"))">Enter AR</button>
             }
+            <button class="btn btn-sm @(_lighting ? "btn-outline-warning" : "btn-outline-secondary")" title="Light the world by the sky and block light (torches, caves) near you; off is the plainer, faster picture" @onclick="ToggleLightingAsync">Lighting: @(_lighting ? "On" : "Off")</button>
             <button class="btn btn-sm btn-outline-secondary" @onclick="SwitchToBlueMap">BlueMap</button>
             <button class="btn btn-sm btn-outline-danger" @onclick="ClearCacheAsync">Clear Cache</button>
         }
@@ -130,6 +131,36 @@ else
     /// <summary>"dd=chunks": hold the draw distance (the fog follows it) instead of adapting it to the frame rate. For the gate and for screenshots.</summary>
     internal static int? DrawDistanceByLink(string uri)
         => int.TryParse(System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["dd"], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var chunks) ? chunks : null;
+
+    /// <summary>"light=0" or "light=1": the lighting setting for this visit (it overrides the remembered one). For the gate and for screenshots.</summary>
+    internal static bool? LightingByLink(string uri)
+        => System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["light"] switch { "0" => false, "1" => true, _ => null };
+
+    private const string LightingKey = "aubscraft.lighting";
+    private bool _lighting = true;
+
+    // The remembered setting (on unless it was turned off); storage can be blocked, then it is on for this visit
+    private bool ReadRememberedLighting()
+    {
+        try
+        {
+            using var storage = JS.Get<Storage>("localStorage");
+            return storage.GetItem(LightingKey) != "0";
+        }
+        catch { return true; }
+    }
+
+    private async Task ToggleLightingAsync()
+    {
+        _lighting = !_lighting;
+        if (_renderService != null) await _renderService.SetLightingAsync(_lighting);
+        try
+        {
+            using var storage = JS.Get<Storage>("localStorage");
+            storage.SetItem(LightingKey, _lighting ? "1" : "0");
+        }
+        catch { /* the choice holds for this visit */ }
+    }
 
     /// <summary>True when the URL's query has hud=0.</summary>
     internal static bool HudHiddenByLink(string uri)
@@ -305,6 +336,8 @@ else
                     await _renderService.SetHudVisibleAsync(false);
 
                 await _renderService.StartAsync(serverId, camX, camY, camZ, pitch, yaw);
+                _lighting = LightingByLink(Nav.Uri) ?? ReadRememberedLighting();
+                await _renderService.SetLightingAsync(_lighting);
                 if (DrawDistanceByLink(Nav.Uri) is { } linkedDistance)
                     await _renderService.SetDrawDistanceAsync(linkedDistance);
                 if (TimeByLink(Nav.Uri) is { } linkedTicks)

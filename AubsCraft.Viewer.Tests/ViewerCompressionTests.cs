@@ -61,4 +61,18 @@ public class ViewerCompressionTests
         foreach (var name in new[] { "x-block-registry-count", "x-biomes", "x-rainheights" })
             Assert.That(packed.Headers.ContainsKey(name), Is.True, $"{name} still comes with it");
     }
+
+    [Test]
+    public async Task TheColumnsLight_IsSentPacked_AndWhole()
+    {
+        var (packed, packedBody) = await GetAsync("/api/world/chunk-light/1/3", "br, gzip");
+        Assert.That(packed.Ok, Is.True, $"status {packed.Status}");
+        Assert.That(packed.Headers.TryGetValue("content-encoding", out var encoding) ? encoding : null, Is.AnyOf("br", "gzip"));
+        Assert.That(packedBody.Length, Is.EqualTo(98304), "a byte for each block of the column");
+        // The scene's row of light blocks is in this column: glowstone at x 30, z 56, y -60 gives 15 in its own cell
+        int index = (30 & 15) + (56 & 15) * 16 + (-60 + 64) * 256;
+        Assert.That(packedBody[index] & 15, Is.EqualTo(15));
+        var (missing, _) = await GetAsync("/api/world/chunk-light/9999/9999", "identity");
+        Assert.That(missing.Status, Is.EqualTo(404));
+    }
 }

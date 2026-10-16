@@ -19,6 +19,8 @@ public interface IRenderWorkerService : IAsyncDisposable
     Task SetPointerLockedAsync(bool locked);
     /// <summary>Shows or hides the GPU HUD (<c>/map?hud=0</c> hides it: a clean frame for streaming or capture).</summary>
     Task SetHudVisibleAsync(bool visible);
+    /// <summary>Lights the world by the server's sky light and block light near the camera, or not (the viewer's Lighting button).</summary>
+    Task SetLightingAsync(bool enabled);
     /// <summary>Holds the draw distance at this many chunks instead of adapting it (<c>/map?dd=14</c>): for the gate and for screenshots.</summary>
     Task SetDrawDistanceAsync(int chunks);
     /// <summary>Chat, the player list and notices from the page's SignalR connection, for the worker's HUD.</summary>

@@ -4,7 +4,7 @@ using Microsoft.Playwright;
 namespace AubsCraft.Viewer.Tests;
 
 /// <summary>
-/// The scene at midnight, in the real viewer: nothing lights the world by block light, so the ground is dark, but the blocks that make their own light (glowstone, sea lanterns, shroomlights,
+/// The scene at midnight, in the real viewer with the lighting off (light=0: nothing lights the world by block light), so the ground is dark, but the blocks that make their own light (glowstone, sea lanterns, shroomlights,
 /// magma, torches) are drawn at full brightness. A row of them is at x 30..44, z 56 of the scene.
 ///
 ///   AUBS_VIEWER_PUBLISH  folder from `dotnet publish AubsCraft.Admin.Server -c Release -o ...` (required)
@@ -44,7 +44,7 @@ public class ViewerNightTests
         try
         {
             // From the south of the row, a little above, looking north
-            await page.GotoAsync($"{_rig.BaseUrl}/map?hud=0&time=18000&dd=6&cam=37.0,-57.6,62.0,8,-90", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await page.GotoAsync($"{_rig.BaseUrl}/map?hud=0&light=0&time=18000&dd=6&cam=37.0,-57.6,62.0,8,-90", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
             await ViewerShotTests.WaitForSettledAsync(page, minSections: 8, quietSeconds: 3, maxSeconds: 60);
             await Task.Delay(2500);
             var file = Path.Combine(_outDir, "night-lights.png");

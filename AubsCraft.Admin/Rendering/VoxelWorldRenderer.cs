@@ -143,6 +143,12 @@ public sealed class VoxelWorldRenderer : IDisposable
     public double ServerSeconds { get; set; } = -1;
 
     public bool HasColumn(int cx, int cz) => _columns.ContainsKey((cx, cz));
+
+    /// <summary>The light the world is lit by near the camera (the caller keeps it alive while the renderer can draw).</summary>
+    public void SetLight(LightVolume volume) { _pipe.SetLight(volume); Light = volume; }
+
+    /// <summary>The light volume the world is lit by, once <see cref="SetLight"/> has given one (for the log).</summary>
+    public LightVolume? Light { get; private set; }
     public bool HasFarChunk(int cx, int cz) => _far.ContainsKey((cx, cz));
     public int FarChunkCount => _far.Count;
 

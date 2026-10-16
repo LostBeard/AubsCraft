@@ -271,6 +271,7 @@ public sealed class MapRenderService : IDisposable
                 (voxel.Entities is { Known: > 0 } e ? $" | creatures {e.EntityCount}/{e.Known} {e.PartCount} parts {e.PrepareMs:F1} ms" : "") +
                 (voxel.Particles is { Known: > 0 } p ? $" | particles {p.DrawnCount}/{p.Known} emitters" : "") +
                 (voxel.Entities?.BlockEntities is { KnownTexts: > 0 } bt ? $" | sign texts {bt.TextsDrawn}/{bt.KnownTexts}" : "") +
+                (voxel.Light is { Count: > 0 } lt ? $" | light {lt.Count} columns" : "") +
                 (voxel.Rain > 0.02f && voxel.Sky is { } sky ? $" | weather {voxel.Rain:F2} on {sky.Map.Active} columns" : ""));
         }
     }
