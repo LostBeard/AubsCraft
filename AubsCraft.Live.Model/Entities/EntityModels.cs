@@ -242,6 +242,7 @@ public static partial class EntityModels
         d["player"] = Player(slim: false);
         d["player_slim"] = Player(slim: true);
         AddMore(d);
+        AddFromGame(d);   // the game's own models, whole: they replace any hand-made one of the same creature
         return d;
     }
 

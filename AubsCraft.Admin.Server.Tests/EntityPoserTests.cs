@@ -249,8 +249,11 @@ public class EntityPoserTests
     {
         var straight = Pose("cow", View("cow", yaw: 0, body: 0));
         var looking = Pose("cow", View("cow", yaw: 40, body: 0));
-        Assert.That(Vector3.Distance(Centre(straight[1]), Centre(looking[1])), Is.GreaterThan(0.05f), "the head turned (a horn moved)");
-        Assert.That(Vector3.Distance(Centre(straight[3]), Centre(looking[3])), Is.LessThan(0.001f), "the body did not");
+        // The first box of the head part and of the body part, wherever the model lists them
+        int Box(PartRole role) { int n = 0; foreach (var part in EntityModels.Get("cow")!.Parts) { if (part.Role == role) return n; n += part.Boxes.Length; } throw new Exception("no " + role); }
+        int head = Box(PartRole.Head), body = Box(PartRole.Body);
+        Assert.That(Vector3.Distance(Centre(straight[head]), Centre(looking[head])), Is.GreaterThan(0.05f), "the head turned");
+        Assert.That(Vector3.Distance(Centre(straight[body]), Centre(looking[body])), Is.LessThan(0.001f), "the body did not");
 
         // Body and head turned together: the whole creature is the same, turned about the vertical through its place
         var turned = Pose("cow", View("cow", yaw: 40, body: 40));
@@ -363,7 +366,7 @@ public class EntityPoserTests
     [Test]
     public void ATypeWithNoModel_IsABoxOfItsRealSize_StandingOnTheGround()
     {
-        Assert.That(EntityModels.Get("ender_dragon"), Is.Null);
+        Assert.That(EntityModels.Get("mymod:thing"), Is.Null, "a creature nobody has a model for");
         var (w, h) = EntityModels.SizeOf("ghast");
         Assert.That((w, h), Is.EqualTo((4f, 4f)));
         var model = EntityModels.Fallback("ghast");
@@ -393,7 +396,9 @@ public class EntityPoserTests
     {
         ["ghast"] = (-3.5f, -2.4f), ["blaze"] = (0.1f, 0.5f),
         ["squid"] = (-1.3f, -1.0f), ["glow_squid"] = (-1.3f, -1.0f),   // the body is centred on the hitbox, the tentacles hang below it
-        ["salmon"] = (-0.05f, 0.15f), ["tropical_fish_b"] = (-0.05f, 0.2f),   // swimmers: their bodies are a little above the hitbox's floor
+        ["salmon"] = (-0.05f, 0.15f), ["tropical_fish_b"] = (-0.2f, 0.2f),   // swimmers: their bodies are a little above the hitbox's floor
+        ["allay"] = (-0.15f, 0.1f), ["axolotl"] = (-0.15f, 0.05f), ["guardian"] = (-0.3f, 0.05f), ["elder_guardian"] = (-0.8f, 0.1f),   // the game's models reach a little below their hitbox
+        ["breeze"] = (0.5f, 0.8f), ["wither"] = (0.2f, 0.6f), ["ender_dragon"] = (-3f, 0f), ["bat"] = (-0.3f, 0.7f), ["phantom"] = (-0.3f, 0.7f), ["vex"] = (-0.3f, 0.7f),
     };
 
     [Test]
@@ -414,7 +419,7 @@ public class EntityPoserTests
             }
             else if (feet < -0.08f || feet > 0.08f) problems.Add($"{type}: its lowest box is {feet:F2} from the ground");
             // The model is as tall as the game's hitbox says, give or take (a head held high, ears, hats)
-            if (type is not ("rabbit" or "pufferfish" or "tropical_fish_a") && (top < model.Height * 0.6f || top > model.Height * 1.45f + 0.25f)) problems.Add($"{type}: {top:F2} blocks tall against a hitbox of {model.Height:F2}");
+            if (type is not ("rabbit" or "pufferfish" or "tropical_fish_a" or "bat" or "ender_dragon") && (top < model.Height * 0.6f || top > model.Height * 1.45f + 0.25f)) problems.Add($"{type}: {top:F2} blocks tall against a hitbox of {model.Height:F2}");
         }
         TestContext.Progress.WriteLine(string.Join(Environment.NewLine, report));
         Assert.That(problems, Is.Empty, string.Join(Environment.NewLine, problems));

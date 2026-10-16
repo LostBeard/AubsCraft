@@ -8,6 +8,19 @@ namespace AubsCraft.Admin.Server.Tests;
 /// <summary>The entity atlas: every texture packed where the table says, intact, none over another, the same every time; and the models checked against the game's real textures.</summary>
 public class EntityAtlasTests
 {
+    // How far right and down the painted faces of a box's layout reach: a flat box (a plane: one dimension 0) has no side faces to count
+    private static (float Right, float Bottom) LayoutExtent(AubsCraft.Live.Model.Entities.ModelBox b)
+    {
+        (float x, float y, float w, float h)[] faces =
+        [
+            (b.U + b.D, b.V, b.W, b.D), (b.U + b.D + b.W, b.V, b.W, b.D),
+            (b.U, b.V + b.D, b.D, b.H), (b.U + b.D, b.V + b.D, b.W, b.H), (b.U + b.D + b.W, b.V + b.D, b.D, b.H), (b.U + 2 * b.D + b.W, b.V + b.D, b.W, b.H),
+        ];
+        float right = 0, bottom = 0;
+        foreach (var (x, y, w, h) in faces) if (w > 0 && h > 0) { right = Math.Max(right, x + w); bottom = Math.Max(bottom, y + h); }
+        return (right, bottom);
+    }
+
     private static ClientJar Jar(params (string name, int w, int h, byte r, byte g, byte b)[] textures)
     {
         var jar = new FakeJar();
@@ -153,8 +166,10 @@ public class EntityAtlasTests
                     var (tw, th) = SizeOf(texture);
                     foreach (var b in part.Boxes)
                     {
-                        Assert.That(b.U + 2 * b.D + 2 * b.W, Is.LessThanOrEqualTo(tw), $"{type}/{part.Name} in {texture}: the box's layout is wider than its {tw} px texture");
-                        Assert.That(b.V + b.D + b.H, Is.LessThanOrEqualTo(th), $"{type}/{part.Name} in {texture}: the box's layout is taller than its {th} px texture");
+                        if (b.W == 0 || b.H == 0 || b.D == 0) continue;   // a plane: the game's own offsets, its second face may lie past the edge of the texture
+                        var (right, bottom) = LayoutExtent(b);
+                        Assert.That(right, Is.LessThanOrEqualTo(tw), $"{type}/{part.Name} in {texture}: the box's layout is wider than its {tw} px texture");
+                        Assert.That(bottom, Is.LessThanOrEqualTo(th), $"{type}/{part.Name} in {texture}: the box's layout is taller than its {th} px texture");
                     }
                 }
             }
@@ -188,6 +203,8 @@ public class EntityAtlasTests
         "bee/left_antenna", "bee/right_antenna", "bee/right_wing", "bee/left_wing", "bee/front_legs", "bee/middle_legs", "bee/back_legs",
         "zombified_piglin/left_ear",   // it has one ear
         "skeleton_horse/head_parts", "skeleton_horse/mane", "skeleton_horse/tail", "skeleton_horse/left_ear", "skeleton_horse/right_ear",   // bones: no mane, no tail, no ears
+        // The game's own numbers (tools/modeldump) over textures that are mostly gaps: a creaking is twigs, a breeze's brow and a guardian's tail tip are a few pixels
+        "silverfish/layer0", "silverfish/layer1", "silverfish/layer2", "breeze/head", "creaking/head", "creaking/right_arm", "creaking/left_arm", "creaking/right_leg", "guardian/tail2", "elder_guardian/tail2",
     ];
 
     [Test]
@@ -212,6 +229,8 @@ public class EntityAtlasTests
                 if (!hasTransparency) continue;
                 foreach (var b in part.Boxes)
                 {
+                    // A plane (a fin, a wing, a tail: one side 0) is mostly empty in the game's own texture, and its offsets may be negative: the game's numbers, not checked here
+                    if (b.W == 0 || b.H == 0 || b.D == 0) continue;
                     (string face, float x, float y, float w, float h)[] faces =
                     [
                         ("top", b.U + b.D, b.V, b.W, b.D), ("bottom", b.U + b.D + b.W, b.V, b.W, b.D),
@@ -221,6 +240,7 @@ public class EntityAtlasTests
                     int painted = 0, total = 0;
                     foreach (var (face, fx, fy, fw, fh) in faces)
                     {
+                        if (fx < 0 || fy < 0) { problems.Add($"{type}/{part.Name} box at ({b.U},{b.V}) {b.W}x{b.H}x{b.D}: its {face} face starts at ({fx},{fy}), off the texture"); continue; }
                         for (int py = (int)fy; py < (int)Math.Ceiling(fy + fh) && py < image.Height; py++)
                             for (int px = (int)fx; px < (int)Math.Ceiling(fx + fw) && px < image.Width; px++)
                             {

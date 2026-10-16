@@ -35,9 +35,9 @@ public static class EntityPoser
     /// 90 = west): the game's renderer order - 1/16 scale, the 1.501 lift, the creature's scale, the flip of x and y (the model's y points down), the turn
     /// of 180 minus the yaw, then the place.
     /// </summary>
-    public static Matrix4x4 Root(float x, float y, float z, float bodyYawDegrees, float scale) =>
+    public static Matrix4x4 Root(float x, float y, float z, float bodyYawDegrees, float scale, Vector3 modelOffset = default) =>
         Matrix4x4.CreateScale(1f / 16f)
-        * Matrix4x4.CreateTranslation(0f, -1.501f, 0f)
+        * Matrix4x4.CreateTranslation(modelOffset.X, modelOffset.Y - 1.501f, modelOffset.Z)
         * Matrix4x4.CreateScale(scale)
         * Matrix4x4.CreateScale(-1f, -1f, 1f)
         * Matrix4x4.CreateRotationY((180f - bodyYawDegrees) * Deg)
@@ -57,7 +57,7 @@ public static class EntityPoser
     public static void Pose(in LiveEntityView view, EntityModel model, float ageTicks, List<PartDraw> output, string? texture = null, bool coarse = false)
     {
         float scale = (view.Baby ? model.BabyScale : 1f) * model.Scale;
-        var root = Root(view.X, view.Y, view.Z, view.BodyYaw, scale);
+        var root = Root(view.X, view.Y, view.Z, view.BodyYaw, scale, model.ModelOffset);
         float headYaw = HeadYawRelative(view.Yaw, view.BodyYaw) * Deg;
         float headPitch = Math.Clamp(view.Pitch, -90f, 90f) * Deg;
         float swing = view.WalkedBlocks * 4f * (view.Baby ? 3f : 1f);
@@ -74,6 +74,7 @@ public static class EntityPoser
             var rot = part.Rotation + Animation(model, part.Role, view, swing, amount, headYaw, headPitch, ageTicks);
             var local = Matrix4x4.CreateRotationX(rot.X) * Matrix4x4.CreateRotationY(rot.Y) * Matrix4x4.CreateRotationZ(rot.Z)
                         * Matrix4x4.CreateTranslation(part.Pivot);
+            if (part.PoseScale is { } poseScale) local = Matrix4x4.CreateScale(poseScale) * local;   // the game scales before it rotates and moves
             world[i] = part.Parent >= 0 ? local * world[part.Parent] : local;
 
             var model2 = world[i] * root;

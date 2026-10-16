@@ -23,11 +23,13 @@ public enum PartRole
 /// and a <see cref="PartRole"/>. A part with a <see cref="Parent"/> moves with it (a hat with the head, a sleeve with the arm). <see cref="Texture"/> overrides
 /// the model's texture for this part (sheep wool); <see cref="Dyed"/> multiplies the creature's dye colour in. <see cref="VariantTexture"/> picks this part's texture
 /// by the creature's variant and returns null to leave the part out (a horse's markings, a villager's profession clothes); <see cref="VariantTextureNames"/> lists what it can answer.
+/// <see cref="PoseScale"/> scales the part and everything under it about its pivot (the game's own: an elder guardian's whole model is its guardian's at 2.35); null = 1.
 /// A <see cref="Dyed"/> part takes its dye from the whole variant (a sheep's colour), or from the <see cref="DyeSlot"/>th of its "|"-separated parts (a tropical fish: pattern|body|pattern colour).
 /// </summary>
 public sealed record ModelPart(
     string Name, PartRole Role, int Parent, Vector3 Pivot, Vector3 Rotation, ModelBox[] Boxes,
-    string? Texture = null, bool Dyed = false, Func<string?, string?>? VariantTexture = null, IReadOnlyList<string>? VariantTextureNames = null, int DyeSlot = 0);
+    string? Texture = null, bool Dyed = false, Func<string?, string?>? VariantTexture = null, IReadOnlyList<string>? VariantTextureNames = null, int DyeSlot = 0,
+    Vector3? PoseScale = null);
 
 /// <summary>The animation a model's parts get: walk cycle, head look, wing flap.</summary>
 public enum EntityRig { Static, Quadruped, Biped, Chicken, Villager, Flying }
@@ -58,6 +60,8 @@ public sealed class EntityModel
     public float FootY { get; init; } = 24f;
     /// <summary>The size the game draws this kind at, on top of its model (a ghast is 4.5 times its model, a donkey 0.87).</summary>
     public float Scale { get; init; } = 1f;
+    /// <summary>What the game's renderer moves the model by before it draws it (blocks; the phantom is lifted 1.3125 and set back 0.1875), in the scaled frame.</summary>
+    public Vector3 ModelOffset { get; init; }
 }
 
 /// <summary>One box ready to draw: its place in the world and where its texture is. The renderer turns the texture NAME into an atlas position.</summary>
