@@ -43,3 +43,36 @@ public sealed class PickReply
     public double Hy { get; set; }
     public double Hz { get; set; }
 }
+
+/// <summary>Keep a box of the world as a blueprint (or, with the name <c>~clipboard</c>, as the admin's clipboard): two corners, any order.</summary>
+public sealed class BlueprintRequest
+{
+    public string Name { get; set; } = "";
+    public int[]? From { get; set; }
+    public int[]? To { get; set; }
+    /// <summary>Shrink the box to the blocks that are not air (the default).</summary>
+    public bool Trim { get; set; } = true;
+}
+
+/// <summary>Put a blueprint (or the clipboard, <c>~clipboard</c>) down with its lowest north-west corner at <see cref="At"/>, mirrored and then turned.</summary>
+public sealed class PasteRequest
+{
+    public string Name { get; set; } = "";
+    public int[]? At { get; set; }
+    public int Turns { get; set; }
+    public bool MirrorX { get; set; }
+    public bool MirrorZ { get; set; }
+    /// <summary>Clear the box where the blueprint has air (otherwise what is there stays).</summary>
+    public bool WithAir { get; set; }
+}
+
+/// <summary>A blueprint in the list (the panel's answer): its name and size.</summary>
+public sealed class BlueprintItem
+{
+    public string Name { get; set; } = "";
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public int Depth { get; set; }
+    public int Blocks { get; set; }
+    public string Author { get; set; } = "";
+}

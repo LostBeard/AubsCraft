@@ -68,6 +68,68 @@ public static class EditEndpoints
             return Results.Ok(result);
         });
 
+        // ---- blueprints: pieces of the world kept by name, and the clipboard (the last copy) ----
+        edit.MapGet("/blueprints", (string? server, ServerManager servers, BlueprintStore store) =>
+            servers.Get(server) is not { } instance ? Results.NotFound()
+            : Results.Ok(store.List(instance.Id).Select(b => new BlueprintItem { Name = b.Name, Width = b.Width, Height = b.Height, Depth = b.Depth, Blocks = b.Blocks, Author = b.Author })));
+
+        // Keep a box of the world: as a named blueprint, or (the name ~clipboard) as the clipboard
+        edit.MapPost("/blueprints", (BlueprintRequest request, string? server, HttpContext ctx, ServerManager servers, BlueprintStore store, ActivityLogService log) =>
+        {
+            if (servers.Get(server) is not { } instance) return Results.NotFound();
+            if (request.From is not { Length: 3 } || request.To is not { Length: 3 }) return Results.BadRequest(new { error = "A blueprint needs two corners" });
+            var user = ctx.User.Identity?.Name ?? "?";
+            bool clipboard = request.Name == BlueprintStore.ClipboardName;
+            var name = clipboard ? BlueprintStore.ClipboardName : BlueprintStore.CleanName(request.Name);
+            if (name == null) return Results.BadRequest(new { error = "Give the blueprint a name" });
+            if (!clipboard && request.Name.TrimStart().StartsWith('~')) return Results.BadRequest(new { error = "A name cannot start with ~" });
+            Blueprint blueprint;
+            try { blueprint = Blueprint.FromWorld((cx, cz) => instance.World.GetChunk(cx, cz), request.From[0], request.From[1], request.From[2], request.To[0], request.To[1], request.To[2], name, user, request.Trim); }
+            catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+            if (clipboard) store.SetClipboard(instance.Id, user, blueprint);
+            else
+            {
+                store.Save(instance.Id, blueprint);
+                log.AddEvent(new ActivityEventDto(DateTime.UtcNow, ActivityEventType.AdminAction, user, $"saved the blueprint \"{name}\" ({blueprint.Count:N0} blocks)", instance.Id));
+            }
+            var i = blueprint.Info;
+            return Results.Ok(new BlueprintItem { Name = i.Name, Width = i.Width, Height = i.Height, Depth = i.Depth, Blocks = i.Blocks, Author = i.Author });
+        });
+
+        edit.MapDelete("/blueprints/{name}", (string name, string? server, HttpContext ctx, ServerManager servers, BlueprintStore store, ActivityLogService log) =>
+        {
+            if (servers.Get(server) is not { } instance) return Results.NotFound();
+            if (!store.Delete(instance.Id, name)) return Results.NotFound();
+            log.AddEvent(new ActivityEventDto(DateTime.UtcNow, ActivityEventType.AdminAction, ctx.User.Identity?.Name ?? "?", $"deleted the blueprint \"{name}\"", instance.Id));
+            return Results.NoContent();
+        });
+
+        edit.MapPost("/blueprints/{name}/rename", (string name, string to, string? server, ServerManager servers, BlueprintStore store) =>
+            servers.Get(server) is not { } instance ? Results.NotFound() : store.Rename(instance.Id, name, to) ? Results.NoContent() : Results.BadRequest(new { error = "There is no such blueprint, or the new name is taken or not usable" }));
+
+        // Put a blueprint (or the clipboard) down: the panel turns it into an edit and the server does it, like any edit (undoable)
+        edit.MapPost("/paste", async (PasteRequest request, string? server, HttpContext ctx, ServerManager servers, BlueprintStore store, EditChannelService channel, ActivityLogService log) =>
+        {
+            if (servers.Get(server) is not { } instance) return Results.NotFound();
+            if (request.At is not { Length: 3 }) return Results.BadRequest(new { error = "Where?" });
+            var user = ctx.User.Identity?.Name ?? "?";
+            var blueprint = request.Name == BlueprintStore.ClipboardName ? store.Clipboard(instance.Id, user) : store.Load(instance.Id, request.Name);
+            if (blueprint == null) return Results.BadRequest(new { error = request.Name == BlueprintStore.ClipboardName ? "Nothing has been copied yet" : "There is no such blueprint" });
+            var commandId = Guid.NewGuid().ToString("N");
+            byte[] payload;
+            try
+            {
+                var edit = blueprint.ToPaste(request.At[0], request.At[1], request.At[2], request.Turns, request.MirrorX, request.MirrorZ, request.WithAir,
+                    request.Name == BlueprintStore.ClipboardName ? "paste" : "paste " + blueprint.Name);
+                payload = EditCodec.Build(commandId, user, edit, out _);
+            }
+            catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+            var result = await channel.SubmitAsync(instance.Id, commandId, payload, EditTimeout, ctx.RequestAborted);
+            if (result.Ok)
+                log.AddEvent(new ActivityEventDto(DateTime.UtcNow, ActivityEventType.AdminAction, user, $"pasted {(request.Name == BlueprintStore.ClipboardName ? "a copy" : $"the blueprint \"{blueprint.Name}\"")} from the viewer ({result.Placed:N0} blocks changed)", instance.Id));
+            return Results.Ok(result);
+        });
+
         edit.MapPost("/undo", async (string edit, string? server, HttpContext ctx, ServerManager servers, EditChannelService channel, ActivityLogService log) =>
         {
             if (servers.Get(server) is not { } instance) return Results.NotFound();

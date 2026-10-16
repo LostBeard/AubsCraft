@@ -394,4 +394,83 @@ public class LiveChunksEndToEndTests
         Assert.That(asAdmin.Result!.Ok, Is.True, asAdmin.Body);
         await PostEditAsync($"/api/world/edit/undo?server=lc&edit={asAdmin.Result.Edit}", null);
     }
+
+    // ---- blueprints: a built thing kept by name and put down again, turned ----
+
+    private async Task<(System.Net.HttpStatusCode Status, string Body)> SendAsync(HttpMethod method, string url, object? body = null)
+    {
+        var req = new HttpRequestMessage(method, url) { Content = body == null ? null : JsonContent.Create(body) };
+        req.Headers.Add("Cookie", _cookie);
+        var resp = await _http.SendAsync(req);
+        return (resp.StatusCode, await resp.Content.ReadAsStringAsync());
+    }
+
+    [Test]
+    public async Task ABuiltThing_IsSavedAsABlueprint_AndPastedTurned_AndTheClipboardWorksToo()
+    {
+        await using var rcon = await TestServers.RconAsync(_paper);
+        await WaitForPluginAsync();
+        using var ws = new ClientWebSocket();
+        ws.Options.SetRequestHeader("Cookie", _cookie);
+        await ws.ConnectAsync(new UriBuilder(new Uri(_base, "api/live/ws?server=lc")) { Scheme = "ws" }.Uri, CancellationToken.None);
+
+        // A wall three long with a stair on its east end, built the way a person might: with commands
+        await rcon.SendCommandAsync("fill 20 -60 40 22 -60 40 minecraft:stone");
+        await rcon.SendCommandAsync("setblock 22 -59 40 minecraft:oak_stairs[facing=north,half=bottom]");
+        await NextChangeAsync(ws, 1, 2, TimeSpan.FromSeconds(30));   // the panel has it now
+
+        // Kept as a blueprint, from a rough box round it
+        var saved = await SendAsync(HttpMethod.Post, "/api/world/edit/blueprints?server=lc", new { name = "Stone wall", from = new[] { 18, -60, 38 }, to = new[] { 25, -55, 42 } });
+        Assert.That(saved.Status, Is.EqualTo(System.Net.HttpStatusCode.OK), saved.Body);
+        using (var doc = System.Text.Json.JsonDocument.Parse(saved.Body))
+        {
+            var r = doc.RootElement;
+            Assert.That((r.GetProperty("name").GetString(), r.GetProperty("width").GetInt32(), r.GetProperty("height").GetInt32(), r.GetProperty("depth").GetInt32(), r.GetProperty("blocks").GetInt32()), Is.EqualTo(("Stone wall", 3, 2, 1, 4)), "trimmed to the wall");
+        }
+        var list = await SendAsync(HttpMethod.Get, "/api/world/edit/blueprints?server=lc");
+        Assert.That(list.Body, Does.Contain("Stone wall"));
+
+        // Put down a quarter turn clockwise: three long from north to south, the stair on the south end facing east
+        var pasted = await SendAsync(HttpMethod.Post, "/api/world/edit/paste?server=lc", new { name = "Stone wall", at = new[] { 40, -60, 48 }, turns = 1 });
+        Assert.That(pasted.Status, Is.EqualTo(System.Net.HttpStatusCode.OK), pasted.Body);
+        var result = System.Text.Json.JsonSerializer.Deserialize<EditResult>(pasted.Body, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+        Assert.That(result.Ok, Is.True, result.Error);
+        Assert.That(result.Placed, Is.EqualTo(4));
+        Assert.That(await IsBlockAsync(rcon, 40, -60, 48, "minecraft:stone"), Is.True);
+        Assert.That(await IsBlockAsync(rcon, 40, -60, 49, "minecraft:stone"), Is.True);
+        Assert.That(await IsBlockAsync(rcon, 40, -60, 50, "minecraft:stone"), Is.True);
+        Assert.That(await IsBlockAsync(rcon, 40, -59, 50, "minecraft:oak_stairs[facing=east]"), Is.True, "the stair faced north; turned a quarter it faces east");
+        Assert.That(await IsBlockAsync(rcon, 41, -60, 48, "minecraft:air"), Is.True, "nothing beside it");
+
+        // Undoing the paste takes it away
+        await PostEditAsync($"/api/world/edit/undo?server=lc&edit={result.Edit}", null);
+        Assert.That(await IsBlockAsync(rcon, 40, -60, 49, "minecraft:air"), Is.True);
+
+        // Mirrored east-west it stands the other way round: the stair is on the west end
+        var mirrored = await SendAsync(HttpMethod.Post, "/api/world/edit/paste?server=lc", new { name = "Stone wall", at = new[] { 40, -60, 55 }, mirrorX = true });
+        var mirroredResult = System.Text.Json.JsonSerializer.Deserialize<EditResult>(mirrored.Body, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+        Assert.That(mirroredResult.Ok, Is.True, mirrored.Body);
+        Assert.That(await IsBlockAsync(rcon, 40, -59, 55, "minecraft:oak_stairs[facing=north]"), Is.True, "on the west end now");
+        Assert.That(await IsBlockAsync(rcon, 42, -59, 55, "minecraft:air"), Is.True);
+        await PostEditAsync($"/api/world/edit/undo?server=lc&edit={mirroredResult.Edit}", null);
+
+        // The clipboard: copy a box, paste it somewhere else
+        var copied = await SendAsync(HttpMethod.Post, "/api/world/edit/blueprints?server=lc", new { name = "~clipboard", from = new[] { 20, -60, 40 }, to = new[] { 22, -60, 40 } });
+        Assert.That(copied.Status, Is.EqualTo(System.Net.HttpStatusCode.OK), copied.Body);
+        var fromClipboard = await SendAsync(HttpMethod.Post, "/api/world/edit/paste?server=lc", new { name = "~clipboard", at = new[] { 50, -60, 60 } });
+        Assert.That(System.Text.Json.JsonSerializer.Deserialize<EditResult>(fromClipboard.Body, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!.Placed, Is.EqualTo(3));
+        Assert.That(await IsBlockAsync(rcon, 52, -60, 60, "minecraft:stone"), Is.True);
+        await rcon.SendCommandAsync("fill 50 -60 60 52 -60 60 minecraft:air");
+
+        // Things that are refused
+        Assert.That((await SendAsync(HttpMethod.Post, "/api/world/edit/paste?server=lc", new { name = "No such", at = new[] { 0, 0, 0 } })).Status, Is.EqualTo(System.Net.HttpStatusCode.BadRequest));
+        Assert.That((await SendAsync(HttpMethod.Post, "/api/world/edit/blueprints?server=lc", new { name = "", from = new[] { 0, 0, 0 }, to = new[] { 1, 1, 1 } })).Status, Is.EqualTo(System.Net.HttpStatusCode.BadRequest));
+        Assert.That((await SendAsync(HttpMethod.Post, "/api/world/edit/blueprints?server=lc", new { name = "~sneaky", from = new[] { 0, 0, 0 }, to = new[] { 1, 1, 1 } })).Status, Is.EqualTo(System.Net.HttpStatusCode.BadRequest));
+        Assert.That((await SendAsync(HttpMethod.Post, "/api/world/edit/blueprints?server=lc", new { name = "huge", from = new[] { 0, -64, 0 }, to = new[] { 1000, 300, 1000 } })).Status, Is.EqualTo(System.Net.HttpStatusCode.BadRequest));
+
+        // Deleted
+        Assert.That((await SendAsync(HttpMethod.Delete, "/api/world/edit/blueprints/Stone%20wall?server=lc")).Status, Is.EqualTo(System.Net.HttpStatusCode.NoContent));
+        Assert.That((await SendAsync(HttpMethod.Get, "/api/world/edit/blueprints?server=lc")).Body, Does.Not.Contain("Stone wall"));
+        await rcon.SendCommandAsync("fill 20 -60 40 22 -59 40 minecraft:air");
+    }
 }
