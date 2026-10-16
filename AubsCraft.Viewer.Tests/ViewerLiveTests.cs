@@ -384,6 +384,77 @@ public class ViewerLiveTests
         }
     }
 
+    /// <summary>The minimap's dots: hostile in red, passive in green, villagers in blue, over the map in the top-right corner, in the right places for the way the camera faces.</summary>
+    [Test]
+    public async Task TheMinimap_ShowsTheCreaturesAround_AsColouredDots()
+    {
+        // Flat ground near the spawn of the real world; the scene world (flat, a floor of stone bricks at y -61) has none of that: its middle will do
+        (int X, int Z, int Top) ground;
+        try { ground = await FindFlatGroundAsync(); }
+        catch (AssertionException) { ground = (30, 30, -60); }
+        var (gx, gz, top) = ground;
+        float cx = gx + 0.5f, cz = gz + 0.5f, y = top;
+        // The camera faces north (-z, yaw -90): ahead is up the map. A zombie 20 ahead, a cow 20 to the right (east, +x), a villager 20 behind
+        var entities = new List<LiveEntity>
+        {
+            Mob(1, "zombie", cx, y, cz - 20f, 0f), Mob(2, "cow", cx + 20f, y, cz, 0f), Mob(3, "villager", cx, y, cz + 20f, 0f),
+        };
+        long tick = 200_000;
+        byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
+        {
+            FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
+            Worlds = [new LiveWorld { Name = "world", Entities = entities.ToArray(), Players = [] }],
+        });
+        var page = await _rig.Context.NewPageAsync();
+        var errors = new List<string>();
+        page.Console += (_, m) => { if (m.Type == "error" && !m.Text.Contains("whitelisted")) errors.Add(m.Text); };
+        page.PageError += (_, e) => errors.Add(e);
+        using var stop = new CancellationTokenSource();
+        Task? poster = null;
+        try
+        {
+            await page.SetViewportSizeAsync(1280, 720);
+            string F(float v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            await page.GotoAsync($"{_rig.BaseUrl}/map?time=6000&dd=6&cam={F(cx)},{F(top + 1.62f)},{F(cz)},-30,-90", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await ViewerShotTests.WaitForSettledAsync(page, minSections: 30, quietSeconds: 4, maxSeconds: 80);
+            poster = Task.Run(async () =>
+            {
+                while (!stop.IsCancellationRequested)
+                {
+                    await _rig.PostLiveFrameAsync(Frame());
+                    tick += 4;
+                    await Task.Delay(200);
+                }
+            });
+            await Task.Delay(7000);
+            var file = Path.Combine(_outDir, "minimap.png");
+            await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = file });
+            using var bmp = new Bitmap(file);
+            // The map: 176 px square under an 18 px compass bar, 8 px from the top right corner; extent 64 blocks (x1): 20 blocks is 20/64 of the half side
+            float mapLeft = bmp.Width - 8 - 176, mapTop = 8 + 18, half = 88f;
+            (int x, int y) At(float right, float up) => ((int)(mapLeft + half + right / 64f * (half - 2)), (int)(mapTop + half - up / 64f * (half - 2)));
+            bool Near(Color c, Color want) => Math.Abs(c.R - want.R) < 28 && Math.Abs(c.G - want.G) < 28 && Math.Abs(c.B - want.B) < 28;
+            bool Dot((int x, int y) p, Color want)
+            {
+                for (int dy = -3; dy <= 3; dy++) for (int dx = -3; dx <= 3; dx++)
+                    if (p.x + dx >= 0 && p.y + dy >= 0 && p.x + dx < bmp.Width && p.y + dy < bmp.Height && Near(bmp.GetPixel(p.x + dx, p.y + dy), want)) return true;
+                return false;
+            }
+            var red = Color.FromArgb(230, 60, 50); var green = Color.FromArgb(80, 200, 90); var blue = Color.FromArgb(90, 150, 245);
+            Assert.That(Dot(At(0, 20), red), Is.True, "the zombie 20 ahead is a red dot straight up");
+            Assert.That(Dot(At(20, 0), green), Is.True, "the cow 20 to the right (east, the camera faces north) is a green dot on the right");
+            Assert.That(Dot(At(0, -20), blue), Is.True, "the villager 20 behind is a blue dot straight down");
+            Assert.That(Dot(At(0, -20), red), Is.False, "and not a red one");
+            Assert.That(errors, Is.Empty, "The page logged errors");
+        }
+        finally
+        {
+            stop.Cancel();
+            try { if (poster != null) await poster; } catch (OperationCanceledException) { }
+            await page.CloseAsync();
+        }
+    }
+
     /// <summary>Every modelled creature, six to a shot (a row facing the camera), each in a variant where it has them: the models for the eye, against the game.</summary>
     [Test]
     public async Task TheZoo_EveryModelledCreature_GroupsOfSix()

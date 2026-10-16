@@ -542,7 +542,7 @@ public class RenderWorkerService : IRenderWorkerService
         _dataWorker.PostMessage(new { type = "camera", x = _renderer.Camera.Position.X, z = _renderer.Camera.Position.Z });
     }
 
-    private float _minimapTimer;
+    private float _minimapTimer, _markersTimer;
 
     // The voxel renderer's own numbers for the F3 overlay: where a frame's CPU time goes (browser calls, not the GPU)
     private string VoxelNote()
@@ -597,6 +597,14 @@ public class RenderWorkerService : IRenderWorkerService
                 _voxel.RenderMinimap(_renderer.Camera.Position.X, _renderer.Camera.Position.Z, _renderer.Camera.Yaw, _hud.MinimapExtent);
             }
             _hud.SetMinimapTexture(_voxel.MinimapView);
+        }
+        // The creatures on the minimap, ten times a second (a map's dots need not be sampled every frame)
+        _markersTimer += dt;
+        if (_markersTimer >= 0.1f && _entities != null && _hud.Visible)
+        {
+            _markersTimer = 0;
+            var c = _renderer.Camera;
+            _hud.SetMinimapMarkers(_entities.MinimapMarkersAround(c.Position.X, c.Position.Z, c.Yaw, _hud.MinimapExtent));
         }
 
         // HUD state first: it is drawn later in this same frame, after the world pass (MapRenderService.OnOverlay)

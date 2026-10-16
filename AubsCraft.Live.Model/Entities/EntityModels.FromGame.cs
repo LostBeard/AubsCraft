@@ -12,9 +12,10 @@ public static partial class EntityModels
     private static void AddFromGame(Dictionary<string, EntityModel> d)
     {
         EntityModel Make(string key, string texture, EntityRig rig, float width, float height, float scale = 1f, Vector3 offset = default,
-            Func<string, PartRole>? role = null, string[]? hide = null, float baby = 0.5f) => new()
+            Func<string, PartRole>? role = null, string[]? hide = null, float baby = 0.5f, string[]? variants = null, Func<string?, string>? byVariant = null) => new()
         {
             Texture = texture, Rig = rig, Width = width, Height = height, Scale = scale, ModelOffset = offset, BabyScale = baby,
+            TextureByVariant = byVariant, VariantTextures = variants ?? Array.Empty<string>(),
             Parts = GameModels.Parts(key, role, hide == null ? null : new HashSet<string>(hide)),
         };
         // Parts that stay still however the creature moves (a frog hops, it does not swing its legs like a pig's)
@@ -30,7 +31,10 @@ public static partial class EntityModels
 
         // ---- four-legged ----
         d["goat"] = Make("GoatModel.createBodyLayer", "goat/goat", EntityRig.Quadruped, 0.9f, 1.3f);
-        d["panda"] = Make("PandaModel.createBodyLayer", "panda/panda", EntityRig.Quadruped, 1.3f, 1.25f);
+        // A panda's gene (the plugin sends the one it shows: a recessive gene only when both are it): its own coat
+        string[] pandaGenes = ["lazy", "worried", "playful", "brown", "weak", "aggressive"];
+        d["panda"] = Make("PandaModel.createBodyLayer", "panda/panda", EntityRig.Quadruped, 1.3f, 1.25f,
+            variants: pandaGenes.Select(g => $"panda/{g}_panda").ToArray(), byVariant: v => v != null && Array.IndexOf(pandaGenes, v) >= 0 ? $"panda/{v}_panda" : "panda/panda");
         d["camel"] = Make("CamelModel.createBodyLayer", "camel/camel", EntityRig.Quadruped, 1.7f, 2.375f);
         d["sniffer"] = Make("SnifferModel.createBodyLayer", "sniffer/sniffer", EntityRig.Quadruped, 1.9f, 1.75f);
         // An armadillo walks; the rolled-up ball ("cube") is the game's pose for when it is scared
@@ -38,7 +42,9 @@ public static partial class EntityModels
         d["hoglin"] = Make("HoglinModel.createBodyLayer", "hoglin/hoglin", EntityRig.Quadruped, 1.4f, 1.4f);
         d["zoglin"] = Make("HoglinModel.createBodyLayer", "hoglin/zoglin", EntityRig.Quadruped, 1.4f, 1.4f);
         d["ravager"] = Make("RavagerModel.createBodyLayer", "illager/ravager", EntityRig.Quadruped, 1.95f, 2.2f);
-        d["axolotl"] = Make("AxolotlModel.createBodyLayer", "axolotl/axolotl_lucy", EntityRig.Static, 0.75f, 0.42f, role: HeadOnly);
+        string[] axolotlColours = ["lucy", "wild", "gold", "cyan", "blue"];
+        d["axolotl"] = Make("AxolotlModel.createBodyLayer", "axolotl/axolotl_lucy", EntityRig.Static, 0.75f, 0.42f, role: HeadOnly,
+            variants: axolotlColours.Select(c => $"axolotl/axolotl_{c}").ToArray(), byVariant: v => v != null && Array.IndexOf(axolotlColours, v) >= 0 ? $"axolotl/axolotl_{v}" : "axolotl/axolotl_lucy");
 
         // ---- two-legged ----
         d["strider"] = Make("StriderModel.createBodyLayer", "strider/strider", EntityRig.Biped, 0.9f, 1.7f);
@@ -51,11 +57,15 @@ public static partial class EntityModels
         };
 
         // ---- the rest ----
-        d["frog"] = Make("FrogModel.createBodyLayer", "frog/temperate_frog", EntityRig.Static, 0.5f, 0.5f, role: HeadOnly, hide: ["tongue", "croaking_body"]);
+        string[] frogKinds = ["temperate", "warm", "cold"];
+        d["frog"] = Make("FrogModel.createBodyLayer", "frog/temperate_frog", EntityRig.Static, 0.5f, 0.5f, role: HeadOnly, hide: ["tongue", "croaking_body"],
+            variants: frogKinds.Select(k => $"frog/{k}_frog").ToArray(), byVariant: v => v != null && Array.IndexOf(frogKinds, v) >= 0 ? $"frog/{v}_frog" : "frog/temperate_frog");
         d["tadpole"] = Make("TadpoleModel.createBodyLayer", "tadpole/tadpole", EntityRig.Static, 0.4f, 0.3f, role: HeadOnly);
         d["guardian"] = Make("GuardianModel.createBodyLayer", "guardian", EntityRig.Static, 0.85f, 0.85f, role: HeadOnly);
         d["elder_guardian"] = Make("GuardianModel.createElderGuardianLayer", "guardian_elder", EntityRig.Static, 1.9975f, 1.9975f, role: HeadOnly);   // the game scales this layer definition itself (2.35)
-        d["shulker"] = Make("ShulkerModel.createBodyLayer", "shulker/shulker", EntityRig.Static, 1f, 1f, role: HeadOnly);
+        string[] dyes = ["white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray", "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black"];
+        d["shulker"] = Make("ShulkerModel.createBodyLayer", "shulker/shulker", EntityRig.Static, 1f, 1f, role: HeadOnly,
+            variants: dyes.Select(c => $"shulker/shulker_{c}").ToArray(), byVariant: v => v != null && Array.IndexOf(dyes, v) >= 0 ? $"shulker/shulker_{v}" : "shulker/shulker");
         d["wither"] = Make("WitherBossModel.createBodyLayer(1)", "wither/wither", EntityRig.Static, 0.9f, 3.5f, scale: 2f, role: HeadOnly);   // the renderer draws it twice as large
         d["ender_dragon"] = Make("EnderDragonModel.createBodyLayer", "enderdragon/dragon", EntityRig.Static, 16f, 8f, role: HeadOnly);
 

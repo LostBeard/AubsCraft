@@ -17,9 +17,13 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.animal.Cat;
 import net.minecraft.world.entity.animal.Fox;
 import net.minecraft.world.entity.animal.MushroomCow;
+import net.minecraft.world.entity.animal.Panda;
 import net.minecraft.world.entity.animal.Parrot;
 import net.minecraft.world.entity.animal.Rabbit;
 import net.minecraft.world.entity.animal.TropicalFish;
+import net.minecraft.world.entity.animal.axolotl.Axolotl;
+import net.minecraft.world.entity.animal.frog.Frog;
+import net.minecraft.world.entity.monster.Shulker;
 import net.minecraft.world.entity.animal.horse.Horse;
 import net.minecraft.world.entity.animal.horse.Llama;
 import net.minecraft.world.entity.animal.sheep.Sheep;
@@ -201,6 +205,13 @@ public final class LiveFabricMod implements DedicatedServerModInitializer {
         if (e instanceof Llama l) return l.getVariant().name().toLowerCase();
         if (e instanceof Parrot p) return p.getVariant().name().toLowerCase();
         if (e instanceof MushroomCow m) return m.getVariant().name().toLowerCase();
+        if (e instanceof Axolotl a) return a.getVariant().getName();
+        if (e instanceof Frog f) return f.getVariant().unwrapKey().map(k -> k.location().getPath()).orElse(null);
+        if (e instanceof Panda p) {
+            Panda.Gene main = p.getMainGene(), hidden = p.getHiddenGene();
+            return (main.isRecessive() && main != hidden ? Panda.Gene.NORMAL : main).getSerializedName();
+        }
+        if (e instanceof Shulker s) return s.getColor() == null ? null : s.getColor().getName();
         if (e instanceof TropicalFish t) return t.getPattern().name().toLowerCase() + "|" + t.getBaseColor().getName() + "|" + t.getPatternColor().getName();
         if (e instanceof Villager v) {
             ResourceLocation id = v.getVillagerData().profession().unwrapKey().map(k -> k.location()).orElse(null);

@@ -364,6 +364,23 @@ public class EntityPoserTests
     }
 
     [Test]
+    public void AnAxolotl_AFrog_APanda_AndAShulker_WearTheirOwnColours()
+    {
+        string TextureOf(string type, string? variant) => Pose(type, View(type, variant: variant))[0].Texture;
+        Assert.That(TextureOf("axolotl", "gold"), Is.EqualTo("axolotl/axolotl_gold"));
+        Assert.That(TextureOf("axolotl", null), Is.EqualTo("axolotl/axolotl_lucy"));
+        Assert.That(TextureOf("frog", "cold"), Is.EqualTo("frog/cold_frog"));
+        Assert.That(TextureOf("frog", "warm"), Is.EqualTo("frog/warm_frog"));
+        Assert.That(TextureOf("frog", "mymod:odd"), Is.EqualTo("frog/temperate_frog"));
+        Assert.That(TextureOf("panda", "aggressive"), Is.EqualTo("panda/aggressive_panda"));
+        Assert.That(TextureOf("panda", "normal"), Is.EqualTo("panda/panda"));
+        Assert.That(TextureOf("shulker", "light_blue"), Is.EqualTo("shulker/shulker_light_blue"));
+        Assert.That(TextureOf("shulker", null), Is.EqualTo("shulker/shulker"));
+        var names = EntityModels.TextureNames().ToList();
+        Assert.That(names, Does.Contain("axolotl/axolotl_blue").And.Contain("frog/warm_frog").And.Contain("panda/weak_panda").And.Contain("shulker/shulker_red"), "every colour is packed into the atlas");
+    }
+
+    [Test]
     public void ATypeWithNoModel_IsABoxOfItsRealSize_StandingOnTheGround()
     {
         Assert.That(EntityModels.Get("mymod:thing"), Is.Null, "a creature nobody has a model for");

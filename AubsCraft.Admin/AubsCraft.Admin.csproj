@@ -35,7 +35,7 @@
 		<!-- ADB over WebUSB for the /quest installer (the SpawnJS edition of BlazorJS.TangoADB) -->
 		<PackageReference Include="SpawnDev.SpawnJS.TangoADB" Version="1.0.0" />
 		<!-- GameUI without a DOM (Init + PushedInputProvider) for the worker HUD, plus the chat-feed options -->
-		<PackageReference Include="SpawnDev.GameUI" Version="1.1.0" />
+		<PackageReference Include="SpawnDev.GameUI" Version="1.1.1-local.1" />
 	</ItemGroup>
 
 	<ItemGroup>

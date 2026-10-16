@@ -2,6 +2,7 @@ using System.Numerics;
 using AubsCraft.Assets.Model;
 using AubsCraft.Live.Model;
 using AubsCraft.Live.Model.Entities;
+using SpawnDev.GameUI.Elements;
 using SpawnDev.SpawnJS;
 using SpawnDev.SpawnJS.JSObjects;
 using SpawnDev.VoxelEngine.Rendering;
@@ -147,6 +148,18 @@ public sealed class EntityLayer : IDisposable
         if (_state.SampleOne(world, id, _clock.Elapsed.TotalSeconds) is not { } v) return PlayerLookup.Unknown;
         view = v;
         return PlayerLookup.Found;
+    }
+
+    private readonly List<MinimapMarker> _minimapMarkers = new();
+
+    /// <summary>The dots of the minimap (players, hostile, neutral, passive creatures, villagers) around the camera as they are shown right now; see <see cref="MinimapMarkers"/>.</summary>
+    public IReadOnlyList<MinimapMarker> MinimapMarkersAround(float cameraX, float cameraZ, float yawDegrees, float extent)
+    {
+        _minimapMarkers.Clear();
+        var world = _state.PrimaryWorld;
+        if (world == null) return _minimapMarkers;
+        MinimapMarkers.Build(_state.Sample(world, _clock.Elapsed.TotalSeconds), cameraX, cameraZ, yawDegrees, extent, _minimapMarkers);
+        return _minimapMarkers;
     }
 
     /// <summary>What posing and uploading the creatures costs a frame, in ms (a running average).</summary>

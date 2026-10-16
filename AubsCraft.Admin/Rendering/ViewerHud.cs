@@ -276,6 +276,9 @@ public sealed class ViewerHud
     /// <summary>The world texture the minimap shows (the renderer draws it); null until there is one.</summary>
     public void SetMinimapTexture(GPUTextureView? view) => _minimap.MapTexture = view;
 
+    /// <summary>The dots over the minimap (creatures and players around the camera).</summary>
+    public void SetMinimapMarkers(IReadOnlyList<MinimapMarker> markers) => _minimap.Markers = markers;
+
     private void SetPlayers(string[] names)
     {
         _playersTitle.Text = string.Create(CultureInfo.InvariantCulture, $"Players online ({names.Length})");

@@ -2,13 +2,16 @@ package com.spawndev.aubscraftlive;
 
 import org.bukkit.World;
 import org.bukkit.entity.Ageable;
+import org.bukkit.entity.Axolotl;
 import org.bukkit.entity.Cat;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Fox;
+import org.bukkit.entity.Frog;
 import org.bukkit.entity.Horse;
 import org.bukkit.entity.Llama;
 import org.bukkit.entity.MushroomCow;
+import org.bukkit.entity.Panda;
 import org.bukkit.entity.Parrot;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -16,6 +19,7 @@ import org.bukkit.entity.TropicalFish;
 import org.bukkit.entity.Pose;
 import org.bukkit.entity.Rabbit;
 import org.bukkit.entity.Sheep;
+import org.bukkit.entity.Shulker;
 import org.bukkit.entity.Villager;
 import org.bukkit.entity.Wolf;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -200,6 +204,14 @@ public final class LivePlugin extends JavaPlugin {
         if (e instanceof Llama l) return l.getColor().name().toLowerCase();
         if (e instanceof Parrot p) return p.getVariant().name().toLowerCase();
         if (e instanceof MushroomCow m) return m.getVariant().name().toLowerCase();
+        // An axolotl's colour, a frog's biome, a panda's gene (a recessive one only shows when both genes are it), a shulker's dye
+        if (e instanceof Axolotl a) return a.getVariant().name().toLowerCase();
+        if (e instanceof Frog f) return f.getVariant().getKey().getKey();
+        if (e instanceof Panda p) {
+            Panda.Gene main = p.getMainGene(), hidden = p.getHiddenGene();
+            return (main.isRecessive() && main != hidden ? Panda.Gene.NORMAL : main).name().toLowerCase();
+        }
+        if (e instanceof Shulker s) return s.getColor() == null ? null : s.getColor().name().toLowerCase();
         // A tropical fish: "pattern|body colour|pattern colour"
         if (e instanceof TropicalFish t) return t.getPattern().name().toLowerCase() + "|" + t.getBodyColor().name().toLowerCase() + "|" + t.getPatternColor().name().toLowerCase();
         return null;
