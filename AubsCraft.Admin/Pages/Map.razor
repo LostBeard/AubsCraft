@@ -39,6 +39,7 @@
                 <button class="btn btn-sm btn-outline-success" disabled="@_xrBusy" @onclick="@(() => EnterXrAsync("immersive-ar"))">Enter AR</button>
             }
             <button class="btn btn-sm @(_lighting ? "btn-outline-warning" : "btn-outline-secondary")" title="Light the world by the sky and block light (torches, caves) near you; off is the plainer, faster picture" @onclick="ToggleLightingAsync">Lighting: @(_lighting ? "On" : "Off")</button>
+            <button class="btn btn-sm @(_ambientOcclusion ? "btn-outline-warning" : "btn-outline-secondary")" title="Soft shadows in corners and at the feet of walls, for depth; off is the plainer picture" @onclick="ToggleAmbientOcclusionAsync">Shading: @(_ambientOcclusion ? "Soft" : "Flat")</button>
             <button class="btn btn-sm @(Voice.IsOn ? "btn-success" : "btn-outline-secondary")" title="Hear the players and the other viewers, each from where they are, and speak to them" @onclick="ToggleVoiceAsync">Voice: @(Voice.IsOn ? "On" : "Off")</button>
             @if (Voice.IsOn)
             {
@@ -151,6 +152,36 @@ else
     internal static bool? LightingByLink(string uri)
         => System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["light"] switch { "0" => false, "1" => true, _ => null };
 
+    /// <summary>"ao=0" or "ao=1": the shading setting for this visit (it overrides the remembered one). For the gate and for screenshots.</summary>
+    internal static bool? AmbientOcclusionByLink(string uri)
+        => System.Web.HttpUtility.ParseQueryString(new Uri(uri).Query)["ao"] switch { "0" => false, "1" => true, _ => null };
+
+    private const string AmbientOcclusionKey = "aubscraft.ao";
+    private bool _ambientOcclusion = true;
+
+    // The remembered shading (soft unless it was turned off)
+    private bool ReadRememberedAmbientOcclusion()
+    {
+        try
+        {
+            using var storage = JS.Get<Storage>("localStorage");
+            return storage.GetItem(AmbientOcclusionKey) != "0";
+        }
+        catch { return true; }
+    }
+
+    private async Task ToggleAmbientOcclusionAsync()
+    {
+        _ambientOcclusion = !_ambientOcclusion;
+        if (_renderService != null) await _renderService.SetAmbientOcclusionAsync(_ambientOcclusion);
+        try
+        {
+            using var storage = JS.Get<Storage>("localStorage");
+            storage.SetItem(AmbientOcclusionKey, _ambientOcclusion ? "1" : "0");
+        }
+        catch { /* the choice holds for this visit */ }
+    }
+
     private const string LightingKey = "aubscraft.lighting";
     private bool _lighting = true;
 
@@ -257,7 +288,7 @@ else
             Xr.Ended += OnXrEnded;
             Xr.ChatSent -= OnXrChat;
             Xr.ChatSent += OnXrChat;
-            await Xr.EnterAsync(mode, serverId, new System.Numerics.Vector3(s.CamX, s.CamY, s.CamZ), s.CamYaw, s.CamPitch, _lastTicks, Auth.Role is "Owner" or "Admin");
+            await Xr.EnterAsync(mode, serverId, new System.Numerics.Vector3(s.CamX, s.CamY, s.CamZ), s.CamYaw, s.CamPitch, _lastTicks, Auth.Role is "Owner" or "Admin", _ambientOcclusion);
             Xr.SeedHud(_hudFeed.CurrentPlayers, _hudFeed.RecentChat);
         }
         catch (Exception ex)
@@ -410,6 +441,8 @@ else
                 await _renderService.SetAdminAsync(Auth.Role is "Owner" or "Admin");
                 _lighting = LightingByLink(Nav.Uri) ?? ReadRememberedLighting();
                 await _renderService.SetLightingAsync(_lighting);
+                _ambientOcclusion = AmbientOcclusionByLink(Nav.Uri) ?? ReadRememberedAmbientOcclusion();
+                await _renderService.SetAmbientOcclusionAsync(_ambientOcclusion);
                 if (DrawDistanceByLink(Nav.Uri) is { } linkedDistance)
                     await _renderService.SetDrawDistanceAsync(linkedDistance);
                 if (TimeByLink(Nav.Uri) is { } linkedTicks)

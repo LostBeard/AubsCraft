@@ -94,7 +94,7 @@ public sealed class XrViewerHost : IDisposable
     /// Enter a session and start the world around <paramref name="cameraPosition"/>. Call it straight from the click: the session is requested first thing.
     /// <paramref name="serverTicks"/> is the server's time of day (negative: unknown).
     /// </summary>
-    public async Task EnterAsync(string mode, string serverId, Vector3 cameraPosition, float yawDegrees, float pitchDegrees, int serverTicks, bool isAdmin = false)
+    public async Task EnterAsync(string mode, string serverId, Vector3 cameraPosition, float yawDegrees, float pitchDegrees, int serverTicks, bool isAdmin = false, bool ambientOcclusion = true)
     {
         if (_session.IsActive) return;
         _startPosition = cameraPosition;
@@ -128,6 +128,7 @@ public sealed class XrViewerHost : IDisposable
             await _world.StartAsync(serverId, cameraPosition.X, cameraPosition.Y, cameraPosition.Z, pitchDegrees, yawDegrees);
             if (serverTicks >= 0) await _world.SetTimeOfDay(serverTicks);
             await _world.SetAdminAsync(isAdmin);
+            await _world.SetAmbientOcclusionAsync(ambientOcclusion);
             // As QuestCraft's creative mode: an admin can build from the start (the first press of a trigger on the world places a block); it is undoable, and the menu turns it off
             if (isAdmin && _world.Edit is { } creative) _ = creative.SetActiveAsync(true);
             StartHudPanel();

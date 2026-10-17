@@ -121,7 +121,7 @@ public sealed class VoxelWorldRenderer : IDisposable
         _pipe.SetBiomeTints(_biomeMap);
         _maxColumns = _pipe.MaxSections;
         _arena = new QuadArena(accelerator);
-        _mesher = new ColumnMesher(accelerator, SectionsPerColumn) { MissingNeighborsAreSolid = false, EmbedSectionIndex = true, Arena = _arena };
+        _mesher = new ColumnMesher(accelerator, SectionsPerColumn) { MissingNeighborsAreSolid = false, EmbedSectionIndex = true, Arena = _arena, AmbientOcclusion = _ambientOcclusion };
         _farMesher = new FarMesher(accelerator, SectionsPerColumn)
         {
             SeabedTypeOffset = VoxelBlockTables.SeabedTypeOffset, EmbedSectionIndex = true, Arena = _arena,
@@ -556,6 +556,21 @@ public sealed class VoxelWorldRenderer : IDisposable
         {
             _meshLock.Release();
         }
+    }
+
+    private bool _ambientOcclusion = true;
+
+    /// <summary>Soft shadows in the corners and at the feet of walls, baked into the quads by the mesher (VoxelEngine's ambient occlusion). On by default.</summary>
+    public bool AmbientOcclusion => _ambientOcclusion;
+
+    /// <summary>Turn the soft corner shadows on or off: the columns that are in are meshed again (the new faces are drawn as each is done).</summary>
+    public async Task SetAmbientOcclusionAsync(bool on)
+    {
+        if (_ambientOcclusion == on) return;
+        _ambientOcclusion = on;
+        if (_mesher == null) return;
+        _mesher.AmbientOcclusion = on;
+        await RemeshAllAsync();
     }
 
     /// <summary>Mesh every loaded column again (after the block tables changed).</summary>

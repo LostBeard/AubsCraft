@@ -21,6 +21,7 @@ public interface IRenderWorkerService : IAsyncDisposable
     Task SetHudVisibleAsync(bool visible);
     /// <summary>Lights the world by the server's sky light and block light near the camera, or not (the viewer's Lighting button).</summary>
     Task SetLightingAsync(bool enabled);
+    Task SetAmbientOcclusionAsync(bool enabled);
     /// <summary>Holds the draw distance at this many chunks instead of adapting it (<c>/map?dd=14</c>): for the gate and for screenshots.</summary>
     Task SetDrawDistanceAsync(int chunks);
     /// <summary>Turns building on or off (an admin's edit mode: break, place, undo). Returns whether it is on afterwards - not when the server cannot take edits or the user may not edit.</summary>

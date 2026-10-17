@@ -358,6 +358,12 @@ public class RenderWorkerService : IRenderWorkerService
         return Task.CompletedTask;
     }
 
+    /// <summary>Soft shadows in corners (the mesher's ambient occlusion): on by default; changing it meshes the loaded columns again.</summary>
+    public async Task SetAmbientOcclusionAsync(bool enabled)
+    {
+        if (_voxel != null) await _voxel.SetAmbientOcclusionAsync(enabled);
+    }
+
     public Task SetDrawDistanceAsync(int chunks)
     {
         _renderer.FixDrawDistance(chunks);

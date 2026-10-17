@@ -178,7 +178,7 @@ Order: WT1 + WA1 first (biggest visible change, client only), then WL1 stepping 
 - [ ] E4. **Entity rendering** - Animals, villagers from server entity data
 - [ ] E5. **Per-face textures: remaining blocks** - Pumpkin, melon, TNT, furnace, crafting table, hay, bone
 - [ ] E6. **Biome-accurate tinting** - Read biome data, apply correct grass/leaf/water colors per biome
-- [ ] E7. **Block lighting/ambient occlusion** - Darken corners and crevices for depth
+- [x] E7. **Block lighting/ambient occlusion** - Darken corners and crevices for depth. DONE 10-16 (code + gates, NOT deployed): VoxelEngine local.18 `ColumnMesher.AmbientOcclusion` bakes each face's four corner darkness into the quad (merge only along axes it does not change along, the vertex shader shades per vertex and flips the diagonal); on by default in the viewer and the headset, the Map page has a `Shading: Soft/Flat` button (remembered, `ao=0/1` link for the gate), `VoxelWorldRenderer.SetAmbientOcclusionAsync` re-meshes the loaded columns; gate `ViewerAoTests` (the scene's pillars and blocks darker at their feet, nothing lighter).
 
 ## Phase F: Map Navigation + HUD
 
