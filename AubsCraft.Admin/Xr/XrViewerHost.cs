@@ -264,6 +264,7 @@ public sealed class XrViewerHost : IDisposable
 
         _hud.SetPointer(x, y, hit);
         _pointerOnPanel = hit;
+        if (hit && !_pointerWasOnPanel) _session.Pulse(fromRight, 0.12f, 10);   // the ray comes onto a surface: a tick
         if (hit)
         {
             _hud.Apply(new UiInputEvent(UiInputEvent.MouseMove, x, y));
@@ -273,6 +274,7 @@ public sealed class XrViewerHost : IDisposable
                 _pressedOnPanel = true;
                 _grabSurface = surface;
                 _grabRight = fromRight;
+                _session.Pulse(fromRight, 0.35f, 30);
                 surface.BeginGrab(fromRight ? f.RightRayOrigin : f.LeftRayOrigin, fromRight ? f.RightRayDirection : f.LeftRayDirection, distance);
                 Console.WriteLine($"[Xr] taking the {surface.Spec.Name} by its handle");
                 _pointerWasOnPanel = true;
@@ -281,6 +283,7 @@ public sealed class XrViewerHost : IDisposable
             if (trigger && !_pressedOnPanel)
             {
                 _pressedOnPanel = true;
+                _session.Pulse(fromRight, 0.45f, 28);   // pressed
                 bool onMinimap = _hud.OverMinimap(x, y);
                 Console.WriteLine($"[Xr] HUD trigger at ({x:F0}, {y:F0}) on the {surface!.Spec.Name}{(onMinimap ? " on the minimap" : "")}");
                 if (onMinimap) _hud.CycleMinimapZoom();
@@ -529,21 +532,21 @@ public sealed class XrViewerHost : IDisposable
             if (f.RightTrigger)
             {
                 _placeNext -= dt;
-                if (!_rightTriggerWas) { edit.Primary(_world!.Camera.Yaw); _placeNext = RepeatFirstSeconds; }
-                else if (_placeNext <= 0f && edit.CanRepeat) { edit.Primary(_world!.Camera.Yaw); _placeNext = RepeatSeconds; }
+                if (!_rightTriggerWas) { edit.Primary(_world!.Camera.Yaw); _placeNext = RepeatFirstSeconds; _session.Pulse(true, 0.5f, 30); }
+                else if (_placeNext <= 0f && edit.CanRepeat) { edit.Primary(_world!.Camera.Yaw); _placeNext = RepeatSeconds; _session.Pulse(true, 0.35f, 20); }
             }
             if (f.LeftTrigger)
             {
                 _breakNext -= dt;
-                if (!_leftTriggerWas) { edit.Alternate(); _breakNext = RepeatFirstSeconds; }
-                else if (_breakNext <= 0f && edit.CanRepeat) { edit.Alternate(); _breakNext = RepeatSeconds; }
+                if (!_leftTriggerWas) { edit.Alternate(); _breakNext = RepeatFirstSeconds; _session.Pulse(false, 0.5f, 30); }
+                else if (_breakNext <= 0f && edit.CanRepeat) { edit.Alternate(); _breakNext = RepeatSeconds; _session.Pulse(false, 0.35f, 20); }
             }
-            if (f.RightPrimary && !_rightAWas) edit.Eyedrop();
+            if (f.RightPrimary && !_rightAWas) { edit.Eyedrop(); _session.Pulse(true, 0.3f, 25); }
         }
-        if (f.RightSecondary && !_bWasDown) edit.UndoNow();
+        if (f.RightSecondary && !_bWasDown) { edit.UndoNow(); _session.Pulse(true, 0.3f, 45); }
         // The grips pick the block in hand: the right one the next, the left one the one before (the bar is on the left arm)
-        if (f.RightGrip && !_rightGripWas) edit.CycleSlot(1);
-        if (f.LeftGrip && !_leftGripWas) edit.CycleSlot(-1);
+        if (f.RightGrip && !_rightGripWas) { edit.CycleSlot(1); _session.Pulse(true, 0.25f, 15); }
+        if (f.LeftGrip && !_leftGripWas) { edit.CycleSlot(-1); _session.Pulse(false, 0.25f, 15); }
         _rightTriggerWas = f.RightTrigger; _leftTriggerWas = f.LeftTrigger; _rightAWas = f.RightPrimary; _leftThumbWas = f.LeftThumb; _rightThumbWas = f.RightThumb; _bWasDown = f.RightSecondary; _leftGripWas = f.LeftGrip; _rightGripWas = f.RightGrip;
 
         if (pointing)

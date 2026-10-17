@@ -102,6 +102,44 @@ public sealed class XrSession : IDisposable
     }
 
     /// <summary>End the session from inside a frame (a controller button): the end waits for the frame to finish.</summary>
+    // ---- a tick in the hand ----
+    private readonly double[] _lastPulseAt = new double[2];
+    private readonly System.Diagnostics.Stopwatch _pulseClock = System.Diagnostics.Stopwatch.StartNew();
+
+    /// <summary>
+    /// A short buzz in one controller (strength 0..1, milliseconds): the feel of pointing at something, pressing it, placing a block. On an event, never per frame; a hand has no actuator and a
+    /// browser without haptics ignores it. Pulses closer than 40 ms on one hand are dropped (a held trigger repeating must not become a hum).
+    /// </summary>
+    public void Pulse(bool right, float strength, int milliseconds)
+    {
+        if (_session == null) return;
+        int hand = right ? 1 : 0;
+        double now = _pulseClock.Elapsed.TotalMilliseconds;
+        if (now - _lastPulseAt[hand] < 40) return;
+        _lastPulseAt[hand] = now;
+        _ = PulseAsync(right ? "right" : "left", Math.Clamp(strength, 0f, 1f), milliseconds);
+    }
+
+    private async Task PulseAsync(string handedness, float strength, int milliseconds)
+    {
+        try
+        {
+            using var sources = _session!.InputSources;
+            for (int i = 0; i < sources.Length; i++)
+            {
+                using var source = sources[i];
+                if (source.Handedness != handedness) continue;
+                using var gamepad = source.Gamepad;
+                var actuators = gamepad?.HapticActuators;
+                if (actuators is not { Length: > 0 }) return;
+                try { await actuators[0].Pulse(strength, milliseconds); }
+                finally { foreach (var actuator in actuators) actuator.Dispose(); }
+                return;
+            }
+        }
+        catch { /* no haptics here: nothing to tell */ }
+    }
+
     public void RequestEnd() => _ = EndAfterThisFrameAsync();
 
     private async Task EndAfterThisFrameAsync()

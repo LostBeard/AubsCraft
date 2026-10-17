@@ -85,10 +85,11 @@ public class ViewerXrTests
               cb(performance.now(), frame);
               mirror();
             }, 16); return handle; };
-            const pad = (stick, down) => ({ axes: [0, 0, stick[0], stick[1]], buttons: [0,1,2,3,4,5].map(i => ({ pressed: !!down[i], touched: false, value: 0 })) });
+            xr.pulses = [];
+            const pad = (stick, down, hand) => ({ axes: [0, 0, stick[0], stick[1]], buttons: [0,1,2,3,4,5].map(i => ({ pressed: !!down[i], touched: false, value: 0 })), hapticActuators: [{ pulse: (v, d) => { xr.pulses.push([hand, v, d]); return Promise.resolve(true); } }] });
             Object.defineProperty(s, 'inputSources', { get: () => [
-              { handedness: 'left', targetRaySpace: { hand: 'left' }, gamepad: pad(xr.left, { 4: xr.x, 5: xr.leftY, 1: xr.leftGrip, 0: xr.leftTrigger, 3: xr.leftThumb }) },
-              { handedness: 'right', targetRaySpace: { hand: 'right' }, gamepad: pad(xr.right, { 5: xr.rightB, 1: xr.rightGrip, 0: xr.trigger, 3: xr.rightThumb, 4: xr.rightA }) },
+              { handedness: 'left', targetRaySpace: { hand: 'left' }, gamepad: pad(xr.left, { 4: xr.x, 5: xr.leftY, 1: xr.leftGrip, 0: xr.leftTrigger, 3: xr.leftThumb }, 'left') },
+              { handedness: 'right', targetRaySpace: { hand: 'right' }, gamepad: pad(xr.right, { 5: xr.rightB, 1: xr.rightGrip, 0: xr.trigger, 3: xr.rightThumb, 4: xr.rightA }, 'right') },
             ] });
             s.end = async () => { xr.ended = true; clearTimeout(timer); s.dispatchEvent(new Event('end')); };
             return s;
@@ -553,6 +554,9 @@ public class ViewerXrTests
             for (int i = 0; i < 30 && plugin.Received.Count == before; i++) await Task.Delay(200);
             Assert.That(plugin.Received[^1].Block, Is.EqualTo("minecraft:cobblestone"), "the right grip chose the next block in hand");
             await Task.Delay(1500);
+            // The hands felt it: ticks in the right controller (placing, picking, the grip) and the left (breaking)
+            var pulseHands = await page.EvaluateAsync<string[]>("window.__xr.pulses.map(p => p[0])");
+            Assert.That(pulseHands, Does.Contain("right").And.Contain("left"), "the controllers buzzed: " + string.Join(",", pulseHands));
             await PressAsync(page, "leftGrip");
             await Task.Delay(1000);
             before = plugin.Received.Count;
