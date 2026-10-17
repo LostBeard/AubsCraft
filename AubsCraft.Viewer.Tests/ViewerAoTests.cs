@@ -34,7 +34,7 @@ public class ViewerAoTests
         if (_rig != null) await _rig.DisposeAsync();
     }
 
-    private async Task<Bitmap> ShotAsync(string name, string link, string cam)
+    private async Task<Bitmap> ShotAsync(string name, string link, string cam, int drawDistance = 8)
     {
         var page = await _rig.Context.NewPageAsync();
         var errors = new List<string>();
@@ -43,7 +43,7 @@ public class ViewerAoTests
         page.PageError += (_, e) => errors.Add(e);
         try
         {
-            await page.GotoAsync(_rig.BaseUrl + "/map?hud=0&dd=8&time=6000&" + link + "&cam=" + cam, new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+            await page.GotoAsync(_rig.BaseUrl + "/map?hud=0&dd=" + drawDistance + "&time=6000&" + link + "&cam=" + cam, new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
             await ViewerShotTests.WaitForSettledAsync(page, minSections: 20, quietSeconds: 4, maxSeconds: 60);
             var file = Path.Combine(_outDir, name + ".png");
             await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = file });
@@ -54,6 +54,26 @@ public class ViewerAoTests
         {
             await page.CloseAsync();
         }
+    }
+
+    [Test]
+    public async Task SoftShading_IsOnlyNearTheCamera()
+    {
+        // From ten chunks away (the platform is past the soft shading's reach: it costs a few times the quads, and far off it is a pixel or two) the picture is the same with it and without
+        const string cam = "-160,-52,30,-8,0";
+        using var flat = await ShotAsync("far-flat", "ao=0", cam, 20);
+        using var soft = await ShotAsync("far-soft", "ao=1", cam, 20);
+        // The band of the picture the platform stands in, far off on the horizon (above it the clouds drift by the viewer's clock)
+        int from = (int)(flat.Height * 0.38), to = (int)(flat.Height * 0.52), different = 0, total = 0;
+        for (int y = from; y < to; y++)
+            for (int x = 0; x < flat.Width; x++)
+            {
+                total++;
+                if (Math.Abs(Luma(flat.GetPixel(x, y)) - Luma(soft.GetPixel(x, y))) > 12) different++;
+            }
+        TestContext.Progress.WriteLine($"[ao] far view: {different} of {total} ground pixels differ");
+        Assert.That(different, Is.LessThan(total / 2000), "far columns carry no soft shading");
+        Assert.That(flat.GetPixel(flat.Width / 2, (int)(flat.Height * 0.43)).GetBrightness(), Is.GreaterThan(0f));
     }
 
     private static int Luma(Color c) => (c.R * 299 + c.G * 587 + c.B * 114) / 1000;

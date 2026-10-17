@@ -711,6 +711,51 @@ public class ViewerXrTests
         finally { await page.CloseAsync(); }
     }
 
+    // A CPU profile of a headset frame on the main thread (the headset's world is drawn there), on the real world: where the milliseconds go. Not a gate: point AUBS_VIEWER_PUBLISH at a folder
+    // whose wwwroot is the AOT build (the interpreter's numbers say nothing) and run with --filter "Name~ProfileTheHeadsetFrame"; the table is printed
+    [Test, Explicit("a profile, not a gate: needs the AOT client")]
+    public async Task ProfileTheHeadsetFrame()
+    {
+        var log = new List<string>(); var errors = new List<string>();
+        var page = await StartSessionAsync("Enter VR", "/map?hud=0&time=6000&cam=" + Cam, log, errors, 20_000);
+        try
+        {
+            // A head is never perfectly still: a little tremor, so the two eyes' views change every frame as they do on a person
+            await page.EvaluateAsync("window.__xr.jitter = " + (Environment.GetEnvironmentVariable("AUBS_XR_JITTER") ?? "0.003"));
+            var cdp = await page.Context.NewCDPSessionAsync(page);
+            await cdp.SendAsync("Profiler.enable");
+            await cdp.SendAsync("Profiler.setSamplingInterval", new Dictionary<string, object> { ["interval"] = 250 });
+            await cdp.SendAsync("Profiler.start");
+            await Task.Delay(10_000);
+            var stopped = await cdp.SendAsync("Profiler.stop");
+            var profile = stopped!.Value.GetProperty("profile");
+            var nodes = profile.GetProperty("nodes").EnumerateArray().ToDictionary(n => n.GetProperty("id").GetInt32(), n => n);
+            var samples = profile.GetProperty("samples").EnumerateArray().Select(e => e.GetInt32()).ToArray();
+            var deltas = profile.GetProperty("timeDeltas").EnumerateArray().Select(e => e.GetInt64()).ToArray();
+            var self = new Dictionary<string, double>();
+            var byUrl = new Dictionary<string, double>();
+            double total = 0;
+            for (int i = 0; i < samples.Length; i++)
+            {
+                var frame = nodes[samples[i]].GetProperty("callFrame");
+                string name = frame.GetProperty("functionName").GetString() ?? "";
+                string url = frame.GetProperty("url").GetString() ?? "";
+                if (name == "(idle)") continue;
+                double ms = deltas[i] / 1000.0;
+                total += ms;
+                string key = (name == "" ? "(anonymous)" : name) + " " + System.IO.Path.GetFileName(url);
+                self[key] = self.GetValueOrDefault(key) + ms;
+                string group = url.Length == 0 ? name : System.IO.Path.GetFileName(url);
+                byUrl[group] = byUrl.GetValueOrDefault(group) + ms;
+            }
+            TestContext.Progress.WriteLine($"[profile] {total:F0} ms busy of 10000; the [Xr] line: {log.ToArray().Last(l => l.Contains("ms of CPU a frame"))}");
+            foreach (var kv in byUrl.OrderByDescending(k => k.Value).Take(8)) TestContext.Progress.WriteLine($"[profile] file   {kv.Value,8:F0} ms  {kv.Key}");
+            foreach (var kv in self.OrderByDescending(k => k.Value).Take(30)) TestContext.Progress.WriteLine($"[profile] self   {kv.Value,8:F0} ms  {kv.Key}");
+            await LeaveAsync(page, log, errors);
+        }
+        finally { await page.CloseAsync(); }
+    }
+
     [Test]
     public async Task NoButtonLeaves_OnlyTheMenusLeaveTile()
     {

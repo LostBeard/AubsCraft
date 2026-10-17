@@ -288,7 +288,7 @@ else
             Xr.Ended += OnXrEnded;
             Xr.ChatSent -= OnXrChat;
             Xr.ChatSent += OnXrChat;
-            await Xr.EnterAsync(mode, serverId, new System.Numerics.Vector3(s.CamX, s.CamY, s.CamZ), s.CamYaw, s.CamPitch, _lastTicks, Auth.Role is "Owner" or "Admin", _ambientOcclusion);
+            await Xr.EnterAsync(mode, serverId, new System.Numerics.Vector3(s.CamX, s.CamY, s.CamZ), s.CamYaw, s.CamPitch, _lastTicks, Auth.Role is "Owner" or "Admin", ambientOcclusion: false);   // flat in a headset until the Quest has shown what the soft shadows cost its frame
             Xr.SeedHud(_hudFeed.CurrentPlayers, _hudFeed.RecentChat);
         }
         catch (Exception ex)

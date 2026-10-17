@@ -32,6 +32,8 @@ public sealed class XrViewerHost : IDisposable
     private bool _worldStarting;
     private int _framesDrawn;
     private double _drawMsSum;
+    // Where a frame's CPU time goes, summed over the frames of one log line: the head, hands and surfaces; the world's own frame; building and the panel's texture; the eyes' drawing; the blits
+    private double _msPrep, _msWorld, _msEdit, _msRender, _msBlit;
     private double _cpuAverageMs;   // a moving average of what a frame costs the CPU: steers the draw distance (see FarWindow.NextXrDrawDistance)
     private const float DefaultDisplayRate = 72f;   // a Quest's usual, when the session does not say
     private readonly System.Diagnostics.Stopwatch _clock = new();
@@ -394,18 +396,29 @@ public sealed class XrViewerHost : IDisposable
             _hud.SetSpeaking(_voice.Speaking());
         }
         _hud.SetMicState(_voice.IsOn, _voice.MicOn);
+        double tPrep = _clock.Elapsed.TotalMilliseconds;
         _world.XrFrame(dt, (float)_cpuAverageMs, 1000f / (_session.DisplayRate ?? DefaultDisplayRate));
+        double tWorld = _clock.Elapsed.TotalMilliseconds;
         foreach (var line in _hud.TakeOutgoingChat()) ChatSent?.Invoke(line);
         if (!_world.WorldReady) return;
         UpdateEditing(f, dt);
         if (anySurface) DrawPanelTexture();
+        double tEdit = _clock.Elapsed.TotalMilliseconds;
+        double renderSpent = 0, blitSpent = 0;
 
         var shown = _surfaces.Where(surface => surface.Visible).ToArray();
+        // Two eyes: what either sees is drawn from one bundle recorded for both (not on the table, where the model is a few chunks round a point and its own cull)
+        Matrix4x4[]? standard = null;
+        if (f.Views.Length == 2 && !_tabletop)
+            standard = f.Views.Select(v => ViewSetup.XrStandard(XrMath.EyeView(v.RoomView, _worldFromRoom.Value), v.Projection)).ToArray();
+        int eyeIndex = -1;
         foreach (var v in f.Views)
         {
+            eyeIndex++;
             var eye = XrMath.EyeInWorld(v.RoomView, _worldFromRoom.Value);
             var view = ViewSetup.FromXr(eye, XrMath.EyeView(v.RoomView, _worldFromRoom.Value), v.Projection, _session.EnvironmentBlendMode is "alpha-blend" or "additive" ? 0f : 1f,
-                _tabletop ? _table.Focus : null, _tabletop ? _table.ChunkRadius : 0);
+                _tabletop ? _table.Focus : null, _tabletop ? _table.ChunkRadius : 0,
+                standard?[1 - eyeIndex], standard != null, standard != null ? headWorld : null);
             int w = (int)v.Viewport.Width, h = (int)v.Viewport.Height;
             Action<GPUCommandEncoder, GPUTextureView>? overlay = null;
             if (shown.Length > 0 && _panelGpu is { IsReady: true } gpu)
@@ -425,18 +438,24 @@ public sealed class XrViewerHost : IDisposable
                     for (int i = 0; i < quads.Length; i++) gpu.Draw(encoder, target, i, quads[i].Tl, quads[i].Tr, quads[i].Bl, quads[i].Br, quads[i].Region);
                 };
             }
+            double e0 = _clock.Elapsed.TotalMilliseconds;
             _world.XrRenderEye(in view, w, h, overlay);
+            double e1 = _clock.Elapsed.TotalMilliseconds;
             _blit.Blit(_bridge, _session.Layer.Framebuffer, v.Viewport);
+            renderSpent += e1 - e0;
+            blitSpent += _clock.Elapsed.TotalMilliseconds - e1;
         }
 
         double spent = _clock.Elapsed.TotalMilliseconds;
         _cpuAverageMs = _cpuAverageMs <= 0 ? spent : _cpuAverageMs + 0.05 * (spent - _cpuAverageMs);
         _drawMsSum += spent;
+        _msPrep += tPrep; _msWorld += tWorld - tPrep; _msEdit += tEdit - tWorld; _msRender += renderSpent; _msBlit += blitSpent;
         if (++_framesDrawn % 120 == 0)
         {
             var vp = f.Views.Length > 0 ? f.Views[0].Viewport : null;
-            Console.WriteLine($"[Xr] {_framesDrawn} frames; {_drawMsSum / 120:F1} ms of CPU a frame ({f.Views.Length} eyes of {vp?.Width}x{vp?.Height}), head at {headWorld:F1}; draw distance {_map.DrawDistance}; {_map.LastVoxelStats.DrawCalls} draws, {_map.LastVoxelStats.VisibleSections}/{_map.LastVoxelStats.SectionsWithQuads} sections, {_map.LastVoxelStats.Columns} columns, {_world.LoadedCount} loaded; {_world.Note}");
+            Console.WriteLine($"[Xr] {_framesDrawn} frames; {_drawMsSum / 120:F1} ms of CPU a frame [input {_msPrep / 120:F1}, world {_msWorld / 120:F1}, edit+panel {_msEdit / 120:F1}, eyes {_msRender / 120:F1}, blit {_msBlit / 120:F1}] ({f.Views.Length} eyes of {vp?.Width}x{vp?.Height}), head at {headWorld:F1}; draw distance {_map.DrawDistance}; {_map.LastVoxelStats.DrawCalls} draws ({_world.BundleNote}), {_map.LastVoxelStats.VisibleSections}/{_map.LastVoxelStats.SectionsWithQuads} sections, {_map.LastVoxelStats.Columns} columns, {_world.LoadedCount} loaded; {_world.SegmentNote()}; {_world.Note}");
             _drawMsSum = 0;
+            _msPrep = _msWorld = _msEdit = _msRender = _msBlit = 0;
         }
     }
 

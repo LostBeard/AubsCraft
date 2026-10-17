@@ -671,6 +671,12 @@ public class RenderWorkerService : IRenderWorkerService
     /// <summary>The camera, as the headset's head: where the world streams around and what the live creatures are culled for.</summary>
     public FpsCamera Camera => _renderer.Camera;
 
+    /// <summary>How many frames a headset ran the draws from a bundle it already had, and how many times it recorded one.</summary>
+    public string BundleNote => _voxel == null ? "" : $"bundles reused {_voxel.BundlesReused}, recorded {_voxel.BundlesRecorded}, water recorded {_voxel.WaterBundlesRecorded}";
+
+    /// <summary>Where the milliseconds of the renderer's frame go (average since it was last read).</summary>
+    public string SegmentNote() => _voxel?.SegmentNote() ?? "";
+
     /// <summary>The world's own numbers (draws, quad buffers, how loading is going), one line, for a log.</summary>
     public string Note => _voxel == null ? "" : VoxelNote();
 

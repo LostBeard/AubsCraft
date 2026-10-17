@@ -46,6 +46,8 @@ public sealed class VoxelWorldRenderer : IDisposable
         public int SectionsWithQuads, LowestSection, HighestSection;
         /// <summary>Which neighbours existed when the mesh was made: bit 0 -X, 1 +X, 2 -Z, 3 +Z.</summary>
         public int MeshedWith;
+        /// <summary>Whether the mesh was made with ambient occlusion (only the columns near the camera have it).</summary>
+        public bool MeshedWithAo;
         public bool Removed;
     }
 
@@ -85,6 +87,39 @@ public sealed class VoxelWorldRenderer : IDisposable
 
     // Per-frame scratch, reused
     private readonly List<Column> _visible = new(512);
+
+    // ---- bundles (a headset): the draws recorded once for both eyes, kept while what is drawn does not change ----
+    private GPURenderBundle? _cubeBundle, _waterBundle;
+    private long _cubeSignature, _waterSignature;
+    private int _cubeFrameVersion, _waterFrameVersion;
+    private int _cubeDraws, _cubeSections, _waterDraws;
+    private long _cubeQuads, _waterQuads;
+    // Where a frame's CPU time goes inside Render (milliseconds summed over the frames since SegmentNote was last read): the frame's uniforms and the creatures' poses; the cull; the pass and the sky; the cubes; creatures and particles; water; the end
+    private readonly double[] _segments = new double[7];
+    private int _segmentFrames;
+
+    /// <summary>The average milliseconds of each part of <c>Render</c> since this was last asked for (and starts the sums again).</summary>
+    public string SegmentNote()
+    {
+        int n = Math.Max(_segmentFrames, 1);
+        var text = $"render: prepare {_segments[0] / n:F2}, cull {_segments[1] / n:F2}, pass+sky {_segments[2] / n:F2}, cubes {_segments[3] / n:F2}, creatures {_segments[4] / n:F2}, water {_segments[5] / n:F2}, end {_segments[6] / n:F2}";
+        System.Array.Clear(_segments);
+        _segmentFrames = 0;
+        return text;
+    }
+
+    // The set the last pair of eyes drew (a headset): while the same two views come again - the second eye of the frame, or a head that holds still - and no mesh changed, the cull, the sort of the water and the
+    // look at what changed are all skipped
+    private bool _setValid;
+    private Matrix4x4 _setA, _setB;
+    private int _setCX, _setCZ, _setRadius;
+    public long WaterBundlesRecorded { get; private set; }
+
+    /// <summary>Frames a headset reused its bundles / made them again (for the log).</summary>
+    public long BundlesReused { get; private set; }
+    public long BundlesRecorded { get; private set; }
+    // How far past an eye's view the drawn set reaches (blocks): the set then changes less often as the head moves
+    private const float BundleMargin = 8f;
     private readonly List<(float dist, Column col)> _waterOrder = new(512);
     // The columns and far chunks Render looks at (see RebuildCandidates), and what they were built for
     private readonly List<Column> _candidates = new(2048);
@@ -360,7 +395,9 @@ public sealed class VoxelWorldRenderer : IDisposable
     {
         if (_disposed) return;
         bool moved = camCX != _winCX || camCZ != _winCZ || drawDistanceChunks != _winDrawDistance;
+        bool chunkChanged = camCX != _winCX || camCZ != _winCZ;
         _winCX = camCX; _winCZ = camCZ; _winDrawDistance = drawDistanceChunks;
+        if (chunkChanged && _ambientOcclusion) RefreshAoColumns();
         if (!moved && !_farWanted) return;
         if (_farPumpRunning) { _farRescan = true; return; }
         _farPumpRunning = true;
@@ -469,7 +506,7 @@ public sealed class VoxelWorldRenderer : IDisposable
             {
                 var col = _stale.First();
                 _stale.Remove(col);
-                if (col.Removed || col.Mesh == null || col.MeshedWith == NeighbourMask(col)) continue;
+                if (col.Removed || col.Mesh == null || col.MeshedWith == NeighbourMask(col) && col.MeshedWithAo == WantsAo(col)) continue;
                 try
                 {
                     await PaceAsync(IngestPriority.Remesh);
@@ -522,6 +559,8 @@ public sealed class VoxelWorldRenderer : IDisposable
             set.TryGetValue((col.Cx, col.Cz + 1), out var pz);
             int mask = (nx != null ? 1 : 0) | (px != null ? 2 : 0) | (nz != null ? 4 : 0) | (pz != null ? 8 : 0);
 
+            bool withAo = WantsAo(col);
+            if (!col.IsFar) _mesher!.AmbientOcclusion = withAo;
             var mesh = col.IsFar
                 ? await _farMesher!.MeshAsync(col.Heights!, nx?.Heights, px?.Heights, nz?.Heights, pz?.Heights)
                 : await _mesher!.MeshAsync(col.Blocks!, nx?.Blocks, px?.Blocks, nz?.Blocks, pz?.Blocks);
@@ -537,6 +576,7 @@ public sealed class VoxelWorldRenderer : IDisposable
             ForgetTotals(col); // the old mesh's share (its section count is read before it is overwritten below)
             col.Mesh = mesh;
             col.MeshedWith = mask;
+            col.MeshedWithAo = withAo && !col.IsFar;
             MeshesDone++;
             col.SectionsWithQuads = 0;
             col.LowestSection = SectionsPerColumn;
@@ -559,6 +599,32 @@ public sealed class VoxelWorldRenderer : IDisposable
     }
 
     private bool _ambientOcclusion = true;
+
+    /// <summary>
+    /// How far from the camera's chunk columns get soft corner shadows (chunks): AO splits quads wherever the occlusion changes, which on real terrain is three or four times the quads, and far away
+    /// it is a pixel or two - so only the columns near the camera have it. A column that has it keeps it until it is <see cref="AoKeepChunks"/> away (so it is not meshed over and over at the edge).
+    /// </summary>
+    public const int AoChunks = 3, AoKeepChunks = 5;
+
+    private bool WantsAo(Column col)
+    {
+        if (!_ambientOcclusion || col.IsFar || _winCX == int.MinValue) return false;
+        int d = Math.Max(Math.Abs(col.Cx - _winCX), Math.Abs(col.Cz - _winCZ));
+        return d <= (col.MeshedWithAo ? AoKeepChunks : AoChunks);
+    }
+
+    // The camera is in another chunk: the columns that should now have (or no longer need) the shadows are meshed again, behind the new columns
+    private void RefreshAoColumns()
+    {
+        bool any = false;
+        foreach (var col in _columns.Values)
+            if (col.Mesh != null && col.MeshedWithAo != WantsAo(col)) { _stale.Add(col); any = true; }
+        if (any && !_remeshRunning)
+        {
+            _remeshRunning = true;
+            _ = RemeshStaleAsync();
+        }
+    }
 
     /// <summary>Soft shadows in the corners and at the feet of walls, baked into the quads by the mesher (VoxelEngine's ambient occlusion). On by default.</summary>
     public bool AmbientOcclusion => _ambientOcclusion;
@@ -704,7 +770,7 @@ public sealed class VoxelWorldRenderer : IDisposable
                     _pipe.BindPass(pass, kind, gpu);
                     _pipe.Draw(pass, list.FirstQuad, list.Count, col.Slot);
                 }
-            _waterOrder.Sort((a, b) => b.dist.CompareTo(a.dist));
+            _waterOrder.Sort(WaterFarthestFirst);
             foreach (var (_, col) in _waterOrder)
             {
                 var water = col.Mesh!.Water;
@@ -760,16 +826,19 @@ public sealed class VoxelWorldRenderer : IDisposable
         in ViewSetup view, in DayLighting light, int drawDistanceChunks)
     {
         var recordTimer = System.Diagnostics.Stopwatch.StartNew();
+        double mark = 0;
+        void Lap(int segment) { double now = recordTimer.Elapsed.TotalMilliseconds; _segments[segment] += now - mark; mark = now; }
         int drawCalls = 0;
         // The calls the pipeline really made (BindPass skips repeats): buffer binds and pipeline switches since this frame began
         long bindsBefore = _pipe.QuadBufferBinds + _pipe.PipelineSwitches;
         EnsureDepth(width, height);
         var frustum = FrustumCuller.ExtractPlanes(view.ViewProjectionStandard); // plane extraction wants the standard-Z matrix
+        var frustumOther = view.OtherEyeStandard is { } otherEye ? FrustumCuller.ExtractPlanes(otherEye) : frustum;
         var camera = view;   // the camera's place is all the rest needs from it
 
         // A model on a table: the chunks round its focus are drawn (not those round the eye, which is outside the model), with no fog
         bool model = view.IsModel;
-        var center = view.CullCenter ?? camera.Position;
+        var center = view.CullCenter ?? view.ViewCenter ?? camera.Position;
         if (model && view.DrawChunks > 0) drawDistanceChunks = view.DrawChunks;
         // Under water everything fades into murk a few dozen blocks out, and the frame is cleared to it
         if (!model) ProbeCamera(camera.Position);
@@ -794,22 +863,44 @@ public sealed class VoxelWorldRenderer : IDisposable
         Entities?.Prepare(center, model ? FarWindow.CullRadius(drawDistanceChunks) * 16f : FarWindow.FogEndBlocks(drawDistanceChunks), view.ViewProjectionStandard, width, height);
         Particles?.Prepare(center, view.ViewProjectionStandard);
 
+        Lap(0);
         int camCX = (int)MathF.Floor(center.X / 16f);
         int camCZ = (int)MathF.Floor(center.Z / 16f);
         // Never past the fog: terrain beyond it is the fog colour (the frame is cleared to it below) and only costs draws
         long drawDistSq = (long)FarWindow.CullRadius(drawDistanceChunks) * FarWindow.CullRadius(drawDistanceChunks);
         var gatherTimer = System.Diagnostics.Stopwatch.StartNew();
-        _visible.Clear();
-        _waterOrder.Clear();
         // Only the meshes in range are looked at each frame: the list is rebuilt when the camera changes chunk, the draw distance changes or a
         // mesh appears, goes or is replaced - not by walking every column and far chunk of the world 60 times a second (7300 of them on a
         // loaded world; on a laptop CPU that walk was 4-5 ms of the frame)
         int radius = FarWindow.CullRadius(drawDistanceChunks);
-        if (_candidatesDirty || camCX != _candCX || camCZ != _candCZ || radius != _candRadius)
-            RebuildCandidates(camCX, camCZ, radius);
-        foreach (var col in _candidates)
-            GatherVisible(col, in frustum, camCX, camCZ);
+        bool rebuilt = _candidatesDirty || camCX != _candCX || camCZ != _candCZ || radius != _candRadius;
+        if (rebuilt) RebuildCandidates(camCX, camCZ, radius);
+        bool shared = view.Shared && !model;
+        // The same two views as the last frame's pair (either way round: the second eye comes with them swapped), the same candidates: the set is the one already gathered and sorted
+        bool sameSet = shared && !rebuilt && _setValid && camCX == _setCX && camCZ == _setCZ && radius == _setRadius
+            && view.OtherEyeStandard is { } otherVp
+            && (view.ViewProjectionStandard == _setA && otherVp == _setB || view.ViewProjectionStandard == _setB && otherVp == _setA);
+        if (!sameSet)
+        {
+            _visible.Clear();
+            _waterOrder.Clear();
+            foreach (var col in _candidates)
+            {
+                if (shared) GatherVisibleEither(col, in frustum, in frustumOther, camCX, camCZ);
+                else GatherVisible(col, in frustum, camCX, camCZ);
+            }
+            if (shared)
+            {
+                // Farthest first, so nearer water blends over farther water (sorted once for a set, not for each eye of each frame)
+                _waterOrder.Sort(WaterFarthestFirst);
+                _setValid = true;
+                _setA = view.ViewProjectionStandard; _setB = view.OtherEyeStandard!.Value;
+                _setCX = camCX; _setCZ = camCZ; _setRadius = radius;
+            }
+            else _setValid = false;
+        }
         double gatherMs = gatherTimer.Elapsed.TotalMilliseconds;
+        Lap(1);
 
         int visibleSections = 0;
         long visibleQuads = 0;
@@ -819,6 +910,17 @@ public sealed class VoxelWorldRenderer : IDisposable
         // The sky first, under everything (not under water, where everything is murk, nor in a see-through frame: the camera feed is the sky there)
         if (!underwater && view.ClearAlpha >= 1f) Sky?.Draw(pass, in view, TimeOfDay, Rain, Thunder, light, ServerSeconds);
 
+        Lap(2);
+        if (shared)
+        {
+            // One call runs every column's draws: recorded when the set changed, not for each eye and frame
+            EnsureCubeBundle(sameSet);
+            _pipe.ExecuteBundle(pass, _cubeBundle!);
+            drawCalls += _cubeDraws;
+            visibleSections += _cubeSections;
+            visibleQuads += _cubeQuads;
+        }
+        else
         foreach (var kind in CubePasses)
         {
             foreach (var col in _visible)
@@ -834,12 +936,25 @@ public sealed class VoxelWorldRenderer : IDisposable
             }
         }
 
+        Lap(3);
         // The creatures: depth tested against the ground, before the water so water in front of one blends over it
         Entities?.Draw(pass);
         Particles?.Draw(pass);
 
+        Lap(4);
         // Water last, farthest column first, so nearer water blends over farther water
-        _waterOrder.Sort((a, b) => b.dist.CompareTo(a.dist));
+        if (!shared) _waterOrder.Sort(WaterFarthestFirst);
+        if (shared)
+        {
+            EnsureWaterBundle(sameSet);
+            if (_waterBundle != null)
+            {
+                _pipe.ExecuteBundle(pass, _waterBundle);
+                drawCalls += _waterDraws;
+                visibleQuads += _waterQuads;
+            }
+        }
+        else
         foreach (var (_, col) in _waterOrder)
         {
             var list = col.Mesh!.Water;
@@ -849,9 +964,12 @@ public sealed class VoxelWorldRenderer : IDisposable
             drawCalls++;
             visibleQuads += list.Count;
         }
+        Lap(5);
         // The rain and snow over everything (not under water, not in a see-through frame)
         if (!underwater && view.ClearAlpha >= 1f && Rain > 0.02f) Sky?.DrawWeather(pass, in view, Rain, DayLighting.SkyAt(TimeOfDay, Rain, Thunder).Daylight, ServerSeconds);
         pass.End();
+        Lap(6);
+        _segmentFrames++;
 
         return new VoxelFrameStats(_columns.Count + _far.Count, _totalSections, visibleSections, _totalQuads, visibleQuads,
             drawCalls, (int)(_pipe.QuadBufferBinds + _pipe.PipelineSwitches - bindsBefore), recordTimer.Elapsed.TotalMilliseconds, gatherMs);
@@ -871,6 +989,98 @@ public sealed class VoxelWorldRenderer : IDisposable
         if (!FrustumCuller.IsBoxVisible(in frustum, min, max)) return;
         _visible.Add(col);
         if (mesh.Water.Count > 0) _waterOrder.Add((dx * dx + dz * dz, col));
+    }
+
+    // The same for a headset: in view of EITHER eye, the box grown by a margin
+    private void GatherVisibleEither(Column col, in FrustumCuller.Frustum first, in FrustumCuller.Frustum second, int camCX, int camCZ)
+    {
+        var mesh = col.Mesh;
+        if (mesh == null || col.HighestSection < 0) return;
+        long dx = col.Cx - camCX, dz = col.Cz - camCZ;
+        var min = new Vector3(col.Cx * 16 - BundleMargin, WorldMinY + col.LowestSection * 16 - BundleMargin, col.Cz * 16 - BundleMargin);
+        var max = new Vector3(col.Cx * 16 + 16 + BundleMargin, WorldMinY + (col.HighestSection + 1) * 16 + BundleMargin, col.Cz * 16 + 16 + BundleMargin);
+        if (!FrustumCuller.IsBoxVisible(in first, min, max) && !FrustumCuller.IsBoxVisible(in second, min, max)) return;
+        _visible.Add(col);
+        if (mesh.Water.Count > 0) _waterOrder.Add((dx * dx + dz * dz, col));
+    }
+
+    // Farthest first; ties by slot, so the order of a SET never depends on the order it was gathered in (a sort that is not total moves tied columns about when any one is added, and a bundle is recorded again for nothing)
+    private static int WaterFarthestFirst((float dist, Column col) a, (float dist, Column col) b)
+    {
+        int c = b.dist.CompareTo(a.dist);
+        return c != 0 ? c : a.col.Slot.CompareTo(b.col.Slot);
+    }
+
+    private static long Mix(long h, long v) => (h ^ v) * 1099511628211L;
+
+    // What a bundle of these lists would draw, as one number: a column, its mesh, where its quads are. A bundle is recorded again when it changes
+    private static long Sign(long h, int slot, ColumnMesh.QuadList list)
+        => Mix(Mix(Mix(Mix(h, slot), list.FirstQuad), list.Count), System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(list.Buffer));
+
+    private void EnsureCubeBundle(bool setUnchanged)
+    {
+        if (setUnchanged && _cubeBundle != null && _pipe.FrameBindGroupVersion == _cubeFrameVersion) { BundlesReused++; return; }
+        long sig = -3750763034362895579L;   // the FNV offset
+        foreach (var kind in CubePasses)
+            foreach (var col in _visible)
+            {
+                var list = kind == BlockRenderPipeline.Pass.Opaque ? col.Mesh!.Opaque : col.Mesh!.Plants;
+                if (list.Count == 0 || list.Buffer == null) continue;
+                sig = Sign(Mix(sig, (int)kind), col.Slot, list);
+            }
+        if (_cubeBundle != null && sig == _cubeSignature && _pipe.FrameBindGroupVersion == _cubeFrameVersion) { BundlesReused++; return; }
+        _cubeBundle?.Dispose();
+        var recorder = _pipe.BeginBundle();
+        int draws = 0, sections = 0;
+        long quads = 0;
+        foreach (var kind in CubePasses)
+            foreach (var col in _visible)
+            {
+                var list = kind == BlockRenderPipeline.Pass.Opaque ? col.Mesh!.Opaque : col.Mesh!.Plants;
+                if (list.Count == 0 || list.Buffer?.GetGPUBuffer() is not { } gpu) continue;
+                _pipe.BindBundle(recorder, kind, gpu);
+                _pipe.DrawInBundle(recorder, list.FirstQuad, list.Count, col.Slot);
+                draws++;
+                if (kind == BlockRenderPipeline.Pass.Opaque) sections += col.SectionsWithQuads;
+                quads += list.Count;
+            }
+        _cubeBundle = recorder.Finish();
+        recorder.Dispose();
+        _cubeSignature = sig; _cubeFrameVersion = _pipe.FrameBindGroupVersion;
+        _cubeDraws = draws; _cubeSections = sections; _cubeQuads = quads;
+        BundlesRecorded++;
+    }
+
+    private void EnsureWaterBundle(bool setUnchanged)
+    {
+        if (setUnchanged && _pipe.FrameBindGroupVersion == _waterFrameVersion && (_waterBundle != null || _waterDraws == 0 && _waterSignature == -3750763034362895579L)) return;
+        long sig = -3750763034362895579L;
+        foreach (var (_, col) in _waterOrder)
+        {
+            var list = col.Mesh!.Water;
+            if (list.Buffer == null) continue;
+            sig = Sign(sig, col.Slot, list);
+        }
+        if (sig == -3750763034362895579L) { _waterBundle?.Dispose(); _waterBundle = null; _waterSignature = sig; _waterDraws = 0; _waterQuads = 0; return; }
+        if (_waterBundle != null && sig == _waterSignature && _pipe.FrameBindGroupVersion == _waterFrameVersion) return;
+        _waterBundle?.Dispose();
+        var recorder = _pipe.BeginBundle();
+        int draws = 0;
+        long quads = 0;
+        foreach (var (_, col) in _waterOrder)
+        {
+            var list = col.Mesh!.Water;
+            if (list.Buffer?.GetGPUBuffer() is not { } gpu) continue;
+            _pipe.BindBundle(recorder, BlockRenderPipeline.Pass.Water, gpu);
+            _pipe.DrawInBundle(recorder, list.FirstQuad, list.Count, col.Slot);
+            draws++;
+            quads += list.Count;
+        }
+        _waterBundle = recorder.Finish();
+        recorder.Dispose();
+        _waterSignature = sig; _waterFrameVersion = _pipe.FrameBindGroupVersion;
+        _waterDraws = draws; _waterQuads = quads;
+        WaterBundlesRecorded++;
     }
 
     // The meshes worth looking at this frame: meshed, something to draw, within the draw radius, and a far chunk only where no full column
@@ -927,6 +1137,8 @@ public sealed class VoxelWorldRenderer : IDisposable
         }
         _far.Clear();
         _stale.Clear();
+        _cubeBundle?.Dispose(); _waterBundle?.Dispose();
+        _cubeBundle = _waterBundle = null;
         _mesher?.Dispose();
         _farMesher?.Dispose();
         // The bind groups of the arena's blocks go before the blocks do
