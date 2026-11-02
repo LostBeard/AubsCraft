@@ -74,30 +74,44 @@ public sealed class VelocityProcess : IAsyncDisposable
     }
 
     /// <summary>
-    /// Waits until the proxy's Geyser has started and proves it holds the Bedrock UDP port: Geyser's own
-    /// "[geyser]: Done (" line, then a bind of <paramref name="bedrockPort"/> from here must fail as in use.
-    /// Not a wait for "Started Geyser on UDP port N": Geyser 2.12 (NetherNet transport) no longer prints that line
-    /// ("Built-in signaling started on http://0.0.0.0:N" instead), and these tests download the newest Geyser, so its
-    /// wording is not a contract; the port is.
+    /// Waits until the proxy's Geyser has started and proves it listens where transport "both" says
+    /// (<see cref="Services.ProxyService.WriteGeyserBedrock"/>): RakNet on <paramref name="bedrockPort"/> UDP, built-in
+    /// NetherNet signaling on <paramref name="bedrockPort"/> TCP, NetherNet WebRTC on <paramref name="webRtcPort"/> UDP.
+    /// Geyser's own "[geyser]: Done (" line first, then each port is probed: a UDP bind from here must fail as in use,
+    /// the TCP port must accept a connection.
+    /// Not a wait for "Started Geyser on UDP port N": Geyser 2.12 does not print it when NetherNet is on, and these
+    /// tests download the newest Geyser, so its wording is not a contract; the ports are.
     /// </summary>
-    public async Task WaitForGeyserAsync(int bedrockPort, TimeSpan timeout)
+    public async Task WaitForGeyserAsync(int bedrockPort, int webRtcPort, TimeSpan timeout)
     {
         await WaitForLineAsync("[geyser]: Done (", timeout);
         var end = DateTime.UtcNow + TimeSpan.FromSeconds(10);
         while (true)
         {
-            try
-            {
-                using var probe = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Any, bedrockPort));
-            }
-            catch (System.Net.Sockets.SocketException e) when (e.SocketErrorCode == System.Net.Sockets.SocketError.AddressAlreadyInUse)
-            {
-                return; // Geyser has it
-            }
+            bool raknet = UdpHeld(bedrockPort), webRtc = UdpHeld(webRtcPort), signaling = await TcpAccepts(bedrockPort);
+            if (raknet && webRtc && signaling) return;
             if (DateTime.UtcNow > end)
-                Assert.Fail($"Geyser said Done but UDP {bedrockPort} is free (no Bedrock listener). Last output:\n{string.Join('\n', Output.TakeLast(30))}");
+                Assert.Fail($"Geyser said Done but not every Bedrock listener is up: RakNet UDP {bedrockPort} {(raknet ? "held" : "FREE")}, " +
+                    $"signaling TCP {bedrockPort} {(signaling ? "accepts" : "REFUSED")}, NetherNet UDP {webRtcPort} {(webRtc ? "held" : "FREE")}. " +
+                    $"Last output:\n{string.Join('\n', Output.TakeLast(30))}");
             await Task.Delay(200);
         }
+    }
+
+    /// <summary>
+    /// Is a UDP socket bound to this port, from the OS's own table (what netstat lists)? Not a bind attempt: Geyser's
+    /// RakNet socket is exclusive (a second bind fails with AccessDenied), but its NetherNet socket is shareable (a second
+    /// bind SUCCEEDS while Geyser holds it on ::), so a bind could not tell a held NetherNet port from a free one
+    /// (2026-11-02, Geyser 2.12.1, checked with Get-NetUDPEndpoint against the proxy's PID).
+    /// </summary>
+    private static bool UdpHeld(int port) =>
+        System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners().Any(e => e.Port == port);
+
+    private static async Task<bool> TcpAccepts(int port)
+    {
+        using var tcp = new System.Net.Sockets.TcpClient();
+        try { await tcp.ConnectAsync(System.Net.IPAddress.Loopback, port).WaitAsync(TimeSpan.FromSeconds(2)); return true; }
+        catch (Exception e) when (e is System.Net.Sockets.SocketException or TimeoutException) { return false; }
     }
 
     public async ValueTask DisposeAsync()

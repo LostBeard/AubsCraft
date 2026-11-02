@@ -62,6 +62,7 @@ public class CutoverTests
         BindHost = "127.0.0.1",
         Port = PublicPort,         // the proxy takes over the server's public port
         BedrockPort = 19132,       // and its Bedrock port: the server's own Geyser must be gone, or this collides
+        BedrockWebRtcPort = 19133, // NetherNet (transport both)
         VoicePort = 24490,
         RconPort = ProxyRcon,
         OnlineMode = false,
@@ -170,7 +171,7 @@ public class CutoverTests
         Assert.That(marker, Does.Contain("passed").IgnoreCase, "the world's marker block survived: " + marker);
 
         // The proxy holds Bedrock now: its Geyser bound 19132, so the server's own Geyser was really disabled.
-        await _runner.Proxy!.WaitForGeyserAsync(19132, TimeSpan.FromSeconds(60));
+        await _runner.Proxy!.WaitForGeyserAsync(19132, 19133, TimeSpan.FromSeconds(60)); // transport both (ProxyDefinition defaults)
         Assert.That(Directory.GetFiles(Path.Combine(_runner.Server!.Dir, "plugins"), "Geyser-Spigot.jar.disabled"), Has.Length.EqualTo(1));
         Assert.That(_runner.Proxy.Output.Where(l => l.Contains(" ERROR]")), Is.Empty);
 

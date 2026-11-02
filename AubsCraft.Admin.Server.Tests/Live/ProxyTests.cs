@@ -13,7 +13,7 @@ namespace AubsCraft.Admin.Server.Tests.Live;
 [NonParallelizable]
 public class ProxyTests
 {
-    private const int ProxyPort = 25670, BedrockPort = 19232, VoicePort = 24470, ProxyRcon = 25676;
+    private const int ProxyPort = 25670, BedrockPort = 19232, WebRtcPort = 19233, VoicePort = 24470, ProxyRcon = 25676;
     private static readonly (string id, int port, int rcon, int voice, int max) A = ("proxy-a", 25671, 25681, 24471, 5);
     private static readonly (string id, int port, int rcon, int voice, int max) B = ("proxy-b", 25672, 25682, 24472, 6);
 
@@ -54,6 +54,7 @@ public class ProxyTests
             BindHost = "127.0.0.1",
             Port = ProxyPort,
             BedrockPort = BedrockPort,
+            BedrockWebRtcPort = WebRtcPort,
             VoicePort = VoicePort,
             RconPort = ProxyRcon,
             RconPassword = "proxy-" + Guid.NewGuid().ToString("N")[..10],
@@ -107,7 +108,7 @@ public class ProxyTests
     [Test, Order(1)]
     public async Task Proxy_StartsEveryPluginWithoutErrors()
     {
-        await _velocity.WaitForGeyserAsync(BedrockPort, TimeSpan.FromSeconds(60));
+        await _velocity.WaitForGeyserAsync(BedrockPort, WebRtcPort, TimeSpan.FromSeconds(60));
         var output = _velocity.Output;
         foreach (var plugin in new[] { "floodgate", "geyser", "velocircon", "viaversion", "viabackwards", "viarewind", "voicechat", "vvivecraftvelocityextensions" })
             Assert.That(output.Any(l => l.Contains("Loaded plugin " + plugin + " ")), Is.True, "plugin not loaded: " + plugin);

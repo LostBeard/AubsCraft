@@ -167,9 +167,29 @@ public class ProxyService
 
         ConfigFiles.SetProperty(Path.Combine(proxy.Path, "plugins", "voicechat", "voicechat-proxy.properties"), "port", proxy.VoicePort.ToString());
         ConfigFiles.SetYamlScalar(Path.Combine(proxy.Path, "plugins", "floodgate", "config.yml"), ["send-floodgate-data"], "true");
-        ConfigFiles.SetYamlScalar(Path.Combine(proxy.Path, "plugins", "Geyser-Velocity", "config.yml"), ["bedrock", "port"], proxy.BedrockPort.ToString());
+        WriteGeyserBedrock(proxy);
         WriteJavaOnly(proxy, servers, PublicUrl);
         WriteViaVersionServers(proxy, servers);
+    }
+
+    /// <summary>
+    /// Geyser's Bedrock listeners: the port, the transport and the NetherNet port, always written, since Geyser 2.12
+    /// generates "transport: nethernet" (no RakNet listener) and a proxy set up with its defaults would turn away every
+    /// Bedrock client still on RakNet. The advertised addresses only when the proxy names some.
+    /// </summary>
+    public static void WriteGeyserBedrock(ProxyDefinition proxy)
+    {
+        if (proxy.BedrockTransport is not ("both" or "raknet" or "nethernet"))
+            throw new InvalidOperationException($"Bedrock transport '{proxy.BedrockTransport}' is not both, raknet or nethernet.");
+        if (proxy.BedrockTransport == "both" && proxy.BedrockWebRtcPort == proxy.BedrockPort)
+            throw new InvalidOperationException($"With transport both, the NetherNet port must differ from the Bedrock port ({proxy.BedrockPort}).");
+        var geyser = Path.Combine(proxy.Path, "plugins", "Geyser-Velocity", "config.yml");
+        ConfigFiles.SetYamlScalar(geyser, ["bedrock", "port"], proxy.BedrockPort.ToString());
+        ConfigFiles.SetYamlScalar(geyser, ["bedrock", "transport"], proxy.BedrockTransport);
+        ConfigFiles.SetYamlScalar(geyser, ["bedrock", "webrtc-port"], proxy.BedrockTransport == "both" ? proxy.BedrockWebRtcPort.ToString() : "0");
+        if (proxy.BedrockAdvertiseAddresses.Count > 0)
+            ConfigFiles.SetYamlScalar(geyser, ["bedrock", "signaling", "advertise-addresses"],
+                "[" + string.Join(", ", proxy.BedrockAdvertiseAddresses.Select(ConfigFiles.YamlString)) + "]");
     }
 
     /// <summary>

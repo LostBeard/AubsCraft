@@ -159,7 +159,7 @@ public sealed class VoiceClient : IDisposable
         // Too far behind to catch up (the tab was in the background): drop it rather than play it late
         if (voice.NextTime - _context.CurrentTime > 0.6) { voice.NextTime = 0; }
         using var data = (ArrayBuffer)speech.Opus;
-        using var chunk = new OpusChunk(voice.Timestamp, 20000, data);
+        using var chunk = new EncodedAudioChunk(new EncodedAudioChunkInit { Type = EncodedAudioChunkType.Key, Timestamp = voice.Timestamp, Duration = 20000, Data = data });
         voice.Timestamp += 20000;
         decoder.Decode(chunk);
         PacketsHeard++;
@@ -348,23 +348,4 @@ public sealed class VoiceClient : IDisposable
         try { Stop(); } catch { }
         try { _context?.Close(); } catch { }
     }
-}
-
-// WORKAROUND: SpawnJS 3.0.7 EncodedAudioChunkInit.Type is a plain enum and marshals as a number; reported to Data 2026-11-02
-// (fix: EnumString<EncodedAudioChunkType>). Delete this class and use EncodedAudioChunkInit once a fixed SpawnJS is referenced.
-/// <summary>
-/// An EncodedAudioChunk made from an init whose type is the string the browser wants: SpawnJS writes an enum as its number, and WebCodecs refuses "0" for the chunk's type.
-/// </summary>
-internal sealed class OpusChunk : EncodedAudioChunk
-{
-    private sealed class Init
-    {
-        [System.Text.Json.Serialization.JsonPropertyName("type")] public string Type { get; set; } = "key";
-        [System.Text.Json.Serialization.JsonPropertyName("timestamp")] public long Timestamp { get; set; }
-        [System.Text.Json.Serialization.JsonPropertyName("duration")] public long Duration { get; set; }
-        [System.Text.Json.Serialization.JsonPropertyName("data")] public ArrayBuffer? Data { get; set; }
-    }
-
-    public OpusChunk(long timestamp, long duration, ArrayBuffer data)
-        : base(JS.New(nameof(EncodedAudioChunk), new Init { Timestamp = timestamp, Duration = duration, Data = data })) { }
 }

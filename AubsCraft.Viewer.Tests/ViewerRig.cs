@@ -33,6 +33,16 @@ public sealed class ViewerRig : IAsyncDisposable
 
     /// <param name="publishDir">Output of `dotnet publish AubsCraft.Admin.Server -c Release` (framework-dependent).</param>
     /// <param name="worldServerPath">A Minecraft server folder (contains world/); only read.</param>
+    private static long _tickBase = 1_000_000;
+    /// <summary>
+    /// A FullTime base for a test's synthetic live frames, higher than any earlier test's. The panel hands a new page the
+    /// LAST frame it was posted and the viewer ignores frames older than one it has seen (LiveWorldState), and the tests of
+    /// a class share one rig and run in name order: with fixed bases, a test whose base was below the one before it saw
+    /// none of its own frames (2026-11-02: TheZoo_EveryModel_StandsInARow 200,000 after ThePlayerList 300,000;
+    /// Paintings 600,000 and Projectiles 800,000 after FarmAnimals 900,000).
+    /// </summary>
+    public static long NextTickBase() => Interlocked.Add(ref _tickBase, 1_000_000);
+
     public static async Task<ViewerRig> StartAsync(string publishDir, string worldServerPath, string? secondServerId = null)
     {
         var dll = Path.Combine(publishDir, "AubsCraft.Admin.Server.dll");

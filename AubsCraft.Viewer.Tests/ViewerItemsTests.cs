@@ -50,7 +50,7 @@ public class ViewerItemsTests
         // A falling block and a primed TNT: whole blocks, in the row below the items
         entities.Add(new LiveEntity(150, "falling_block", -3.3f, 117.0f, 0.5f, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, "sand"));
         entities.Add(new LiveEntity(151, "tnt", -1.8f, 117.0f, 0.5f, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, null));
-        long tick = 400_000;
+        long tick = ViewerRig.NextTickBase();
         byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
         {
             FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
@@ -133,7 +133,7 @@ public class ViewerItemsTests
             float x = -6.25f + i * 2.5f;
             entities.Add(new LiveEntity(200 + i, types[i], x, 118.0f, 0.5f, i % 2 == 0 ? 20f : -35f, 0f, i % 2 == 0 ? 20f : -35f, 0, 0f, 0f, 0f, null, null));
         }
-        long tick = 300_000;
+        long tick = ViewerRig.NextTickBase();
         byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
         {
             FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
@@ -191,7 +191,7 @@ public class ViewerItemsTests
             new(305, "item_frame", 18.5f, y0 + 0.5f, wall, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, null),
             new(306, "glow_item_frame", 20.5f, y0 + 0.5f, wall, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, "apple"),
         };
-        long tick = 600_000;
+        long tick = ViewerRig.NextTickBase();
         byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
         {
             FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
@@ -250,7 +250,7 @@ public class ViewerItemsTests
             new(506, "small_fireball", 4.0f, 118.5f, 0.5f, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, null),
             new(507, "fireball", 7.0f, 118.5f, 0.5f, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, null),
         };
-        long tick = 800_000;
+        long tick = ViewerRig.NextTickBase();
         byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
         {
             FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
@@ -304,7 +304,7 @@ public class ViewerItemsTests
         for (int row = 0; row < types.Length; row++)
             for (int col = 0; col < kinds.Length; col++)
                 entities.Add(new LiveEntity(id++, types[row], -3.0f + col * 3.0f, 118.0f - row * 1.6f, 0.5f, 0f, 0f, 0f, 0, 0f, 0f, 0f, null, kinds[col]));
-        long tick = 900_000;
+        long tick = ViewerRig.NextTickBase();
         byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
         {
             FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,

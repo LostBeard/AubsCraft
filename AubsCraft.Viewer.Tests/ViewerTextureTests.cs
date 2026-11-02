@@ -63,10 +63,13 @@ public class ViewerTextureTests
 
             using var imgA = new Bitmap(a);
             using var imgB = new Bitmap(b);
-            double sky = ChangedFraction(imgA, imgB, 6, imgA.Height / 8);
+            // The sky has drifting clouds since the SkyPipeline (2026-10-16: 0.36 blocks a tick), so a cloud edge moves between
+            // the two frames. Clouds are near white: compare only the pixels that are sky in BOTH frames (R < 200); the sky's
+            // own colour must not change (the 2026-11-02 gate measured 6.6% changed over all pixels: the clouds).
+            double sky = ChangedFraction(imgA, imgB, 6, imgA.Height / 8, skipClouds: true);
             double water = ChangedFraction(imgA, imgB, imgA.Height / 2, imgA.Height - 6);
-            TestContext.Progress.WriteLine($"[tex] changed between two frames 0.7 s apart: sky {sky:P2}, water {water:P2}");
-            Assert.That(sky, Is.LessThan(0.002), "the sky is a flat colour and does not change");
+            TestContext.Progress.WriteLine($"[tex] changed between two frames 0.7 s apart: sky (cloud-free pixels) {sky:P2}, water {water:P2}");
+            Assert.That(sky, Is.LessThan(0.002), "the sky's colour does not change between frames");
             Assert.That(water, Is.GreaterThan(0.01), "the water texture animates, so the water region changes between two frames");
             Assert.That(errors, Is.Empty, "The page logged errors");
         }
@@ -77,8 +80,9 @@ public class ViewerTextureTests
         }
     }
 
-    // The share of sampled pixels in the rows [y0, y1) that differ by more than a few levels between the two images
-    private static double ChangedFraction(Bitmap a, Bitmap b, int y0, int y1)
+    // The share of sampled pixels in the rows [y0, y1) that differ by more than a few levels between the two images.
+    // skipClouds: leave out pixels that are cloud (near white, R >= 200) in either image.
+    private static double ChangedFraction(Bitmap a, Bitmap b, int y0, int y1, bool skipClouds = false)
     {
         int total = 0, changed = 0;
         for (int y = y0; y < y1; y += 2)
@@ -86,6 +90,7 @@ public class ViewerTextureTests
             {
                 var p = a.GetPixel(x, y);
                 var q = b.GetPixel(x, y);
+                if (skipClouds && (p.R >= 200 || q.R >= 200)) continue;
                 total++;
                 if (Math.Abs(p.R - q.R) > 6 || Math.Abs(p.G - q.G) > 6 || Math.Abs(p.B - q.B) > 6) changed++;
             }

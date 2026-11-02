@@ -101,7 +101,7 @@ public class ViewerLiveTests
         };
         var player = new LivePlayer(11, "01234567-89ab-cdef-fedc-ba9876543210", "Steve", "", false, 0, "diamond_sword", 1f);
 
-        long tick = 100_000;
+        long tick = ViewerRig.NextTickBase();
         byte[] Frame(float walkerX)
         {
             var entities = new List<LiveEntity>(stationary)
@@ -171,7 +171,7 @@ public class ViewerLiveTests
             var lines = log.ToArray();
             Assert.That(lines.Any(l => l.Contains("[Live] Entity assets:")), Is.True, "the creature textures should have loaded:\n" + string.Join("\n", lines.Where(l => l.Contains("Live")).Take(10)));
             Assert.That(lines.Any(l => l.Contains("Live feed connected")), Is.True, "the live socket should have connected");
-            var creatures = lines.Select(l => System.Text.RegularExpressions.Regex.Match(l, @"\[Live\] creatures (\d+) drawn of (\d+) \((\d+) parts, (\d+) players, (\d+) frames, (\d+) name tags\)")).Where(m => m.Success).ToList();
+            var creatures = lines.Select(l => System.Text.RegularExpressions.Regex.Match(l, @"\[Live\] creatures (\d+) drawn of (\d+) \((\d+) parts, (\d+) players, (\d+) frames, (\d+) name tags(?:, \d+ items)?\)")).Where(m => m.Success).ToList();
             Assert.That(creatures, Is.Not.Empty, "the worker should report the creatures");
             var best = creatures.OrderByDescending(m => int.Parse(m.Groups[1].Value)).First();
             TestContext.Progress.WriteLine($"[live] the worker reports: {best.Value}");
@@ -189,7 +189,7 @@ public class ViewerLiveTests
             await ViewerShotTests.WaitForSettledAsync(page, minSections: 150, quietSeconds: 4, maxSeconds: 90);
             await Task.Delay(6000);
             await canvas.ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "live-2-hud-nametags.png") });
-            var tagLines = log.ToArray().Select(l => System.Text.RegularExpressions.Regex.Match(l, @"(\d+) name tags\)")).Where(m => m.Success).Select(m => int.Parse(m.Groups[1].Value)).ToList();
+            var tagLines = log.ToArray().Select(l => System.Text.RegularExpressions.Regex.Match(l, @"(\d+) name tags[,)]")).Where(m => m.Success).Select(m => int.Parse(m.Groups[1].Value)).ToList();
             TestContext.Progress.WriteLine($"[live] name tags reported: {string.Join(",", tagLines)}");
             Assert.That(tagLines, Is.Not.Empty, "the worker should report its name tags");
             Assert.That(tagLines.Max(), Is.GreaterThanOrEqualTo(2), "the player and the named sheep each get a name tag");
@@ -220,7 +220,7 @@ public class ViewerLiveTests
         for (int i = 0; i < back.Length; i++)
             entities.Add(new LiveEntity(id++, back[i], cx - 5.25f + i * 1.5f, y, cz - 1.5f, 180f, 0f, 180f, LiveFlags.OnGround, 0f, 0f, 0f, null, null));
         var players = new[] { new LivePlayer(front.ToList().IndexOf("player") + 1, "89abcdef-0123-4567-89ab-cdef01234567", "Alex", "", true, 0, "air", 1f) };
-        long tick = 200_000;
+        long tick = ViewerRig.NextTickBase();
         byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
         {
             FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
@@ -275,7 +275,7 @@ public class ViewerLiveTests
 
         // "Aubs" (the name the demo player list has) walks east at 2.5 blocks a second, from the patch's west edge
         float walkerX = cx - 6f;
-        long tick = 300_000;
+        long tick = ViewerRig.NextTickBase();
         var aubs = new LivePlayer(21, "11111111-2222-3333-4444-555555555555", "Aubs", "", false, 0, "air", 1f);
         byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
         {
@@ -399,7 +399,7 @@ public class ViewerLiveTests
         {
             Mob(1, "zombie", cx, y, cz - 20f, 0f), Mob(2, "cow", cx + 20f, y, cz, 0f), Mob(3, "villager", cx, y, cz + 20f, 0f),
         };
-        long tick = 200_000;
+        long tick = ViewerRig.NextTickBase();
         byte[] Frame() => LiveFrameCodec.Write(new LiveFrame
         {
             FullTime = tick, DayTime = 6000, Raining = false, Thundering = false,
@@ -472,7 +472,7 @@ public class ViewerLiveTests
         int group = 0;
         var current = new List<LiveEntity>();
         var lockObj = new object();
-        long tick = 400_000;
+        long tick = ViewerRig.NextTickBase();
         byte[] Frame()
         {
             LiveEntity[] entities; lock (lockObj) entities = current.ToArray();

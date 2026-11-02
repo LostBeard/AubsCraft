@@ -229,7 +229,7 @@ public class ServerProvisioningService
     private void AllocatePorts(ServerDefinition def, ProxyDefinition proxy)
     {
         var used = _registry.All.SelectMany(s => new[] { s.GamePort, s.RconPort, s.VoicePort })
-            .Concat([proxy.Port, proxy.RconPort, proxy.VoicePort, proxy.BedrockPort]).ToHashSet();
+            .Concat([proxy.Port, proxy.RconPort, proxy.VoicePort, proxy.BedrockPort, proxy.BedrockWebRtcPort]).ToHashSet();
         int Next(int from) { var p = from; while (used.Contains(p)) p++; used.Add(p); return p; }
         def.GamePort = Next(25567);
         def.RconPort = Next(25577);

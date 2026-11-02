@@ -117,8 +117,25 @@ public class ProxyDefinition
     public string BindHost { get; set; } = "0.0.0.0";
     /// <summary>Public Java port (players and the SRV record point here).</summary>
     public int Port { get; set; } = 25565;
-    /// <summary>Public Bedrock (Geyser) UDP port.</summary>
+    /// <summary>
+    /// Public Bedrock (Geyser) port: RakNet over UDP, and Geyser's built-in NetherNet signaling over TCP (both
+    /// protocols must be forwarded to the proxy).
+    /// </summary>
     public int BedrockPort { get; set; } = 19132;
+    /// <summary>
+    /// How Bedrock players connect (Geyser's bedrock.transport): "both" (RakNet on <see cref="BedrockPort"/> UDP and
+    /// NetherNet WebRTC on <see cref="BedrockWebRtcPort"/> UDP), "raknet" or "nethernet". Written explicitly because
+    /// Geyser 2.12 changed its default to "nethernet" (no RakNet listener at all); TJ 2026-11-02: "both".
+    /// </summary>
+    public string BedrockTransport { get; set; } = "both";
+    /// <summary>Public NetherNet (WebRTC) UDP port, Geyser's bedrock.webrtc-port. With "both" it must differ from <see cref="BedrockPort"/>.</summary>
+    public int BedrockWebRtcPort { get; set; } = 19133;
+    /// <summary>
+    /// Addresses NetherNet signaling hands players for the WebRTC connection (Geyser's advertise-addresses), e.g.
+    /// "mc.spawndev.com" and the proxy's LAN address. Empty = Geyser's own: this machine's addresses plus the public
+    /// address STUN finds. Written only when set (the key's place in config.yml differs between Geyser versions).
+    /// </summary>
+    public List<string> BedrockAdvertiseAddresses { get; set; } = [];
     /// <summary>Public Simple Voice Chat UDP port (the proxy relays to each server's internal voice port).</summary>
     public int VoicePort { get; set; } = 24454;
     /// <summary>Velocircon RCON, bound to 127.0.0.1 - how the panel runs proxy commands (velocity reload, glist).</summary>
