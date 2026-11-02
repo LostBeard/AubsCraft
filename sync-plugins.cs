@@ -163,13 +163,15 @@ for (int i = 0; i < 80; i++)        // up to ~4 minutes
 string finalLog = TryReadText(WinLatestLog);
 Console.WriteLine(booted ? "Server reported Done.\n" : "Did not see 'Done' in time - check logs.\n");
 
-void Report(string label, string needle)
+void Report(string label, params string[] needles)
 {
-    bool ok = finalLog.Contains(needle, StringComparison.OrdinalIgnoreCase);
+    bool ok = needles.Any(n => finalLog.Contains(n, StringComparison.OrdinalIgnoreCase));
     Console.WriteLine($"  {(ok ? "OK  " : "??  ")}{label}");
 }
 Console.WriteLine("Plugin load check:");
-Report("Geyser on UDP 19132", "Started Geyser on UDP port 19132");
+// Geyser up to 2.11 prints "Started Geyser on UDP port 19132"; 2.12 (NetherNet transport) prints
+// "Built-in signaling started on http://0.0.0.0:19132" for the same UDP port instead.
+Report("Geyser on UDP 19132", "Started Geyser on UDP port 19132", "Built-in signaling started on http://0.0.0.0:19132");
 Report("ViaVersion enabled",  "Enabling ViaVersion");
 Report("ViaBackwards enabled","Enabling ViaBackwards");
 Report("ViaRewind enabled",   "Enabling ViaRewind");

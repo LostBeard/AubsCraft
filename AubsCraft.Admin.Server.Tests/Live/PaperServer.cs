@@ -136,8 +136,11 @@ public sealed class PaperServer : IAsyncDisposable
         if (finished != started._done.Task)
         {
             var tail = string.Join('\n', started.OutputTail(40));
+            // Read before DisposeAsync: it disposes the Process, and HasExited on a disposed Process throws "No process is
+            // associated with this object", which hid this message (and the server's own output) on 2026-11-02.
+            var exited = process.HasExited;
             await started.DisposeAsync();
-            throw new InvalidOperationException($"Paper '{name}' did not finish starting (exited={process.HasExited}). Last output:\n{tail}");
+            throw new InvalidOperationException($"Paper '{name}' did not finish starting in {timeout.TotalSeconds:0} s (exited={exited}). Last output:\n{tail}");
         }
         return started;
     }

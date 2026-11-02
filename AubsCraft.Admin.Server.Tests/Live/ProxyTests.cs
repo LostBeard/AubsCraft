@@ -107,7 +107,7 @@ public class ProxyTests
     [Test, Order(1)]
     public async Task Proxy_StartsEveryPluginWithoutErrors()
     {
-        await _velocity.WaitForLineAsync("Started Geyser on UDP port " + BedrockPort, TimeSpan.FromSeconds(60));
+        await _velocity.WaitForGeyserAsync(BedrockPort, TimeSpan.FromSeconds(60));
         var output = _velocity.Output;
         foreach (var plugin in new[] { "floodgate", "geyser", "velocircon", "viaversion", "viabackwards", "viarewind", "voicechat", "vvivecraftvelocityextensions" })
             Assert.That(output.Any(l => l.Contains("Loaded plugin " + plugin + " ")), Is.True, "plugin not loaded: " + plugin);

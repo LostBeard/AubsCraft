@@ -350,6 +350,8 @@ public sealed class VoiceClient : IDisposable
     }
 }
 
+// WORKAROUND: SpawnJS 3.0.7 EncodedAudioChunkInit.Type is a plain enum and marshals as a number; reported to Data 2026-11-02
+// (fix: EnumString<EncodedAudioChunkType>). Delete this class and use EncodedAudioChunkInit once a fixed SpawnJS is referenced.
 /// <summary>
 /// An EncodedAudioChunk made from an init whose type is the string the browser wants: SpawnJS writes an enum as its number, and WebCodecs refuses "0" for the chunk's type.
 /// </summary>

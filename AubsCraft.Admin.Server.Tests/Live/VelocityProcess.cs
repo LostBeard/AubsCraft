@@ -73,6 +73,33 @@ public sealed class VelocityProcess : IAsyncDisposable
         Assert.Fail($"Velocity never printed '{text}'. Last output:\n{string.Join('\n', Output.TakeLast(30))}");
     }
 
+    /// <summary>
+    /// Waits until the proxy's Geyser has started and proves it holds the Bedrock UDP port: Geyser's own
+    /// "[geyser]: Done (" line, then a bind of <paramref name="bedrockPort"/> from here must fail as in use.
+    /// Not a wait for "Started Geyser on UDP port N": Geyser 2.12 (NetherNet transport) no longer prints that line
+    /// ("Built-in signaling started on http://0.0.0.0:N" instead), and these tests download the newest Geyser, so its
+    /// wording is not a contract; the port is.
+    /// </summary>
+    public async Task WaitForGeyserAsync(int bedrockPort, TimeSpan timeout)
+    {
+        await WaitForLineAsync("[geyser]: Done (", timeout);
+        var end = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (true)
+        {
+            try
+            {
+                using var probe = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Any, bedrockPort));
+            }
+            catch (System.Net.Sockets.SocketException e) when (e.SocketErrorCode == System.Net.Sockets.SocketError.AddressAlreadyInUse)
+            {
+                return; // Geyser has it
+            }
+            if (DateTime.UtcNow > end)
+                Assert.Fail($"Geyser said Done but UDP {bedrockPort} is free (no Bedrock listener). Last output:\n{string.Join('\n', Output.TakeLast(30))}");
+            await Task.Delay(200);
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_process.HasExited) { _process.Dispose(); return; }

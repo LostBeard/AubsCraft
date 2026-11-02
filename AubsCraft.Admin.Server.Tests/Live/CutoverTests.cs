@@ -170,7 +170,7 @@ public class CutoverTests
         Assert.That(marker, Does.Contain("passed").IgnoreCase, "the world's marker block survived: " + marker);
 
         // The proxy holds Bedrock now: its Geyser bound 19132, so the server's own Geyser was really disabled.
-        await _runner.Proxy!.WaitForLineAsync("Started Geyser on UDP port 19132", TimeSpan.FromSeconds(60));
+        await _runner.Proxy!.WaitForGeyserAsync(19132, TimeSpan.FromSeconds(60));
         Assert.That(Directory.GetFiles(Path.Combine(_runner.Server!.Dir, "plugins"), "Geyser-Spigot.jar.disabled"), Has.Length.EqualTo(1));
         Assert.That(_runner.Proxy.Output.Where(l => l.Contains(" ERROR]")), Is.Empty);
 
