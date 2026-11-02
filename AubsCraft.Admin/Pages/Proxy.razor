@@ -45,10 +45,15 @@ else if (_status != null)
                 {
                     <span class="badge bg-warning text-dark ms-2">not applied yet</span>
                 }
+                <br /><span class="small text-muted" id="geyser-version">Geyser @(_status.GeyserVersion ?? "version unknown")</span>
             </p>
             <p class="small text-muted mb-2">
                 Applying restarts the proxy: everyone online is warned in chat, then disconnected for a few seconds, and joins again at the same address.
             </p>
+            <div class="form-check mb-1">
+                <input class="form-check-input" type="checkbox" id="update-plugins" @bind="_updatePlugins" disabled="@_applying" />
+                <label class="form-check-label" for="update-plugins">Also update Velocity, Geyser, Floodgate and the other proxy plugins to their newest builds</label>
+            </div>
             <div class="form-check mb-2">
                 <input class="form-check-input" type="checkbox" id="confirm-apply" @bind="_confirmApply" disabled="@_applying" />
                 <label class="form-check-label" for="confirm-apply">I understand everyone online is disconnected for a moment.</label>
@@ -132,6 +137,7 @@ else if (_preview != null)
 
     private bool Ready => _preview?.Prerequisites.All(p => p.Ok) == true;
     private bool _confirmApply;
+    private bool _updatePlugins = true;
     private bool _applying;
     private string? _applyMessage;
     private bool _applyOk;
@@ -150,7 +156,7 @@ else if (_preview != null)
         _applying = true;
         _applyMessage = null;
         _log.Clear();
-        var result = await Hub.ApplyProxySettingsAsync();
+        var result = await Hub.ApplyProxySettingsAsync(_updatePlugins);
         _applyMessage = result.Message;
         _applyOk = result.Success;
         if (!result.Success) _applying = false;

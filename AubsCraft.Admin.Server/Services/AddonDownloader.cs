@@ -43,17 +43,21 @@ public class AddonDownloader
     }
 
     /// <summary>The latest GeyserMC build of a project ("geyser", "floodgate") for a platform ("velocity", "spigot", ...).</summary>
-    public async Task<AddonArtifact> GeyserMcAsync(string project, string platform, CancellationToken ct = default)
+    public Task<AddonArtifact> GeyserMcAsync(string project, string platform, CancellationToken ct = default) =>
+        GeyserMcAsync(project, platform, "latest", "latest", ct);
+
+    /// <summary>One build of a GeyserMC project (version "2.11.3", build "1247"; "latest" for the newest).</summary>
+    public async Task<AddonArtifact> GeyserMcAsync(string project, string platform, string version, string build, CancellationToken ct = default)
     {
         using var doc = JsonDocument.Parse(await GetStringAsync(
-            $"https://download.geysermc.org/v2/projects/{project}/versions/latest/builds/latest", ct));
+            $"https://download.geysermc.org/v2/projects/{project}/versions/{version}/builds/{build}", ct));
         var root = doc.RootElement;
-        var version = root.GetProperty("version").GetString()!;
-        var build = root.GetProperty("build").GetInt32();
+        var v = root.GetProperty("version").GetString()!;
+        var b = root.GetProperty("build").GetInt32();
         var dl = root.GetProperty("downloads").GetProperty(platform);
         return new AddonArtifact(project, dl.GetProperty("name").GetString()!,
-            $"https://download.geysermc.org/v2/projects/{project}/versions/{version}/builds/{build}/downloads/{platform}",
-            "sha256", dl.GetProperty("sha256").GetString()!, $"{version}-b{build}");
+            $"https://download.geysermc.org/v2/projects/{project}/versions/{v}/builds/{b}/downloads/{platform}",
+            "sha256", dl.GetProperty("sha256").GetString()!, $"{v}-b{b}");
     }
 
     /// <summary>

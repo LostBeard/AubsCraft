@@ -110,17 +110,17 @@ public class ProxyOperationsService
     /// Starts <see cref="ProxyCutoverService.ApplySettingsAsync"/> in the background: players warned, the proxy restarted with
     /// the panel's settings. Progress is pushed with ReceiveOperationProgress as operation "proxy-settings".
     /// </summary>
-    public string StartApplySettings(string requestedBy)
+    public string StartApplySettings(string requestedBy, bool updatePlugins = false)
     {
         if (_registry.Proxy == null) return "No proxy is set up.";
         if (Interlocked.CompareExchange(ref _running, 1, 0) != 0) return "A proxy operation is already running.";
         lock (_log) _log.Clear();
-        _logger.LogWarning("Proxy settings applied (proxy restart) by {User}", requestedBy);
+        _logger.LogWarning("Proxy settings applied (proxy restart, update plugins {Update}) by {User}", updatePlugins, requestedBy);
         _ = Task.Run(async () =>
         {
             try
             {
-                await _cutover.ApplySettingsAsync(new Progress<string>(l => _ = PushAsync(l, done: false, failed: false, "proxy-settings")));
+                await _cutover.ApplySettingsAsync(updatePlugins, new Progress<string>(l => _ = PushAsync(l, done: false, failed: false, "proxy-settings")));
                 await PushAsync("Finished.", done: true, failed: false, "proxy-settings");
             }
             catch (Exception ex)
@@ -164,6 +164,24 @@ public class ProxyOperationsService
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
     }
 
+    /// <summary>The proxy's Geyser build ("2.11.3-b1247 (git-master-63a4e2b)", from git.properties in its jar), or null.</summary>
+    public static string? GeyserVersionOnDisk(ProxyDefinition proxy)
+    {
+        try
+        {
+            var jar = Path.Combine(proxy.Path, "plugins", "Geyser-Velocity.jar");
+            if (!File.Exists(jar)) return null;
+            using var zip = System.IO.Compression.ZipFile.OpenRead(jar);
+            var entry = zip.GetEntry("git.properties");
+            if (entry == null) return null;
+            using var reader = new StreamReader(entry.Open());
+            for (var line = reader.ReadLine(); line != null; line = reader.ReadLine())
+                if (line.StartsWith("git.build.version=")) return line["git.build.version=".Length..].Trim();
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { return null; }
+    }
+
     /// <summary>Proxy status for the panel: null when no proxy is set up.</summary>
     public async Task<ProxyStatusDto?> StatusAsync()
     {
@@ -181,7 +199,7 @@ public class ProxyOperationsService
             online = false;
         }
         return new ProxyStatusDto(online, proxy.Port, proxy.BedrockPort, proxy.VoicePort, proxy.VelocityVersion, players,
-            proxy.BedrockTransport, proxy.BedrockWebRtcPort, GeyserTransportOnDisk(proxy));
+            proxy.BedrockTransport, proxy.BedrockWebRtcPort, GeyserTransportOnDisk(proxy), GeyserVersionOnDisk(proxy));
     }
 }
 
@@ -193,5 +211,5 @@ public record CutoverPreviewDto(string ServerId, string ServerName, int PublicPo
 /// proxy's Geyser config says now (null when unreadable). They differ until the settings are applied (a proxy restart).
 /// </summary>
 public record ProxyStatusDto(bool Online, int Port, int BedrockPort, int VoicePort, string Version, string? Players,
-    string BedrockTransport, int BedrockWebRtcPort, string? GeyserTransport);
+    string BedrockTransport, int BedrockWebRtcPort, string? GeyserTransport, string? GeyserVersion);
 public record OperationProgressDto(string Operation, string Message, bool Done, bool Failed);

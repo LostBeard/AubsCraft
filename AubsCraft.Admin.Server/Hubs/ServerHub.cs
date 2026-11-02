@@ -480,9 +480,9 @@ public class ServerHub : Hub<IServerHubClient>
 
     /// <summary>Warns the players, then restarts the proxy with the panel's settings; progress arrives as ReceiveOperationProgress ("proxy-settings").</summary>
     [Authorize(Roles = Roles.Owner)]
-    public HubResult ApplyProxySettings()
+    public HubResult ApplyProxySettings(bool updatePlugins)
     {
-        var message = _proxyOps.StartApplySettings(CurrentUsername);
+        var message = _proxyOps.StartApplySettings(CurrentUsername, updatePlugins);
         return new HubResult(message.StartsWith("Restarting"), message);
     }
 

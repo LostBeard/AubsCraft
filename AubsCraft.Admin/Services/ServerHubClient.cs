@@ -437,8 +437,8 @@ public class ServerHubClient : IAsyncDisposable
         => SafeInvokeAsync("StartProxyCutover", new ToggleResultDto(false, "Connection lost"), serverId, newGamePort, voicePort);
 
     /// <summary>Warns the players and restarts the proxy with the panel's settings (owner). Progress: OnOperationProgress, "proxy-settings".</summary>
-    public Task<ToggleResultDto> ApplyProxySettingsAsync()
-        => SafeInvokeAsync("ApplyProxySettings", new ToggleResultDto(false, "Connection lost"));
+    public Task<ToggleResultDto> ApplyProxySettingsAsync(bool updatePlugins)
+        => SafeInvokeAsync("ApplyProxySettings", new ToggleResultDto(false, "Connection lost"), updatePlugins);
 
     // -- Config --
 
@@ -746,7 +746,7 @@ public record LivePluginStateDto(bool Supported, bool JarInstalled, bool JarUpTo
 public record LivePluginInstallResultDto(bool Success, bool Changed, string Message);
 
 public record ProxyStatusDto(bool Online, int Port, int BedrockPort, int VoicePort, string Version, string? Players,
-    string BedrockTransport, int BedrockWebRtcPort, string? GeyserTransport);
+    string BedrockTransport, int BedrockWebRtcPort, string? GeyserTransport, string? GeyserVersion);
 public record OperationProgressDto(string Operation, string Message, bool Done, bool Failed);
 
 public record BackupDto(string FileName, long SizeBytes, DateTime CreatedUtc);

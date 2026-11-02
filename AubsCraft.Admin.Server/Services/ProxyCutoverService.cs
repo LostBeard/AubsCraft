@@ -117,8 +117,13 @@ public class ProxyCutoverService
     /// Bedrock listeners) and starts it again. A restart, not "velocity reload": Geyser reads bedrock.transport only when
     /// it starts. Built so the Geyser 2.12 change (TJ 2026-11-02: transport "both") reaches a proxy set up before it.
     /// Players are disconnected for the restart (a few seconds) and reconnect to the same address.
+    /// <paramref name="updatePlugins"/>: while the proxy is stopped, also bring velocity.jar, Geyser, Floodgate and the other
+    /// proxy plugins to their newest builds (<see cref="ProxyService.InstallFilesAsync"/>, the cutover's installer). The VM's
+    /// proxy had Geyser 2.11.3 (2026-10-03), whose built-in signaling has no STUN and no advertised addresses, so NetherNet
+    /// could only offer the VM's LAN address; 2.12 finds the public one. Stopped first: Java holds its jars open (Windows
+    /// refuses the replace) and a running Geyser loads classes lazily from its jar.
     /// </summary>
-    public async Task ApplySettingsAsync(IProgress<string>? progress = null, CancellationToken ct = default)
+    public async Task ApplySettingsAsync(bool updatePlugins = false, IProgress<string>? progress = null, CancellationToken ct = default)
     {
         void Step(string s) { _logger.LogInformation("Proxy settings: {Step}", s); progress?.Report(s); }
 
@@ -145,6 +150,12 @@ public class ProxyCutoverService
         await _runner.StopAsync(proxy.ServiceName, ct);
         try
         {
+            if (updatePlugins)
+            {
+                Step("Updating Velocity, Geyser, Floodgate and the proxy plugins to their newest builds");
+                var installed = await _proxy.InstallFilesAsync(proxy, ct);
+                Step("Installed: " + string.Join(", ", installed.Select(a => $"{a.Name} {a.Version}")));
+            }
             _proxy.ConfigureProxy(proxy, _registry.All);
         }
         finally

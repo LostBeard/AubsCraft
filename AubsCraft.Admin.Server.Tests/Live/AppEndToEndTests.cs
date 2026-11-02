@@ -189,7 +189,7 @@ public class AppEndToEndTests
         Assert.That(result.Success, Is.False);
         Assert.That(result.Message, Does.StartWith("Not ready"));
         // "Apply the settings" (restart the proxy) refuses without a proxy, and nothing is restarted
-        var apply = await _hub.InvokeAsync<HubResult>("ApplyProxySettings");
+        var apply = await _hub.InvokeAsync<HubResult>("ApplyProxySettings", true);
         Assert.That((apply.Success, apply.Message), Is.EqualTo((false, "No proxy is set up.")));
     }
 

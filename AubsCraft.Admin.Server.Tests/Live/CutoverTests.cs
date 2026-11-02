@@ -186,12 +186,13 @@ public class CutoverTests
     }
 
     /// <summary>
-    /// "Apply the settings" on the Proxy page (ProxyCutoverService.ApplySettingsAsync): a proxy set up before the panel wrote
-    /// Geyser's transport (like the VM's, "raknet") gets the panel's "both" by a warned restart. Each step is checked on the
-    /// real proxy: what Geyser listens on, a player joining at the same address afterwards, the warning in the server's chat.
+    /// "Apply the settings" on the Proxy page (ProxyCutoverService.ApplySettingsAsync), from where the VM's proxy was on
+    /// 2026-11-02: Geyser 2.11.3-b1247 with "raknet". Without the plugin update the panel's transport is written and the proxy
+    /// restarted; with it, Geyser is replaced by the newest build and "both" brings up all three Bedrock listeners. Checked on
+    /// the real proxy: Geyser's own version line, what it listens on, a player joining at the same address, the chat warning.
     /// </summary>
     [Test]
-    public async Task ApplyingTheSettings_RestartsTheProxyWithThem_AndPlayersComeBack()
+    public async Task ApplyingTheSettings_RestartsTheProxyWithThem_AndUpdatesItsPlugins()
     {
         var proxyDir = FreshProxyDir("velocity-apply");
         Build(proxyDir);
@@ -201,22 +202,35 @@ public class CutoverTests
         cutover.ApplyWarning = TimeSpan.FromSeconds(2);
         await cutover.CutoverAsync(new ProxyCutoverService.CutoverPlan(ServerId, NewProxy(proxyDir), InternalPort, InternalVoice));
 
-        // Like the VM's proxy today: RakNet only
+        // The VM's Geyser, set up on 2026-10-03, and its transport
+        var old = await _downloader.GeyserMcAsync("geyser", "velocity", "2.11.3", "1247");
+        await _runner.StopAsync(ProxyService_);
+        await _downloader.DownloadAsync(old, Path.Combine(proxyDir, "plugins", old.FileName));
+        await _runner.StartAsync(ProxyService_);
         _registry.Proxy!.BedrockTransport = "raknet";
+
         var steps = new List<string>();
         int startsBefore = _runner.ProxyStarts;
-        await cutover.ApplySettingsAsync(new Progress<string>(steps.Add));
+        await cutover.ApplySettingsAsync(updatePlugins: false, new Progress<string>(steps.Add));
         Assert.That(_runner.ProxyStarts, Is.EqualTo(startsBefore + 1), "the proxy was restarted");
-        Assert.That(ProxyOperationsService.GeyserTransportOnDisk(_registry.Proxy), Is.EqualTo("raknet"));
         await _runner.Proxy!.WaitForLineAsync("[geyser]: Done (", TimeSpan.FromSeconds(60));
+        Assert.That(_runner.Proxy.Output.Any(l => l.Contains("Loading Geyser version 2.11.3-b1247")), Is.True, "no update asked: the old Geyser stays");
+        Assert.That(ProxyOperationsService.GeyserVersionOnDisk(_registry.Proxy), Does.StartWith("2.11.3-b1247"));
+        Assert.That(ProxyOperationsService.GeyserTransportOnDisk(_registry.Proxy), Is.EqualTo("raknet"));
         Assert.That(System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners().Any(e => e.Port == 19132), Is.True, "RakNet on 19132");
 
-        // The panel's setting: both
+        // The panel's setting, with the plugins brought up to date
         _registry.Proxy.BedrockTransport = "both";
         steps.Clear();
-        await cutover.ApplySettingsAsync(new Progress<string>(steps.Add));
+        await cutover.ApplySettingsAsync(updatePlugins: true, new Progress<string>(steps.Add));
+        Assert.That(steps, Has.Some.StartsWith("Installed: "), string.Join(" | ", steps));
         Assert.That(ProxyOperationsService.GeyserTransportOnDisk(_registry.Proxy), Is.EqualTo("both"));
+        var newest = await _downloader.GeyserMcAsync("geyser", "velocity");
         await _runner.Proxy!.WaitForGeyserAsync(19132, 19133, TimeSpan.FromSeconds(60));
+        Assert.That(_runner.Proxy.Output.Any(l => l.Contains("Loading Geyser version " + newest.Version)), Is.True,
+            $"Geyser {newest.Version} is the one running: " + string.Join(" | ", _runner.Proxy.Output.Where(l => l.Contains("Loading Geyser"))));
+        Assert.That(ProxyOperationsService.GeyserVersionOnDisk(_registry.Proxy), Does.StartWith(newest.Version));
+        Assert.That(Directory.GetFiles(Path.Combine(proxyDir, "plugins"), "*.download"), Is.Empty, "no half-downloaded jar left");
         Assert.That(steps.Last(), Does.StartWith("3/3 Done"), string.Join(" | ", steps));
 
         // Players come back at the same address, and they were told
