@@ -106,12 +106,62 @@ public class ProxyOperationsService
         return "Cutover started.";
     }
 
+    /// <summary>
+    /// Starts <see cref="ProxyCutoverService.ApplySettingsAsync"/> in the background: players warned, the proxy restarted with
+    /// the panel's settings. Progress is pushed with ReceiveOperationProgress as operation "proxy-settings".
+    /// </summary>
+    public string StartApplySettings(string requestedBy)
+    {
+        if (_registry.Proxy == null) return "No proxy is set up.";
+        if (Interlocked.CompareExchange(ref _running, 1, 0) != 0) return "A proxy operation is already running.";
+        lock (_log) _log.Clear();
+        _logger.LogWarning("Proxy settings applied (proxy restart) by {User}", requestedBy);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _cutover.ApplySettingsAsync(new Progress<string>(l => _ = PushAsync(l, done: false, failed: false, "proxy-settings")));
+                await PushAsync("Finished.", done: true, failed: false, "proxy-settings");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Applying the proxy settings failed");
+                await PushAsync("Failed: " + ex.Message, done: true, failed: true, "proxy-settings");
+            }
+            finally
+            {
+                Volatile.Write(ref _running, 0);
+            }
+        });
+        return "Restarting the proxy with its settings.";
+    }
+
     private void Report(string line) => _ = PushAsync(line, done: false, failed: false);
 
-    private Task PushAsync(string line, bool done, bool failed)
+    private Task PushAsync(string line, bool done, bool failed, string operation = "proxy-cutover")
     {
         lock (_log) _log.Add($"{DateTime.Now:HH:mm:ss} {line}");
-        return _hub.Clients.All.ReceiveOperationProgress(new OperationProgressDto("proxy-cutover", line, done, failed));
+        return _hub.Clients.All.ReceiveOperationProgress(new OperationProgressDto(operation, line, done, failed));
+    }
+
+    /// <summary>bedrock.transport in the proxy's Geyser config.yml, or null when it cannot be read.</summary>
+    public static string? GeyserTransportOnDisk(ProxyDefinition proxy)
+    {
+        try
+        {
+            var path = Path.Combine(proxy.Path, "plugins", "Geyser-Velocity", "config.yml");
+            if (!File.Exists(path)) return null;
+            bool inBedrock = false;
+            foreach (var line in File.ReadLines(path))
+            {
+                if (line.Length == 0 || line.TrimStart().StartsWith('#')) continue;
+                if (!char.IsWhiteSpace(line[0])) { inBedrock = line.StartsWith("bedrock:"); continue; }
+                var t = line.Trim();
+                if (inBedrock && line.StartsWith("  ") && !line.StartsWith("   ") && t.StartsWith("transport:")) return t["transport:".Length..].Trim();
+            }
+            return "raknet"; // a Geyser older than the transport option: RakNet only
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return null; }
     }
 
     /// <summary>Proxy status for the panel: null when no proxy is set up.</summary>
@@ -130,12 +180,18 @@ public class ProxyOperationsService
         {
             online = false;
         }
-        return new ProxyStatusDto(online, proxy.Port, proxy.BedrockPort, proxy.VoicePort, proxy.VelocityVersion, players);
+        return new ProxyStatusDto(online, proxy.Port, proxy.BedrockPort, proxy.VoicePort, proxy.VelocityVersion, players,
+            proxy.BedrockTransport, proxy.BedrockWebRtcPort, GeyserTransportOnDisk(proxy));
     }
 }
 
 public record PrerequisiteDto(string What, bool Ok, string Fix);
 public record CutoverPreviewDto(string ServerId, string ServerName, int PublicPort, int BedrockPort, int VoicePort,
     int NewGamePort, int NewVoicePort, List<PrerequisiteDto> Prerequisites, List<string> Log);
-public record ProxyStatusDto(bool Online, int Port, int BedrockPort, int VoicePort, string Version, string? Players);
+/// <summary>
+/// The proxy as the panel sees it. BedrockTransport / BedrockWebRtcPort: the panel's settings; GeyserTransport: what the
+/// proxy's Geyser config says now (null when unreadable). They differ until the settings are applied (a proxy restart).
+/// </summary>
+public record ProxyStatusDto(bool Online, int Port, int BedrockPort, int VoicePort, string Version, string? Players,
+    string BedrockTransport, int BedrockWebRtcPort, string? GeyserTransport);
 public record OperationProgressDto(string Operation, string Message, bool Done, bool Failed);

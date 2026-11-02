@@ -108,6 +108,54 @@ public class ProxyCutoverService
         }
     }
 
+    /// <summary>How long players are warned before <see cref="ApplySettingsAsync"/> restarts the proxy.</summary>
+    public TimeSpan ApplyWarning { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Puts the panel's proxy settings into the running proxy: warns everyone on every server, stops the proxy, writes
+    /// its config from the registry (<see cref="ProxyService.ConfigureProxy"/>: servers, forced hosts, ports, Geyser's
+    /// Bedrock listeners) and starts it again. A restart, not "velocity reload": Geyser reads bedrock.transport only when
+    /// it starts. Built so the Geyser 2.12 change (TJ 2026-11-02: transport "both") reaches a proxy set up before it.
+    /// Players are disconnected for the restart (a few seconds) and reconnect to the same address.
+    /// </summary>
+    public async Task ApplySettingsAsync(IProgress<string>? progress = null, CancellationToken ct = default)
+    {
+        void Step(string s) { _logger.LogInformation("Proxy settings: {Step}", s); progress?.Report(s); }
+
+        var proxy = _registry.Proxy ?? throw new InvalidOperationException("No proxy is set up.");
+        var seconds = (int)Math.Round(ApplyWarning.TotalSeconds);
+        Step($"1/3 Warning the players: the proxy restarts in {seconds} s");
+        foreach (var server in _registry.All)
+        {
+            try
+            {
+                await using var rcon = new MinecraftRconClient(server.RconHost, server.RconPort);
+                if (await rcon.ConnectAsync(server.RconPassword, ct))
+                    await rcon.SendCommandAsync($"say The server connection restarts in {seconds} seconds. You will be disconnected for a moment: join again at the same address.", ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Proxy settings: could not warn {Server}", server.Name);
+            }
+        }
+        await Task.Delay(ApplyWarning, ct);
+
+        Step($"2/3 Restarting the proxy with its settings (Bedrock: {proxy.BedrockTransport}, port {proxy.BedrockPort}" +
+            (proxy.BedrockTransport == "both" ? $", NetherNet {proxy.BedrockWebRtcPort} UDP)" : ")"));
+        await _runner.StopAsync(proxy.ServiceName, ct);
+        try
+        {
+            _proxy.ConfigureProxy(proxy, _registry.All);
+        }
+        finally
+        {
+            // Whatever the config step did, the proxy comes back: a stopped proxy means nobody can connect.
+            await _runner.StartAsync(proxy.ServiceName, CancellationToken.None);
+        }
+        await WaitUntilAsync(() => RconUpAsync("127.0.0.1", proxy.RconPort, proxy.RconPassword, ct), "the proxy to start", ct);
+        Step("3/3 Done: the proxy is running with the panel's settings");
+    }
+
     private async Task RollBackAsync(ServerDefinition original, ProxyDefinition proxy, string backupFile, bool proxyStarted)
     {
         // No cancellation here: a half-done rollback is worse than a slow one.

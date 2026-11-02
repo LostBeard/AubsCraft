@@ -71,6 +71,17 @@ public class GeyserBedrockConfigTests
     }
 
     [Test]
+    public void ThePanelReads_WhatTheProxyRunsNow()
+    {
+        var (proxy, _) = NewProxy();
+        Assert.That(ProxyOperationsService.GeyserTransportOnDisk(proxy), Is.EqualTo("nethernet"), "Geyser 2.12's generated default");
+        ProxyService.WriteGeyserBedrock(proxy);
+        Assert.That(ProxyOperationsService.GeyserTransportOnDisk(proxy), Is.EqualTo("both"));
+        // The comment lines mention "transport" too ("# If raknet and nethernet transport mode are used in parallel..."); only the key counts
+        Assert.That(ProxyOperationsService.GeyserTransportOnDisk(new ProxyDefinition { Path = TestUtil.NewTempDir() }), Is.Null, "no config yet");
+    }
+
+    [Test]
     public void NonsenseIsRefused_BeforeTheFileIsTouched()
     {
         var (proxy, config) = NewProxy();

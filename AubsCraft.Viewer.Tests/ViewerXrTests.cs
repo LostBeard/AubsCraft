@@ -12,7 +12,12 @@ namespace AubsCraft.Viewer.Tests;
 /// canvas, which a script mirrors onto the page so the test can look at what a headset would have shown.
 ///
 ///   AUBS_VIEWER_PUBLISH  folder from `dotnet publish AubsCraft.Admin.Server -c Release -o ...` (required)
-///   AUBS_VIEWER_WORLD    Minecraft server folder with world/ (default M:/opt/minecraft/server)
+///   AUBS_VIEWER_WORLD    Minecraft server folder with world/ (default: the scene world, AUBS_SCENE_WORLD or
+///                        D:/users/tj/Projects/_scratch/scene-server, made by SceneBuilderTests)
+///   AUBS_XR_CAM          x,y,z,pitch,yaw of the head's start (default: the scene's platform; 120 over spawn for another world)
+/// Since the headset UI (Phase XU, 2026-10-16) augmented reality shows the world as a 1/128 tabletop model, and from 120 blocks over the
+/// real world's spawn that model is a sliver at the bottom of the view: the AR checks (an opaque ground pixel, a still forest floor) looked
+/// at empty space there (2026-11-02: ground G 22, "worst" 3772). On the scene world all 15 pass, so it is the default.
 /// </summary>
 [NonParallelizable]
 public class ViewerXrTests
@@ -20,8 +25,10 @@ public class ViewerXrTests
     private ViewerRig _rig = null!;
     private string _outDir = null!;
 
-    // Where the head starts, facing +X: 120 up over the real world's spawn; AUBS_XR_CAM = x,y,z,pitch,yaw places it over some other world (the scene world's platform: -10,-52,30,-20,0)
-    private static string Cam => Environment.GetEnvironmentVariable("AUBS_XR_CAM") ?? "0,120,0,-15,0";
+    private static readonly string SceneWorld = Environment.GetEnvironmentVariable("AUBS_SCENE_WORLD") ?? "D:/users/tj/Projects/_scratch/scene-server";
+    private static string? OtherWorld => Environment.GetEnvironmentVariable("AUBS_VIEWER_WORLD");
+    // Where the head starts, facing +X: over the scene world's platform, or 120 up over another world's spawn; AUBS_XR_CAM = x,y,z,pitch,yaw places it anywhere
+    private static string Cam => Environment.GetEnvironmentVariable("AUBS_XR_CAM") ?? (OtherWorld == null ? "-10,-52,30,-20,0" : "0,120,0,-15,0");
 
     // A WebXR device: isSessionSupported, requestSession (immersive-vr / immersive-ar), XRWebGLLayer, frames at ~60 Hz with a head at (0, 1.7, 0) and eyes 64 mm apart.
     // window.__xr.left / .right steer the controllers (.leave() ends the session as the system would: no button of the app does); window.__xr.frames counts frames. Each frame is mirrored onto #xr-mirror after the page drew it.
@@ -107,7 +114,7 @@ public class ViewerXrTests
     {
         var publish = Environment.GetEnvironmentVariable("AUBS_VIEWER_PUBLISH");
         Assert.That(publish, Is.Not.Null.And.Not.Empty, "Set AUBS_VIEWER_PUBLISH to a `dotnet publish AubsCraft.Admin.Server -c Release` folder");
-        var world = Environment.GetEnvironmentVariable("AUBS_VIEWER_WORLD") ?? "M:/opt/minecraft/server";
+        var world = OtherWorld ?? SceneWorld;
         var tag = Environment.GetEnvironmentVariable("AUBS_VIEWER_TAG") ?? "xr";
         _outDir = Path.Combine(ViewerShotTests.RepoRoot(), "screenshots", "viewer", tag);
         Directory.CreateDirectory(_outDir);

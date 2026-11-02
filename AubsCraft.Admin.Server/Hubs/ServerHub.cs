@@ -478,6 +478,14 @@ public class ServerHub : Hub<IServerHubClient>
     [Authorize(Roles = Roles.Owner)]
     public Task<ProxyStatusDto?> GetProxyStatus() => _proxyOps.StatusAsync();
 
+    /// <summary>Warns the players, then restarts the proxy with the panel's settings; progress arrives as ReceiveOperationProgress ("proxy-settings").</summary>
+    [Authorize(Roles = Roles.Owner)]
+    public HubResult ApplyProxySettings()
+    {
+        var message = _proxyOps.StartApplySettings(CurrentUsername);
+        return new HubResult(message.StartsWith("Restarting"), message);
+    }
+
     /// <summary>What the cutover would do for this server, the machine's readiness, and the last run's log.</summary>
     [Authorize(Roles = Roles.Owner)]
     public CutoverPreviewDto GetCutoverPreview(string serverId) => _proxyOps.Preview(serverId);

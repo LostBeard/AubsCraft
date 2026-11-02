@@ -436,6 +436,10 @@ public class ServerHubClient : IAsyncDisposable
     public Task<ToggleResultDto> StartProxyCutoverAsync(string serverId, int newGamePort, int voicePort)
         => SafeInvokeAsync("StartProxyCutover", new ToggleResultDto(false, "Connection lost"), serverId, newGamePort, voicePort);
 
+    /// <summary>Warns the players and restarts the proxy with the panel's settings (owner). Progress: OnOperationProgress, "proxy-settings".</summary>
+    public Task<ToggleResultDto> ApplyProxySettingsAsync()
+        => SafeInvokeAsync("ApplyProxySettings", new ToggleResultDto(false, "Connection lost"));
+
     // -- Config --
 
     public Task<BlueMapConfigDto> GetBlueMapConfigAsync()
@@ -741,7 +745,8 @@ public record LivePluginStateDto(bool Supported, bool JarInstalled, bool JarUpTo
 /// <summary>What installing or removing the live plugin did; Changed means the Minecraft server needs a restart to take it up.</summary>
 public record LivePluginInstallResultDto(bool Success, bool Changed, string Message);
 
-public record ProxyStatusDto(bool Online, int Port, int BedrockPort, int VoicePort, string Version, string? Players);
+public record ProxyStatusDto(bool Online, int Port, int BedrockPort, int VoicePort, string Version, string? Players,
+    string BedrockTransport, int BedrockWebRtcPort, string? GeyserTransport);
 public record OperationProgressDto(string Operation, string Message, bool Done, bool Failed);
 
 public record BackupDto(string FileName, long SizeBytes, DateTime CreatedUtc);

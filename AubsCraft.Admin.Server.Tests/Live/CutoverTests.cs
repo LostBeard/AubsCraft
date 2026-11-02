@@ -185,6 +185,52 @@ public class CutoverTests
         Assert.That(_runner.Enabled, Does.Contain(ProxyService_), "the proxy starts at boot (a VM restart once left it down)");
     }
 
+    /// <summary>
+    /// "Apply the settings" on the Proxy page (ProxyCutoverService.ApplySettingsAsync): a proxy set up before the panel wrote
+    /// Geyser's transport (like the VM's, "raknet") gets the panel's "both" by a warned restart. Each step is checked on the
+    /// real proxy: what Geyser listens on, a player joining at the same address afterwards, the warning in the server's chat.
+    /// </summary>
+    [Test]
+    public async Task ApplyingTheSettings_RestartsTheProxyWithThem_AndPlayersComeBack()
+    {
+        var proxyDir = FreshProxyDir("velocity-apply");
+        Build(proxyDir);
+        var def = await StartProductionLikeServerAsync();
+        _registry.Add(def);
+        var cutover = Cutover();
+        cutover.ApplyWarning = TimeSpan.FromSeconds(2);
+        await cutover.CutoverAsync(new ProxyCutoverService.CutoverPlan(ServerId, NewProxy(proxyDir), InternalPort, InternalVoice));
+
+        // Like the VM's proxy today: RakNet only
+        _registry.Proxy!.BedrockTransport = "raknet";
+        var steps = new List<string>();
+        int startsBefore = _runner.ProxyStarts;
+        await cutover.ApplySettingsAsync(new Progress<string>(steps.Add));
+        Assert.That(_runner.ProxyStarts, Is.EqualTo(startsBefore + 1), "the proxy was restarted");
+        Assert.That(ProxyOperationsService.GeyserTransportOnDisk(_registry.Proxy), Is.EqualTo("raknet"));
+        await _runner.Proxy!.WaitForLineAsync("[geyser]: Done (", TimeSpan.FromSeconds(60));
+        Assert.That(System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners().Any(e => e.Port == 19132), Is.True, "RakNet on 19132");
+
+        // The panel's setting: both
+        _registry.Proxy.BedrockTransport = "both";
+        steps.Clear();
+        await cutover.ApplySettingsAsync(new Progress<string>(steps.Add));
+        Assert.That(ProxyOperationsService.GeyserTransportOnDisk(_registry.Proxy), Is.EqualTo("both"));
+        await _runner.Proxy!.WaitForGeyserAsync(19132, 19133, TimeSpan.FromSeconds(60));
+        Assert.That(steps.Last(), Does.StartWith("3/3 Done"), string.Join(" | ", steps));
+
+        // Players come back at the same address, and they were told
+        await using (var bot = TestBot.Start("127.0.0.1", PublicPort, "ApplyBot"))
+            await bot.WaitForSpawnAsync(TimeSpan.FromSeconds(60));
+        // The running server holds its log open: read it shared
+        string serverLog;
+        using (var fs = new FileStream(Path.Combine(_runner.Server!.Dir, "logs", "latest.log"), FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+        using (var reader = new StreamReader(fs))
+            serverLog = reader.ReadToEnd();
+        Assert.That(serverLog, Does.Contain("The server connection restarts in 2 seconds"), "the warning was said on the server");
+        Assert.That(_runner.Proxy.Output.Where(l => l.Contains(" ERROR]")), Is.Empty);
+    }
+
     [Test]
     public async Task ABackupFailure_LeavesTheServerRunningAsItWas()
     {
