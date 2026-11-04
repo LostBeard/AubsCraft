@@ -33,6 +33,13 @@ self.onmessage = (e) => {
         if (ws && ws.readyState === WebSocket.OPEN)
             ws.send(JSON.stringify({ x: msg.x, z: msg.z }));
     }
+    else if (msg.type === 'rescan') {
+        // Stream the world's list again (chunks already sent are skipped below): a chunk that appeared while the live socket was down is found this way
+        if (wsUrl && (!ws || ws.readyState === WebSocket.CLOSED)) {
+            reconnectAttempts = 0;
+            connectWebSocket(wsUrl);
+        }
+    }
 };
 
 // ---- Render worker message handler ----

@@ -57,28 +57,171 @@ public sealed class WorldDataService
     {
         if (_chunkCache.TryGetValue((chunkX, chunkZ), out var cached))
             return cached;
+        // Known to be a stub, and the file has not changed since (ScanForChanges forgets it when it does)
+        if (_stubs.ContainsKey((chunkX, chunkZ)))
+            return null;
 
-        var regionX = chunkX >> 5; // divide by 32
-        var regionZ = chunkZ >> 5;
-        var localX = chunkX & 31;
-        var localZ = chunkZ & 31;
-
-        var regionPath = Path.Combine(_worldPath, "region", $"r.{regionX}.{regionZ}.mca");
+        var regionPath = RegionPathOf(chunkX, chunkZ);
         if (!File.Exists(regionPath))
             return null;
 
         try
         {
-            var result = RegionReader.ReadChunk(regionPath, localX, localZ);
+            long changesBefore = Volatile.Read(ref _changesApplied);
+            var result = RegionReader.ReadChunk(regionPath, chunkX & 31, chunkZ & 31);
+            // A change was applied while this read went on: what was read may be older than it, so it is handed out but not kept
+            if (Volatile.Read(ref _changesApplied) != changesBefore) return result is { GenerationStub: true } ? null : result;
+            _unreadable.TryRemove((chunkX, chunkZ), out _);
+            // A chunk the game has only begun to generate is not terrain: it is not served, so a viewer never takes it for air and it never
+            // sits in the cache as an empty column after the game has finished it (TJ 2026-11-04: whole columns missing from finished terrain)
+            if (result is { GenerationStub: true })
+            {
+                _stubs[(chunkX, chunkZ)] = 0;
+                return null;
+            }
             if (result != null)
                 _chunkCache[(chunkX, chunkZ)] = result;
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to read chunk ({ChunkX}, {ChunkZ})", chunkX, chunkZ);
+            // Often only the moment: the game was writing that part of the file. ScanForChanges tries it again and tells the viewers: without that the
+            // chunk was skipped for good, in the world stream too, and a hole stayed there until the panel restarted.
+            _unreadable[(chunkX, chunkZ)] = 0;
+            _logger.LogWarning("Could not read chunk ({ChunkX}, {ChunkZ}) yet: {Message}", chunkX, chunkZ, ex.Message);
             return null;
         }
+    }
+
+    private string RegionPathOf(int chunkX, int chunkZ) => Path.Combine(_worldPath, "region", $"r.{chunkX >> 5}.{chunkZ >> 5}.mca");
+
+    // ---- the files change under the panel: the running server saves chunks, and generates new ones, all the time ----
+
+    private sealed record RegionSeen(DateTime WriteTime, long Length, DateTime CheckedAt, byte[] Header);
+
+    /// <summary>How long a region file whose time and size say nothing changed goes without its header being looked at: a network drive's file times can lag.</summary>
+    private static readonly TimeSpan HeaderCheckEvery = TimeSpan.FromSeconds(60);
+    /// <summary>The coarsest clock a file's time may come from (FAT's is 2 s; a network drive's is its own).</summary>
+    private static readonly TimeSpan WriteTimeTick = TimeSpan.FromSeconds(2);
+
+    private readonly Dictionary<(int Rx, int Rz), RegionSeen> _regionsSeen = new();
+    private readonly ConcurrentDictionary<(int, int), byte> _stubs = new();
+    private readonly ConcurrentDictionary<(int, int), byte> _unreadable = new();
+    private bool _firstScanDone;
+    private long _changesApplied;
+    private readonly object _scanLock = new();
+
+    /// <summary>
+    /// Compare the region files with what was last seen and bring what the panel holds up to date: a chunk the game wrote since is read again. <paramref name="onChanged"/> gets, in batches, the chunks whose
+    /// blocks are not what the viewers were last given (with the sides that differ: 1 -X, 2 +X, 4 -Z, 8 +Z). The first call only learns how things are. Runs on one thread at a time; the
+    /// viewers' requests go on while it does.
+    /// </summary>
+    /// <param name="onChanged">Null when nobody is watching: what changed is only forgotten, and read when it is next asked for.</param>
+    public void ScanForChanges(Action<IReadOnlyList<(int Cx, int Cz, int Border)>>? onChanged)
+    {
+        lock (_scanLock)
+        {
+            var regionDir = Path.Combine(_worldPath, "region");
+            if (!Directory.Exists(regionDir)) return;
+            var changed = new List<(int Cx, int Cz, int Border)>();
+            void Flush()
+            {
+                if (changed.Count == 0) return;
+                onChanged?.Invoke(changed.ToArray());
+                changed.Clear();
+            }
+
+            var now = DateTime.UtcNow;
+            foreach (var file in Directory.GetFiles(regionDir, "r.*.mca"))
+            {
+                var match = RegionFilePattern.Match(Path.GetFileName(file));
+                if (!match.Success) continue;
+                var key = (int.Parse(match.Groups[1].Value), int.Parse(match.Groups[2].Value));
+                try
+                {
+                    var info = new FileInfo(file);
+                    _regionsSeen.TryGetValue(key, out var seen);
+                    // Same time and size says nothing changed only if the header was read well after that time: a write in the same tick of the clock as our read leaves both the same
+                    bool settledWhenRead = seen != null && seen.CheckedAt - seen.WriteTime > WriteTimeTick;
+                    if (settledWhenRead && seen!.WriteTime == info.LastWriteTimeUtc && seen.Length == info.Length && now - seen.CheckedAt < HeaderCheckEvery) continue;
+                    var header = RegionReader.ReadHeader(file);
+                    if (header == null) continue;   // being created: next time
+                    for (int i = 0; i < 1024; i++)
+                    {
+                        var place = header.AsSpan(i * 4, 4);
+                        var stamp = header.AsSpan(4096 + i * 4, 4);
+                        if (seen != null ? place.SequenceEqual(seen.Header.AsSpan(i * 4, 4)) && stamp.SequenceEqual(seen.Header.AsSpan(4096 + i * 4, 4))
+                                         : !_firstScanDone ? true : place.SequenceEqual(new byte[4])) continue;
+                        int cx = key.Item1 * 32 + (i & 31), cz = key.Item2 * 32 + (i >> 5);
+                        FileChunkChanged(cx, cz, System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(stamp), file, changed, onChanged != null);
+                        if (changed.Count >= 256) Flush();
+                    }
+                    _regionsSeen[key] = new RegionSeen(info.LastWriteTimeUtc, info.Length, now, header);
+                }
+                catch (IOException) { /* the game has it at this moment: next time */ }
+                catch (UnauthorizedAccessException) { }
+            }
+
+            // What could not be read when it was asked for (the world stream skipped it, so no viewer has it)
+            foreach (var (cx, cz) in _unreadable.Keys.ToArray())
+                try
+                {
+                    var path = RegionPathOf(cx, cz);
+                    var chunk = File.Exists(path) ? RegionReader.ReadChunk(path, cx & 31, cz & 31) : null;
+                    _unreadable.TryRemove((cx, cz), out _);
+                    if (chunk is { GenerationStub: true }) { _stubs[(cx, cz)] = 0; continue; }
+                    if (chunk == null) continue;
+                    _chunkCache[(cx, cz)] = chunk;
+                    changed.Add((cx, cz, 15));
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    _logger.LogDebug("Chunk ({ChunkX}, {ChunkZ}) still cannot be read: {Message}", cx, cz, ex.Message);
+                }
+
+            Flush();
+            _firstScanDone = true;
+        }
+    }
+
+    // The file's copy of a chunk is new: what the panel holds of it goes, unless what the running server sent is newer still
+    private void FileChunkChanged(int cx, int cz, uint stamp, string regionPath, List<(int Cx, int Cz, int Border)> changed, bool watched)
+    {
+        var key = (cx, cz);
+        Interlocked.Increment(ref _changesApplied);
+        _stubs.TryRemove(key, out _);
+        if (_liveLight.TryGetValue(key, out var live))
+        {
+            if (DateTimeOffset.FromUnixTimeSeconds(stamp) < new DateTimeOffset(live.At).AddSeconds(-1)) return;
+            _liveLight.TryRemove(key, out _);   // the file has caught up
+        }
+        _chunkCache.TryGetValue(key, out var old);
+        if (!watched)
+        {
+            _chunkCache.TryRemove(key, out _);
+            return;
+        }
+
+        ChunkResult? fresh;
+        try { fresh = RegionReader.ReadChunk(regionPath, cx & 31, cz & 31); }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _chunkCache.TryRemove(key, out _);
+            _unreadable[key] = 0;
+            _logger.LogDebug("Chunk ({ChunkX}, {ChunkZ}) changed and cannot be read yet: {Message}", cx, cz, ex.Message);
+            return;
+        }
+        if (fresh == null || fresh.GenerationStub)
+        {
+            if (fresh != null) _stubs[key] = 0;
+            _chunkCache.TryRemove(key, out _);
+            if (old != null) changed.Add((cx, cz, 15));
+            return;
+        }
+        // Saved again with nothing changed that a viewer shows (the game rewrites a chunk for its creatures, its clock...): no viewer is sent after it
+        int border = old == null ? 15 : ChunkDiff.BorderOfChange(old, fresh);
+        _chunkCache[key] = fresh;
+        if (border >= 0) changed.Add((cx, cz, border));
     }
 
     /// <summary>

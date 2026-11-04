@@ -121,7 +121,7 @@ public static class LiveEndpoints
 
             try
             {
-                await foreach (var frame in subscription.Frames.ReadAllAsync(clientClosed.Token))
+                await foreach (var frame in subscription.ReadAllAsync(clientClosed.Token))
                 {
                     if (ws.State != WebSocketState.Open) break;
                     await ws.SendAsync(frame, WebSocketMessageType.Binary, true, CancellationToken.None);

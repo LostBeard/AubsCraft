@@ -162,7 +162,9 @@ public class RenderWorkerService : IRenderWorkerService
 
         // The live feed (what the AubsCraft Live plugin on the Minecraft server sees: every animal, monster, player). Quiet when the server has no plugin.
         _liveFeed = new LiveFeedClient($"{protocol}//{host}/api/live/ws?{_serverQuery}", OnLiveMessage, m => Console.WriteLine("[Live] " + m));
+        _liveFeed.Reconnected = OnLiveFeedReconnected;
         _liveFeed.Start();
+        _renderer.VoxelLogNote = GapNote;
 
         // Use absolute URL for worker script (relative paths may not resolve in nested worker context)
         var origin = _js.Get<string>("location.origin");
@@ -478,28 +480,7 @@ public class RenderWorkerService : IRenderWorkerService
     {
         try
         {
-            _populatedChunks.Add((cx, cz));
-            // A heightmap arriving inside the full-3D radius makes that chunk loadable in 3D; the render loop picks it up (the
-            // camera may never change chunk on its own).
-            if (IsInFullRadius(cx, cz) && !_voxel!.HasColumn(cx, cz)) _fullDirty = true;
-
-            int registryCount;
-            using (var header = new Int32Array(buffer, 0, 3)) registryCount = header[2];
-            if (registryCount > _voxel!.NamesKnown) await RefreshVoxelBlockNamesAsync(registryCount);
-            // Biomes of the chunk's 4 x 4 block cells, 16 bytes after the heightmap (an older server's frame has none: plains)
-            if (buffer.ByteLength >= 12 + 3072 + 16)
-            {
-                using var cells = new Uint8Array(buffer, 12 + 3072, 16);
-                var ids = new byte[16];
-                for (int i = 0; i < 16; i++) ids[i] = cells[i];
-                _voxel.SetBiomeCells(cx, cz, ids);
-            }
-            if (_voxel.NamesKnown > 0 && !_voxel.HasFarChunk(cx, cz))
-            {
-                using var heightmap = new Uint8Array(buffer, 12, 3072);
-                if (!await _voxel.AddFarChunkAsync(cx, cz, heightmap) && _farDropLogged++ == 0)
-                    Console.WriteLine("[RenderWorker] Far chunk dropped: no free section slots");
-            }
+            await TakeHeightmapFrameAsync(cx, cz, buffer, replace: false);
         }
         catch (Exception ex)
         {
@@ -512,6 +493,33 @@ public class RenderWorkerService : IRenderWorkerService
 
         // Request next chunk (pull-based flow control)
         _dataPort?.PostMessage(new { type = "ready" });
+    }
+
+    // A chunk's far-tier frame, from the world stream or fetched because it changed
+    private async Task TakeHeightmapFrameAsync(int cx, int cz, ArrayBuffer buffer, bool replace)
+    {
+        _populatedChunks.Add((cx, cz));
+        // A heightmap arriving inside the full-3D radius makes that chunk loadable in 3D; the render loop picks it up (the
+        // camera may never change chunk on its own).
+        if (IsInFullRadius(cx, cz) && !_voxel!.HasColumn(cx, cz)) _fullDirty = true;
+
+        int registryCount;
+        using (var header = new Int32Array(buffer, 0, 3)) registryCount = header[2];
+        if (registryCount > _voxel!.NamesKnown) await RefreshVoxelBlockNamesAsync(registryCount);
+        // Biomes of the chunk's 4 x 4 block cells, 16 bytes after the heightmap (an older server's frame has none: plains)
+        if (buffer.ByteLength >= 12 + 3072 + 16)
+        {
+            using var cells = new Uint8Array(buffer, 12 + 3072, 16);
+            var ids = new byte[16];
+            for (int i = 0; i < 16; i++) ids[i] = cells[i];
+            _voxel.SetBiomeCells(cx, cz, ids);
+        }
+        if (_voxel.NamesKnown > 0 && (replace || !_voxel.HasFarChunk(cx, cz)))
+        {
+            using var heightmap = new Uint8Array(buffer, 12, 3072);
+            if (!(replace ? await _voxel.ReplaceFarChunkAsync(cx, cz, heightmap) : await _voxel.AddFarChunkAsync(cx, cz, heightmap)) && _farDropLogged++ == 0)
+                Console.WriteLine("[RenderWorker] Far chunk dropped: no free section slots");
+        }
     }
 
     public Task SetTimeOfDay(int ticks)
@@ -778,6 +786,8 @@ public class RenderWorkerService : IRenderWorkerService
         _voxel?.UpdateFarWindow(camCX, camCZ, _renderer.DrawDistance);
         if (_voxel != null) _light?.Update(camCX, camCZ, _voxel.HasColumn);
         if (camCX != _lastStreamCX || camCZ != _lastStreamCZ) PostCameraToDataWorker();
+        // A column that could not be had is tried again when its time comes, wherever the camera is
+        if (!_loadingFull && _columnRetries.Count > 0 && _columnRetries.Values.Any(r => r.DueAt <= _loadTimer.Elapsed.TotalSeconds)) _fullDirty = true;
         if (!_loadingFull && (_fullDirty || camCX != _lastFullCX || camCZ != _lastFullCZ))
         {
             _lastFullCX = camCX;
@@ -855,6 +865,7 @@ public class RenderWorkerService : IRenderWorkerService
             if (d > FullRenderRadius * FullRenderRadius) continue;
             var c = (camCX + dx, camCZ + dz);
             if (!_populatedChunks.Contains(c) || attempted.Contains(c) || _voxel!.HasColumn(c.Item1, c.Item2)) continue;
+            if (_columnRetries.TryGetValue(c, out var retry) && retry.DueAt > _loadTimer.Elapsed.TotalSeconds) continue;
             candidates.Add((d, c.Item1, c.Item2));
         }
         candidates.Sort((a, b) => a.d.CompareTo(b.d));
@@ -868,8 +879,56 @@ public class RenderWorkerService : IRenderWorkerService
         foreach (var (cx, cz) in _voxel!.ColumnKeys.ToArray())
         {
             int dx = cx - camCX, dz = cz - camCZ;
-            if (dx * dx + dz * dz > limit) { _voxel.RemoveColumn(cx, cz); _particles?.RemoveColumn(cx, cz); _blockEntities?.RemoveColumn(cx, cz); _sky?.Map.RemoveColumn(cx, cz); _light?.RemoveColumn(cx, cz); }
+            if (dx * dx + dz * dz > limit && _retiring.Add((cx, cz))) _ = RetireColumnAsync(cx, cz, limit);
         }
+    }
+
+    private readonly HashSet<(int, int)> _retiring = new();
+
+    // The far chunk takes over first: the ground is never missing in between
+    private async Task RetireColumnAsync(int cx, int cz, int limit)
+    {
+        bool StillFar()
+        {
+            var (camCX, camCZ) = CameraChunk();
+            int dx = cx - camCX, dz = cz - camCZ;
+            return dx * dx + dz * dz > limit;
+        }
+        try
+        {
+            await _voxel!.RetireColumnAsync(cx, cz, StillFar);
+            if (_voxel.HasColumn(cx, cz)) return;   // the camera came back
+            _particles?.RemoveColumn(cx, cz); _blockEntities?.RemoveColumn(cx, cz); _sky?.Map.RemoveColumn(cx, cz); _light?.RemoveColumn(cx, cz);
+        }
+        catch (Exception ex) { Console.WriteLine($"[RenderWorker] Column ({cx},{cz}) could not be let go: {ex.Message}"); }
+        finally { _retiring.Remove((cx, cz)); }
+    }
+
+    // ---- what is still missing ----
+
+    private string GapNote()
+    {
+        if (_voxel == null) return "";
+        var (camCX, camCZ) = CameraChunk();
+        var (count, first) = _voxel.FindGaps(_populatedChunks, camCX, camCZ, FarWindow.CullRadius(_renderer.DrawDistance));
+        return $" | gaps {count}{first}";
+    }
+
+    // A column that could not be fetched or meshed waits this long before the next try (the last goes on): the server may be restarting
+    private static readonly double[] ColumnRetrySeconds = [1, 2, 4, 8, 15, 30];
+    private readonly Dictionary<(int, int), (double DueAt, int Tries)> _columnRetries = new();
+
+    private void ColumnFailed(int cx, int cz)
+    {
+        _columnRetries.TryGetValue((cx, cz), out var last);
+        _columnRetries[(cx, cz)] = (_loadTimer.Elapsed.TotalSeconds + ColumnRetrySeconds[Math.Min(last.Tries, ColumnRetrySeconds.Length - 1)], last.Tries + 1);
+    }
+
+    // The server says there is no terrain here (the chunk went, or it was only a stub): not a failure, and nothing to try again. A note will come if that changes.
+    private void ColumnNotThere(int cx, int cz)
+    {
+        _populatedChunks.Remove((cx, cz));
+        _columnRetries.Remove((cx, cz));
     }
 
     // What the live socket brings: the plugin's frames of creatures (starting "ACL1") and the panel's notes that chunks changed in the running world ("ACHG")
@@ -895,8 +954,16 @@ public class RenderWorkerService : IRenderWorkerService
         {
             int at = 6 + i * 9;
             int cx = BitConverter.ToInt32(message, at), cz = BitConverter.ToInt32(message, at + 4), border = message[at + 8];
-            // A column that is not loaded is fetched fresh when it is wanted
-            if (!_voxel.HasColumn(cx, cz)) continue;
+            // The chunk has terrain now, wherever it is: the world stream passed it (or never knew of it) and only this says so. Without it, ground generated while the viewer was open stayed a hole
+            _populatedChunks.Add((cx, cz));
+            _columnRetries.Remove((cx, cz));
+            RefreshFarChunkSoon(cx, cz);
+            // A column that is not loaded is fetched fresh when it is wanted, which is now if it is in range
+            if (!_voxel.HasColumn(cx, cz))
+            {
+                if (IsInFullRadius(cx, cz)) _fullDirty = true;
+                continue;
+            }
             if (!_refreshing.Add((cx, cz)))
             {
                 _refreshAgain[(cx, cz)] = _refreshAgain.GetValueOrDefault((cx, cz)) | border;
@@ -908,6 +975,8 @@ public class RenderWorkerService : IRenderWorkerService
 
     private async Task RefreshColumnAsync(int cx, int cz, int border)
     {
+        // A save can change hundreds of chunks at once: they wait their turn for the network
+        await _refreshGate.WaitAsync();
         try
         {
             while (true)
@@ -917,7 +986,53 @@ public class RenderWorkerService : IRenderWorkerService
                 if (!_refreshAgain.Remove((cx, cz), out border)) break;
             }
         }
-        finally { _refreshing.Remove((cx, cz)); }
+        finally
+        {
+            _refreshGate.Release();
+            _refreshing.Remove((cx, cz));
+        }
+    }
+
+    private readonly SemaphoreSlim _refreshGate = new(VoxelParallelFetches, VoxelParallelFetches);
+    private readonly HashSet<(int, int)> _farRefreshing = new();
+
+    // The chunk's far-tier picture too: it is what shows when the camera has gone away, and all that shows until the column comes
+    private void RefreshFarChunkSoon(int cx, int cz)
+    {
+        if (_farRefreshing.Add((cx, cz))) _ = RefreshFarChunkAsync(cx, cz);
+    }
+
+    private async Task RefreshFarChunkAsync(int cx, int cz)
+    {
+        await _refreshGate.WaitAsync();
+        // Taken off first: a note that arrives during the fetch may be newer than what the fetch gets, so it fetches again
+        _farRefreshing.Remove((cx, cz));
+        try
+        {
+            if (_disposed || _voxel == null) return;
+            using var response = await _js.Fetch($"{_baseUrl}/api/world/heightmap-ids/{cx}/{cz}?{_serverQuery}", new FetchOptions { Credentials = "include" });
+            if (response.Status == 404) { _voxel.RemoveFarChunk(cx, cz); ColumnNotThere(cx, cz); return; }
+            if (!response.Ok) { Console.WriteLine($"[RenderWorker] Far chunk ({cx},{cz}) HTTP {response.Status}"); return; }
+            using var buffer = await response.ArrayBuffer();
+            await TakeHeightmapFrameAsync(cx, cz, buffer, replace: true);
+        }
+        catch (Exception ex) { Console.WriteLine($"[RenderWorker] Far chunk ({cx},{cz}) failed: {ex.Message}"); }
+        finally { _refreshGate.Release(); }
+    }
+
+    private double _lastResync = double.NegativeInfinity;
+    /// <summary>A connection lost for a moment is not worth the whole view again; a viewer whose network comes and goes gets it this often at most.</summary>
+    private const double ResyncSeconds = 300;
+
+    // The live socket was down, so notes that chunks changed may have been missed: ask for everything shown again, and look for chunks the stream does not know yet
+    private void OnLiveFeedReconnected()
+    {
+        if (_voxel == null || _loadTimer.Elapsed.TotalSeconds - _lastResync < ResyncSeconds) return;
+        _lastResync = _loadTimer.Elapsed.TotalSeconds;
+        Console.WriteLine("[RenderWorker] Live feed is back: looking the view over again");
+        _dataWorker?.PostMessage(new { type = "rescan" });
+        foreach (var (cx, cz) in _voxel.ColumnKeys.ToArray())
+            if (_refreshing.Add((cx, cz))) _ = RefreshColumnAsync(cx, cz, 0);
     }
 
     private async Task LoadVoxelColumnAsync(int cx, int cz, bool replace = false, int borderMask = 0)
@@ -926,9 +1041,17 @@ public class RenderWorkerService : IRenderWorkerService
         {
             using var response = await _js.Fetch($"{_baseUrl}/api/world/chunk-ids/{cx}/{cz}?{_serverQuery}",
                 new FetchOptions { Credentials = "include" });
+            if (response.Status == 404)
+            {
+                ColumnNotThere(cx, cz);
+                _voxel!.RemoveFarChunk(cx, cz);
+                if (replace) _voxel.RemoveColumn(cx, cz);
+                return;
+            }
             if (!response.Ok)
             {
                 Console.WriteLine($"[RenderWorker] Column ({cx},{cz}) HTTP {response.Status}");
+                ColumnFailed(cx, cz);
                 return;
             }
 
@@ -950,9 +1073,13 @@ public class RenderWorkerService : IRenderWorkerService
             using var buffer = await response.ArrayBuffer();
             using var ids = new Uint8Array(buffer);
             if (!(replace ? await _voxel.ReplaceColumnAsync(cx, cz, ids, borderMask) : await _voxel.AddColumnAsync(cx, cz, ids)))
+            {
                 Console.WriteLine($"[RenderWorker] Column ({cx},{cz}) dropped: no free section slots");
+                ColumnFailed(cx, cz);
+            }
             else
             {
+                _columnRetries.Remove((cx, cz));
                 _particles?.SetColumn(cx, cz, AubsCraft.Live.Model.Particles.EmitterCodec.Decode(emitterHeader));
                 _blockEntities?.SetColumn(cx, cz, AubsCraft.Live.Model.BlockEntities.BlockEntityCodec.Decode(blockEntityHeader));
                 _blockEntities?.SetSignTexts(cx, cz, AubsCraft.Live.Model.BlockEntities.SignTextCodec.Decode(signTextHeader));
@@ -982,6 +1109,7 @@ public class RenderWorkerService : IRenderWorkerService
         catch (Exception ex)
         {
             Console.WriteLine($"[RenderWorker] Column ({cx},{cz}) failed: {ex.Message}");
+            ColumnFailed(cx, cz);
         }
     }
 

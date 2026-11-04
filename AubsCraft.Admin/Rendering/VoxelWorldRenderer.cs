@@ -290,7 +290,13 @@ public sealed class VoxelWorldRenderer : IDisposable
         var blocks = _mesher!.CreateColumnBufferFromJS(blockIds);
         var col = new Column { Cx = cx, Cz = cz, Slot = slot, Blocks = blocks };
         _columns[(cx, cz)] = col;
-        await PlaceAndMeshAsync(col);
+        try { await PlaceAndMeshAsync(col); }
+        catch
+        {
+            // Left in place with no mesh it would count as loaded and never be asked for again: a hole until the page closed
+            RemoveColumn(cx, cz);
+            throw;
+        }
         return true;
     }
 
@@ -349,6 +355,37 @@ public sealed class VoxelWorldRenderer : IDisposable
         MarkNeighboursStale(chunk);
         _farWanted = true; // it may be inside the window: the next UpdateFarWindow decides
         return Task.FromResult(true);
+    }
+
+    /// <summary>
+    /// A chunk's heightmap changed (the running world is ahead of what was streamed): the mesh it has stays on screen until the new one is ready, and the chunks beside it are meshed again, as
+    /// their sides toward it may differ. A chunk that is not there is added.
+    /// </summary>
+    public async Task<bool> ReplaceFarChunkAsync(int cx, int cz, Uint8Array heightmap)
+    {
+        if (_disposed) return false;
+        if (!_far.TryGetValue((cx, cz), out var chunk)) return await AddFarChunkAsync(cx, cz, heightmap);
+
+        var fresh = _farMesher!.CreateHeightmapBufferFromJS(heightmap);
+        await _meshLock.WaitAsync();
+        try
+        {
+            if (chunk.Removed || _disposed) { fresh.Dispose(); return false; }
+            chunk.Heights?.Dispose();
+            chunk.Heights = fresh;
+        }
+        finally { _meshLock.Release(); }
+
+        if (chunk.Mesh == null) { _farWanted = true; return true; }
+        await PaceAsync(IngestPriority.Far);
+        if (!chunk.Removed && !_disposed) await MeshAsync(chunk);
+        foreach (var (n, _) in NeighboursOf(chunk).ToList())
+        {
+            if (n.Mesh == null) continue;
+            await PaceAsync(IngestPriority.Remesh);
+            if (!n.Removed && !_disposed) await MeshAsync(n);
+        }
+        return true;
     }
 
     private int TakeSlot() => _freeSlots.Count > 0 ? _freeSlots.Pop() : (_nextSlot < _maxColumns ? _nextSlot++ : -1);
@@ -662,7 +699,55 @@ public sealed class VoxelWorldRenderer : IDisposable
         if (!_columns.Remove((cx, cz), out var col)) return;
         col.Removed = true;
         _candidatesDirty = true; // it stops being drawn now, not when its buffers are freed
+        // The far chunk under it was skipped while the column stood on it, and nothing else would look at it again until the camera changed chunk: a hole
+        _farWanted = true;
         _ = DisposeColumnAsync(col);
+    }
+
+    /// <summary>
+    /// A column has gone out of the full-detail range: its far chunk takes over, and only when that has a mesh does the column go, so the ground is never missing in between.
+    /// <paramref name="stillOutOfRange"/> is asked after the wait: false when the camera has come back and the column should stay.
+    /// </summary>
+    public async Task RetireColumnAsync(int cx, int cz, Func<bool> stillOutOfRange)
+    {
+        if (_far.TryGetValue((cx, cz), out var far) && far.Mesh == null && !far.Removed && _winCX != int.MinValue && FarWindow.ShouldMesh(cx, cz, _winCX, _winCZ, _winDrawDistance))
+        {
+            await PaceAsync(IngestPriority.Far);
+            if (_disposed || !stillOutOfRange()) return;
+            if (!far.Removed && far.Mesh == null) await MeshAsync(far);
+            if (_disposed || !stillOutOfRange()) return;
+        }
+        RemoveColumn(cx, cz);
+    }
+
+    /// <summary>
+    /// The chunks of <paramref name="populated"/> within <paramref name="radius"/> of the camera's chunk that have terrain and draw nothing: neither a full column nor a far chunk with a mesh (or
+    /// an empty column on top of a far chunk that has something). Zero when the world has settled; the count goes on the [Voxel] log line, the first few by place.
+    /// </summary>
+    public (int Count, string First) FindGaps(IReadOnlySet<(int, int)> populated, int camCX, int camCZ, int radius)
+    {
+        int count = 0;
+        System.Text.StringBuilder? first = null;
+        long limit = (long)radius * radius;
+        for (int dz = -radius; dz <= radius; dz++)
+            for (int dx = -radius; dx <= radius; dx++)
+            {
+                if ((long)dx * dx + (long)dz * dz > limit) continue;
+                var at = (camCX + dx, camCZ + dz);
+                if (!populated.Contains(at)) continue;
+                _far.TryGetValue(at, out var far);
+                bool farDraws = far is { Mesh: not null, HighestSection: >= 0 };
+                string? why = null;
+                if (_columns.TryGetValue(at, out var col) && col.Mesh != null)
+                {
+                    if (col.HighestSection < 0 && farDraws) why = "empty";
+                }
+                else if (far is not { Mesh: not null }) why = col != null ? "meshing" : far != null ? "far-unmeshed" : "none";
+                if (why == null) continue;
+                count++;
+                if (count <= 8) (first ??= new()).Append(' ').Append(at.Item1).Append(',').Append(at.Item2).Append(':').Append(why);
+            }
+        return (count, first?.ToString() ?? "");
     }
 
     public void RemoveFarChunk(int cx, int cz)

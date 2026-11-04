@@ -33,6 +33,7 @@ public sealed class LiveFeedService
         public int Entities, Players;
         public long FullTime;
         public readonly List<Channel<byte[]>> Subscribers = new();
+        public readonly List<Channel<byte[]>> Notes = new();
         public readonly object Lock = new();
     }
 
@@ -90,40 +91,69 @@ public sealed class LiveFeedService
         return null;
     }
 
-    /// <summary>A message to every viewer of a server that is not a frame (chunks changed): it is not kept as the latest, so a viewer that opens later does not get it.</summary>
+    /// <summary>
+    /// A message to every viewer of a server that is not a frame (chunks changed): it is not kept as the latest, so a viewer that opens later does not get it. Unlike a frame it is not worth only its
+    /// newest: a viewer that lost one would show that chunk stale until it left, so these wait in a queue of their own and go first.
+    /// </summary>
     public void Broadcast(string serverId, byte[] message)
     {
         if (!_feeds.TryGetValue(serverId, out var feed)) return;
         lock (feed.Lock)
-            foreach (var s in feed.Subscribers) s.Writer.TryWrite(message);
+            foreach (var s in feed.Notes) s.Writer.TryWrite(message);
     }
 
     /// <summary>
-    /// Subscribe to a server's frames: the latest one first (a viewer that opens mid-session sees the world at once), then every new one. Dispose
+    /// Subscribe to a server's frames: the latest one first (a viewer that opens mid-session sees the world at once), then every new one, with the notes that chunks changed. Dispose
     /// the result to unsubscribe.
     /// </summary>
     public Subscription Subscribe(string serverId)
     {
         var feed = _feeds.GetOrAdd(serverId, _ => new Feed());
         var channel = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(32) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
+        var notes = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(MaxWaitingNotes) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
         lock (feed.Lock)
         {
             if (feed.Latest != null) channel.Writer.TryWrite(feed.Latest);
             feed.Subscribers.Add(channel);
+            feed.Notes.Add(notes);
         }
-        return new Subscription(channel.Reader, () =>
+        return new Subscription(channel.Reader, notes.Reader, () =>
         {
-            lock (feed.Lock) feed.Subscribers.Remove(channel);
+            lock (feed.Lock)
+            {
+                feed.Subscribers.Remove(channel);
+                feed.Notes.Remove(notes);
+            }
             channel.Writer.TryComplete();
+            notes.Writer.TryComplete();
         });
     }
+
+    /// <summary>Notes kept for one viewer that is not reading (each names up to 256 chunks). A viewer this far behind has lost its connection in all but name.</summary>
+    public const int MaxWaitingNotes = 4096;
 
     public sealed class Subscription : IDisposable
     {
         private readonly Action _dispose;
         public ChannelReader<byte[]> Frames { get; }
-        internal Subscription(ChannelReader<byte[]> frames, Action dispose) { Frames = frames; _dispose = dispose; }
+        public ChannelReader<byte[]> Notes { get; }
+        internal Subscription(ChannelReader<byte[]> frames, ChannelReader<byte[]> notes, Action dispose) { Frames = frames; Notes = notes; _dispose = dispose; }
         public void Dispose() => _dispose();
+
+        /// <summary>What to send the viewer next, for as long as there is any: the notes that chunks changed first, then the frames. Ends when unsubscribed.</summary>
+        public async IAsyncEnumerable<byte[]> ReadAllAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancel = default)
+        {
+            while (true)
+            {
+                if (Notes.TryRead(out var note)) { yield return note; continue; }
+                if (Frames.TryRead(out var frame)) { yield return frame; continue; }
+                var noteWait = Notes.WaitToReadAsync(cancel).AsTask();
+                var frameWait = Frames.WaitToReadAsync(cancel).AsTask();
+                await Task.WhenAny(noteWait, frameWait);
+                if (noteWait.IsCanceled || frameWait.IsCanceled) throw new OperationCanceledException(cancel);
+                if (noteWait is { IsCompletedSuccessfully: true, Result: false } && frameWait is { IsCompletedSuccessfully: true, Result: false }) yield break;
+            }
+        }
     }
 
     public LiveFeedStatus StatusOf(string serverId)

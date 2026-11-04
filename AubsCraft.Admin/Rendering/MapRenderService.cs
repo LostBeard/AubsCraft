@@ -255,6 +255,9 @@ public sealed class MapRenderService : IDisposable
         }
     }
 
+    /// <summary>What the owner of the world adds to the [Voxel] log line.</summary>
+    public Func<string>? VoxelLogNote { get; set; }
+
     private void RenderFrame()
     {
         if (Voxel is not { } voxel || _device == null || _context == null) return;
@@ -290,7 +293,8 @@ public sealed class MapRenderService : IDisposable
                 (voxel.Particles is { Known: > 0 } p ? $" | particles {p.DrawnCount}/{p.Known} emitters" : "") +
                 (voxel.Entities?.BlockEntities is { KnownTexts: > 0 } bt ? $" | sign texts {bt.TextsDrawn}/{bt.KnownTexts}" : "") +
                 (voxel.Light is { Count: > 0 } lt ? $" | light {lt.Count} columns" : "") +
-                (voxel.Rain > 0.02f && voxel.Sky is { } sky ? $" | weather {voxel.Rain:F2} on {sky.Map.Active} columns" : ""));
+                (voxel.Rain > 0.02f && voxel.Sky is { } sky ? $" | weather {voxel.Rain:F2} on {sky.Map.Active} columns" : "") +
+                (VoxelLogNote?.Invoke() ?? ""));
         }
     }
 

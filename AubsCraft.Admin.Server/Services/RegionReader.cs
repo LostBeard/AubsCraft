@@ -150,8 +150,38 @@ public sealed class RegionReader
         return chunks;
     }
 
+    /// <summary>The size of a region file's header: 1024 places (offset and size of each chunk), then 1024 times (when each chunk was last written, seconds, big-endian).</summary>
+    public const int HeaderBytes = 2 * SectorSize;
+
+    /// <summary>A region file's header, or null while the file is shorter than one (it is being created).</summary>
+    public static byte[]? ReadHeader(string regionPath)
+    {
+        using var fs = OpenShared(regionPath);
+        var header = new byte[HeaderBytes];
+        return fs.ReadAtLeast(header, HeaderBytes, throwOnEndOfStream: false) < HeaderBytes ? null : header;
+    }
+
+    /// <summary>
+    /// True for a chunk the game has only begun to generate (its status is not yet "full") that holds no block at all: the game keeps thousands of such stubs round the explored world, and
+    /// nobody playing ever sees one. It is not terrain, and must not be taken for air: the same chunk has real terrain as soon as a player comes near.
+    /// </summary>
+    public static bool IsGenerationStub(NbtCompound root, ChunkResult chunk)
+    {
+        if (root.ContainsKey("Status") && root.GetString("Status") is "minecraft:full" or "full") return false;
+        if (!root.ContainsKey("Status")) return false;   // an older format, or a chunk some tool wrote: what it says is what there is
+        foreach (var id in chunk.Blocks)
+            if (id != 0) return false;
+        return true;
+    }
+
     /// <summary>A chunk column from its NBT (public for the tests).</summary>
     public static ChunkResult ParseChunkNbt(NbtCompound root)
+    {
+        var parsed = ParseBlocks(root);
+        return IsGenerationStub(root, parsed) ? parsed with { GenerationStub = true } : parsed;
+    }
+
+    private static ChunkResult ParseBlocks(NbtCompound root)
     {
         var blocks = new ushort[ChunkWidth * TotalHeight * ChunkWidth];
         var palette = new List<string> { "minecraft:air" }; // ID 0 is always air
@@ -393,7 +423,7 @@ public sealed class RegionReader
 /// Result of reading a chunk column: block IDs and the chunk's palette. A palette entry is a block's name, with the properties that change its look when it has
 /// any (<see cref="BlockStateNamer"/>): <c>minecraft:oak_log[axis=x]</c>. Code that wants the plain name uses <see cref="BlockStateNamer.NameOf"/>.
 /// </summary>
-public record ChunkResult(ushort[] Blocks, List<string> Palette, byte[]? Biomes = null, List<BlockEntitySpot>? BlockEntities = null, ushort[]? RainHeights = null, List<SignText>? SignTexts = null, List<BannerLayers>? Banners = null);
+public record ChunkResult(ushort[] Blocks, List<string> Palette, byte[]? Biomes = null, List<BlockEntitySpot>? BlockEntities = null, ushort[]? RainHeights = null, List<SignText>? SignTexts = null, List<BannerLayers>? Banners = null, bool GenerationStub = false);
 
 internal static class BinaryReaderExtensions
 {

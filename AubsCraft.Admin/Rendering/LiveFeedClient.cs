@@ -22,6 +22,8 @@ public sealed class LiveFeedClient : IDisposable
     /// <summary>Frames received (all connections).</summary>
     public long Frames { get; private set; }
     public bool Connected => _socket?.ReadyState == 1;
+    /// <summary>The connection is back after being lost (whatever was sent in between is gone).</summary>
+    public Action? Reconnected { get; set; }
 
     public LiveFeedClient(string url, Action<byte[]> onFrame, Action<string>? log = null)
     {
@@ -45,6 +47,7 @@ public sealed class LiveFeedClient : IDisposable
                 if (_socket != socket) return;
                 _failures = 0;
                 if (!_everConnected) _log("Live feed connected");
+                else Reconnected?.Invoke();
                 _everConnected = true;
             };
             socket.OnMessage += e =>

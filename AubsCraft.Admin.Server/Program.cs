@@ -44,6 +44,7 @@ builder.Services.AddSingleton<ServerOperationsService>();
 builder.Services.AddSingleton<ServerMonitorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ServerMonitorService>());
 builder.Services.AddHostedService<LogTailService>();
+builder.Services.AddHostedService<WorldFileWatchService>();
 builder.Services.AddSingleton<AutoBackupService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<AutoBackupService>());
 builder.Services.AddSingleton<AuthService>();
@@ -400,6 +401,14 @@ world.MapGet("/chunk-ids/{x:int}/{z:int}", (int x, int z, string? server, Server
     // The blocks the game draws with a model of their own (chests, beds, signs, banners, heads, shulker boxes): the viewer draws them as boxes
     if (chunk.BlockEntities is { Count: > 0 } blockEntities) ctx.Response.Headers["X-BlockEntities"] = AubsCraft.Live.Model.BlockEntities.BlockEntityCodec.Encode(blockEntities);
     return Results.Bytes(System.Runtime.InteropServices.MemoryMarshal.AsBytes<ushort>(ids).ToArray(), "application/octet-stream");
+});
+
+// One chunk's far-tier frame (HeightmapWire), as the world stream sends it: for a chunk that changed after the stream passed it. 404 when there is no terrain there.
+world.MapGet("/heightmap-ids/{x:int}/{z:int}", (int x, int z, string? server, ServerManager servers, GlobalBlockRegistry registry) =>
+{
+    if (servers.Get(server) is not { } instance) return Results.NotFound();
+    var heightmap = instance.World.GetHeightmap(x, z);
+    return heightmap == null ? Results.NotFound() : Results.Bytes(HeightmapWire.BuildIdsFrame(x, z, heightmap, registry), "application/octet-stream");
 });
 
 // A column's light: a byte for each block (sky light in the high four bits, block light in the low four), laid out like the block ids. The viewer lights the world with it near the camera.
