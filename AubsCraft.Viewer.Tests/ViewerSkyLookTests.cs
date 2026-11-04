@@ -63,6 +63,46 @@ public class ViewerSkyLookTests
 
     private static Color At(Bitmap b, double fx, double fy) => b.GetPixel((int)(b.Width * fx), (int)(b.Height * fy));
 
+    // TJ 2026-11-04: "the moon has a large black border around it". The game's moon texture is opaque with a black background: the game adds it to the sky, so black is nothing. Mixed over the sky, it was a black square.
+    [Test]
+    public async Task TheMoon_HasNoBlackSquareAroundIt()
+    {
+        // Straight up at midnight: the moon is overhead, opposite the sun. No clouds to tell apart (the scene's clear sky at the height the rig stands)
+        var (bmp, _) = await ShotAsync("moon", 18000, "0,120,0,89,0");
+        int w = bmp.Width, h = bmp.Height;
+        double Luma(Color c) => 0.299 * c.R + 0.587 * c.G + 0.114 * c.B;
+        // The moon: the 32 px square with the most bright pixels (the stars are single pixels)
+        int bestX = 0, bestY = 0, most = 0;
+        for (int y = 0; y + 32 < h; y += 4)
+            for (int x = 0; x + 32 < w; x += 4)
+            {
+                int n = 0;
+                for (int py = y; py < y + 32; py += 2)
+                    for (int px = x; px < x + 32; px += 2)
+                        if (Luma(bmp.GetPixel(px, py)) > 100) n++;
+                if (n > most) { most = n; bestX = x; bestY = y; }
+            }
+        Assert.That(most, Is.GreaterThan(40), "the moon is in the view");
+        int cx = bestX + 16, cy = bestY + 16;
+        // The night sky is deep blue: its blue channel says the most. The middle value of a small patch, so a star in it does not count
+        double Blue(int x, int y)
+        {
+            var values = new List<int>();
+            for (int py = y - 6; py <= y + 6; py++)
+                for (int px = x - 6; px <= x + 6; px++)
+                    if (px >= 0 && py >= 0 && px < w && py < h) values.Add(bmp.GetPixel(px, py).B);
+            values.Sort();
+            return values[values.Count / 2];
+        }
+        // The corners of the square the moon's picture fills (about 130 px across here), and the sky just outside them
+        const int Corner = 55, Outside = 90;
+        double inside = new[] { Blue(cx - Corner, cy - Corner), Blue(cx + Corner, cy - Corner), Blue(cx - Corner, cy + Corner), Blue(cx + Corner, cy + Corner) }.Average();
+        double sky = new[] { Blue(cx - Outside, cy - Outside), Blue(cx + Outside, cy - Outside), Blue(cx - Outside, cy + Outside), Blue(cx + Outside, cy + Outside) }.Average();
+        TestContext.Progress.WriteLine($"[sky] the moon at {cx},{cy}; blue in the corners of its square {inside:F1}, in the sky outside it {sky:F1}");
+        Assert.That(sky, Is.GreaterThan(5), "a sky bright enough for a black square to show");
+        Assert.That(inside, Is.GreaterThan(sky * 0.75), "no black square round the moon");
+    }
+
     [Test]
     public async Task AtNoon_TheSkyIsAGradient_BlueOverhead_PaleAtTheHorizon()
     {
