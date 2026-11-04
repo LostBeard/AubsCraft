@@ -228,6 +228,35 @@ public class LivePluginFabricTests
         Assert.That(entity.IsPlayer && entity.Type == "player", Is.True);
     }
 
+    [Test, Order(5)]
+    public async Task APlayersHud_IsInTheFrames_AsTheGameHasIt()
+    {
+        await using var bot = TestBot.Start("127.0.0.1", GamePort, "HudWatcher");
+        await bot.WaitForSpawnAsync(TimeSpan.FromSeconds(60));
+        await _rcon.SendCommandAsync("gamemode survival HudWatcher");
+        await _rcon.SendCommandAsync("item replace entity HudWatcher hotbar.3 with minecraft:bread 12");
+        await _rcon.SendCommandAsync("item replace entity HudWatcher hotbar.8 with minecraft:diamond_sword");
+        await _rcon.SendCommandAsync("item replace entity HudWatcher armor.chest with minecraft:iron_chestplate");
+        await _rcon.SendCommandAsync("xp add HudWatcher 7 levels");
+
+        LivePlayer? Hud(LiveFrame f) => f.Worlds.SelectMany(w => w.Players).FirstOrDefault(p => p.Name == "HudWatcher");
+        var frame = await WaitForFrameAsync(f => Hud(f) is { Status: { XpLevel: 7, Armor: > 0 } status } && status.Hotbar[3].Item == "bread", "the player's hud", seconds: 20);
+        var player = Hud(frame)!;
+        var s = player.Status!;
+        Assert.That(player.GameMode, Is.EqualTo(PlayerBarLayout.Survival));
+        Assert.That((s.HealthPoints, s.MaxHealth, s.Food, s.Air), Is.EqualTo((20, 20, 20, 20)), "a fresh player");
+        Assert.That(s.Armor, Is.EqualTo(6), "an iron chestplate");
+        Assert.That(s.Hotbar, Has.Count.EqualTo(9));
+        Assert.That(s.Hotbar[3], Is.EqualTo(new HotbarSlot("bread", 12)));
+        Assert.That(s.Hotbar[8], Is.EqualTo(new HotbarSlot("diamond_sword", 1)));
+        Assert.That(s.Hotbar[0].Item, Is.Empty);
+        Assert.That(s.SelectedSlot, Is.InRange(0, 8));
+
+        await _rcon.SendCommandAsync("gamemode creative HudWatcher");
+        var creative = await WaitForFrameAsync(f => Hud(f)?.GameMode == PlayerBarLayout.Creative, "the mode changed", seconds: 10);
+        Assert.That(Hud(creative)!.GameMode, Is.EqualTo(PlayerBarLayout.Creative));
+    }
+
     [Test, Order(6)]
     public async Task TheFramesKeepComing_AtTheConfiguredRate()
     {
