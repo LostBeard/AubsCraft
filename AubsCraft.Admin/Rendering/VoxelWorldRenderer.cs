@@ -666,23 +666,18 @@ public sealed class VoxelWorldRenderer : IDisposable
     /// <summary>Soft shadows in the corners and at the feet of walls, baked into the quads by the mesher (VoxelEngine's ambient occlusion). On by default.</summary>
     public bool AmbientOcclusion => _ambientOcclusion;
 
-    /// <summary>Turn the soft corner shadows on or off: the columns that are in are meshed again (the new faces are drawn as each is done).</summary>
-    public async Task SetAmbientOcclusionAsync(bool on)
+    /// <summary>
+    /// Turn the soft corner shadows on or off. Only the columns that have them or now want them are meshed again, in the background and paced like any other re-mesh, so this returns at once. It used to mesh
+    /// every column and every far chunk there and then, unpaced, far chunks that had no mesh included (they have no shadows at all): thousands of meshes on a real world.
+    /// </summary>
+    public Task SetAmbientOcclusionAsync(bool on)
     {
-        if (_ambientOcclusion == on) return;
+        if (_ambientOcclusion == on) return Task.CompletedTask;
         _ambientOcclusion = on;
-        if (_mesher == null) return;
+        if (_mesher == null) return Task.CompletedTask;
         _mesher.AmbientOcclusion = on;
-        await RemeshAllAsync();
-    }
-
-    /// <summary>Mesh every loaded column again (after the block tables changed).</summary>
-    public async Task RemeshAllAsync()
-    {
-        foreach (var col in _columns.Values.ToArray())
-            await MeshAsync(col);
-        foreach (var chunk in _far.Values.ToArray())
-            await MeshAsync(chunk);
+        RefreshAoColumns();
+        return Task.CompletedTask;
     }
 
     private void DisposeMesh(ColumnMesh mesh)

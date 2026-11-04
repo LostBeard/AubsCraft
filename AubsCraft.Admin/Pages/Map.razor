@@ -243,6 +243,12 @@ else if (_viewMode == ViewMode.Error)
         await PushViewerStateAsync();
     }
 
+    private async Task RunHudCommandSafelyAsync(string command)
+    {
+        try { await RunHudCommandAsync(command); }
+        catch (Exception ex) { System.Console.WriteLine($"[Map] The menu's '{command}' failed: {ex.Message}"); }
+    }
+
     private async Task ToggleFullscreenAsync()
     {
         if (_document == null || _canvas == null) return;
@@ -639,8 +645,10 @@ else if (_viewMode == ViewMode.Error)
             if (commandPollTicks > 0)
             {
                 commandPollTicks--;
+                // Not waited for: this loop is what carries every click and key to the HUD. A command can take a long time (the voice's connection, a headset session starting, a permission
+                // prompt), and with the loop waiting on one the whole UI stood frozen over a world still drawing (TJ 2026-11-04, the Shading button)
                 foreach (var command in await _renderService.TakeHudCommandsAsync())
-                    await RunHudCommandAsync(command);
+                    _ = RunHudCommandSafelyAsync(command);
             }
 
             if (chatPollTicks > 0)

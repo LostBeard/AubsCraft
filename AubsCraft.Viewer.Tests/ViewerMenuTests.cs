@@ -51,9 +51,10 @@ public class ViewerMenuTests
         public readonly System.Collections.Concurrent.ConcurrentQueue<string> Log = log;
     }
 
-    private async Task<Viewer> OpenAsync(string query)
+    private async Task<Viewer> OpenAsync(string query, ViewerRig? on = null)
     {
-        var page = await _rig.Context.NewPageAsync();
+        var rig = on ?? _rig;
+        var page = await rig.Context.NewPageAsync();
         var errors = new List<string>();
         var log = new System.Collections.Concurrent.ConcurrentQueue<string>();
         void OnLine(IConsoleMessage m)
@@ -64,7 +65,7 @@ public class ViewerMenuTests
         page.Console += (_, m) => OnLine(m);
         page.Worker += (_, w) => w.Console += (_, m) => OnLine(m);
         page.PageError += (_, e) => errors.Add(e);
-        await page.GotoAsync($"{_rig.BaseUrl}/map?{query}", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
+        await page.GotoAsync($"{rig.BaseUrl}/map?{query}", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
         await ViewerShotTests.WaitForSettledAsync(page, minSections: 10, quietSeconds: 3, maxSeconds: 60);
         return new Viewer(page, errors, log);
     }
@@ -174,6 +175,144 @@ public class ViewerMenuTests
             try { await v.Page.EvaluateAsync("localStorage.removeItem('aubscraft.viewer')"); } catch { }
             await v.Page.CloseAsync();
         }
+    }
+
+    /// <summary>
+    /// TJ 2026-11-04: pressing Shading in the menu froze the whole UI ("It will not go away now and nothign works ... tab does nothing") with the world still drawing behind it. The page ran the menu's
+    /// commands inside its input loop and waited for each to end, and changing the shading meshed everything loaded. Whatever a command costs, the menu goes on answering.
+    /// </summary>
+    [Test]
+    public async Task EveryButtonThatTakesAWhile_LeavesTheMenuAnswering()
+    {
+        // The real world: thousands of chunks, as TJ had (the test's small world meshes again in a moment, and passed on the frozen build)
+        await using var rig = await ViewerRig.StartAsync(Environment.GetEnvironmentVariable("AUBS_VIEWER_PUBLISH")!, Environment.GetEnvironmentVariable("AUBS_VIEWER_WORLD") ?? "M:/opt/minecraft/server");
+        var v = await OpenAsync("time=6000&cam=-455,137,-421,-38,249", rig);
+        try
+        {
+            await Task.Delay(30000);   // the stream well on: plenty to mesh again
+            var menu = await OpenMenuAsync(v);
+            await PressMenuAsync(v, menu, "shading");
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            // Tab closes it and the Menu button opens it again: each goes through the page's input loop
+            await v.Page.Keyboard.PressAsync("Tab");
+            await Task.Delay(150);
+            var again = await OpenMenuAsync(v);
+            TestContext.Progress.WriteLine($"[menu] after Shading the menu closed and opened again in {clock.ElapsedMilliseconds} ms");
+            Assert.That(clock.ElapsedMilliseconds, Is.LessThan(3000), "the UI goes on answering");
+            await v.Page.GetByRole(AriaRole.Button, new() { Name = "Shading: Flat" }).WaitForAsync(new() { Timeout = 5000, State = WaitForSelectorState.Attached });
+            await PressMenuAsync(v, again, "shading");
+            await v.Page.GetByRole(AriaRole.Button, new() { Name = "Shading: Soft" }).WaitForAsync(new() { Timeout = 5000, State = WaitForSelectorState.Attached });
+            Assert.That(v.Errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", v.Errors));
+        }
+        finally
+        {
+            try { await v.Page.EvaluateAsync("localStorage.removeItem('aubscraft.ao')"); } catch { }
+            await v.Page.CloseAsync();
+        }
+    }
+
+    /// <summary>The Shading button in the running viewer: the shadows come and go near the camera without a reload, the meshes made again in the background.</summary>
+    [Test]
+    public async Task TheShadingButton_ChangesTheRunningView()
+    {
+        var publish = Environment.GetEnvironmentVariable("AUBS_VIEWER_PUBLISH")!;
+        await using var rig = await ViewerRig.StartAsync(publish, Environment.GetEnvironmentVariable("AUBS_SCENE_WORLD") ?? "D:/users/tj/Projects/_scratch/scene-server");
+        var v = await OpenAsync("time=6000&dd=6&light=0&cam=-10,-52,30,-20,0", rig);
+        var canvas = v.Page.Locator("#map-canvas");
+        try
+        {
+            await Task.Delay(6000);
+            var soft = Path.Combine(_outDir, "shading-soft.png");
+            await canvas.ScreenshotAsync(new LocatorScreenshotOptions { Path = soft });
+            var menu = await OpenMenuAsync(v);
+            await PressMenuAsync(v, menu, "shading");
+            await v.Page.Keyboard.PressAsync("Tab");
+            await Task.Delay(6000);
+            var flat = Path.Combine(_outDir, "shading-flat.png");
+            await canvas.ScreenshotAsync(new LocatorScreenshotOptions { Path = flat });
+            var change = Compare(soft, flat);
+            TestContext.Progress.WriteLine($"[menu] shading off changes the view by {change.Difference:F2} of 255");
+            Assert.That(change.Difference, Is.GreaterThan(0.3), "the shadows went");
+            Assert.That(v.Errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", v.Errors));
+        }
+        finally
+        {
+            try { await v.Page.EvaluateAsync("localStorage.removeItem('aubscraft.ao')"); } catch { }
+            await v.Page.CloseAsync();
+        }
+    }
+
+    // How far apart two pictures are in the middle of the view (mean of the colour differences, 0..255), and how bright the first is
+    private static (double Difference, double Luma) Compare(string first, string second)
+    {
+        using var x = new System.Drawing.Bitmap(first);
+        using var y = new System.Drawing.Bitmap(second);
+        double sum = 0, luma = 0;
+        long n = 0;
+        for (int py = x.Height / 4; py < x.Height * 3 / 4; py += 3)
+            for (int px = x.Width / 4; px < x.Width * 3 / 4; px += 3)
+            {
+                var c = x.GetPixel(px, py);
+                var d = y.GetPixel(px, py);
+                sum += (Math.Abs(c.R - d.R) + Math.Abs(c.G - d.G) + Math.Abs(c.B - d.B)) / 3.0;
+                luma += 0.299 * c.R + 0.587 * c.G + 0.114 * c.B;
+                n++;
+            }
+        return (sum / n, luma / n);
+    }
+
+    /// <summary>
+    /// TJ 2026-11-04: "clicking the lighting button appeared to do nothing". In a closed room the light is most of the picture, so the button pressed in the running viewer must change it, and back. The same is
+    /// measured in the open by day, where everything is sky-lit, and printed: it says how much a viewer can expect to see there.
+    /// </summary>
+    [Test]
+    public async Task TheLightingButton_ChangesTheRunningView_AndBack()
+    {
+        var publish = Environment.GetEnvironmentVariable("AUBS_VIEWER_PUBLISH")!;
+        await using var rig = await ViewerRig.StartAsync(publish, Environment.GetEnvironmentVariable("AUBS_SCENE_WORLD") ?? "D:/users/tj/Projects/_scratch/scene-server");
+        async Task<(double Change, double Back, double Luma)> MeasureAsync(string name, string cam)
+        {
+            var v = await OpenAsync($"time=6000&dd=6&cam={cam}", rig);
+            var canvas = v.Page.Locator("#map-canvas");
+            try
+            {
+                await Task.Delay(8000);   // the light of the columns near the camera comes a little after the columns
+                async Task<string> ShotAsync(string step)
+                {
+                    await Task.Delay(1000);
+                    var path = Path.Combine(_outDir, $"lighting-{name}-{step}.png");
+                    await canvas.ScreenshotAsync(new LocatorScreenshotOptions { Path = path });
+                    return path;
+                }
+                async Task PressLightingAsync()
+                {
+                    var menu = await OpenMenuAsync(v);
+                    await PressMenuAsync(v, menu, "lighting");
+                    await v.Page.Keyboard.PressAsync("Tab");
+                }
+                var on = await ShotAsync("on");
+                await PressLightingAsync();
+                await v.Page.GetByRole(AriaRole.Button, new() { Name = "Lighting: Off" }).WaitForAsync(new() { Timeout = 5000, State = WaitForSelectorState.Attached });
+                var off = await ShotAsync("off");
+                await PressLightingAsync();
+                await v.Page.GetByRole(AriaRole.Button, new() { Name = "Lighting: On" }).WaitForAsync(new() { Timeout = 5000, State = WaitForSelectorState.Attached });
+                var back = await ShotAsync("back");
+                Assert.That(v.Errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", v.Errors));
+                var change = Compare(on, off);
+                return (change.Difference, Compare(on, back).Difference, change.Luma);
+            }
+            finally
+            {
+                try { await v.Page.EvaluateAsync("localStorage.removeItem('aubscraft.lighting')"); } catch { }
+                await v.Page.CloseAsync();
+            }
+        }
+
+        var room = await MeasureAsync("room", "63.6,-58.9,63.7,5,45");
+        var open = await MeasureAsync("open", "-10,-52,30,-20,0");
+        TestContext.Progress.WriteLine($"[menu] lighting off changes the closed room by {room.Change:F1} of 255 (back on: {room.Back:F1}); the open by day by {open.Change:F1} (back on: {open.Back:F1})");
+        Assert.That(room.Change, Is.GreaterThan(8), "in a closed room the button changes the picture");
+        Assert.That(room.Back, Is.LessThan(room.Change / 3), "and pressing it again brings the picture back");
     }
 
     [Test]
