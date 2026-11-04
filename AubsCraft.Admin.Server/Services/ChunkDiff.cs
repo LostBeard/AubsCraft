@@ -32,12 +32,33 @@ public static class ChunkDiff
             if (border == 15) break;
         }
         if (any) return border;
-        return Same(a.SignTexts, b.SignTexts) && Same(a.Banners, b.Banners) && Same(a.BlockEntities, b.BlockEntities) ? -1 : 0;
+        return Extras(a) == Extras(b) ? -1 : 0;
     }
 
-    private static bool Same<T>(List<T>? a, List<T>? b)
+    // What a viewer shows of a chunk beyond its blocks, as one piece of text. Not the records themselves: a sign holds its lines in an array, and a record compares an array by reference, so every sign looked changed
+    private static string Extras(ChunkResult c)
     {
-        if (a is null or { Count: 0 }) return b is null or { Count: 0 };
-        return b != null && a.SequenceEqual(b);
+        var text = new System.Text.StringBuilder();
+        foreach (var s in c.SignTexts ?? []) text.Append(s.X).Append(',').Append(s.Y).Append(',').Append(s.Z).Append(':').AppendJoin('\u0001', s.Lines).Append(':').Append(s.Color).Append(s.Glowing).Append(';');
+        foreach (var b in c.Banners ?? []) text.Append(b.X).Append(',').Append(b.Y).Append(',').Append(b.Z).Append(':').AppendJoin('/', b.Layers).Append(';');
+        foreach (var e in c.BlockEntities ?? []) text.Append(e).Append(';');
+        return text.ToString();
+    }
+
+    /// <summary>
+    /// A number that stands for what a viewer shows of a chunk: the same blocks and extras give the same number whatever their palette's order. It is kept for a chunk that has gone from the panel's memory, so a save that
+    /// changed nothing still sends no viewer after it. Good for this process only (a string's hash code differs from run to run).
+    /// </summary>
+    public static long ContentHash(ChunkResult c)
+    {
+        var names = new int[c.Palette.Count];
+        for (int i = 0; i < names.Length; i++) names[i] = c.Palette[i].GetHashCode();
+        // FNV-1a over a whole block at a time
+        unchecked
+        {
+            long h = -3750763034362895579L;
+            foreach (var id in c.Blocks) h = (h ^ (id < names.Length ? names[id] : id)) * 1099511628211L;
+            return (h ^ Extras(c).GetHashCode()) * 1099511628211L;
+        }
     }
 }

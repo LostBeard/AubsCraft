@@ -148,6 +148,78 @@ public class WorldFreshnessTests
     }
 
     [Test]
+    public void TheCache_StaysWithinItsBound_AndTheChunkInUseStays()
+    {
+        var w = new World();
+        w.Data.MaxCachedChunks = 20;
+        var chunks = new List<RegionChunk>();
+        for (int z = 0; z < 8; z++)
+            for (int x = 0; x < 8; x++)
+                chunks.Add(new RegionChunk(x, z, "minecraft:full", StoneFloor, T0));
+        w.Write(chunks.ToArray());
+        w.Scan();
+        for (int z = 0; z < 8; z++)
+            for (int x = 0; x < 8; x++)
+            {
+                Assert.That(w.Data.GetChunk(x, z), Is.Not.Null);
+                Assert.That(w.Data.GetChunk(0, 0), Is.Not.Null);   // in use all along
+                Assert.That(w.Data.CachedChunkCount, Is.LessThanOrEqualTo(20 + 1));
+            }
+        // An evicted chunk is read again, whole
+        Assert.That(w.TopBlockOf(3, 3), Is.EqualTo(Stone));
+    }
+
+    [Test]
+    public void AChunkOutOfTheCache_SavedUnchanged_SendsNoViewerAfterIt_AndChangedDoes()
+    {
+        var w = new World();
+        w.Data.MaxCachedChunks = 3;
+        var all = new List<RegionChunk>();
+        for (int x = 0; x < 8; x++) all.Add(new RegionChunk(x, 0, "minecraft:full", StoneFloor, T0));
+        w.Write(all.ToArray());
+        w.Scan();
+        for (int x = 0; x < 8; x++) w.Data.GetChunk(x, 0);
+        Assert.That(w.Data.CachedChunkCount, Is.LessThanOrEqualTo(4), "(0, 0) has left the cache");
+
+        all[0] = new RegionChunk(0, 0, "minecraft:full", StoneFloor, T0 + 60);
+        w.Write(all.ToArray());
+        w.Scan();
+        Assert.That(w.Notes, Is.Empty, "saved again with the same blocks");
+
+        for (int x = 1; x < 8; x++) w.Data.GetChunk(x, 0);   // (0, 0) out again
+        all[0] = new RegionChunk(0, 0, "minecraft:full", GoldFloor, T0 + 120);
+        w.Write(all.ToArray());
+        w.Scan();
+        Assert.That(w.Notes, Is.EqualTo(new[] { (0, 0, 15) }), "changed: which sides is not known any more, so all");
+    }
+
+    [Test]
+    public void AHeightmap_FollowsTheChunk()
+    {
+        var w = new World();
+        w.Write(new RegionChunk(2, 3, "minecraft:full", StoneFloor, T0));
+        w.Scan();
+        var first = w.Data.GetHeightmap(2, 3)!;
+        Assert.That(w.Data.GetHeightmap(2, 3), Is.SameAs(first), "kept");
+        Assert.That(first.Palette[first.BlockIds[0]], Is.EqualTo(Stone));
+        w.Write(new RegionChunk(2, 3, "minecraft:full", GoldFloor, T0 + 60));
+        w.Scan();
+        var second = w.Data.GetHeightmap(2, 3)!;
+        Assert.That(second.Palette[second.BlockIds[0]], Is.EqualTo(Gold), "and new when the chunk is");
+    }
+
+    [Test]
+    public void ASign_IsTheSameSignThoughItsLinesAreAnotherArray()
+    {
+        ushort[] Blocks() => new ushort[16 * 16 * 384];
+        ChunkResult With(string line) => new(Blocks(), ["minecraft:air"], SignTexts: [new AubsCraft.Live.Model.BlockEntities.SignText(1, 2, 3, [line, "", "", ""], 0, false)]);
+        Assert.That(ChunkDiff.BorderOfChange(With("hello"), With("hello")), Is.EqualTo(-1));
+        Assert.That(ChunkDiff.BorderOfChange(With("hello"), With("bye")), Is.EqualTo(0), "new words: its inside changed");
+        Assert.That(ChunkDiff.ContentHash(With("hello")), Is.EqualTo(ChunkDiff.ContentHash(With("hello"))));
+        Assert.That(ChunkDiff.ContentHash(With("hello")), Is.Not.EqualTo(ChunkDiff.ContentHash(With("bye"))));
+    }
+
+    [Test]
     public void ChunkDiff_NamesTheSidesThatChanged_ThroughDifferentPalettes()
     {
         const int W = 16;

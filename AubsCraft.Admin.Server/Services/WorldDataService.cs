@@ -6,13 +6,54 @@ namespace AubsCraft.Admin.Server.Services;
 
 /// <summary>
 /// Provides access to ONE server's Minecraft world data by reading region files from the server filesystem.
-/// Caches parsed chunk data in memory.
+/// Keeps the chunks last asked for in memory, up to <see cref="MaxCachedChunks"/>, and every chunk's heightmap (the world stream reads every chunk there is; a parsed chunk is 200 KB and a heightmap 3).
 /// </summary>
 public sealed class WorldDataService
 {
     private readonly ServerDefinition _server;
     private readonly ILogger<WorldDataService> _logger;
-    private readonly ConcurrentDictionary<(int, int), ChunkResult> _chunkCache = new();
+    private sealed class Cached(ChunkResult chunk, long used)
+    {
+        public readonly ChunkResult Chunk = chunk;
+        public long Used = used;
+    }
+
+    private readonly ConcurrentDictionary<(int, int), Cached> _chunkCache = new();
+    private readonly ConcurrentDictionary<(int, int), HeightmapResult> _heightmaps = new();
+    // What each chunk the panel has read last looked like, for one that has left the cache: a chunk saved again unchanged sends no viewer after it
+    private readonly ConcurrentDictionary<(int, int), long> _contentHashes = new();
+    private long _useClock;
+    private int _trimming;
+
+    /// <summary>
+    /// The most parsed chunks held. A world of 15,000 chunks all held was 3 GB in the panel (the world stream reads every one for its heightmap); a viewer shows about 800 columns in full.
+    /// </summary>
+    public int MaxCachedChunks { get; set; } = 2048;
+
+    /// <summary>Parsed chunks held now.</summary>
+    public int CachedChunkCount => _chunkCache.Count;
+
+    private void Keep((int, int) key, ChunkResult chunk)
+    {
+        _chunkCache[key] = new Cached(chunk, Interlocked.Increment(ref _useClock));
+        _contentHashes[key] = ChunkDiff.ContentHash(chunk);
+        if (_chunkCache.Count <= MaxCachedChunks || Interlocked.Exchange(ref _trimming, 1) != 0) return;
+        try
+        {
+            // The longest unused go, a tenth at a time so this is not done for every chunk read. What the running server sent stays: it is newer than the file
+            int target = MaxCachedChunks - MaxCachedChunks / 10;
+            var oldest = _chunkCache.Where(kv => !_liveLight.ContainsKey(kv.Key)).OrderBy(kv => kv.Value.Used).Select(kv => kv.Key).Take(Math.Max(_chunkCache.Count - target, 0)).ToList();
+            foreach (var old in oldest) _chunkCache.TryRemove(old, out _);
+        }
+        finally { Volatile.Write(ref _trimming, 0); }
+    }
+
+    // Whatever was known of a chunk's look goes when the chunk changes; its hash stays until the new look is known, to tell whether it did
+    private void Forget((int, int) key)
+    {
+        _chunkCache.TryRemove(key, out _);
+        _heightmaps.TryRemove(key, out _);
+    }
     private static readonly Regex RegionFilePattern = new(@"r\.(-?\d+)\.(-?\d+)\.mca", RegexOptions.Compiled);
 
     public WorldDataService(ServerDefinition server, ILogger<WorldDataService> logger)
@@ -56,7 +97,10 @@ public sealed class WorldDataService
     public ChunkResult? GetChunk(int chunkX, int chunkZ)
     {
         if (_chunkCache.TryGetValue((chunkX, chunkZ), out var cached))
-            return cached;
+        {
+            cached.Used = Interlocked.Increment(ref _useClock);
+            return cached.Chunk;
+        }
         // Known to be a stub, and the file has not changed since (ScanForChanges forgets it when it does)
         if (_stubs.ContainsKey((chunkX, chunkZ)))
             return null;
@@ -80,7 +124,7 @@ public sealed class WorldDataService
                 return null;
             }
             if (result != null)
-                _chunkCache[(chunkX, chunkZ)] = result;
+                Keep((chunkX, chunkZ), result);
             return result;
         }
         catch (Exception ex)
@@ -171,7 +215,7 @@ public sealed class WorldDataService
                     _unreadable.TryRemove((cx, cz), out _);
                     if (chunk is { GenerationStub: true }) { _stubs[(cx, cz)] = 0; continue; }
                     if (chunk == null) continue;
-                    _chunkCache[(cx, cz)] = chunk;
+                    Keep((cx, cz), chunk);
                     changed.Add((cx, cz, 15));
                 }
                 catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -195,10 +239,12 @@ public sealed class WorldDataService
             if (DateTimeOffset.FromUnixTimeSeconds(stamp) < new DateTimeOffset(live.At).AddSeconds(-1)) return;
             _liveLight.TryRemove(key, out _);   // the file has caught up
         }
-        _chunkCache.TryGetValue(key, out var old);
+        _chunkCache.TryGetValue(key, out var held);
+        var old = held?.Chunk;
+        _heightmaps.TryRemove(key, out _);
         if (!watched)
         {
-            _chunkCache.TryRemove(key, out _);
+            Forget(key);
             return;
         }
 
@@ -206,7 +252,7 @@ public sealed class WorldDataService
         try { fresh = RegionReader.ReadChunk(regionPath, cx & 31, cz & 31); }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            _chunkCache.TryRemove(key, out _);
+            Forget(key);
             _unreadable[key] = 0;
             _logger.LogDebug("Chunk ({ChunkX}, {ChunkZ}) changed and cannot be read yet: {Message}", cx, cz, ex.Message);
             return;
@@ -214,13 +260,15 @@ public sealed class WorldDataService
         if (fresh == null || fresh.GenerationStub)
         {
             if (fresh != null) _stubs[key] = 0;
-            _chunkCache.TryRemove(key, out _);
-            if (old != null) changed.Add((cx, cz, 15));
+            Forget(key);
+            if (old != null || _contentHashes.TryRemove(key, out _)) changed.Add((cx, cz, 15));
             return;
         }
         // Saved again with nothing changed that a viewer shows (the game rewrites a chunk for its creatures, its clock...): no viewer is sent after it
-        int border = old == null ? 15 : ChunkDiff.BorderOfChange(old, fresh);
-        _chunkCache[key] = fresh;
+        int border = old != null ? ChunkDiff.BorderOfChange(old, fresh)
+            : _contentHashes.TryGetValue(key, out var known) && known == ChunkDiff.ContentHash(fresh) ? -1
+            : 15;   // new, or out of the cache and changed: which sides is not known any more
+        Keep(key, fresh);
         if (border >= 0) changed.Add((cx, cz, border));
     }
 
@@ -251,13 +299,14 @@ public sealed class WorldDataService
     /// <summary>A chunk as the running server has it now: served instead of the region file's until it is dropped.</summary>
     public void SetLiveChunk(int chunkX, int chunkZ, ChunkResult chunk, byte[] light)
     {
-        _chunkCache[(chunkX, chunkZ)] = chunk;
         _liveLight[(chunkX, chunkZ)] = new LiveChunk(light, DateTime.UtcNow);
+        _heightmaps.TryRemove((chunkX, chunkZ), out _);
+        Keep((chunkX, chunkZ), chunk);
         while (_liveLight.Count > MaxLiveChunks)
         {
             var oldest = _liveLight.MinBy(kv => kv.Value.At).Key;
             if (!_liveLight.TryRemove(oldest, out _)) break;
-            _chunkCache.TryRemove(oldest, out _);   // the next read parses the file
+            Forget(oldest);   // the next read parses the file
         }
     }
 
@@ -302,6 +351,8 @@ public sealed class WorldDataService
     /// </summary>
     public HeightmapResult? GetHeightmap(int chunkX, int chunkZ)
     {
+        if (_heightmaps.TryGetValue((chunkX, chunkZ), out var known)) return known;
+        long changesBefore = Volatile.Read(ref _changesApplied);
         var chunk = GetChunk(chunkX, chunkZ);
         if (chunk == null) return null;
 
@@ -357,7 +408,10 @@ public sealed class WorldDataService
             }
         }
 
-        return new HeightmapResult(heights, blockIds, seabedHeights, seabedBlockIds, chunk.Palette, chunk.Biomes);
+        var heightmap = new HeightmapResult(heights, blockIds, seabedHeights, seabedBlockIds, chunk.Palette, chunk.Biomes);
+        // Not kept if a change came while it was worked out: it may be from before that
+        if (Volatile.Read(ref _changesApplied) == changesBefore) _heightmaps[(chunkX, chunkZ)] = heightmap;
+        return heightmap;
     }
 
     /// <summary>
@@ -428,8 +482,10 @@ public sealed class WorldDataService
 
     public void ClearCache()
     {
+        int count = _chunkCache.Count;
         _chunkCache.Clear();
-        _logger.LogInformation("World data cache cleared ({Count} entries)", _chunkCache.Count);
+        _heightmaps.Clear();
+        _logger.LogInformation("World data cache cleared ({Count} entries)", count);
     }
 }
 
