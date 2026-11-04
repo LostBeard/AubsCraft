@@ -160,6 +160,25 @@ public class ViewerMenuTests
             await PressMenuAsync(v, menu, "stats");
             await PressMenuAsync(v, menu, "bars");
 
+            // A click away from the menu closes it: the next click on the view then takes the mouse
+            await PressAsync(v.Page, 100, 600);
+            await ViewerRig.TakeTheMouseAsync(v.Page, 100, 600);
+            await v.Page.EvaluateAsync("document.exitPointerLock()");
+            await Task.Delay(1500);
+            // A slider dragged off the panel does not
+            var dragMenu = await OpenMenuAsync(v);
+            var dragged = dragMenu["fovSlider"];
+            await v.Page.Mouse.MoveAsync(dragged.X + dragged.W / 2f, dragged.Y + 28f);
+            await Task.Delay(100);
+            await v.Page.Mouse.DownAsync();
+            await v.Page.Mouse.MoveAsync(1100, dragged.Y + 28f, new MouseMoveOptions { Steps = 5 });
+            await Task.Delay(100);
+            await v.Page.Mouse.UpAsync();
+            await Task.Delay(300);
+            await v.Page.Mouse.ClickAsync(640, 300);   // on the panel: the menu is still there to take it, so no lock
+            await Task.Delay(300);
+            Assert.That(await v.Page.EvaluateAsync<bool>("document.pointerLockElement !== null"), Is.False, "the menu stayed open through the drag");
+
             // Tab closes it (the mouse is back over the world: a click flies)
             await v.Page.Keyboard.PressAsync("Tab");
             await Task.Delay(300);
@@ -365,6 +384,133 @@ public class ViewerMenuTests
             try { await v.Page.EvaluateAsync("localStorage.removeItem('aubscraft.viewer')"); } catch { }
             await v.Page.CloseAsync();
         }
+    }
+
+    /// <summary>The menu's sliders, dragged with the real mouse: what each one sets is what the viewer then does, and it is remembered.</summary>
+    [Test]
+    public async Task TheSliders_ChangeTheViewer()
+    {
+        var v = await OpenAsync("time=6000&dd=8&cam=144,40,144,-30,0");
+        var canvas = v.Page.Locator("#map-canvas");
+        async Task SetAsync(string slider, float fraction)
+        {
+            var menu = await OpenMenuAsync(v);
+            var s = menu[slider];
+            await PressAsync(v.Page, s.X + s.W * fraction, s.Y + 28f);
+            await v.Page.Keyboard.PressAsync("Tab");
+            await Task.Delay(400);
+        }
+        async Task<System.Text.Json.JsonElement> SavedAsync()
+        {
+            string? saved = null;
+            for (int i = 0; i < 30 && saved == null; i++)
+            {
+                await Task.Delay(100);
+                saved = await v.Page.EvaluateAsync<string?>("localStorage.getItem('aubscraft.viewer')");
+            }
+            Assert.That(saved, Is.Not.Null, "the setting is remembered");
+            return System.Text.Json.JsonDocument.Parse(saved!).RootElement;
+        }
+        try
+        {
+            await Task.Delay(2000);
+            var before = Path.Combine(_outDir, "fov-before.png");
+            await canvas.ScreenshotAsync(new LocatorScreenshotOptions { Path = before });
+
+            // Field of view: the far end, and the world is seen wider
+            await SetAsync("fovSlider", 0.98f);
+            Assert.That((await SavedAsync()).GetProperty("Fov").GetSingle(), Is.GreaterThan(100f));
+            await Task.Delay(800);
+            var wide = Path.Combine(_outDir, "fov-wide.png");
+            await canvas.ScreenshotAsync(new LocatorScreenshotOptions { Path = wide });
+            double change = Compare(before, wide).Difference;
+            TestContext.Progress.WriteLine($"[menu] the widest field of view changes the view by {change:F1} of 255");
+            Assert.That(change, Is.GreaterThan(2), "the view is wider");
+
+            // Flying speed: near the slow end, and a second of flying covers about that much
+            await SetAsync("speedSlider", 0.05f);
+            float speed = (await SavedAsync()).GetProperty("FlySpeed").GetSingle();
+            Assert.That(speed, Is.LessThan(40f), "the slider's low end");
+            await Task.Delay(1500);
+            var from = (await ViewerStats.ReadAsync(v.Page))!;
+            await ViewerRig.TakeTheMouseAsync(v.Page, 640, 500);
+            await v.Page.Keyboard.DownAsync("KeyW");
+            await Task.Delay(3000);
+            await v.Page.Keyboard.UpAsync("KeyW");
+            await Task.Delay(1500);
+            var to = (await ViewerStats.ReadAsync(v.Page))!;
+            double flown = to.X - from.X;
+            TestContext.Progress.WriteLine($"[menu] at {speed:F0} blocks a second, 3 s of flying covered {flown:F0} blocks");
+            Assert.That(flown, Is.InRange(speed * 3 * 0.5, speed * 3 * 1.6), "the camera flies at that speed");
+            Assert.That(v.Errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", v.Errors));
+        }
+        finally
+        {
+            try { await v.Page.EvaluateAsync("localStorage.removeItem('aubscraft.viewer')"); } catch { }
+            await v.Page.CloseAsync();
+        }
+    }
+
+    /// <summary>
+    /// BlueMap from the menu and back. The canvas's drawing surface went to the render worker when the page opened and cannot be given again, so the canvas must stay in the page: going back used to leave a dead one,
+    /// and the view must be alive again afterwards, not only on the screen.
+    /// </summary>
+    [Test]
+    public async Task BlueMap_AndBack_LeavesTheViewerAlive()
+    {
+        Environment.SetEnvironmentVariable("BlueMap__Enabled", "true");
+        Environment.SetEnvironmentVariable("BlueMap__Url", "about:blank");
+        ViewerRig rig;
+        try { rig = await ViewerRig.StartAsync(Environment.GetEnvironmentVariable("AUBS_VIEWER_PUBLISH")!, _server); }
+        finally
+        {
+            Environment.SetEnvironmentVariable("BlueMap__Enabled", null);
+            Environment.SetEnvironmentVariable("BlueMap__Url", null);
+        }
+        await using var _ = rig;
+        var v = await OpenAsync("time=6000&dd=8&cam=144,40,144,-30,0", rig);
+        var canvas = v.Page.Locator("#map-canvas");
+        try
+        {
+            var menu = await OpenMenuAsync(v);
+            Assert.That(menu.ContainsKey("bluemap"), "offered, with BlueMap configured: " + string.Join(' ', menu.Keys));
+            await PressMenuAsync(v, menu, "bluemap");
+            await v.Page.Locator("iframe").WaitForAsync(new() { Timeout = 5000 });
+            Assert.That(await canvas.IsVisibleAsync(), Is.False, "the map shows instead of the viewer");
+
+            await v.Page.GetByRole(AriaRole.Button, new() { Name = "3D Viewer" }).ClickAsync();
+            await Task.Delay(1000);
+            Assert.That(await v.Page.Locator("iframe").CountAsync(), Is.Zero, "the map has gone");
+            Assert.That(await canvas.IsVisibleAsync(), Is.True, "the viewer is back");
+
+            // The keys work at once on coming back (the button that had them is gone): Tab opens the menu, Tab closes it. And the menu closed itself on the way to the map
+            Assert.That(await v.Page.EvaluateAsync<bool>("document.activeElement && document.activeElement.id === 'map-canvas'"), Is.True, "the canvas has the keys again");
+            var count = v.Log.Count(l => l.StartsWith("[HudMenu]", StringComparison.Ordinal));
+            await v.Page.Keyboard.PressAsync("Tab");
+            for (int i = 0; i < 20 && v.Log.Count(l => l.StartsWith("[HudMenu]", StringComparison.Ordinal)) == count; i++) await Task.Delay(100);
+            Assert.That(v.Log.Count(l => l.StartsWith("[HudMenu]", StringComparison.Ordinal)), Is.GreaterThan(count), "Tab opens the menu");
+            await v.Page.Keyboard.PressAsync("Tab");
+            await Task.Delay(300);
+
+            // Alive: the camera flies and the picture moves with it
+            var from = Path.Combine(_outDir, "bluemap-back-from.png");
+            await canvas.ScreenshotAsync(new LocatorScreenshotOptions { Path = from });
+            var start = (await ViewerStats.ReadAsync(v.Page))!;
+            await ViewerRig.TakeTheMouseAsync(v.Page, 640, 500);
+            await v.Page.Keyboard.DownAsync("KeyW");
+            await Task.Delay(2000);
+            await v.Page.Keyboard.UpAsync("KeyW");
+            await Task.Delay(1500);
+            var end = (await ViewerStats.ReadAsync(v.Page))!;
+            Assert.That(end.X - start.X, Is.GreaterThan(30), "the camera flies again");
+            var to = Path.Combine(_outDir, "bluemap-back-to.png");
+            await canvas.ScreenshotAsync(new LocatorScreenshotOptions { Path = to });
+            double moved = Compare(from, to).Difference;
+            TestContext.Progress.WriteLine($"[menu] after BlueMap and back, flying changes the picture by {moved:F1} of 255");
+            Assert.That(moved, Is.GreaterThan(1), "and the picture moves: the canvas is the live one");
+            Assert.That(v.Errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", v.Errors));
+        }
+        finally { await v.Page.CloseAsync(); }
     }
 
     /// <summary>The Shading button in the running viewer: the shadows come and go near the camera without a reload, the meshes made again in the background.</summary>

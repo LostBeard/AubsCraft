@@ -574,6 +574,8 @@ else if (_viewMode == ViewMode.Error)
             _viewMode = ViewMode.Viewer3D;
             _statusMessage = "";
             StateHasChanged();
+            // The keys are the canvas's: without this Tab, Enter and F did nothing until the first click on the view
+            _canvas.Focus();
 
             // Main thread: input + stats only
             _ = InputAndStatsLoop();
@@ -745,7 +747,11 @@ else if (_viewMode == ViewMode.Error)
     private async Task SwitchTo3DAsync()
     {
         _viewMode = ViewMode.Viewer3D;
+        StateHasChanged();
         if (_renderService != null) await _renderService.SetPausedAsync(false);
+        // The button that brought us back had the keys, and it has gone
+        await Task.Yield();
+        _canvas?.Focus();
     }
 
     private async Task SwitchToBlueMapAsync()

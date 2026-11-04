@@ -911,8 +911,8 @@ public sealed partial class ViewerHud
         switch (e.Kind)
         {
             case UiInputEvent.MouseMove: _mouseX = e.X; _mouseY = e.Y; input.MouseMove(e.X, e.Y); break;
-            case UiInputEvent.MouseDown: input.MouseDown((int)e.X); break;
-            case UiInputEvent.MouseUp: input.MouseUp((int)e.X); break;
+            case UiInputEvent.MouseDown: MenuSawMouse(e.Kind); input.MouseDown((int)e.X); break;
+            case UiInputEvent.MouseUp: MenuSawMouse(e.Kind); input.MouseUp((int)e.X); break;
             case UiInputEvent.Wheel: input.Wheel(e.Y); break;
             case UiInputEvent.KeyDown:
                 // Enter opens the chat (when the mouse is free and nothing is being typed); the same press then submits an empty line, which is ignored

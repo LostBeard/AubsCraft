@@ -115,7 +115,7 @@ public sealed partial class ViewerHud
         Button(admin, "world", () => { OpenMenu(false); OpenWorldPanel(true); });
 
         var other = Section("Other", () => true);
-        Button(other, "bluemap", () => Command("bluemap"), () => _pageState.BlueMap);
+        Button(other, "bluemap", () => { OpenMenu(false); Command("bluemap"); }, () => _pageState.BlueMap);
         Button(other, "clearcache", () => Command("clearcache"));
 
         RefreshMenu();
@@ -288,6 +288,22 @@ public sealed partial class ViewerHud
         Add("fovSlider", _fovSlider);
         Add("speedSlider", _speedSlider);
         Console.WriteLine(line.ToString());
+    }
+
+    private bool _menuPressOutside;
+
+    // A click away from the menu closes it, as any menu. Only a click that began out there: a slider dragged past the panel's edge must not close it
+    private void MenuSawMouse(int kind)
+    {
+        if (!IsMenuOpen) { _menuPressOutside = false; return; }
+        var at = new System.Numerics.Vector2(_mouseX, _mouseY);
+        bool outside = _menuPanel.HitTest(at) == null && _menuButton.HitTest(at) == null;
+        if (kind == UiInputEvent.MouseDown) _menuPressOutside = outside;
+        else if (kind == UiInputEvent.MouseUp)
+        {
+            if (_menuPressOutside && outside) OpenMenu(false);
+            _menuPressOutside = false;
+        }
     }
 
     /// <summary>The flying speed the wheel moves between (blocks a second).</summary>
