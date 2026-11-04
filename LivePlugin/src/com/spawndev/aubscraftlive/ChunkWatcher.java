@@ -135,6 +135,14 @@ final class ChunkWatcher implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true) public void onPistonExtend(BlockPistonExtendEvent e) { mark(e.getBlock()); for (var b : e.getBlocks()) { mark(b); mark(b.getRelative(e.getDirection())); } }
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true) public void onPistonRetract(BlockPistonRetractEvent e) { mark(e.getBlock()); for (var b : e.getBlocks()) { mark(b); mark(b.getRelative(e.getDirection())); } }
 
+    // Ground generated just now: the viewers see it at once, not when the game next saves it. All sides: the chunks beside it have walls toward it to lose.
+    @EventHandler(priority = EventPriority.MONITOR) public void onChunkLoad(org.bukkit.event.world.ChunkLoadEvent e) {
+        if (!e.isNewChunk()) return;
+        int x = e.getChunk().getX() << 4, z = e.getChunk().getZ() << 4;
+        markDirty(e.getWorld(), x, z);
+        markDirty(e.getWorld(), x + 15, z + 15);
+    }
+
 
     // ---- what changes blocks without an event: commands (the game's own setblock / fill / clone, and editing plugins such as WorldEdit) ----
 

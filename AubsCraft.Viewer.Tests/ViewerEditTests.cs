@@ -72,14 +72,14 @@ public class ViewerEditTests
             await edit.WaitForAsync(new() { Timeout = 30_000 });
             for (int i = 0; i < 20; i++)
             {
-                await edit.ClickAsync();
+                await edit.DispatchEventAsync("click");
                 try { await page.GetByRole(AriaRole.Button, new() { Name = "Edit: On" }).WaitForAsync(new() { Timeout = 3000 }); break; }
                 catch (TimeoutException) { }
             }
             Assert.That(await page.GetByRole(AriaRole.Button, new() { Name = "Edit: On" }).CountAsync(), Is.EqualTo(1), "edit mode is on");
 
             // Take the pointer (a click on the view), then look at what is shown
-            await page.Locator("#map-canvas").ClickAsync();
+            await ViewerRig.TakeTheMouseAsync(page, 640, 360);
             await Task.Delay(2500);
             var before = Path.Combine(_outDir, "edit-before.png");
             await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = before });
@@ -138,7 +138,7 @@ public class ViewerEditTests
             await page.Keyboard.PressAsync("Enter");
             await Task.Delay(500);
             await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "edit-palette-chosen.png") });
-            await page.Locator("#map-canvas").ClickAsync();   // the pointer back to the camera
+            await ViewerRig.TakeTheMouseAsync(page, 640, 360);   // the pointer back to the camera
             await Task.Delay(1500);
             int before3 = plugin.Received.Count;
             await page.Mouse.ClickAsync(300, 300, new MouseClickOptions { Button = MouseButton.Right });
@@ -184,11 +184,11 @@ public class ViewerEditTests
             await edit.WaitForAsync(new() { Timeout = 30_000 });
             for (int i = 0; i < 20; i++)
             {
-                await edit.ClickAsync();
+                await edit.DispatchEventAsync("click");
                 try { await page.GetByRole(AriaRole.Button, new() { Name = "Edit: On" }).WaitForAsync(new() { Timeout = 3000 }); break; }
                 catch (TimeoutException) { }
             }
-            await page.Locator("#map-canvas").ClickAsync();
+            await ViewerRig.TakeTheMouseAsync(page, 640, 360);
             await Task.Delay(2500);
 
             // V: the select tool. Two clicks at the same spot: a box of one block (the stone under the camera)
@@ -267,14 +267,14 @@ public class ViewerEditTests
         {
             await page.GotoAsync($"{_rig.BaseUrl}/map?time=6000&dd=6&light=0&cam=-8.5,-58.0,8.5,-90,0", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
             await ViewerShotTests.WaitForSettledAsync(page, minSections: 8, quietSeconds: 3, maxSeconds: 60);
-            await page.Locator("#map-canvas").ClickAsync();   // the camera takes the pointer
+            await ViewerRig.TakeTheMouseAsync(page, 640, 360);   // the camera takes the pointer
             await Task.Delay(2000);
             await page.Keyboard.PressAsync("KeyO");
             await Task.Delay(1500);   // the page lets go of the pointer for the panel
             await page.Locator("#map-canvas").ScreenshotAsync(new LocatorScreenshotOptions { Path = Path.Combine(_outDir, "world-panel.png") });
             // Night: as a hand does it - over the button first, then down, then up (a click in one breath is a press and a release in the same frame)
             var box = (await page.Locator("#map-canvas").BoundingBoxAsync())!;   // the mouse is in the page's pixels, the panel's place is in the canvas's
-            await page.Mouse.MoveAsync(box.X + 547, box.Y + 242);
+            await page.Mouse.MoveAsync(box.X + box.Width / 2 + 67, box.Y + box.Height / 2 - 55);   // the panel is centred: its Night button is here on any window
             await Task.Delay(150);
             await page.Mouse.DownAsync();
             await Task.Delay(150);

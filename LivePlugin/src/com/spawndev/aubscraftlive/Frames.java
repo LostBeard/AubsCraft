@@ -21,7 +21,8 @@ import java.util.UUID;
  *                                u16 flags, i16 vx, i16 vy, i16 vz (1/8000 block per tick)
  *   u16 nameCount,    per name:    i32 id, str8 name
  *   u16 variantCount, per variant: i32 id, str8 variant
- *   u16 playerCount,  per player:  i32 id, i64 uuidMost, i64 uuidLeast, str8 name, str16 skinUrl, u8 slim, u8 gameMode, str8 heldItem, u8 health(0-255)
+ *   u16 playerCount,  per player:  i32 id, i64 uuidMost, i64 uuidLeast, str8 name, str16 skinUrl, u8 slim, u8 gameMode, str8 heldItem, u8 health(0-255),
+ *                                  u8 healthPoints, u8 maxHealth, u8 absorption, u8 food, u8 armor, u8 air, u8 selectedSlot, u8 xpLevel, u8 xpProgress, 9 x (str8 item, u8 count)
  * </pre>
  */
 final class Frames {
@@ -34,7 +35,10 @@ final class Frames {
     record EntitySample(int id, String type, double x, double y, double z, float yaw, float pitch, float bodyYaw, int flags,
                         double vx, double vy, double vz, String name, String variant) {}
 
-    record PlayerSample(int entityId, UUID uuid, String name, String skinUrl, boolean slim, int gameMode, String heldItem, int health) {}
+    /** What the player's own HUD shows: hearts, hunger, armor, air and experience (each as the game counts them; air 0..20), the hotbar (9 items, "" for an empty slot) and the slot in hand. */
+    record PlayerStatus(int healthPoints, int maxHealth, int absorption, int food, int armor, int air, int selectedSlot, int xpLevel, int xpProgress, String[] hotbarItems, int[] hotbarCounts) {}
+
+    record PlayerSample(int entityId, UUID uuid, String name, String skinUrl, boolean slim, int gameMode, String heldItem, int health, PlayerStatus status) {}
 
     record WorldSample(String name, List<EntitySample> entities, List<PlayerSample> players) {}
 
@@ -46,7 +50,7 @@ final class Frames {
 
         Writer w = new Writer(64 * 1024);
         w.bytes(new byte[] {'A', 'C', 'L', '1'});
-        w.u8(1);
+        w.u8(2);
         w.i64(fullTime);
         w.i64(dayTime);
         w.u8(weather);
@@ -89,10 +93,26 @@ final class Frames {
                 w.u8(p.gameMode());
                 w.str8(p.heldItem());
                 w.u8(p.health());
+                PlayerStatus s = p.status();
+                w.u8(clamp8(s.healthPoints()));
+                w.u8(clamp8(s.maxHealth()));
+                w.u8(clamp8(s.absorption()));
+                w.u8(clamp8(s.food()));
+                w.u8(clamp8(s.armor()));
+                w.u8(clamp8(s.air()));
+                w.u8(clamp8(s.selectedSlot()));
+                w.u8(clamp8(s.xpLevel()));
+                w.u8(clamp8(s.xpProgress()));
+                for (int i = 0; i < 9; i++) {
+                    w.str8(i < s.hotbarItems().length && s.hotbarItems()[i] != null ? s.hotbarItems()[i] : "");
+                    w.u8(i < s.hotbarCounts().length ? clamp8(s.hotbarCounts()[i]) : 0);
+                }
             }
         }
         return w.toArray();
     }
+
+    private static int clamp8(int v) { return Math.max(0, Math.min(255, v)); }
 
     /** Degrees to a signed byte: 256 steps a turn. */
     static int angle(float degrees) {

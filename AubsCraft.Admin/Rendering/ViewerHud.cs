@@ -71,7 +71,7 @@ public sealed partial class ViewerHud
     /// <summary>A line is being typed (the chat's, or the block search's): the keys are the text's.</summary>
     public bool IsTyping => (_chat != null && _chat.IsInputFocused) || (_paletteSearch != null && _palette.Visible && _paletteSearch.IsFocused) || (_nameInput != null && _namePrompt.Visible && _nameInput.IsFocused);
 
-    private const string DesktopHint = "Click the view to fly   WASD move   Space / Shift up / down   Esc release   Enter chat   M map zoom   F3 debug   Click a player in the list for actions";
+    private const string DesktopHint = "Click the view to fly   WASD move   Space / Shift up / down   Wheel speed   Esc release   Tab menu   F fullscreen   F1 hide all   Enter chat   M map zoom   F3 debug   Click a player for actions";
     private const string HeadsetHint = "Left stick fly   Right stick turn, rise   Grips fast   X hide panel   Y leave";
 
     /// <summary>True while the HUD is a panel floating in a headset: its hint tells what the controllers do (there is no mouse, keyboard or pointer lock).</summary>
@@ -81,6 +81,7 @@ public sealed partial class ViewerHud
         set
         {
             _headset = value;
+            if (_menuButton != null) { _menuButton.Visible = !value; if (value) OpenMenu(false); }
             ActivateXr(value);
             if (_hint != null) _hint.Text = value ? HeadsetHint : _editMode ? EditHint : DesktopHint;
         }
@@ -601,6 +602,8 @@ public sealed partial class ViewerHud
     {
         var theme = UITheme.Current;
         _root = new UIAnchorPanel { Width = width, Height = height };
+        // Under everything else of the HUD
+        _root.AddChild(new PlayerBarsLayer(this));
 
         const float pad = 8f;
         float lineH = _ui.Renderer.GetLineHeight(FontSize.Caption);
@@ -656,6 +659,7 @@ public sealed partial class ViewerHud
         BuildTableButtons();
         BuildWorldPanel(theme);
         BuildBlueprints(theme);
+        BuildMenu(theme);
 
         // Last, so it is on top of everything and gets a click first
         _menu = new UIContextMenu { Visible = false, MenuWidth = MenuWidth };
@@ -718,7 +722,9 @@ public sealed partial class ViewerHud
         if (name != null)
             _followLabel.Text = mode == FollowMode.Eyes
                 ? "Seeing through " + name + "'s eyes   move to stop"
-                : "Following " + name + "   mouse orbits, move to stop";
+                : "Following " + name + "   mouse orbits, wheel zooms, move to stop";
+        // Over the player's HUD when looking through their eyes, where the hint is otherwise
+        _root.SetAnchor(_followLabel, Anchor.BottomCenter, 0, name != null && mode == FollowMode.Eyes ? -(8f + MathF.Floor(Math.Min(_root.Width / 320f, _root.Height / 240f)) * 60f) : -34f);
     }
 
     /// <summary>A short message over the world (the toast stack).</summary>
@@ -735,10 +741,12 @@ public sealed partial class ViewerHud
     public float[] ClickRects()
     {
         if (_menu == null || !Visible) return [];
-        // A menu is open (the player menu, the blocks, the blueprints, a name being asked, the world panel): the whole view is the HUD's until it closes
-        if (_menu.Visible || IsPaletteOpen || IsBlueprintsOpen || IsNamePromptOpen || IsWorldPanelOpen || IsPhrasesOpen) return [0, 0, _root.Width, _root.Height];
+        // A menu is open (the viewer's, the player menu, the blocks, the blueprints, a name being asked, the world panel): the whole view is the HUD's until it closes
+        if (IsMenuOpen || _menu.Visible || IsPaletteOpen || IsBlueprintsOpen || IsNamePromptOpen || IsWorldPanelOpen || IsPhrasesOpen) return [0, 0, _root.Width, _root.Height];
+        var m = _menuButton.ScreenBounds;
+        if (!_playersPanel.Visible) return [m.X, m.Y, m.Width, m.Height];
         var b = _playersPanel.ScreenBounds;
-        return [b.X, b.Y, b.Width, b.Height];
+        return [b.X, b.Y, b.Width, b.Height, m.X, m.Y, m.Width, m.Height];
     }
 
     // ---- name tags over creatures ----
@@ -750,7 +758,7 @@ public sealed partial class ViewerHud
     public void SetNameTags(IReadOnlyList<NameTag>? tags)
     {
         if (_root == null) return;
-        int n = Visible ? tags?.Count ?? 0 : 0;
+        int n = Visible && _settings.NameTags ? tags?.Count ?? 0 : 0;
         float lineH = _ui.Renderer.GetLineHeight(FontSize.Caption);
         for (int i = 0; i < n; i++)
         {
@@ -908,7 +916,11 @@ public sealed partial class ViewerHud
             case UiInputEvent.Wheel: input.Wheel(e.Y); break;
             case UiInputEvent.KeyDown:
                 // Enter opens the chat (when the mouse is free and nothing is being typed); the same press then submits an empty line, which is ignored
-                if (e.Code is "Enter" or "NumpadEnter" && !_pointerLocked && !IsTyping) _chat.FocusInput();
+                if (e.Code is "Enter" or "NumpadEnter" && !_pointerLocked && !IsTyping && _chat.Visible) _chat.FocusInput();
+                // Tab opens and closes the viewer's menu, Esc closes it, F is fullscreen (the page does that: the DOM is there)
+                if (e.Code == "Tab" && !IsTyping && !_headset) OpenMenu(!IsMenuOpen);
+                if (e.Code == "Escape" && IsMenuOpen) OpenMenu(false);
+                if (e.Code == "KeyF" && !IsTyping && !_editMode && !_headset) Command("fullscreen");
                 // M cycles the minimap zoom (not while typing: the letter belongs to the chat then)
                 if (e.Code == "KeyM" && !IsTyping) _minimapZoom = _minimapZoom % MaxMinimapZoom + 1;
                 if (e.Code != null) input.KeyDown(e.Code, e.Text);
@@ -933,7 +945,7 @@ public sealed partial class ViewerHud
         _minimap.Coordinates = string.Create(CultureInfo.InvariantCulture, $"{d.CamX:F0}, {d.CamZ:F0}");
         _minimap.ZoomLevel = _minimapZoom;
         _crosshair.Visible = _pointerLocked;
-        _hint.Visible = _headset || _editMode || !_pointerLocked;
+        _hint.Visible = _headset || _editMode || (!_pointerLocked && _eyesBar == null);
 
         _textTimer += dt;
         if (_textTimer >= TextRefreshSeconds)
@@ -944,6 +956,7 @@ public sealed partial class ViewerHud
 
         if (_xrActive) XrUpdate(dt, d);
         _ui.Update(dt);
+        LogMenuLayout();
 
         if (UIDebugOverlay.IsVisible)
         {

@@ -78,12 +78,12 @@ public class ViewerVoiceTests
             await page.GotoAsync($"{_rig.BaseUrl}/map?hud=0&time=6000&dd=6&light=0&cam=-8.5,-58.0,8.5,-90,0", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 120_000 });
             await ViewerShotTests.WaitForSettledAsync(page, minSections: 8, quietSeconds: 3, maxSeconds: 60);
 
-            await page.GetByRole(AriaRole.Button, new() { Name = "Voice: Off" }).ClickAsync();
+            await page.GetByRole(AriaRole.Button, new() { Name = "Voice: Off" }).DispatchEventAsync("click");
             await page.GetByRole(AriaRole.Button, new() { Name = "Voice: On" }).WaitForAsync(new() { Timeout = 15_000 });
             for (int i = 0; i < 25; i++) { lock (listeners) if (listeners.Contains(1)) break; await Task.Delay(200); }
             lock (listeners) Assert.That(listeners, Does.Contain(1), "the plugin was told one viewer listens");
 
-            await page.GetByRole(AriaRole.Button, new() { Name = "Mic: Off" }).ClickAsync();
+            await page.GetByRole(AriaRole.Button, new() { Name = "Mic: Off" }).DispatchEventAsync("click");
             await page.GetByRole(AriaRole.Button, new() { Name = "Mic: On" }).WaitForAsync(new() { Timeout = 15_000 });
             for (int i = 0; i < 40 && received.Count < 25; i++) await Task.Delay(100);
             int count; lock (received) count = received.Count;
@@ -98,7 +98,7 @@ public class ViewerVoiceTests
             Assert.That(log.ToArray().Any(l => l.Contains("[Voice] hearing Steve")), Is.True, "a voice was made for Steve");
 
             // The microphone off: the packets stop
-            await page.GetByRole(AriaRole.Button, new() { Name = "Mic: On" }).ClickAsync();
+            await page.GetByRole(AriaRole.Button, new() { Name = "Mic: On" }).DispatchEventAsync("click");
             await page.GetByRole(AriaRole.Button, new() { Name = "Mic: Off" }).WaitForAsync(new() { Timeout = 10_000 });
             await Task.Delay(800);
             int atOff; lock (received) atOff = received.Count;

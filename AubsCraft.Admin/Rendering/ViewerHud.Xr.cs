@@ -69,7 +69,7 @@ public sealed partial class ViewerHud
     public bool XrMapOpen => _xrMapOpen;
 
     /// <summary>The world draws the minimap texture: always on the desktop, in a headset only while the map page is open.</summary>
-    public bool WantsMinimap => !_xrActive || _xrMapOpen;
+    public bool WantsMinimap => _xrActive ? _xrMapOpen : _settings.Minimap;
 
     /// <summary>The inventory (every block) opens, or closes if it is the page showing: the Y button.</summary>
     public void ToggleXrInventory()

@@ -1,11 +1,11 @@
-# AubsCraft Live frame (format 1)
+# AubsCraft Live frame (format 2)
 
 One frame is one binary body, little-endian, POSTed by the plugin to `{panel-url}/api/live/ingest/{server-id}` with the header
 `X-Live-Secret`. The encoder is `src/com/spawndev/aubscraftlive/Frames.java`; the reader is `AubsCraft.Live.Model/LiveFrameCodec.cs`. They are
 tested against each other (`AubsCraft.Admin.Server.Tests/LiveFrameCodecTests.cs`: the C# encoder must write the Java encoder's bytes exactly).
 
 ```
-"ACL1"  u8 version (1)  i64 gameTime (the world game time: it ticks even when the day cycle is off)  i64 dayTime  u8 weather (bit0 storm, bit1 thunder)
+"ACL1"  u8 version (2)  i64 gameTime (the world game time: it ticks even when the day cycle is off)  i64 dayTime  u8 weather (bit0 storm, bit1 thunder)
 u16 typeCount, then typeCount x str8 type key        ("cow", "player", "mymod:thing": the minecraft namespace is dropped)
 u8 worldCount, then per world:
     str8 name
@@ -20,7 +20,9 @@ u8 worldCount, then per world:
     u16 nameCount,    then per name:    i32 id, str8 name
     u16 variantCount, then per variant: i32 id, str8 variant      (sheep colour, cat type, rabbit/fox type, wolf variant, villager profession)
     u16 playerCount,  then per player:  i32 id, i64 uuidMost, i64 uuidLeast, str8 name, str16 skinUrl, u8 slim, u8 gameMode,
-                                        str8 heldItem, u8 health (0-255 of 20 hearts)
+                                        str8 heldItem, u8 health (0-255 of 20 hearts),
+                                        u8 healthPoints, u8 maxHealth (two to a heart), u8 absorption, u8 food (0-20), u8 armor (0-20), u8 air (0-20, 20 = a full breath),
+                                        u8 selectedSlot (0-8), u8 xpLevel, u8 xpProgress (0-255 of the way to the next level), 9 x (str8 item, u8 count: "" and 0 for an empty slot)
 str8  = u8 length + that many UTF-8 bytes (at most 255, cut at a whole character)
 str16 = u16 length + that many UTF-8 bytes
 ```
@@ -29,13 +31,13 @@ A frame holds every entity in the loaded chunks of every world (dropped items on
 (default 3000). At 5 frames a second that is about 150 KB/s on loopback for a busy world.
 
 The reader refuses anything that is not exactly this: wrong magic or version, a count that cannot fit the bytes left, a type index past the
-table, bytes after the last world.
+table, bytes after the last world. Format 1 (the same without the fields after `health`) is what a plugin not yet updated sends, and is read as well: its players have no bars in the viewer but their hearts.
 
 ## Building and testing
 
 ```
 LivePlugin/build.sh "<jdk 21 bin>" <server's server.jar>      # -> AubsCraft.Admin.Server/ServerPlugins/aubscraft-live.jar
-LivePlugin/make-fixture.sh "<jdk 21 bin>"                      # -> AubsCraft.Admin.Server.Tests/TestData/live-frame-v1.bin
+LivePlugin/make-fixture.sh "<jdk 21 bin>"                      # -> AubsCraft.Admin.Server.Tests/TestData/live-frame-v2.bin
 ```
 
 `build.sh` compiles against the Paper API inside the server's own `server.jar` bundle (`META-INF/libraries`), so the plugin always matches
@@ -57,7 +59,7 @@ u16  sign count; each: u8 x, i16 y, u8 z, 4 x string (the front's lines, plain t
 u16  banner count; each: u8 x, i16 y, u8 z, u8 layers, (string pattern ("stripe_top"), string dye)...
 ```
 
-The viewers' socket (`/api/live/ws`) carries these frames as well as the creature frames; a message starting `ACHG` is: `u16 count`, then for each chunk `i32 cx, i32 cz, u8 border mask`. A viewer that has the column loaded fetches it again, swaps its mesh when the new one is ready, and meshes the bordering neighbours again for the sides in the mask. A column that is not loaded is fetched fresh when it is wanted.
+The viewers' socket (`/api/live/ws`) carries these frames as well as the creature frames; a message starting `ACHG` is: `u16 count`, then for each chunk `i32 cx, i32 cz, u8 border mask`. A viewer that has the column loaded fetches it again, swaps its mesh when the new one is ready, and meshes the bordering neighbours again for the sides in the mask. A column that is not loaded is fetched fresh when it is wanted; the chunk's far-tier picture is fetched either way (`/api/world/heightmap-ids/{x}/{z}`), and a chunk the viewer did not know of becomes known. The panel sends the same note for what it finds in the region files (`WorldFileWatchService`, every 5 s): a chunk the game generated or saved, with no plugin needed. These notes have their own queue per viewer, ahead of the frames: a viewer that falls behind loses frames, never a note. The plugin also marks a newly generated chunk (`ChunkLoadEvent.isNewChunk`), so new ground shows at once rather than at the game's next save.
 
 ## Edits (the panel's admins change the world)
 

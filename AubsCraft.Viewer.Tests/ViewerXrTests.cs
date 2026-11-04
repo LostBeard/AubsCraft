@@ -165,7 +165,7 @@ public class ViewerXrTests
             var enter = page.GetByRole(AriaRole.Button, new() { Name = "Enter VR" });
             await enter.WaitForAsync(new() { Timeout = 30_000 });
             Assert.That(await page.GetByRole(AriaRole.Button, new() { Name = "Enter AR" }).CountAsync(), Is.EqualTo(1), "the mock supports AR too");
-            await enter.ClickAsync();
+            await enter.DispatchEventAsync("click");
 
             // The world starts on the page thread and the first eyes come after its columns
             for (int i = 0; i < 90 && !log.Any(l => l.Contains("[Xr] world started")); i++) await Task.Delay(1000);
@@ -229,7 +229,7 @@ public class ViewerXrTests
             await ViewerShotTests.WaitForSettledAsync(page, minSections: 100, quietSeconds: 5, maxSeconds: 90);
             var enter = page.GetByRole(AriaRole.Button, new() { Name = "Enter AR" });
             await enter.WaitForAsync(new() { Timeout = 30_000 });
-            await enter.ClickAsync();
+            await enter.DispatchEventAsync("click");
             for (int i = 0; i < 90 && !log.Any(l => l.Contains("[Xr] world started")); i++) await Task.Delay(1000);
             Assert.That(log.Any(l => l.Contains("[Xr] immersive-ar session started (blend mode alpha-blend)")), Is.True, "an AR session with a passthrough blend mode started");
             await Task.Delay(12_000);
@@ -378,7 +378,7 @@ public class ViewerXrTests
         await ViewerShotTests.WaitForSettledAsync(page, minSections: 8, quietSeconds: 3, maxSeconds: 60);
         var enter = page.GetByRole(AriaRole.Button, new() { Name = button });
         await enter.WaitForAsync(new() { Timeout = 30_000 });
-        await enter.ClickAsync();
+        await enter.DispatchEventAsync("click");
         for (int i = 0; i < 90 && !log.ToArray().Any(l => l.Contains("[Xr] world started")); i++) await Task.Delay(1000);
         Assert.That(log.ToArray().Any(l => l.Contains("[Xr] world started")), Is.True, "the headset world started");
         await Task.Delay(settleMs);
@@ -803,7 +803,7 @@ public class ViewerXrTests
             await ViewerShotTests.WaitForSettledAsync(page, minSections: 100, quietSeconds: 5, maxSeconds: 90);
             var enter = page.GetByRole(AriaRole.Button, new() { Name = button });
             await enter.WaitForAsync(new() { Timeout = 30_000 });
-            await enter.ClickAsync();
+            await enter.DispatchEventAsync("click");
             for (int i = 0; i < 90 && !log.Any(l => l.Contains("[Xr] world started")); i++) await Task.Delay(1000);
             await Task.Delay(15_000);   // everything streamed in and meshed
 
@@ -880,7 +880,7 @@ public class ViewerXrTests
                 int startedBefore = log.Count(l => l.Contains("[Xr] world started"));
                 var enter = page.GetByRole(AriaRole.Button, new() { Name = button });
                 await enter.WaitForAsync(new() { Timeout = 30_000 });
-                await enter.ClickAsync();
+                await enter.DispatchEventAsync("click");
                 for (int i = 0; i < 90 && log.Count(l => l.Contains("[Xr] world started")) <= startedBefore; i++) await Task.Delay(1000);
                 Assert.That(log.Count(l => l.Contains("[Xr] world started")), Is.GreaterThan(startedBefore), $"round {round}: the headset world started:\n" + string.Join("\n", log.Where(l => l.Contains("Xr") || l.Contains("rror")).TakeLast(15)));
                 await Task.Delay(8000);
@@ -972,7 +972,7 @@ public class ViewerXrTests
             await ViewerShotTests.WaitForSettledAsync(page, minSections: 20, quietSeconds: 4, maxSeconds: 60);
             var enter = page.GetByRole(AriaRole.Button, new() { Name = button });
             await enter.WaitForAsync(new() { Timeout = 30_000 });
-            await enter.ClickAsync();
+            await enter.DispatchEventAsync("click");
             for (int i = 0; i < 90 && !log.Any(l => l.Contains("[Xr] world started")); i++) await Task.Delay(1000);
             // Still by default: the mock wobbles the head by real metres, and a head that moved is a different picture (AUBS_XR_JITTER = metres to try a trembling one)
             await Task.Delay(10_000);

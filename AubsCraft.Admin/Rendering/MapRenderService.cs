@@ -85,6 +85,9 @@ public sealed class MapRenderService : IDisposable
         _drawDistanceFixed = true;
     }
 
+    /// <summary>Let the draw distance follow the frame rate again.</summary>
+    public void AdaptDrawDistance() => _drawDistanceFixed = false;
+
     /// <summary>A headset's draw distance follows the CPU time of its frames (<see cref="FarWindow.NextXrDrawDistance"/>), not the frame rate: it is set by <see cref="SteerDrawDistance"/>.</summary>
     public bool CpuSteered { get; set; }
 

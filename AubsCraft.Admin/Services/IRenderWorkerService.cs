@@ -37,6 +37,14 @@ public interface IRenderWorkerService : IAsyncDisposable
     /// view while a menu is open. The page asks before it gives the pointer to the camera.
     /// </summary>
     Task<float[]> GetHudClickRectsAsync();
+    /// <summary>Use these settings (from what the browser remembers).</summary>
+    Task SetViewerSettingsAsync(ViewerSettings settings);
+    /// <summary>The settings as the viewer's menu has them now.</summary>
+    Task<ViewerSettings> GetViewerSettingsAsync();
+    /// <summary>What the page knows, for the viewer's menu to show.</summary>
+    Task PushViewerStateAsync(ViewerPageState state);
+    /// <summary>What the viewer's menu asked the page to do since the last call.</summary>
+    Task<string[]> TakeHudCommandsAsync();
     Task ResizeAsync(int width, int height);
     Task<RenderStats> GetStatsAsync();
     Task SetTimeOfDay(int ticks);

@@ -107,9 +107,11 @@ public class RenderWorkerService : IRenderWorkerService
         // The HUD (GameUI) draws with the world's own device, into the same encoder, after the world pass.
         _hud.Init(_renderer.Device!, _renderer.Queue!, _renderer.CanvasFormat, _canvas!.Width, _canvas.Height);
         _hud.OnPlayerAction = OnPlayerAction;
+        _hud.OnSettingsChanged = ApplySettings;
         _renderer.OnOverlay = (encoder, view, w, h) =>
         {
             _hud.SetNameTags(_entities?.Tags);
+            _hud.SetPlayerBars(_entities?.Bars);
             _hud.Draw(encoder, view, w, h);
         };
         _initialized = true;
@@ -145,6 +147,7 @@ public class RenderWorkerService : IRenderWorkerService
         _ = LoadParticleAssetsAsync();
         _ = LoadSkyAssetsAsync();
         _ = LoadItemAssetsAsync();
+        _ = LoadGuiAssetsAsync();
 
         // Create JS data worker and connect via MessageChannel
         // Render worker creates and controls the data worker (clean hierarchy)
@@ -196,11 +199,92 @@ public class RenderWorkerService : IRenderWorkerService
         return Task.CompletedTask;
     }
 
+    // The game's HUD pictures, for the bars over the players' heads (the pixels go from the fetched ArrayBuffer to the GPU without entering .NET)
+    private async Task LoadGuiAssetsAsync()
+    {
+        try
+        {
+            var origin = _js.DedicateWorkerThis?.Location.Origin ?? _js.WindowThis?.Origin ?? "";
+            using var jsonResponse = await _js.Fetch($"{origin}/assets/mc-gui.json", new FetchOptions { Credentials = "include" });
+            if (!jsonResponse.Ok) { Console.WriteLine($"[Hud] HUD assets HTTP {jsonResponse.Status}: players will have no bars"); return; }
+            var assets = System.Text.Json.JsonSerializer.Deserialize(await jsonResponse.Text(), AubsCraft.Assets.Model.GuiAssetsJson.Default.GuiAssets);
+            if (assets == null || assets.AtlasWidth <= 0) return;
+            using var pixelResponse = await _js.Fetch($"{origin}/assets/mc-gui.rgba", new FetchOptions { Credentials = "include" });
+            if (!pixelResponse.Ok) { Console.WriteLine($"[Hud] HUD atlas HTTP {pixelResponse.Status}"); return; }
+            using var buffer = await pixelResponse.ArrayBuffer();
+            using var pixels = new Uint8Array(buffer);
+            if (pixels.Length != assets.AtlasWidth * assets.AtlasHeight * 4) { Console.WriteLine($"[Hud] HUD atlas is {pixels.Length} bytes, the assets describe {assets.AtlasWidth}x{assets.AtlasHeight}"); return; }
+            _guiAtlas = SpawnDev.VoxelEngine.Rendering.EntityTextureAtlas.FromRgba(_renderer.Device!, _renderer.Queue!, pixels, assets.AtlasWidth, assets.AtlasHeight);
+            _hud.SetGuiAtlas(_guiAtlas.View, assets);
+            Console.WriteLine($"[Hud] HUD assets: {assets.Sprites.Count} sprites, {assets.Items.Count} item icons in {assets.AtlasWidth}x{assets.AtlasHeight}");
+        }
+        catch (Exception ex) { Console.WriteLine($"[Hud] HUD assets load error: {ex.Message}"); }
+    }
+
+    private SpawnDev.VoxelEngine.Rendering.EntityTextureAtlas? _guiAtlas;
+
+    // ---- the viewer's own menu ----
+
+    public Task SetViewerSettingsAsync(ViewerSettings settings)
+    {
+        if (_initialized) _hud.SetSettings(settings);
+        ApplySettings(settings);
+        return Task.CompletedTask;
+    }
+
+    public Task<ViewerSettings> GetViewerSettingsAsync() => Task.FromResult(_hud.Settings);
+
+    public Task PushViewerStateAsync(ViewerPageState state)
+    {
+        if (_initialized) _hud.SetPageState(state);
+        return Task.CompletedTask;
+    }
+
+    public Task<string[]> TakeHudCommandsAsync() => Task.FromResult(_hud.TakeCommands());
+
+    private float _followDistance = FollowCamera.DefaultDistance;
+
+    private void ApplySettings(ViewerSettings s)
+    {
+        _renderer.Camera.FovDegrees = Math.Clamp(s.Fov, 40f, 110f);
+        _renderer.Camera.MovementSpeed = Math.Clamp(s.FlySpeed, ViewerHud.MinFlySpeed, ViewerHud.MaxFlySpeed);
+        _followDistance = Math.Clamp(s.FollowDistance, FollowCamera.MinDistance, FollowCamera.MaxDistance);
+        if (s.DrawDistance > 0) _renderer.FixDrawDistance(s.DrawDistance); else _renderer.AdaptDrawDistance();
+    }
+
+    // The wheel over the view: how far behind a followed player the camera stands, or how fast it flies. The HUD keeps it where it scrolls something of its own, and edit mode where it chooses a block
+    private bool HandleViewWheel(UiInputEvent e)
+    {
+        if (e.Kind is not (UiInputEvent.Wheel or UiInputEvent.WorldWheel) || _hud.IsTyping || _hud.WheelBelongsToHud()) return false;
+        if (_followName != null)
+        {
+            if (_followMode == FollowMode.Chase)
+            {
+                _followDistance = FollowCamera.Zoom(_followDistance, e.Y);
+                KeepSetting(_hud.Settings with { FollowDistance = _followDistance });
+            }
+            return true;
+        }
+        if (_edit is { Active: true }) return false;
+        float speed = Math.Clamp(_renderer.Camera.MovementSpeed * MathF.Pow(1.1f, -e.Y / 100f), ViewerHud.MinFlySpeed, ViewerHud.MaxFlySpeed);
+        _renderer.Camera.MovementSpeed = speed;
+        KeepSetting(_hud.Settings with { FlySpeed = speed });
+        return true;
+    }
+
+    // Remembered with the rest, without the HUD's own change event coming back here
+    private void KeepSetting(ViewerSettings next)
+    {
+        _hud.SetSettings(next);
+        _hud.QueueCommand("settings");
+    }
+
     public Task PushUiInputAsync(UiInputEvent[] events)
     {
         if (!_initialized) return Task.CompletedTask;
         foreach (var e in events)
         {
+            if (HandleViewWheel(e)) continue;
             // Building: the number keys, the buttons and the wheel mean something else while edit mode is on (not while a chat line is being typed)
             if (_admin != null && !_hud.IsTyping && _admin.Handle(e)) continue;
             if (_edit != null && !_hud.IsTyping && _edit.Handle(e, _renderer.Camera)) continue;
@@ -267,6 +351,8 @@ public class RenderWorkerService : IRenderWorkerService
         _followName = name;
         _followMode = action == PlayerAction.Eyes ? FollowMode.Eyes : FollowMode.Chase;
         _followMissing = 0;
+        _hud.SetEyesBar(null);
+        _entities.CameraInsideEntity = -1;
         // Start behind the player, as a teleport would, then the mouse orbits from there
         camera.Yaw = FollowCamera.CameraYawOf(view.Yaw);
         camera.Pitch = FollowCamera.DefaultPitch;
@@ -304,6 +390,8 @@ public class RenderWorkerService : IRenderWorkerService
         if (why != null) _hud.Toast(why, NotificationType.Info);
         _followName = null;
         _hud.SetFollowing(null);
+        _hud.SetEyesBar(null);
+        if (_entities != null) _entities.CameraInsideEntity = -1;
     }
 
     /// <summary>Once per frame, before anything reads the camera: put it where the followed player is.</summary>
@@ -319,7 +407,10 @@ public class RenderWorkerService : IRenderWorkerService
         }
         _followMissing = 0;
         var camera = _renderer.Camera;
-        var c = FollowCamera.Place(view, _followMode, camera.Yaw, camera.Pitch, FollowCamera.DefaultDistance);
+        // Through their eyes, their HUD goes along the bottom of the view, where they see it
+        if (_followMode == FollowMode.Eyes) _hud.SetEyesBar(_entities.StatusOf(_followName));
+        _entities.CameraInsideEntity = _followMode == FollowMode.Eyes ? view.Id : -1;
+        var c = FollowCamera.Place(view, _followMode, camera.Yaw, camera.Pitch, _followDistance);
         camera.Position = new Vector3(c.X, c.Y, c.Z);
         camera.Yaw = c.Yaw;
         camera.Pitch = c.Pitch;
@@ -413,7 +504,7 @@ public class RenderWorkerService : IRenderWorkerService
             _renderer.Camera.Pitch,
             _renderer.Camera.Yaw,
             _edit?.Active ?? false,
-            (_edit?.WantsPointer ?? false) || (_admin?.WantsPointer ?? false)
+            (_edit?.WantsPointer ?? false) || (_admin?.WantsPointer ?? false) || _hud.IsMenuOpen
         ));
     }
 
@@ -1158,6 +1249,7 @@ public class RenderWorkerService : IRenderWorkerService
         _sky?.Dispose();
         _light?.Dispose();
         _items?.Dispose();
+        _guiAtlas?.Dispose();
         _canvas?.Dispose();
         return ValueTask.CompletedTask;
     }

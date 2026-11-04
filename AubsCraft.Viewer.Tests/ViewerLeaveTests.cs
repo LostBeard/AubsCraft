@@ -57,7 +57,7 @@ public class ViewerLeaveTests
             await Task.Delay(30_000); // columns and far chunks streaming, meshes in flight, the pumps busy
 
             phase = "to-home";
-            await page.Locator("a.nav-link[href='']").First.ClickAsync();
+            await page.Locator("a.nav-link[href='']").First.DispatchEventAsync("click");
             await Task.Delay(15_000); // the worker keeps going without a canvas
 
             phase = "back-to-map";
@@ -65,7 +65,7 @@ public class ViewerLeaveTests
             await Task.Delay(20_000);
 
             phase = "to-home-again";
-            await page.Locator("a.nav-link[href='']").First.ClickAsync();
+            await page.Locator("a.nav-link[href='']").First.DispatchEventAsync("click");
             await Task.Delay(8_000);
         }
         finally

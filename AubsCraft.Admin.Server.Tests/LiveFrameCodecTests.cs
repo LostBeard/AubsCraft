@@ -3,12 +3,52 @@ using AubsCraft.Live.Model;
 namespace AubsCraft.Admin.Server.Tests;
 
 /// <summary>
-/// The live frame: parsed from the bytes the Java plugin's own encoder wrote (TestData/live-frame-v1.bin, from LivePlugin/make-fixture.sh), written
+/// The live frame: parsed from the bytes the Java plugin's own encoder wrote (TestData/live-frame-v2.bin, from LivePlugin/make-fixture.sh), written
 /// back identically by the C# encoder, and refused when it is truncated, lying about a count, or not ours.
 /// </summary>
 public class LiveFrameCodecTests
 {
-    private static byte[] Fixture() => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "TestData", "live-frame-v1.bin"));
+    private static byte[] Fixture() => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "TestData", "live-frame-v2.bin"));
+
+    // What a plugin not yet updated sends: the same frame without the players' status
+    private static byte[] OldFixture() => File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "TestData", "live-frame-v1.bin"));
+
+    [Test]
+    public void AFrameFromAPluginNotYetUpdated_IsStillRead_WithNoStatus()
+    {
+        var f = LiveFrameCodec.Parse(OldFixture());
+        var steve = f.Worlds[0].Players.Single();
+        Assert.That(steve.Name, Is.EqualTo("Steve"));
+        Assert.That(steve.Health, Is.EqualTo(200 / 255f).Within(1e-5));
+        Assert.That(steve.Status, Is.Null);
+    }
+
+    [Test]
+    public void ThePlayersStatus_ParsesToWhatTheJavaEncoderWrote()
+    {
+        var s = LiveFrameCodec.Parse(Fixture()).Worlds[0].Players.Single().Status!;
+        Assert.That((s.HealthPoints, s.MaxHealth, s.Absorption, s.Food, s.Armor, s.Air, s.SelectedSlot, s.XpLevel), Is.EqualTo((15, 20, 4, 17, 8, 12, 3, 30)));
+        Assert.That(s.XpProgress, Is.EqualTo(128 / 255f).Within(1e-5));
+        Assert.That(s.Hotbar, Is.EqualTo(new HotbarSlot[]
+        {
+            new("diamond_sword", 1), new("", 0), new("oak_planks", 64), new("bread", 12), new("", 0), new("", 0), new("mymod:thing", 2), new("", 0), new("torch", 33),
+        }));
+    }
+
+    [Test]
+    public void AHandBeyondTheHotbar_IsRefused()
+    {
+        var bytes = LiveFrameCodec.Write(Expected());
+        var slot = bytes.AsSpan().LastIndexOf("torch"u8);   // the last slot's name; the fields come before the nine slots
+        Assert.That(slot, Is.GreaterThan(0));
+        // Walk back over the eight other slots to the byte after xpProgress, then to selectedSlot
+        int at = bytes.AsSpan().IndexOf("diamond_sword"u8);
+        at = bytes.AsSpan(at + 1).IndexOf("diamond_sword"u8) + at + 1;   // the first is heldItem, the second the first slot
+        int selected = at - 1 - 3;
+        Assert.That(bytes[selected], Is.EqualTo(3), "the test found the selected slot");
+        bytes[selected] = 9;
+        Assert.Throws<InvalidDataException>(() => LiveFrameCodec.Parse(bytes));
+    }
 
     // The frame FixtureGen.java encodes, as C# values
     private static LiveFrame Expected() => new()
@@ -26,7 +66,9 @@ public class LiveFrameCodecTests
                     new LiveEntity(7, "player", 100f, 80f, 100f, -90f, 30f, -92f, LiveFlags.Player | LiveFlags.Sneaking | LiveFlags.OnGround, 0f, -0.0784f, 0f, null, null),
                     new LiveEntity(103, "mymod:thing", 0f, 120f, 0f, 0f, 0f, 0f, 0, 0f, 0f, 0f, "Café über", null),
                 ],
-                Players = [new LivePlayer(7, "01234567-89ab-cdef-fedc-ba9876543210", "Steve", "http://textures.minecraft.net/texture/abc123", true, 1, "diamond_sword", 200 / 255f)],
+                Players = [new LivePlayer(7, "01234567-89ab-cdef-fedc-ba9876543210", "Steve", "http://textures.minecraft.net/texture/abc123", true, 1, "diamond_sword", 200 / 255f,
+                    new LivePlayerStatus(15, 20, 4, 17, 8, 12, 3, 30, 128 / 255f,
+                        [new("diamond_sword", 1), new("", 0), new("oak_planks", 64), new("bread", 12), new("", 0), new("", 0), new("mymod:thing", 2), new("", 0), new("torch", 33)]))],
             },
             new LiveWorld { Name = "world_nether", Entities = [], Players = [] },
         ],
@@ -115,9 +157,9 @@ public class LiveFrameCodecTests
         var bytes = Fixture();
         var wrongMagic = (byte[])bytes.Clone(); wrongMagic[0] = (byte)'X';
         Assert.Throws<InvalidDataException>(() => LiveFrameCodec.Parse(wrongMagic));
-        var wrongVersion = (byte[])bytes.Clone(); wrongVersion[4] = 2;
+        var wrongVersion = (byte[])bytes.Clone(); wrongVersion[4] = 3;
         var ex = Assert.Throws<InvalidDataException>(() => LiveFrameCodec.Parse(wrongVersion))!;
-        Assert.That(ex.Message, Does.Contain("format 2"));
+        Assert.That(ex.Message, Does.Contain("format 3"));
     }
 
     [Test]

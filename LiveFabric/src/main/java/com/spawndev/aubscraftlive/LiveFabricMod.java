@@ -288,6 +288,31 @@ public final class LiveFabricMod implements DedicatedServerModInitializer {
         ResourceLocation held = BuiltInRegistries.ITEM.getKey(p.getMainHandItem().getItem());
         int health = (int) Math.max(0, Math.min(255, Math.round(p.getHealth() * 255.0 / Math.max(1f, p.getMaxHealth()))));
         return new Frames.PlayerSample(p.getId(), p.getUUID(), p.getGameProfile().getName(), skin, slim,
-                p.gameMode.getGameModeForPlayer().getId(), key(held), health);
+                p.gameMode.getGameModeForPlayer().getId(), key(held), health, statusOf(p));
+    }
+
+    // What the player's own HUD shows, for the bar a spectator sees over their head
+    private static Frames.PlayerStatus statusOf(ServerPlayer p) {
+        var inventory = p.getInventory();
+        String[] items = new String[9];
+        int[] counts = new int[9];
+        for (int i = 0; i < 9; i++) {
+            var stack = inventory.getItem(i);
+            if (stack.isEmpty()) { items[i] = ""; continue; }
+            items[i] = key(BuiltInRegistries.ITEM.getKey(stack.getItem()));
+            counts[i] = stack.getCount();
+        }
+        int maxAir = Math.max(1, p.getMaxAirSupply());
+        return new Frames.PlayerStatus(
+                (int) Math.ceil(p.getHealth()),
+                (int) Math.ceil(p.getMaxHealth()),
+                (int) Math.ceil(p.getAbsorptionAmount()),
+                p.getFoodData().getFoodLevel(),
+                p.getArmorValue(),
+                (int) Math.max(0, Math.min(20, Math.ceil(p.getAirSupply() * 20.0 / maxAir))),
+                inventory.getSelectedSlot(),
+                p.experienceLevel,
+                (int) Math.max(0, Math.min(255, Math.round(p.experienceProgress * 255f))),
+                items, counts);
     }
 }

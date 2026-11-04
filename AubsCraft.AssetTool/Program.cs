@@ -57,6 +57,10 @@ try
     var items = new ItemAtlasBuilder(client, version).Build();
     Write("mc-items.json", JsonSerializer.SerializeToUtf8Bytes(items.Assets, ItemAssetsJson.Default.ItemAssets));
     Write("mc-item-atlas.rgba", items.Rgba);
+    // What a player's HUD is made of: the game's own sprites and an icon for every item (the bars over the players' heads)
+    var gui = new GuiAtlasBuilder(client, version).Build(items.Assets, items.Rgba);
+    Write("mc-gui.json", JsonSerializer.SerializeToUtf8Bytes(gui.Assets, GuiAssetsJson.Default.GuiAssets));
+    Write("mc-gui.rgba", gui.Rgba);
     // What the biomes do to grass, leaves and water (the colour maps and the biome table)
     var biomes = new BiomeColorBuilder(client, version).Build();
     Write("mc-biomes.json", JsonSerializer.SerializeToUtf8Bytes(biomes, BiomeAssetsJson.Default.BiomeAssets));

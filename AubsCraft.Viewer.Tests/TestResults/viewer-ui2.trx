@@ -1,0 +1,875 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="7db3ff63-f114-481b-950f-f74f7ba89eda" name="TJ@YODA 2026-11-04 09:55:48" runUser="YODA\TJ" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-11-04T09:55:48.0843180-05:00" queuing="2026-11-04T09:55:48.0843188-05:00" start="2026-11-04T09:55:23.1746971-05:00" finish="2026-11-04T11:51:51.6834199-05:00" />
+  <TestSettings name="default" id="14a97ad1-216d-46e8-bbb1-e531564cad71">
+    <Deployment runDeploymentRoot="TJ_YODA_2026-11-04_09_55_48" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="9bee3365-cc2b-49ac-808b-5b990f043dde" testId="c07a33a1-0b31-b99e-c0cd-b2f0eb527657" testName="AForestFloor_DoesNotFlicker_InTheHeadset(&quot;Enter AR&quot;)" computerName="YODA" duration="00:00:27.3484670" startTime="2026-11-04T11:40:12.5607027-05:00" endTime="2026-11-04T11:40:39.9084086-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9bee3365-cc2b-49ac-808b-5b990f043dde" />
+    <UnitTestResult executionId="03202ab2-a1bd-49cc-9d1d-39db9b2f085a" testId="d52712b8-a06f-5957-7e7b-e176a5b6b4fb" testName="TheSceneItems_AreShot" computerName="YODA" duration="00:28:59.9010870" startTime="2026-11-04T10:23:05.9983079-05:00" endTime="2026-11-04T10:52:05.8512537-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="03202ab2-a1bd-49cc-9d1d-39db9b2f085a" />
+    <UnitTestResult executionId="3ffbd8f0-f03d-457a-9426-0cdcde4d89f3" testId="47b5084d-4b38-1bfd-3de3-b93561fef03e" testName="AForestFloor_DoesNotFlicker_InTheHeadset(&quot;Enter VR&quot;)" computerName="YODA" duration="00:00:27.9090000" startTime="2026-11-04T11:39:44.6524548-05:00" endTime="2026-11-04T11:40:12.5606781-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3ffbd8f0-f03d-457a-9426-0cdcde4d89f3" />
+    <UnitTestResult executionId="a5871b00-a8bd-4708-988e-7cdd42e4685c" testId="3714e72b-a588-f9f0-b28c-53642d099448" testName="AnAdminBreaksAndPlacesWithTheMouse_AndUndoesWithCtrlZ" computerName="YODA" duration="00:00:28.6488800" startTime="2026-11-04T09:59:25.5758734-05:00" endTime="2026-11-04T09:59:54.2239571-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a5871b00-a8bd-4708-988e-7cdd42e4685c" />
+    <UnitTestResult executionId="55bf3f76-3b4d-40c4-98d7-11d3609deade" testId="d3260a37-3cfb-7339-4787-a775016c7e0b" testName="Fullscreen_FromTheMenu_FillsTheScreen_AndComesBack" computerName="YODA" duration="00:00:17.6073580" startTime="2026-11-04T10:20:07.4254446-05:00" endTime="2026-11-04T10:20:25.0323124-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="55bf3f76-3b4d-40c4-98d7-11d3609deade" />
+    <UnitTestResult executionId="e2410f8d-9567-469f-9630-58246acd15f8" testId="2b6bd096-fd04-de49-78e4-c915b9725a5b" testName="PlayerList_ShowsWhoIsOnline" computerName="YODA" duration="00:00:00.5104190" startTime="2026-11-04T10:02:16.3882254-05:00" endTime="2026-11-04T10:02:16.8986293-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e2410f8d-9567-469f-9630-58246acd15f8" />
+    <UnitTestResult executionId="266eea0c-6e07-4772-bac1-9d7bd993f3cf" testId="f921ec70-fced-26cc-4643-d2beffd4c6d4" testName="AtNight_ATorchLightsItsSurroundingsWarm_OnlyWithLightOn" computerName="YODA" duration="00:00:27.1464470" startTime="2026-11-04T10:08:05.2028774-05:00" endTime="2026-11-04T10:08:32.3485697-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="266eea0c-6e07-4772-bac1-9d7bd993f3cf" />
+    <UnitTestResult executionId="b3eecd79-0a5a-4c45-a09b-0e7ccdcba1dd" testId="2c3af839-ebd3-0b24-d369-ab9867a35e3f" testName="TheColumnsBlockIds_AreSentPacked_AndWhole_WithTheirHeaders" computerName="YODA" duration="00:00:00.0668490" startTime="2026-11-04T09:59:23.5784298-05:00" endTime="2026-11-04T09:59:23.6452761-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b3eecd79-0a5a-4c45-a09b-0e7ccdcba1dd" />
+    <UnitTestResult executionId="ffe3bc97-2a47-4c0b-aa6a-c1cd78ffc105" testId="648eb1aa-1ee3-c50d-638b-55c0a4255445" testName="AShorterDrawDistance_BringsTheFogIn_SoTheEdgeOfTheWorldIsNeverSeen" computerName="YODA" duration="00:01:33.7201630" startTime="2026-11-04T11:07:30.2459766-05:00" endTime="2026-11-04T11:09:03.9635532-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ffe3bc97-2a47-4c0b-aa6a-c1cd78ffc105" />
+    <UnitTestResult executionId="89402390-4207-4c94-bc0f-99949c1013f6" testId="e69553a4-6fb0-4f48-33ba-a1d4428112e6" testName="LeavingTheMap_ForHome_AndComingBack_ThrowsNothing" computerName="YODA" duration="00:01:14.7271850" startTime="2026-11-04T10:05:37.0547261-05:00" endTime="2026-11-04T10:06:51.7798343-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="89402390-4207-4c94-bc0f-99949c1013f6" />
+    <UnitTestResult executionId="b74150d0-74d5-466b-83dd-01267abe3c72" testId="18c14e85-ddda-232d-cb68-2fdb32c91ebb" testName="AfterLeaving_TheHeadsetCanBeEnteredAgain(&quot;Enter VR&quot;)" computerName="YODA" duration="00:00:50.9714800" startTime="2026-11-04T11:40:39.9091927-05:00" endTime="2026-11-04T11:41:30.8792557-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b74150d0-74d5-466b-83dd-01267abe3c72" />
+    <UnitTestResult executionId="bd0dbb5f-e86d-4920-8266-cf7d969ee59d" testId="affe395b-75d5-6d57-68bb-f2e092793c21" testName="TheMinimap_ShowsTheCreaturesAround_AsColouredDots" computerName="YODA" duration="00:00:37.4863670" startTime="2026-11-04T10:10:59.1526840-05:00" endTime="2026-11-04T10:11:36.6380082-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bd0dbb5f-e86d-4920-8266-cf7d969ee59d" />
+    <UnitTestResult executionId="45f3549c-5220-40e6-bb6a-8ece29c84f04" testId="8715ffa7-2a29-1a2a-7635-808262cad5f0" testName="WhenTheServersTimeStandsStill_TheRainStillFalls" computerName="YODA" duration="00:00:12.7025180" startTime="2026-11-04T11:39:30.5972884-05:00" endTime="2026-11-04T11:39:43.2994529-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="45f3549c-5220-40e6-bb6a-8ece29c84f04" />
+    <UnitTestResult executionId="902fa895-d440-4ee8-9c22-36395f93612a" testId="0d8c142d-02e6-b3be-777e-d90fb0028b4a" testName="ByDay_ADarkRoomIsDarkInside_AndATorchLightsAnotherWarm" computerName="YODA" duration="00:00:51.1138080" startTime="2026-11-04T10:08:32.3486026-05:00" endTime="2026-11-04T10:09:23.4609885-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="902fa895-d440-4ee8-9c22-36395f93612a" />
+    <UnitTestResult executionId="28d1a85d-ef1c-4ef1-a1ce-90fd35107d42" testId="163323e3-de6f-b2de-a2f4-f5ee3f8221a9" testName="QuestPage_Renders_OffersConnect_AndLogsNoErrors" computerName="YODA" duration="00:00:01.7076850" startTime="2026-11-04T10:23:02.9989211-05:00" endTime="2026-11-04T10:23:04.7065581-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="28d1a85d-ef1c-4ef1-a1ce-90fd35107d42" />
+    <UnitTestResult executionId="4aff7185-4545-42bd-8a04-3ee9f6c886e3" testId="8c15f7b0-99ad-7375-3399-0b733849dc90" testName="EnteringVr_ShowsTwoEyesOfTheWorld_AndTheThumbstickFliesIt" computerName="YODA" duration="00:00:34.6362720" startTime="2026-11-04T11:42:48.6406458-05:00" endTime="2026-11-04T11:43:23.2759544-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4aff7185-4545-42bd-8a04-3ee9f6c886e3" />
+    <UnitTestResult executionId="ab48efe3-ee35-4a29-9633-728039dc9331" testId="13554578-e3b3-f262-2569-6ae7ce98bac2" testName="Campfires_SmokeIntoTheSky_AndTheWorkerSaysSo" computerName="YODA" duration="00:00:23.8300880" startTime="2026-11-04T10:22:37.8088264-05:00" endTime="2026-11-04T10:23:01.6382517-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ab48efe3-ee35-4a29-9633-728039dc9331" />
+    <UnitTestResult executionId="8d74c86f-9763-4a8d-a677-f9e434ade6b6" testId="4125870e-2f8b-a28a-aa5a-17a3cb440751" testName="ThePlayers_HaveTheirHudOverTheirHeads_AndTheWheelMovesAFollowingCamera" computerName="YODA" duration="00:00:40.6531030" startTime="2026-11-04T10:21:13.3671743-05:00" endTime="2026-11-04T10:21:54.0191477-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8d74c86f-9763-4a8d-a677-f9e434ade6b6" />
+    <UnitTestResult executionId="d85e01ab-c74f-44bc-8066-dd3f9a1a7207" testId="00e9c94c-98bc-29bf-f5b0-74e67602e53a" testName="TheFarWindowLine_ParsesTheFarMeshCounts" computerName="YODA" duration="00:00:00.0159570" startTime="2026-11-04T10:16:03.2209708-05:00" endTime="2026-11-04T10:16:03.2369266-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d85e01ab-c74f-44bc-8066-dd3f9a1a7207" />
+    <UnitTestResult executionId="76a25928-df45-4efd-a6e0-7378a0cdb019" testId="eb03e858-0197-0bff-f015-bafb98f47383" testName="Ground_AtSpawn(&quot;07-ground-east&quot;,0.0f)" computerName="YODA" duration="00:01:19.5495020" startTime="2026-11-04T11:00:36.1512631-05:00" endTime="2026-11-04T11:01:55.6985691-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="76a25928-df45-4efd-a6e0-7378a0cdb019" />
+    <UnitTestResult executionId="d6b64482-0c81-49e8-8650-a368f02cbab0" testId="fea1997a-05ac-ab19-969f-421ae0acff04" testName="Shoreline_08_LandMeetsWaterAtEyeLevel" computerName="YODA" duration="00:01:14.6394260" startTime="2026-11-04T11:01:55.6986254-05:00" endTime="2026-11-04T11:03:10.3359906-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d6b64482-0c81-49e8-8650-a368f02cbab0" />
+    <UnitTestResult executionId="0269ac6f-d75a-4290-b93d-aa11d4fb2650" testId="40cc9803-0698-dfba-6f50-3f0090387113" testName="Players_WearTheirArmor" computerName="YODA" duration="00:00:07.8229730" startTime="2026-11-04T11:11:28.0416209-05:00" endTime="2026-11-04T11:11:35.8643775-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0269ac6f-d75a-4290-b93d-aa11d4fb2650" />
+    <UnitTestResult executionId="fd26042c-11b9-47ac-9ec0-edf2a08406d6" testId="dd4f3f49-efc2-3bee-e9a9-1b06097ad7fa" testName="AnAdminSelectsFillsCopiesPastesAndSavesABlueprint_WithTheKeyboardAndMouse" computerName="YODA" duration="00:00:25.7268710" startTime="2026-11-04T09:59:54.2240012-05:00" endTime="2026-11-04T10:00:19.9501557-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fd26042c-11b9-47ac-9ec0-edf2a08406d6" />
+    <UnitTestResult executionId="bfd76fdd-e109-48a6-babb-8e846f5ee2bf" testId="b5febe60-4680-9ff9-37b2-88ea5cb78dbc" testName="Load_FillsTheWorld_BindingAHandfulOfBuffers" computerName="YODA" duration="00:01:41.4546330" startTime="2026-11-04T10:16:05.1276506-05:00" endTime="2026-11-04T10:17:46.5794634-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bfd76fdd-e109-48a6-babb-8e846f5ee2bf">
+      <Output>
+        <ErrorInfo>
+          <Message>  2306 draws should need a small fraction of that many buffer binds, got 246&#xD;
+Assert.That(busiest.Binds * 10, Is.LessThanOrEqualTo(busiest.Draws))&#xD;
+  Expected: less than or equal to 2306&#xD;
+  But was:  2460&#xD;
+</Message>
+          <StackTrace>   at AubsCraft.Viewer.Tests.ViewerLoadTests.Load_FillsTheWorld_BindingAHandfulOfBuffers() in D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\ViewerLoadTests.cs:line 120&#xD;
+   at AubsCraft.Viewer.Tests.ViewerLoadTests.Load_FillsTheWorld_BindingAHandfulOfBuffers() in D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\ViewerLoadTests.cs:line 131&#xD;
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()&#xD;
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)&#xD;
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)&#xD;
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)&#xD;
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)&#xD;
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)&#xD;
+   at NUnit.Framework.Internal.Execution.SimpleWorkItem.&lt;&gt;c__DisplayClass3_0.&lt;PerformWork&gt;b__0()&#xD;
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass1_0`1.&lt;DoIsolated&gt;b__0(Object _)&#xD;
+
+1)    at AubsCraft.Viewer.Tests.ViewerLoadTests.Load_FillsTheWorld_BindingAHandfulOfBuffers() in D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\ViewerLoadTests.cs:line 120&#xD;
+
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="f61075ef-8bef-494d-86b6-a0dde3daeaf3" testId="895980c4-fd27-46d9-cc36-00a4762e690a" testName="Aerial_FromSpawn(&quot;05-aerial-west&quot;,180.0f)" computerName="YODA" duration="00:01:34.8046410" startTime="2026-11-04T10:57:31.5754450-05:00" endTime="2026-11-04T10:59:06.3774691-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f61075ef-8bef-494d-86b6-a0dde3daeaf3" />
+    <UnitTestResult executionId="64b106ac-60f7-431a-9531-34c23c2510d6" testId="08831633-11cb-af2e-a959-86636ab9ae61" testName="Hud_StatsPanelAndCompass_AreDrawnOnTopOfTheWorld" computerName="YODA" duration="00:00:00.3688770" startTime="2026-11-04T10:04:03.1071005-05:00" endTime="2026-11-04T10:04:03.4759668-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="64b106ac-60f7-431a-9531-34c23c2510d6" />
+    <UnitTestResult executionId="3dc6aeba-dead-4752-862c-7a143ac53b72" testId="e8d87304-ed0d-f009-f2f1-107c36d04a8e" testName="TheColumnsLight_IsSentPacked_AndWhole" computerName="YODA" duration="00:00:00.1039330" startTime="2026-11-04T09:59:23.6453229-05:00" endTime="2026-11-04T09:59:23.7492528-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3dc6aeba-dead-4752-862c-7a143ac53b72" />
+    <UnitTestResult executionId="0110bced-341b-4fe8-8aea-eb5634fc8a88" testId="4e5278db-22c9-77dd-02d6-339369e69037" testName="SwitchingServer_IsDoneInTheViewer" computerName="YODA" duration="00:00:27.7003210" startTime="2026-11-04T10:20:25.0323525-05:00" endTime="2026-11-04T10:20:52.7319030-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0110bced-341b-4fe8-8aea-eb5634fc8a88" />
+    <UnitTestResult executionId="2ea41555-c5e2-4f42-83fb-7048694704e2" testId="cd613154-65ac-3049-926c-84580eed4334" testName="TheAssets_AreSentPacked_WhenAsked_AndWhole" computerName="YODA" duration="00:00:01.0566240" startTime="2026-11-04T09:59:22.5217901-05:00" endTime="2026-11-04T09:59:23.5783848-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2ea41555-c5e2-4f42-83fb-7048694704e2" />
+    <UnitTestResult executionId="8d22be1c-58bd-4570-987f-af7ebbfa41b5" testId="62503c91-bfa8-ad3c-7ec2-3cec08ec47df" testName="TheSun_IsSeenWhereItIs_AtDusk" computerName="YODA" duration="00:00:30.2003610" startTime="2026-11-04T11:06:58.6868425-05:00" endTime="2026-11-04T11:07:28.8863701-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8d22be1c-58bd-4570-987f-af7ebbfa41b5" />
+    <UnitTestResult executionId="3e346a40-45c7-4480-85c8-dd812e51c4f9" testId="6a34089b-cf29-963d-6ca4-96dfdc8aaf90" testName="OtherConsoleLines_AreNotSamples" computerName="YODA" duration="00:00:00.0029890" startTime="2026-11-04T10:16:03.2179606-05:00" endTime="2026-11-04T10:16:03.2209495-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3e346a40-45c7-4480-85c8-dd812e51c4f9" />
+    <UnitTestResult executionId="42a3443f-8220-4fbf-830c-885ec10dd8e4" testId="acd4ae5e-4e42-5f04-eb19-bcb165ddef82" testName="SwitchingTheViewedServer_ThrowsNothing_AndStartsTheOtherWorld" computerName="YODA" duration="00:01:11.9011510" startTime="2026-11-04T10:06:51.7798845-05:00" endTime="2026-11-04T10:08:03.6790362-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="42a3443f-8220-4fbf-830c-885ec10dd8e4" />
+    <UnitTestResult executionId="d0b2000c-fcc2-40a3-a760-f4046f911f72" testId="26430362-1a6e-989c-26df-b1edca5eed26" testName="Notice_SlidesInUnderTheCompass" computerName="YODA" duration="00:00:01.2498810" startTime="2026-11-04T10:02:20.3841652-05:00" endTime="2026-11-04T10:02:21.6340109-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d0b2000c-fcc2-40a3-a760-f4046f911f72" />
+    <UnitTestResult executionId="88a2dc6f-842c-4bfc-b2e1-cf8b5d631612" testId="14033eba-2007-2fb3-e102-eaa91375a3ac" testName="PaintingsAndItemFrames_HangOnTheWall_FacingOut" computerName="YODA" duration="00:00:53.8008060" startTime="2026-11-04T10:04:34.6173455-05:00" endTime="2026-11-04T10:05:28.4166539-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="88a2dc6f-842c-4bfc-b2e1-cf8b5d631612" />
+    <UnitTestResult executionId="677d81a6-d056-47b0-9e22-a4cdc8230624" testId="2b6feb9e-3c57-5ab8-5506-72fbe16771be" testName="AtNoon_TheSkyIsBlueOverhead_AndTheFogColourAtTheHorizon" computerName="YODA" duration="00:00:58.0725100" startTime="2026-11-04T11:09:49.1432194-05:00" endTime="2026-11-04T11:10:47.2141269-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="677d81a6-d056-47b0-9e22-a4cdc8230624" />
+    <UnitTestResult executionId="66f75c9b-ce4c-4b1d-99ef-bde6e29f43d5" testId="ca1fd989-479c-967a-ac9d-d1368e15a0f9" testName="TheAssetsLoad_AndTheWaterAnimates_WhileTheSkyDoesNot" computerName="YODA" duration="00:00:37.2380390" startTime="2026-11-04T11:38:07.7276728-05:00" endTime="2026-11-04T11:38:44.9646765-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="66f75c9b-ce4c-4b1d-99ef-bde6e29f43d5" />
+    <UnitTestResult executionId="02deb0a7-4eb0-4265-a785-8a595fee670b" testId="bd031a04-3840-6112-4007-dbb3a089ceaf" testName="InVr_TheSettingsPageSwitchesTurningBetweenSmoothAndSteps" computerName="YODA" duration="00:00:31.7704650" startTime="2026-11-04T11:45:56.1677996-05:00" endTime="2026-11-04T11:46:27.9373812-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="02deb0a7-4eb0-4265-a785-8a595fee670b" />
+    <UnitTestResult executionId="0cee1432-eed1-4e7f-ba61-62953ed0f903" testId="59fd02f4-ae5c-0dac-82a2-d5a5329ce0cd" testName="AtNoon_TheSkyIsAGradient_BlueOverhead_PaleAtTheHorizon" computerName="YODA" duration="00:00:08.9317940" startTime="2026-11-04T11:06:49.7552749-05:00" endTime="2026-11-04T11:06:58.6868224-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0cee1432-eed1-4e7f-ba61-62953ed0f903" />
+    <UnitTestResult executionId="bb1e665c-3c34-48c1-8041-494f3b7efdde" testId="2d1e306c-45ed-265f-31a6-5fdff4f89f77" testName="Players_SwingTheirArms_DrawBows_AndEat" computerName="YODA" duration="00:00:11.0188650" startTime="2026-11-04T11:11:17.0230390-05:00" endTime="2026-11-04T11:11:28.0415997-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bb1e665c-3c34-48c1-8041-494f3b7efdde" />
+    <UnitTestResult executionId="49906d91-fab4-47aa-aae3-eefd507ad778" testId="483d6fa6-6c21-a77e-46c1-d655da01dbe7" testName="TheMenusAndTheWindowCanBeMovedByTheirHandle" computerName="YODA" duration="00:00:30.4088290" startTime="2026-11-04T11:46:59.0598681-05:00" endTime="2026-11-04T11:47:29.4678515-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="49906d91-fab4-47aa-aae3-eefd507ad778" />
+    <UnitTestResult executionId="05c5f1fe-dfa1-4d5e-af57-52f6ace0ba91" testId="ffcf4bbe-6879-8648-18e4-9e77207f37b7" testName="TheUi_IsOffWhileExploring_XOpensTheMenu_ATileOpensAPage_AndCloseClosesIt" computerName="YODA" duration="00:00:30.9966990" startTime="2026-11-04T11:47:29.4678753-05:00" endTime="2026-11-04T11:48:00.4637124-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="05c5f1fe-dfa1-4d5e-af57-52f6ace0ba91">
+      <Output>
+        <ErrorInfo>
+          <Message>  and the window is not there yet&#xD;
+Assert.That(outside, Is.LessThan(0.08))&#xD;
+  Expected: less than 0.080000000000000002d&#xD;
+  But was:  0.084141348847231207d&#xD;
+</Message>
+          <StackTrace>   at AubsCraft.Viewer.Tests.ViewerXrTests.TheUi_IsOffWhileExploring_XOpensTheMenu_ATileOpensAPage_AndCloseClosesIt() in D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\ViewerXrTests.cs:line 428&#xD;
+   at AubsCraft.Viewer.Tests.ViewerXrTests.TheUi_IsOffWhileExploring_XOpensTheMenu_ATileOpensAPage_AndCloseClosesIt() in D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\ViewerXrTests.cs:line 457&#xD;
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)&#xD;
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass1_0`1.&lt;DoIsolated&gt;b__0(Object _)&#xD;
+
+1)    at AubsCraft.Viewer.Tests.ViewerXrTests.TheUi_IsOffWhileExploring_XOpensTheMenu_ATileOpensAPage_AndCloseClosesIt() in D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\ViewerXrTests.cs:line 428&#xD;
+
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="40759bae-adfd-4754-84f0-dfa7bcd13d4a" testId="4fe7f694-3958-5854-9047-51bff17a3a8f" testName="AtMidnight_TheLightBlocksGlow_AndTheGroundIsDark" computerName="YODA" duration="00:00:12.6031479" startTime="2026-11-04T10:22:23.8684075-05:00" endTime="2026-11-04T10:22:36.4712048-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="40759bae-adfd-4754-84f0-dfa7bcd13d4a" />
+    <UnitTestResult executionId="4bc6471c-d295-4966-a3b8-f513fd578091" testId="ed8aac34-4736-6e34-eeae-6d7f2db1e4ea" testName="InAr_TheWorldIsAModelOnATable_AndTheMenuStepsIntoIt" computerName="YODA" duration="00:00:43.3147090" startTime="2026-11-04T11:43:23.2759772-05:00" endTime="2026-11-04T11:44:06.5894816-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4bc6471c-d295-4966-a3b8-f513fd578091" />
+    <UnitTestResult executionId="cfc2ebef-e694-4eb2-8466-47b0316f4b50" testId="d9c41bb6-5c4a-c926-9ab5-cb00949e17ff" testName="TheReportedPlace_FreshPanelAndPage" computerName="YODA" duration="00:00:00.0003880" startTime="2026-11-04T09:59:20.0317979-05:00" endTime="2026-11-04T09:59:20.0321863-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="NotExecuted" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cfc2ebef-e694-4eb2-8466-47b0316f4b50">
+      <Output>
+        <StdOut>needs the real world; the shot is for looking at</StdOut>
+        <ErrorInfo>
+          <Message>needs the real world; the shot is for looking at</Message>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e9445844-9c0e-4185-aeff-701ac7d4e05d" testId="17cb6184-5cb5-0b8d-c028-ac68922d692c" testName="TheSignsWritingIsDrawn_OnTheBoardsFace_TheRightWayRound" computerName="YODA" duration="00:01:48.8107860" startTime="2026-11-04T11:04:49.3147562-05:00" endTime="2026-11-04T11:06:38.1225387-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e9445844-9c0e-4185-aeff-701ac7d4e05d" />
+    <UnitTestResult executionId="179eba91-373d-4b28-9cf7-b2f1c03c2b53" testId="f3df9d83-b296-f499-0250-5ba2033adf17" testName="ServeToTheQuest" computerName="YODA" duration="00:00:00.0004350" startTime="2026-11-04T10:23:01.8620059-05:00" endTime="2026-11-04T10:23:01.8624411-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="NotExecuted" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="179eba91-373d-4b28-9cf7-b2f1c03c2b53">
+      <Output>
+        <StdOut>OneTimeSetUp: serves a build to a headset until quest/stop.txt appears</StdOut>
+        <ErrorInfo>
+          <Message>OneTimeSetUp: serves a build to a headset until quest/stop.txt appears</Message>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="0ff377b5-157b-4d37-bbb2-0790921d9dde" testId="6598efde-bb9d-6b3f-84e5-906baf15f6f1" testName="InVr_AQuickPhraseOfTheWindowIsSaidInChat" computerName="YODA" duration="00:00:30.5860390" startTime="2026-11-04T11:44:06.5898717-05:00" endTime="2026-11-04T11:44:37.1750601-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0ff377b5-157b-4d37-bbb2-0790921d9dde" />
+    <UnitTestResult executionId="39257548-47f2-465d-9372-61df3bec1871" testId="62f9a58d-d7a7-bb83-b83a-4bc272b5fb5e" testName="Players_StandSneakSwimGlideRideSleepAndLieDead_AndHoldWhatTheyHold" computerName="YODA" duration="00:00:27.4924900" startTime="2026-11-04T11:10:49.5312864-05:00" endTime="2026-11-04T11:11:17.0230172-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="39257548-47f2-465d-9372-61df3bec1871" />
+    <UnitTestResult executionId="8f818467-61ca-44c7-812d-3dd0bea605ab" testId="1bb55422-eb07-bc74-244c-0d7126b0e230" testName="ClickingTheView_LocksThePointer_SwapsTheHintForACrosshair" computerName="YODA" duration="00:00:01.7126830" startTime="2026-11-04T10:04:05.9968947-05:00" endTime="2026-11-04T10:04:07.7095299-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8f818467-61ca-44c7-812d-3dd0bea605ab" />
+    <UnitTestResult executionId="05197adf-4f63-43aa-a7a1-19bc768123ce" testId="bb66e45d-0352-4d24-d3af-8335717d48f8" testName="AColumnLeavingTheRange_LeavesNoHole_AfterTheDrawDistanceGrew" computerName="YODA" duration="00:02:19.3267510" startTime="2026-11-04T10:17:48.1025272-05:00" endTime="2026-11-04T10:20:07.4254048-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="05197adf-4f63-43aa-a7a1-19bc768123ce" />
+    <UnitTestResult executionId="2ca54d95-d3c6-4faa-bb3b-5bd8b26369eb" testId="7ec9573e-97bc-774c-18dc-48181c2d49ff" testName="TheWorldsStates_AreShot_FromTheirOwnSpots" computerName="YODA" duration="00:26:26.8479240" startTime="2026-11-04T11:11:37.4800027-05:00" endTime="2026-11-04T11:38:04.2840720-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2ca54d95-d3c6-4faa-bb3b-5bd8b26369eb" />
+    <UnitTestResult executionId="5bafda7e-84ae-4e61-90eb-e5ff3a2f94b5" testId="e5606721-5b0a-ae95-d711-9f81bcfb391b" testName="TheGatherTime_IsParsedWhenPresent_AndAbsentOtherwise" computerName="YODA" duration="00:00:00.0011750" startTime="2026-11-04T10:16:03.2390432-05:00" endTime="2026-11-04T10:16:03.2402182-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5bafda7e-84ae-4e61-90eb-e5ff3a2f94b5" />
+    <UnitTestResult executionId="9154b0c5-6881-4dd5-bdcc-8c864e176bca" testId="68b3039d-c51d-d365-fe62-917e20e0501f" testName="AtMidnight_ItIsDark_WithStars" computerName="YODA" duration="00:00:09.2560310" startTime="2026-11-04T11:06:40.4994647-05:00" endTime="2026-11-04T11:06:49.7552399-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9154b0c5-6881-4dd5-bdcc-8c864e176bca" />
+    <UnitTestResult executionId="06074959-b518-49ac-a8a2-5c97507a114d" testId="d9936597-94ad-828b-5ba8-de569cb6e7ce" testName="Cave_09_InsideARoomyCave" computerName="YODA" duration="00:01:36.3770830" startTime="2026-11-04T11:03:10.3360113-05:00" endTime="2026-11-04T11:04:46.7104344-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="06074959-b518-49ac-a8a2-5c97507a114d" />
+    <UnitTestResult executionId="44c4a7c7-6d0f-4884-baf2-854d5364b03e" testId="b89fd914-9ac6-eb16-644f-d4d19f277442" testName="Chat_OpensWithEnter_ShowsTheHistory_AndEchoesWhatIsTyped" computerName="YODA" duration="00:00:03.4855400" startTime="2026-11-04T10:02:16.8986840-05:00" endTime="2026-11-04T10:02:20.3841273-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="44c4a7c7-6d0f-4884-baf2-854d5364b03e" />
+    <UnitTestResult executionId="fbe70952-dc52-460c-8fd4-4478430fb9db" testId="56f3d7c8-cf5b-624b-2c39-8a08b9f27eb4" testName="TheWheel_ChangesTheFlyingSpeed_WhenNotFollowing" computerName="YODA" duration="00:00:14.4165640" startTime="2026-11-04T10:22:08.0816948-05:00" endTime="2026-11-04T10:22:22.4978572-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fbe70952-dc52-460c-8fd4-4478430fb9db" />
+    <UnitTestResult executionId="739c9d9b-599a-4c41-a23e-9db78d3e6df4" testId="2b283b6a-bf3f-0b26-80fd-3f2e49e47fef" testName="BoatsMinecartsAndStands_AreDrawn_AsTheirGameModels" computerName="YODA" duration="00:00:06.7306820" startTime="2026-11-04T10:04:09.8485521-05:00" endTime="2026-11-04T10:04:16.5790472-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="739c9d9b-599a-4c41-a23e-9db78d3e6df4" />
+    <UnitTestResult executionId="0865ecda-5804-4b31-8d05-6de9aff5108b" testId="5b89e723-996c-941b-95ad-8d983051bd45" testName="TheFirstReleasesLine_ParsesWithoutTheMeshCounters" computerName="YODA" duration="00:00:00.0020699" startTime="2026-11-04T10:16:03.2369555-05:00" endTime="2026-11-04T10:16:03.2390255-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0865ecda-5804-4b31-8d05-6de9aff5108b" />
+    <UnitTestResult executionId="b053f814-fbe4-4e8c-8977-8b9b0d4709dd" testId="f16bbe80-0881-a382-07b1-8adb3ad6ff33" testName="EnteringAr_LeavesTheSkyTransparent_SoThePassThroughShowsThrough" computerName="YODA" duration="00:00:27.9943380" startTime="2026-11-04T11:42:20.6470635-05:00" endTime="2026-11-04T11:42:48.6406223-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b053f814-fbe4-4e8c-8977-8b9b0d4709dd" />
+    <UnitTestResult executionId="79acd758-3070-47a8-8558-c8072257e31e" testId="27240e5b-c1bc-adda-7205-0baed10e44a5" testName="TheMicrophoneReachesThePlugin_AndAPlayersVoiceIsHeardInTheBrowser" computerName="YODA" duration="00:00:14.4281960" startTime="2026-11-04T11:38:47.1399535-05:00" endTime="2026-11-04T11:39:01.5677490-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="79acd758-3070-47a8-8558-c8072257e31e" />
+    <UnitTestResult executionId="13a082f1-605e-4685-b776-d12ba43e1bf3" testId="d74df9c6-08e8-b0af-cfa7-4d5915b5d0bf" testName="FarmAnimals_OfTheWarmAndColdKinds_WearTheirOwnCoats" computerName="YODA" duration="00:00:07.2073210" startTime="2026-11-04T10:04:27.4100930-05:00" endTime="2026-11-04T10:04:34.6172129-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="13a082f1-605e-4685-b776-d12ba43e1bf3" />
+    <UnitTestResult executionId="e3997e0d-ba16-434a-898c-1d96dafc6c4a" testId="fd810bbb-b2d2-9cd4-31c8-82fb9fe27a7a" testName="TheSameGrass_IsAnotherGreen_InAnotherBiome" computerName="YODA" duration="00:01:08.3549350" startTime="2026-11-04T09:56:38.5694581-05:00" endTime="2026-11-04T09:57:46.9224921-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e3997e0d-ba16-434a-898c-1d96dafc6c4a" />
+    <UnitTestResult executionId="3a4ebf06-e757-4093-874b-5ffe0b7d8d48" testId="095a0139-6b96-9551-4a4b-31128efd6e46" testName="Shot01_SpawnTopDown_DefaultStart" computerName="YODA" duration="00:01:29.7518140" startTime="2026-11-04T10:52:07.3098912-05:00" endTime="2026-11-04T10:53:37.0592285-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3a4ebf06-e757-4093-874b-5ffe0b7d8d48" />
+    <UnitTestResult executionId="eca70814-0849-46e1-bbe3-b9408d919daa" testId="224513a2-b7a2-30c7-e6b5-1785a6be79ff" testName="Aerial_FromSpawn(&quot;03-aerial-east&quot;,0.0f)" computerName="YODA" duration="00:01:20.9256620" startTime="2026-11-04T10:54:51.0726004-05:00" endTime="2026-11-04T10:56:11.9960283-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="eca70814-0849-46e1-bbe3-b9408d919daa" />
+    <UnitTestResult executionId="a24b7ab8-85a8-4666-ac4d-327e13ad3097" testId="98ad4298-9df5-e26a-0f36-77f8282a485e" testName="ThePlayerList_ClickOpensAMenu_NotThePointerLock_AndGoToAndFollowMoveTheCamera" computerName="YODA" duration="00:00:51.7459570" startTime="2026-11-04T10:11:36.6380440-05:00" endTime="2026-11-04T10:12:28.3825623-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a24b7ab8-85a8-4666-ac4d-327e13ad3097" />
+    <UnitTestResult executionId="4f2b0de8-40ad-410d-a8e5-881ad5c1a717" testId="e89431fc-5c13-cfc6-ab52-2c140f0609fa" testName="GroundGeneratedWhileTheViewerIsOpen_FillsTheHole_WithNoReload" computerName="YODA" duration="00:00:28.5012220" startTime="2026-11-04T09:58:51.5313137-05:00" endTime="2026-11-04T09:59:20.0317433-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4f2b0de8-40ad-410d-a8e5-881ad5c1a717" />
+    <UnitTestResult executionId="98b4f629-3ed0-40c3-8576-1f16b996b059" testId="93d39cd1-dc15-335c-42f6-8c8caa447ee4" testName="TheZoo_EveryModel_StandsInARow_ForTheEye" computerName="YODA" duration="00:00:40.6770970" startTime="2026-11-04T10:12:28.3826038-05:00" endTime="2026-11-04T10:13:09.0585689-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="98b4f629-3ed0-40c3-8576-1f16b996b059" />
+    <UnitTestResult executionId="53f6fd4e-e3f3-4ee9-a72f-4db31a0a8771" testId="d74f7e5c-7749-d7e3-ed7b-a4102cb86e17" testName="Aerial_FromSpawn(&quot;02-aerial-north&quot;,-90.0f)" computerName="YODA" duration="00:01:14.0149850" startTime="2026-11-04T10:53:37.0596252-05:00" endTime="2026-11-04T10:54:51.0725670-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="53f6fd4e-e3f3-4ee9-a72f-4db31a0a8771" />
+    <UnitTestResult executionId="01a9dc96-649c-4679-871d-6908131577aa" testId="1aa2fc02-b376-c4d0-43d5-7e2638c9a1c6" testName="AfterLeaving_TheHeadsetCanBeEnteredAgain(&quot;Enter AR&quot;)" computerName="YODA" duration="00:00:49.7687660" startTime="2026-11-04T11:41:30.8792847-05:00" endTime="2026-11-04T11:42:20.6466665-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="01a9dc96-649c-4679-871d-6908131577aa" />
+    <UnitTestResult executionId="360caf3a-c8d4-49a9-9948-d633d209b59f" testId="c2d7635a-ad7e-586d-7f28-17ba9c6c2c9c" testName="TheQuadBufferLine_ParsesTheMeshCounters" computerName="YODA" duration="00:00:00.0015790" startTime="2026-11-04T10:16:03.2402337-05:00" endTime="2026-11-04T10:16:03.2418128-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="360caf3a-c8d4-49a9-9948-d633d209b59f" />
+    <UnitTestResult executionId="9a760e52-561b-469b-82a1-1d2c454b7b69" testId="88a768d5-dfa1-c62d-9e77-ab95bf320f51" testName="Projectiles_FlyTheWayTheyPoint_AndThrownThingsFaceTheCamera" computerName="YODA" duration="00:00:07.0587130" startTime="2026-11-04T10:05:28.4167144-05:00" endTime="2026-11-04T10:05:35.4752311-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9a760e52-561b-469b-82a1-1d2c454b7b69" />
+    <UnitTestResult executionId="d55a67a9-30ed-4ae0-9616-cdca41588bf2" testId="43bc3fda-c9b5-8bb9-4d14-3e513a4fc252" testName="DroppedItems_AreDrawnAsTheirPictures_FlatOnesAndBlocks" computerName="YODA" duration="00:00:10.8312610" startTime="2026-11-04T10:04:16.5790912-05:00" endTime="2026-11-04T10:04:27.4100513-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d55a67a9-30ed-4ae0-9616-cdca41588bf2" />
+    <UnitTestResult executionId="b47a50ef-d145-41e0-9e0c-661056aead28" testId="fb484087-dbd2-be81-41e6-4d0f3c40ce93" testName="Ground_AtSpawn(&quot;06-ground-north&quot;,-90.0f)" computerName="YODA" duration="00:01:29.7715900" startTime="2026-11-04T10:59:06.3821321-05:00" endTime="2026-11-04T11:00:36.1512443-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b47a50ef-d145-41e0-9e0c-661056aead28" />
+    <UnitTestResult executionId="3e46d423-850c-42b2-9ae5-0a99da2be2f7" testId="52a1511c-92d0-8db3-9f65-d48daa531a61" testName="InVr_CreativeAsInQuestCraft_TriggersPlaceAndBreak_AIsPick_BUndoes_GripsPickTheBlock" computerName="YODA" duration="00:01:18.9948520" startTime="2026-11-04T11:44:37.1751076-05:00" endTime="2026-11-04T11:45:56.1677623-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3e46d423-850c-42b2-9ae5-0a99da2be2f7" />
+    <UnitTestResult executionId="ac9dac38-e8e6-4e18-8b1b-2e5dd91039e3" testId="7b67027e-07f3-441f-facf-bfd79b21684f" testName="TheBorderOfTwoBiomes_IsShot_ForTheEye" computerName="YODA" duration="00:00:28.2662410" startTime="2026-11-04T09:56:10.3039502-05:00" endTime="2026-11-04T09:56:38.5694029-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ac9dac38-e8e6-4e18-8b1b-2e5dd91039e3" />
+    <UnitTestResult executionId="651640e7-33e6-4155-90ac-7074cb5056f1" testId="e23f2617-db86-d400-1bb2-796908767827" testName="ProfileTheHeadsetFrame" computerName="YODA" duration="00:00:00.0004850" startTime="2026-11-04T11:46:59.0593775-05:00" endTime="2026-11-04T11:46:59.0598619-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="NotExecuted" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="651640e7-33e6-4155-90ac-7074cb5056f1">
+      <Output>
+        <StdOut>a profile, not a gate: needs the AOT client</StdOut>
+        <ErrorInfo>
+          <Message>a profile, not a gate: needs the AOT client</Message>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="3465651e-7eb4-4898-b20a-2a2e43779dd7" testId="2cbce323-d8ff-4a6e-716d-dcd8c3a089fa" testName="ABox_IsShot_FromItsCorners" computerName="YODA" duration="00:00:00.0026730" startTime="2026-11-04T10:23:05.9956161-05:00" endTime="2026-11-04T10:23:05.9982887-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="NotExecuted" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3465651e-7eb4-4898-b20a-2a2e43779dd7">
+      <Output>
+        <StdOut>AUBS_BOX not set</StdOut>
+        <ErrorInfo>
+          <Message>AUBS_BOX not set</Message>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="12e7a770-4c59-4a99-b259-94873b074e99" testId="213b0ed7-662d-c218-2159-673d44b0ac78" testName="Aerial_FromSpawn(&quot;04-aerial-south&quot;,90.0f)" computerName="YODA" duration="00:01:19.5815499" startTime="2026-11-04T10:56:11.9960606-05:00" endTime="2026-11-04T10:57:31.5754132-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="12e7a770-4c59-4a99-b259-94873b074e99" />
+    <UnitTestResult executionId="c4c0abf7-ecee-4f5c-a382-b34dcefdc4a5" testId="d199633a-12db-83d2-74ee-308069d4f669" testName="TheViewer_IsTheWholeWindow_WithNothingOfThePanelAroundIt" computerName="YODA" duration="00:00:14.0628560" startTime="2026-11-04T10:21:54.0191830-05:00" endTime="2026-11-04T10:22:08.0816461-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c4c0abf7-ecee-4f5c-a382-b34dcefdc4a5" />
+    <UnitTestResult executionId="39cc6e3d-8f90-4e9d-9dfb-6be5d84f2836" testId="d7599e1a-e941-48ed-4ff2-4e4658b74c50" testName="AtMidnight_TheSkyIsDark_AndNoDaytimeBlueShowsAnywhereAboveTheTerrain" computerName="YODA" duration="00:00:45.1808710" startTime="2026-11-04T11:09:03.9635722-05:00" endTime="2026-11-04T11:09:49.1431961-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="39cc6e3d-8f90-4e9d-9dfb-6be5d84f2836" />
+    <UnitTestResult executionId="091ea5ee-648c-4147-a9bb-21bd5313eb49" testId="77c3e033-0f07-65cb-3e9d-31375336b5ad" testName="TheCreatures_AreDrawn_OnTheGround_AndTheOnesWalkingMove" computerName="YODA" duration="00:01:11.5684650" startTime="2026-11-04T10:09:47.5861647-05:00" endTime="2026-11-04T10:10:59.1526402-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="091ea5ee-648c-4147-a9bb-21bd5313eb49" />
+    <UnitTestResult executionId="ed9dda32-1252-44af-b943-6b6d3b06df69" testId="f7c7e578-fa8c-5c41-0597-d8bcfbc05e3d" testName="F3_TogglesTheDebugOverlay_UnderThePanel" computerName="YODA" duration="00:00:02.5205700" startTime="2026-11-04T10:04:03.4760110-05:00" endTime="2026-11-04T10:04:05.9965113-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ed9dda32-1252-44af-b943-6b6d3b06df69" />
+    <UnitTestResult executionId="f36d9a37-5001-4e91-8278-5ce4f7938d25" testId="f6ab4526-ed05-2628-1051-66805a0a1215" testName="SoftShading_IsOnlyNearTheCamera" computerName="YODA" duration="00:00:20.7508500" startTime="2026-11-04T09:55:48.0555043-05:00" endTime="2026-11-04T09:56:08.8057760-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f36d9a37-5001-4e91-8278-5ce4f7938d25" />
+    <UnitTestResult executionId="f046f00b-4ec7-4f40-b42c-b1b546a17c59" testId="599994ce-465f-1c31-7022-c85548e5368e" testName="AFlightThenAStop_LeavesNoColumnUndrawn" computerName="YODA" duration="00:01:03.1088440" startTime="2026-11-04T09:57:48.4240835-05:00" endTime="2026-11-04T09:58:51.5311719-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f046f00b-4ec7-4f40-b42c-b1b546a17c59">
+      <Output>
+        <ErrorInfo>
+          <Message>  the camera really flew far enough for columns to leave the range&#xD;
+Assert.That(moved!.X, Is.GreaterThan(-400 + 16 * 6))&#xD;
+  Expected: greater than -304&#xD;
+  But was:  -400&#xD;
+</Message>
+          <StackTrace>   at AubsCraft.Viewer.Tests.ViewerColumnGapTests.AFlightThenAStop_LeavesNoColumnUndrawn() in D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\ViewerColumnGapTests.cs:line 152&#xD;
+   at AubsCraft.Viewer.Tests.ViewerColumnGapTests.AFlightThenAStop_LeavesNoColumnUndrawn() in D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\ViewerColumnGapTests.cs:line 173&#xD;
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()&#xD;
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)&#xD;
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)&#xD;
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)&#xD;
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)&#xD;
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)&#xD;
+   at NUnit.Framework.Internal.Execution.SimpleWorkItem.&lt;&gt;c__DisplayClass3_0.&lt;PerformWork&gt;b__0()&#xD;
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass1_0`1.&lt;DoIsolated&gt;b__0(Object _)&#xD;
+
+1)    at AubsCraft.Viewer.Tests.ViewerColumnGapTests.AFlightThenAStop_LeavesNoColumnUndrawn() in D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\ViewerColumnGapTests.cs:line 152&#xD;
+
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="3eab5402-b205-41eb-bcc4-db531edcf5d5" testId="e77b9263-1b94-867d-f4b7-19c39fc9b0f3" testName="TheWorldHoldsStill_WhenTheHeadDoes(&quot;Enter VR&quot;)" computerName="YODA" duration="00:01:52.3122680" startTime="2026-11-04T11:48:00.4638128-05:00" endTime="2026-11-04T11:49:52.7729572-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3eab5402-b205-41eb-bcc4-db531edcf5d5" />
+    <UnitTestResult executionId="d0a840b5-38b6-45c0-a9e0-ddc116e29243" testId="dcee3ac9-311c-34c1-85cc-f13546511635" testName="TheWorldHoldsStill_WhenTheHeadDoes(&quot;Enter AR&quot;)" computerName="YODA" duration="00:01:57.1130200" startTime="2026-11-04T11:49:52.7729999-05:00" endTime="2026-11-04T11:51:49.8827643-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d0a840b5-38b6-45c0-a9e0-ddc116e29243" />
+    <UnitTestResult executionId="9832aed7-46f1-4d97-9649-8218dd8b19f5" testId="bd22ef25-928f-f944-cac3-efc36238a839" testName="AChangedChunk_ChangesWhatTheViewerShows_WithoutAReload" computerName="YODA" duration="00:00:21.3983660" startTime="2026-11-04T10:09:24.7990803-05:00" endTime="2026-11-04T10:09:46.1968513-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9832aed7-46f1-4d97-9649-8218dd8b19f5" />
+    <UnitTestResult executionId="a1dbd5b8-3c2d-41b1-8d3a-6f646e245575" testId="bde04332-98be-d9fc-9438-e75a019a1540" testName="TheMenu_ChangesTheViewer_AndRemembersIt" computerName="YODA" duration="00:00:20.6356960" startTime="2026-11-04T10:20:52.7319404-05:00" endTime="2026-11-04T10:21:13.3670626-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a1dbd5b8-3c2d-41b1-8d3a-6f646e245575" />
+    <UnitTestResult executionId="91a90359-d648-4dcc-8097-87a8e007155f" testId="3bb76a7c-1c08-ebcd-9c96-a066076a3b2a" testName="SoftShading_DarkensWhereBlocksMeet_AndNeverLightensAnything" computerName="YODA" duration="00:00:23.2033830" startTime="2026-11-04T09:55:24.8517722-05:00" endTime="2026-11-04T09:55:48.0544564-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="91a90359-d648-4dcc-8097-87a8e007155f" />
+    <UnitTestResult executionId="9d83309b-758a-42b7-86dd-2bf791251cee" testId="5452ca37-f872-6a8f-9381-2f4f6232d37c" testName="WhenItRains_StreaksFallInTheColumnsAroundTheCamera" computerName="YODA" duration="00:00:27.6693980" startTime="2026-11-04T11:39:02.9286370-05:00" endTime="2026-11-04T11:39:30.5972658-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9d83309b-758a-42b7-86dd-2bf791251cee" />
+    <UnitTestResult executionId="6796b301-50d3-4de4-88dc-23fcb5ef2310" testId="c668d368-ba58-fa03-5a88-a23ab1fc09f1" testName="Minimap_ShowsTheWorldFromAbove_InTheTopRightCorner" computerName="YODA" duration="00:00:00.5148810" startTime="2026-11-04T10:02:15.8733251-05:00" endTime="2026-11-04T10:02:16.3881933-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6796b301-50d3-4de4-88dc-23fcb5ef2310">
+      <Output>
+        <ErrorInfo>
+          <Message>  the minimap covers its corner&#xD;
+Assert.That(changed, Is.GreaterThan(0.5))&#xD;
+  Expected: greater than 0.5d&#xD;
+  But was:  0.43682205578512395d&#xD;
+</Message>
+          <StackTrace>   at AubsCraft.Viewer.Tests.ViewerHudFeedTests.Minimap_ShowsTheWorldFromAbove_InTheTopRightCorner() in D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\ViewerHudFeedTests.cs:line 122&#xD;
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()&#xD;
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)&#xD;
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)&#xD;
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)&#xD;
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)&#xD;
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)&#xD;
+   at NUnit.Framework.Internal.Execution.SimpleWorkItem.&lt;&gt;c__DisplayClass3_0.&lt;PerformWork&gt;b__0()&#xD;
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass1_0`1.&lt;DoIsolated&gt;b__0(Object _)&#xD;
+
+1)    at AubsCraft.Viewer.Tests.ViewerHudFeedTests.Minimap_ShowsTheWorldFromAbove_InTheTopRightCorner() in D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\ViewerHudFeedTests.cs:line 122&#xD;
+
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="859978ee-e92d-4113-9d69-869808a98bf1" testId="52e016f5-d52a-4e19-1e13-164420a203d6" testName="TheZoo_EveryModelledCreature_GroupsOfSix" computerName="YODA" duration="00:02:53.6065730" startTime="2026-11-04T10:13:09.0586101-05:00" endTime="2026-11-04T10:16:02.6603568-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="859978ee-e92d-4113-9d69-869808a98bf1" />
+    <UnitTestResult executionId="6542475e-5d28-404a-9e7c-a77c68f0328a" testId="f5f3d511-6342-0990-023c-a367e151c060" testName="AnAdminsWorldPanelOpensWithO_AndItsButtonsSendTheRequest" computerName="YODA" duration="00:00:21.5814660" startTime="2026-11-04T10:00:19.9502053-05:00" endTime="2026-11-04T10:00:41.5310709-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6542475e-5d28-404a-9e7c-a77c68f0328a">
+      <Output>
+        <ErrorInfo>
+          <Message>  the request went out:&#xD;
+&#xD;
+Assert.That(log.ToArray().Any(l =&gt; l.Contains("[Admin] world time  night")), Is.True)&#xD;
+  Expected: True&#xD;
+  But was:  False&#xD;
+</Message>
+          <StackTrace>   at AubsCraft.Viewer.Tests.ViewerEditTests.AnAdminsWorldPanelOpensWithO_AndItsButtonsSendTheRequest() in D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\ViewerEditTests.cs:line 283&#xD;
+   at AubsCraft.Viewer.Tests.ViewerEditTests.AnAdminsWorldPanelOpensWithO_AndItsButtonsSendTheRequest() in D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\ViewerEditTests.cs:line 285&#xD;
+   at NUnit.Framework.Internal.TaskAwaitAdapter.GenericAdapter`1.BlockUntilCompleted()&#xD;
+   at NUnit.Framework.Internal.MessagePumpStrategy.NoMessagePumpStrategy.WaitForCompletion(AwaitAdapter awaiter)&#xD;
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await[TResult](TestExecutionContext context, Func`1 invoke)&#xD;
+   at NUnit.Framework.Internal.AsyncToSyncAdapter.Await(TestExecutionContext context, Func`1 invoke)&#xD;
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.RunTestMethod(TestExecutionContext context)&#xD;
+   at NUnit.Framework.Internal.Commands.TestMethodCommand.Execute(TestExecutionContext context)&#xD;
+   at NUnit.Framework.Internal.Execution.SimpleWorkItem.&lt;&gt;c__DisplayClass3_0.&lt;PerformWork&gt;b__0()&#xD;
+   at NUnit.Framework.Internal.ContextUtils.&lt;&gt;c__DisplayClass1_0`1.&lt;DoIsolated&gt;b__0(Object _)&#xD;
+
+1)    at AubsCraft.Viewer.Tests.ViewerEditTests.AnAdminsWorldPanelOpensWithO_AndItsButtonsSendTheRequest() in D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\ViewerEditTests.cs:line 283&#xD;
+
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="ef074043-7623-42c9-b03c-1f56749719a0" testId="9e30faaa-f089-b33b-b918-d2cf3b05520e" testName="NoButtonLeaves_OnlyTheMenusLeaveTile" computerName="YODA" duration="00:00:31.1227810" startTime="2026-11-04T11:46:27.9374297-05:00" endTime="2026-11-04T11:46:59.0593452-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ef074043-7623-42c9-b03c-1f56749719a0" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="NoButtonLeaves_OnlyTheMenusLeaveTile" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="9e30faaa-f089-b33b-b918-d2cf3b05520e">
+      <Execution id="ef074043-7623-42c9-b03c-1f56749719a0" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerXrTests" name="NoButtonLeaves_OnlyTheMenusLeaveTile" />
+    </UnitTest>
+    <UnitTest name="SwitchingTheViewedServer_ThrowsNothing_AndStartsTheOtherWorld" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="acd4ae5e-4e42-5f04-eb19-bcb165ddef82">
+      <Execution id="42a3443f-8220-4fbf-830c-885ec10dd8e4" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerLeaveTests" name="SwitchingTheViewedServer_ThrowsNothing_AndStartsTheOtherWorld" />
+    </UnitTest>
+    <UnitTest name="InAr_TheWorldIsAModelOnATable_AndTheMenuStepsIntoIt" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="ed8aac34-4736-6e34-eeae-6d7f2db1e4ea">
+      <Execution id="4bc6471c-d295-4966-a3b8-f513fd578091" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerXrTests" name="InAr_TheWorldIsAModelOnATable_AndTheMenuStepsIntoIt" />
+    </UnitTest>
+    <UnitTest name="TheAssets_AreSentPacked_WhenAsked_AndWhole" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="cd613154-65ac-3049-926c-84580eed4334">
+      <Execution id="2ea41555-c5e2-4f42-83fb-7048694704e2" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerCompressionTests" name="TheAssets_AreSentPacked_WhenAsked_AndWhole" />
+    </UnitTest>
+    <UnitTest name="AForestFloor_DoesNotFlicker_InTheHeadset(&quot;Enter AR&quot;)" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="c07a33a1-0b31-b99e-c0cd-b2f0eb527657">
+      <Execution id="9bee3365-cc2b-49ac-808b-5b990f043dde" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerXrTests" name="AForestFloor_DoesNotFlicker_InTheHeadset(&quot;Enter AR&quot;)" />
+    </UnitTest>
+    <UnitTest name="LeavingTheMap_ForHome_AndComingBack_ThrowsNothing" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="e69553a4-6fb0-4f48-33ba-a1d4428112e6">
+      <Execution id="89402390-4207-4c94-bc0f-99949c1013f6" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerLeaveTests" name="LeavingTheMap_ForHome_AndComingBack_ThrowsNothing" />
+    </UnitTest>
+    <UnitTest name="TheCreatures_AreDrawn_OnTheGround_AndTheOnesWalkingMove" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="77c3e033-0f07-65cb-3e9d-31375336b5ad">
+      <Execution id="091ea5ee-648c-4147-a9bb-21bd5313eb49" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerLiveTests" name="TheCreatures_AreDrawn_OnTheGround_AndTheOnesWalkingMove" />
+    </UnitTest>
+    <UnitTest name="TheMinimap_ShowsTheCreaturesAround_AsColouredDots" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="affe395b-75d5-6d57-68bb-f2e092793c21">
+      <Execution id="bd0dbb5f-e86d-4920-8266-cf7d969ee59d" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerLiveTests" name="TheMinimap_ShowsTheCreaturesAround_AsColouredDots" />
+    </UnitTest>
+    <UnitTest name="AtMidnight_TheLightBlocksGlow_AndTheGroundIsDark" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="4fe7f694-3958-5854-9047-51bff17a3a8f">
+      <Execution id="40759bae-adfd-4754-84f0-dfa7bcd13d4a" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerNightTests" name="AtMidnight_TheLightBlocksGlow_AndTheGroundIsDark" />
+    </UnitTest>
+    <UnitTest name="ClickingTheView_LocksThePointer_SwapsTheHintForACrosshair" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="1bb55422-eb07-bc74-244c-0d7126b0e230">
+      <Execution id="8f818467-61ca-44c7-812d-3dd0bea605ab" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerHudTests" name="ClickingTheView_LocksThePointer_SwapsTheHintForACrosshair" />
+    </UnitTest>
+    <UnitTest name="Cave_09_InsideARoomyCave" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="d9936597-94ad-828b-5ba8-de569cb6e7ce">
+      <Execution id="06074959-b518-49ac-a8a2-5c97507a114d" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerShotTests" name="Cave_09_InsideARoomyCave" />
+    </UnitTest>
+    <UnitTest name="TheReportedPlace_FreshPanelAndPage" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="d9c41bb6-5c4a-c926-9ab5-cb00949e17ff">
+      <Execution id="cfc2ebef-e694-4eb2-8466-47b0316f4b50" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerColumnGapTests" name="TheReportedPlace_FreshPanelAndPage" />
+    </UnitTest>
+    <UnitTest name="InVr_AQuickPhraseOfTheWindowIsSaidInChat" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="6598efde-bb9d-6b3f-84e5-906baf15f6f1">
+      <Execution id="0ff377b5-157b-4d37-bbb2-0790921d9dde" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerXrTests" name="InVr_AQuickPhraseOfTheWindowIsSaidInChat" />
+    </UnitTest>
+    <UnitTest name="AForestFloor_DoesNotFlicker_InTheHeadset(&quot;Enter VR&quot;)" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="47b5084d-4b38-1bfd-3de3-b93561fef03e">
+      <Execution id="3ffbd8f0-f03d-457a-9426-0cdcde4d89f3" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerXrTests" name="AForestFloor_DoesNotFlicker_InTheHeadset(&quot;Enter VR&quot;)" />
+    </UnitTest>
+    <UnitTest name="WhenItRains_StreaksFallInTheColumnsAroundTheCamera" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="5452ca37-f872-6a8f-9381-2f4f6232d37c">
+      <Execution id="9d83309b-758a-42b7-86dd-2bf791251cee" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerWeatherTests" name="WhenItRains_StreaksFallInTheColumnsAroundTheCamera" />
+    </UnitTest>
+    <UnitTest name="Players_WearTheirArmor" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="40cc9803-0698-dfba-6f50-3f0090387113">
+      <Execution id="0269ac6f-d75a-4290-b93d-aa11d4fb2650" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerStanceTests" name="Players_WearTheirArmor" />
+    </UnitTest>
+    <UnitTest name="WhenTheServersTimeStandsStill_TheRainStillFalls" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="8715ffa7-2a29-1a2a-7635-808262cad5f0">
+      <Execution id="45f3549c-5220-40e6-bb6a-8ece29c84f04" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerWeatherTests" name="WhenTheServersTimeStandsStill_TheRainStillFalls" />
+    </UnitTest>
+    <UnitTest name="TheGatherTime_IsParsedWhenPresent_AndAbsentOtherwise" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="e5606721-5b0a-ae95-d711-9f81bcfb391b">
+      <Execution id="5bafda7e-84ae-4e61-90eb-e5ff3a2f94b5" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerLoadParseTests" name="TheGatherTime_IsParsedWhenPresent_AndAbsentOtherwise" />
+    </UnitTest>
+    <UnitTest name="ProfileTheHeadsetFrame" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="e23f2617-db86-d400-1bb2-796908767827">
+      <Execution id="651640e7-33e6-4155-90ac-7074cb5056f1" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerXrTests" name="ProfileTheHeadsetFrame" />
+    </UnitTest>
+    <UnitTest name="PaintingsAndItemFrames_HangOnTheWall_FacingOut" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="14033eba-2007-2fb3-e102-eaa91375a3ac">
+      <Execution id="88a2dc6f-842c-4bfc-b2e1-cf8b5d631612" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerItemsTests" name="PaintingsAndItemFrames_HangOnTheWall_FacingOut" />
+    </UnitTest>
+    <UnitTest name="EnteringVr_ShowsTwoEyesOfTheWorld_AndTheThumbstickFliesIt" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="8c15f7b0-99ad-7375-3399-0b733849dc90">
+      <Execution id="4aff7185-4545-42bd-8a04-3ee9f6c886e3" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerXrTests" name="EnteringVr_ShowsTwoEyesOfTheWorld_AndTheThumbstickFliesIt" />
+    </UnitTest>
+    <UnitTest name="ABox_IsShot_FromItsCorners" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="2cbce323-d8ff-4a6e-716d-dcd8c3a089fa">
+      <Execution id="3465651e-7eb4-4898-b20a-2a2e43779dd7" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerSceneTests" name="ABox_IsShot_FromItsCorners" />
+    </UnitTest>
+    <UnitTest name="TheSignsWritingIsDrawn_OnTheBoardsFace_TheRightWayRound" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="17cb6184-5cb5-0b8d-c028-ac68922d692c">
+      <Execution id="e9445844-9c0e-4185-aeff-701ac7d4e05d" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerSignTextTests" name="TheSignsWritingIsDrawn_OnTheBoardsFace_TheRightWayRound" />
+    </UnitTest>
+    <UnitTest name="ServeToTheQuest" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="f3df9d83-b296-f499-0250-5ba2033adf17">
+      <Execution id="179eba91-373d-4b28-9cf7-b2f1c03c2b53" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerPlayground" name="ServeToTheQuest" />
+    </UnitTest>
+    <UnitTest name="Fullscreen_FromTheMenu_FillsTheScreen_AndComesBack" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="d3260a37-3cfb-7339-4787-a775016c7e0b">
+      <Execution id="55bf3f76-3b4d-40c4-98d7-11d3609deade" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerMenuTests" name="Fullscreen_FromTheMenu_FillsTheScreen_AndComesBack" />
+    </UnitTest>
+    <UnitTest name="Aerial_FromSpawn(&quot;04-aerial-south&quot;,90.0f)" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="213b0ed7-662d-c218-2159-673d44b0ac78">
+      <Execution id="12e7a770-4c59-4a99-b259-94873b074e99" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerShotTests" name="Aerial_FromSpawn(&quot;04-aerial-south&quot;,90.0f)" />
+    </UnitTest>
+    <UnitTest name="TheWheel_ChangesTheFlyingSpeed_WhenNotFollowing" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="56f3d7c8-cf5b-624b-2c39-8a08b9f27eb4">
+      <Execution id="fbe70952-dc52-460c-8fd4-4478430fb9db" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerMenuTests" name="TheWheel_ChangesTheFlyingSpeed_WhenNotFollowing" />
+    </UnitTest>
+    <UnitTest name="AtNight_ATorchLightsItsSurroundingsWarm_OnlyWithLightOn" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="f921ec70-fced-26cc-4643-d2beffd4c6d4">
+      <Execution id="266eea0c-6e07-4772-bac1-9d7bd993f3cf" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerLightTests" name="AtNight_ATorchLightsItsSurroundingsWarm_OnlyWithLightOn" />
+    </UnitTest>
+    <UnitTest name="TheMenu_ChangesTheViewer_AndRemembersIt" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="bde04332-98be-d9fc-9438-e75a019a1540">
+      <Execution id="a1dbd5b8-3c2d-41b1-8d3a-6f646e245575" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerMenuTests" name="TheMenu_ChangesTheViewer_AndRemembersIt" />
+    </UnitTest>
+    <UnitTest name="AShorterDrawDistance_BringsTheFogIn_SoTheEdgeOfTheWorldIsNeverSeen" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="648eb1aa-1ee3-c50d-638b-55c0a4255445">
+      <Execution id="ffe3bc97-2a47-4c0b-aa6a-c1cd78ffc105" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerSkyTests" name="AShorterDrawDistance_BringsTheFogIn_SoTheEdgeOfTheWorldIsNeverSeen" />
+    </UnitTest>
+    <UnitTest name="TheMicrophoneReachesThePlugin_AndAPlayersVoiceIsHeardInTheBrowser" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="27240e5b-c1bc-adda-7205-0baed10e44a5">
+      <Execution id="79acd758-3070-47a8-8558-c8072257e31e" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerVoiceTests" name="TheMicrophoneReachesThePlugin_AndAPlayersVoiceIsHeardInTheBrowser" />
+    </UnitTest>
+    <UnitTest name="Load_FillsTheWorld_BindingAHandfulOfBuffers" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="b5febe60-4680-9ff9-37b2-88ea5cb78dbc">
+      <Execution id="bfd76fdd-e109-48a6-babb-8e846f5ee2bf" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerLoadTests" name="Load_FillsTheWorld_BindingAHandfulOfBuffers" />
+    </UnitTest>
+    <UnitTest name="InVr_CreativeAsInQuestCraft_TriggersPlaceAndBreak_AIsPick_BUndoes_GripsPickTheBlock" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="52a1511c-92d0-8db3-9f65-d48daa531a61">
+      <Execution id="3e46d423-850c-42b2-9ae5-0a99da2be2f7" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerXrTests" name="InVr_CreativeAsInQuestCraft_TriggersPlaceAndBreak_AIsPick_BUndoes_GripsPickTheBlock" />
+    </UnitTest>
+    <UnitTest name="TheFirstReleasesLine_ParsesWithoutTheMeshCounters" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="5b89e723-996c-941b-95ad-8d983051bd45">
+      <Execution id="0865ecda-5804-4b31-8d05-6de9aff5108b" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerLoadParseTests" name="TheFirstReleasesLine_ParsesWithoutTheMeshCounters" />
+    </UnitTest>
+    <UnitTest name="BoatsMinecartsAndStands_AreDrawn_AsTheirGameModels" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="2b283b6a-bf3f-0b26-80fd-3f2e49e47fef">
+      <Execution id="739c9d9b-599a-4c41-a23e-9db78d3e6df4" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerItemsTests" name="BoatsMinecartsAndStands_AreDrawn_AsTheirGameModels" />
+    </UnitTest>
+    <UnitTest name="TheColumnsLight_IsSentPacked_AndWhole" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="e8d87304-ed0d-f009-f2f1-107c36d04a8e">
+      <Execution id="3dc6aeba-dead-4752-862c-7a143ac53b72" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerCompressionTests" name="TheColumnsLight_IsSentPacked_AndWhole" />
+    </UnitTest>
+    <UnitTest name="FarmAnimals_OfTheWarmAndColdKinds_WearTheirOwnCoats" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="d74df9c6-08e8-b0af-cfa7-4d5915b5d0bf">
+      <Execution id="13a082f1-605e-4685-b776-d12ba43e1bf3" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerItemsTests" name="FarmAnimals_OfTheWarmAndColdKinds_WearTheirOwnCoats" />
+    </UnitTest>
+    <UnitTest name="ByDay_ADarkRoomIsDarkInside_AndATorchLightsAnotherWarm" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="0d8c142d-02e6-b3be-777e-d90fb0028b4a">
+      <Execution id="902fa895-d440-4ee8-9c22-36395f93612a" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerLightTests" name="ByDay_ADarkRoomIsDarkInside_AndATorchLightsAnotherWarm" />
+    </UnitTest>
+    <UnitTest name="EnteringAr_LeavesTheSkyTransparent_SoThePassThroughShowsThrough" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="f16bbe80-0881-a382-07b1-8adb3ad6ff33">
+      <Execution id="b053f814-fbe4-4e8c-8977-8b9b0d4709dd" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerXrTests" name="EnteringAr_LeavesTheSkyTransparent_SoThePassThroughShowsThrough" />
+    </UnitTest>
+    <UnitTest name="Minimap_ShowsTheWorldFromAbove_InTheTopRightCorner" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="c668d368-ba58-fa03-5a88-a23ab1fc09f1">
+      <Execution id="6796b301-50d3-4de4-88dc-23fcb5ef2310" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerHudFeedTests" name="Minimap_ShowsTheWorldFromAbove_InTheTopRightCorner" />
+    </UnitTest>
+    <UnitTest name="AtNoon_TheSkyIsBlueOverhead_AndTheFogColourAtTheHorizon" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="2b6feb9e-3c57-5ab8-5506-72fbe16771be">
+      <Execution id="677d81a6-d056-47b0-9e22-a4cdc8230624" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerSkyTests" name="AtNoon_TheSkyIsBlueOverhead_AndTheFogColourAtTheHorizon" />
+    </UnitTest>
+    <UnitTest name="Players_SwingTheirArms_DrawBows_AndEat" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="2d1e306c-45ed-265f-31a6-5fdff4f89f77">
+      <Execution id="bb1e665c-3c34-48c1-8041-494f3b7efdde" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerStanceTests" name="Players_SwingTheirArms_DrawBows_AndEat" />
+    </UnitTest>
+    <UnitTest name="DroppedItems_AreDrawnAsTheirPictures_FlatOnesAndBlocks" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="43bc3fda-c9b5-8bb9-4d14-3e513a4fc252">
+      <Execution id="d55a67a9-30ed-4ae0-9616-cdca41588bf2" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerItemsTests" name="DroppedItems_AreDrawnAsTheirPictures_FlatOnesAndBlocks" />
+    </UnitTest>
+    <UnitTest name="TheWorldHoldsStill_WhenTheHeadDoes(&quot;Enter VR&quot;)" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="e77b9263-1b94-867d-f4b7-19c39fc9b0f3">
+      <Execution id="3eab5402-b205-41eb-bcc4-db531edcf5d5" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerXrTests" name="TheWorldHoldsStill_WhenTheHeadDoes(&quot;Enter VR&quot;)" />
+    </UnitTest>
+    <UnitTest name="TheWorldHoldsStill_WhenTheHeadDoes(&quot;Enter AR&quot;)" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="dcee3ac9-311c-34c1-85cc-f13546511635">
+      <Execution id="d0a840b5-38b6-45c0-a9e0-ddc116e29243" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerXrTests" name="TheWorldHoldsStill_WhenTheHeadDoes(&quot;Enter AR&quot;)" />
+    </UnitTest>
+    <UnitTest name="TheBorderOfTwoBiomes_IsShot_ForTheEye" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="7b67027e-07f3-441f-facf-bfd79b21684f">
+      <Execution id="ac9dac38-e8e6-4e18-8b1b-2e5dd91039e3" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerBiomeTests" name="TheBorderOfTwoBiomes_IsShot_ForTheEye" />
+    </UnitTest>
+    <UnitTest name="TheWorldsStates_AreShot_FromTheirOwnSpots" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="7ec9573e-97bc-774c-18dc-48181c2d49ff">
+      <Execution id="2ca54d95-d3c6-4faa-bb3b-5bd8b26369eb" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerStatesTests" name="TheWorldsStates_AreShot_FromTheirOwnSpots" />
+    </UnitTest>
+    <UnitTest name="F3_TogglesTheDebugOverlay_UnderThePanel" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="f7c7e578-fa8c-5c41-0597-d8bcfbc05e3d">
+      <Execution id="ed9dda32-1252-44af-b943-6b6d3b06df69" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerHudTests" name="F3_TogglesTheDebugOverlay_UnderThePanel" />
+    </UnitTest>
+    <UnitTest name="AtMidnight_ItIsDark_WithStars" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="68b3039d-c51d-d365-fe62-917e20e0501f">
+      <Execution id="9154b0c5-6881-4dd5-bdcc-8c864e176bca" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerSkyLookTests" name="AtMidnight_ItIsDark_WithStars" />
+    </UnitTest>
+    <UnitTest name="TheSun_IsSeenWhereItIs_AtDusk" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="62503c91-bfa8-ad3c-7ec2-3cec08ec47df">
+      <Execution id="8d22be1c-58bd-4570-987f-af7ebbfa41b5" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerSkyLookTests" name="TheSun_IsSeenWhereItIs_AtDusk" />
+    </UnitTest>
+    <UnitTest name="AnAdminsWorldPanelOpensWithO_AndItsButtonsSendTheRequest" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="f5f3d511-6342-0990-023c-a367e151c060">
+      <Execution id="6542475e-5d28-404a-9e7c-a77c68f0328a" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerEditTests" name="AnAdminsWorldPanelOpensWithO_AndItsButtonsSendTheRequest" />
+    </UnitTest>
+    <UnitTest name="AColumnLeavingTheRange_LeavesNoHole_AfterTheDrawDistanceGrew" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="bb66e45d-0352-4d24-d3af-8335717d48f8">
+      <Execution id="05197adf-4f63-43aa-a7a1-19bc768123ce" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerMenuTests" name="AColumnLeavingTheRange_LeavesNoHole_AfterTheDrawDistanceGrew" />
+    </UnitTest>
+    <UnitTest name="TheSameGrass_IsAnotherGreen_InAnotherBiome" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="fd810bbb-b2d2-9cd4-31c8-82fb9fe27a7a">
+      <Execution id="e3997e0d-ba16-434a-898c-1d96dafc6c4a" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerBiomeTests" name="TheSameGrass_IsAnotherGreen_InAnotherBiome" />
+    </UnitTest>
+    <UnitTest name="TheQuadBufferLine_ParsesTheMeshCounters" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="c2d7635a-ad7e-586d-7f28-17ba9c6c2c9c">
+      <Execution id="360caf3a-c8d4-49a9-9948-d633d209b59f" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerLoadParseTests" name="TheQuadBufferLine_ParsesTheMeshCounters" />
+    </UnitTest>
+    <UnitTest name="ThePlayers_HaveTheirHudOverTheirHeads_AndTheWheelMovesAFollowingCamera" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="4125870e-2f8b-a28a-aa5a-17a3cb440751">
+      <Execution id="8d74c86f-9763-4a8d-a677-f9e434ade6b6" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerMenuTests" name="ThePlayers_HaveTheirHudOverTheirHeads_AndTheWheelMovesAFollowingCamera" />
+    </UnitTest>
+    <UnitTest name="AfterLeaving_TheHeadsetCanBeEnteredAgain(&quot;Enter VR&quot;)" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="18c14e85-ddda-232d-cb68-2fdb32c91ebb">
+      <Execution id="b74150d0-74d5-466b-83dd-01267abe3c72" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerXrTests" name="AfterLeaving_TheHeadsetCanBeEnteredAgain(&quot;Enter VR&quot;)" />
+    </UnitTest>
+    <UnitTest name="TheZoo_EveryModelledCreature_GroupsOfSix" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="52e016f5-d52a-4e19-1e13-164420a203d6">
+      <Execution id="859978ee-e92d-4113-9d69-869808a98bf1" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerLiveTests" name="TheZoo_EveryModelledCreature_GroupsOfSix" />
+    </UnitTest>
+    <UnitTest name="Campfires_SmokeIntoTheSky_AndTheWorkerSaysSo" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="13554578-e3b3-f262-2569-6ae7ce98bac2">
+      <Execution id="ab48efe3-ee35-4a29-9633-728039dc9331" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerParticlesTests" name="Campfires_SmokeIntoTheSky_AndTheWorkerSaysSo" />
+    </UnitTest>
+    <UnitTest name="Shot01_SpawnTopDown_DefaultStart" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="095a0139-6b96-9551-4a4b-31128efd6e46">
+      <Execution id="3a4ebf06-e757-4093-874b-5ffe0b7d8d48" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerShotTests" name="Shot01_SpawnTopDown_DefaultStart" />
+    </UnitTest>
+    <UnitTest name="Players_StandSneakSwimGlideRideSleepAndLieDead_AndHoldWhatTheyHold" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="62f9a58d-d7a7-bb83-b83a-4bc272b5fb5e">
+      <Execution id="39257548-47f2-465d-9372-61df3bec1871" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerStanceTests" name="Players_StandSneakSwimGlideRideSleepAndLieDead_AndHoldWhatTheyHold" />
+    </UnitTest>
+    <UnitTest name="AtNoon_TheSkyIsAGradient_BlueOverhead_PaleAtTheHorizon" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="59fd02f4-ae5c-0dac-82a2-d5a5329ce0cd">
+      <Execution id="0cee1432-eed1-4e7f-ba61-62953ed0f903" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerSkyLookTests" name="AtNoon_TheSkyIsAGradient_BlueOverhead_PaleAtTheHorizon" />
+    </UnitTest>
+    <UnitTest name="TheUi_IsOffWhileExploring_XOpensTheMenu_ATileOpensAPage_AndCloseClosesIt" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="ffcf4bbe-6879-8648-18e4-9e77207f37b7">
+      <Execution id="05c5f1fe-dfa1-4d5e-af57-52f6ace0ba91" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerXrTests" name="TheUi_IsOffWhileExploring_XOpensTheMenu_ATileOpensAPage_AndCloseClosesIt" />
+    </UnitTest>
+    <UnitTest name="TheFarWindowLine_ParsesTheFarMeshCounts" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="00e9c94c-98bc-29bf-f5b0-74e67602e53a">
+      <Execution id="d85e01ab-c74f-44bc-8066-dd3f9a1a7207" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerLoadParseTests" name="TheFarWindowLine_ParsesTheFarMeshCounts" />
+    </UnitTest>
+    <UnitTest name="QuestPage_Renders_OffersConnect_AndLogsNoErrors" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="163323e3-de6f-b2de-a2f4-f5ee3f8221a9">
+      <Execution id="28d1a85d-ef1c-4ef1-a1ce-90fd35107d42" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerQuestPageTests" name="QuestPage_Renders_OffersConnect_AndLogsNoErrors" />
+    </UnitTest>
+    <UnitTest name="TheViewer_IsTheWholeWindow_WithNothingOfThePanelAroundIt" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="d199633a-12db-83d2-74ee-308069d4f669">
+      <Execution id="c4c0abf7-ecee-4f5c-a382-b34dcefdc4a5" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerMenuTests" name="TheViewer_IsTheWholeWindow_WithNothingOfThePanelAroundIt" />
+    </UnitTest>
+    <UnitTest name="Projectiles_FlyTheWayTheyPoint_AndThrownThingsFaceTheCamera" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="88a768d5-dfa1-c62d-9e77-ab95bf320f51">
+      <Execution id="9a760e52-561b-469b-82a1-1d2c454b7b69" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerItemsTests" name="Projectiles_FlyTheWayTheyPoint_AndThrownThingsFaceTheCamera" />
+    </UnitTest>
+    <UnitTest name="Shoreline_08_LandMeetsWaterAtEyeLevel" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="fea1997a-05ac-ab19-969f-421ae0acff04">
+      <Execution id="d6b64482-0c81-49e8-8650-a368f02cbab0" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerShotTests" name="Shoreline_08_LandMeetsWaterAtEyeLevel" />
+    </UnitTest>
+    <UnitTest name="AnAdminSelectsFillsCopiesPastesAndSavesABlueprint_WithTheKeyboardAndMouse" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="dd4f3f49-efc2-3bee-e9a9-1b06097ad7fa">
+      <Execution id="fd26042c-11b9-47ac-9ec0-edf2a08406d6" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerEditTests" name="AnAdminSelectsFillsCopiesPastesAndSavesABlueprint_WithTheKeyboardAndMouse" />
+    </UnitTest>
+    <UnitTest name="OtherConsoleLines_AreNotSamples" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="6a34089b-cf29-963d-6ca4-96dfdc8aaf90">
+      <Execution id="3e346a40-45c7-4480-85c8-dd812e51c4f9" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerLoadParseTests" name="OtherConsoleLines_AreNotSamples" />
+    </UnitTest>
+    <UnitTest name="SwitchingServer_IsDoneInTheViewer" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="4e5278db-22c9-77dd-02d6-339369e69037">
+      <Execution id="0110bced-341b-4fe8-8aea-eb5634fc8a88" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerMenuTests" name="SwitchingServer_IsDoneInTheViewer" />
+    </UnitTest>
+    <UnitTest name="InVr_TheSettingsPageSwitchesTurningBetweenSmoothAndSteps" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="bd031a04-3840-6112-4007-dbb3a089ceaf">
+      <Execution id="02deb0a7-4eb0-4265-a785-8a595fee670b" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerXrTests" name="InVr_TheSettingsPageSwitchesTurningBetweenSmoothAndSteps" />
+    </UnitTest>
+    <UnitTest name="TheSceneItems_AreShot" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="d52712b8-a06f-5957-7e7b-e176a5b6b4fb">
+      <Execution id="03202ab2-a1bd-49cc-9d1d-39db9b2f085a" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerSceneTests" name="TheSceneItems_AreShot" />
+    </UnitTest>
+    <UnitTest name="Aerial_FromSpawn(&quot;03-aerial-east&quot;,0.0f)" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="224513a2-b7a2-30c7-e6b5-1785a6be79ff">
+      <Execution id="eca70814-0849-46e1-bbe3-b9408d919daa" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerShotTests" name="Aerial_FromSpawn(&quot;03-aerial-east&quot;,0.0f)" />
+    </UnitTest>
+    <UnitTest name="AfterLeaving_TheHeadsetCanBeEnteredAgain(&quot;Enter AR&quot;)" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="1aa2fc02-b376-c4d0-43d5-7e2638c9a1c6">
+      <Execution id="01a9dc96-649c-4679-871d-6908131577aa" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerXrTests" name="AfterLeaving_TheHeadsetCanBeEnteredAgain(&quot;Enter AR&quot;)" />
+    </UnitTest>
+    <UnitTest name="TheAssetsLoad_AndTheWaterAnimates_WhileTheSkyDoesNot" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="ca1fd989-479c-967a-ac9d-d1368e15a0f9">
+      <Execution id="66f75c9b-ce4c-4b1d-99ef-bde6e29f43d5" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerTextureTests" name="TheAssetsLoad_AndTheWaterAnimates_WhileTheSkyDoesNot" />
+    </UnitTest>
+    <UnitTest name="Ground_AtSpawn(&quot;06-ground-north&quot;,-90.0f)" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="fb484087-dbd2-be81-41e6-4d0f3c40ce93">
+      <Execution id="b47a50ef-d145-41e0-9e0c-661056aead28" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerShotTests" name="Ground_AtSpawn(&quot;06-ground-north&quot;,-90.0f)" />
+    </UnitTest>
+    <UnitTest name="PlayerList_ShowsWhoIsOnline" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="2b6bd096-fd04-de49-78e4-c915b9725a5b">
+      <Execution id="e2410f8d-9567-469f-9630-58246acd15f8" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerHudFeedTests" name="PlayerList_ShowsWhoIsOnline" />
+    </UnitTest>
+    <UnitTest name="TheZoo_EveryModel_StandsInARow_ForTheEye" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="93d39cd1-dc15-335c-42f6-8c8caa447ee4">
+      <Execution id="98b4f629-3ed0-40c3-8576-1f16b996b059" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerLiveTests" name="TheZoo_EveryModel_StandsInARow_ForTheEye" />
+    </UnitTest>
+    <UnitTest name="Hud_StatsPanelAndCompass_AreDrawnOnTopOfTheWorld" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="08831633-11cb-af2e-a959-86636ab9ae61">
+      <Execution id="64b106ac-60f7-431a-9531-34c23c2510d6" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerHudTests" name="Hud_StatsPanelAndCompass_AreDrawnOnTopOfTheWorld" />
+    </UnitTest>
+    <UnitTest name="TheColumnsBlockIds_AreSentPacked_AndWhole_WithTheirHeaders" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="2c3af839-ebd3-0b24-d369-ab9867a35e3f">
+      <Execution id="b3eecd79-0a5a-4c45-a09b-0e7ccdcba1dd" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerCompressionTests" name="TheColumnsBlockIds_AreSentPacked_AndWhole_WithTheirHeaders" />
+    </UnitTest>
+    <UnitTest name="SoftShading_DarkensWhereBlocksMeet_AndNeverLightensAnything" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="3bb76a7c-1c08-ebcd-9c96-a066076a3b2a">
+      <Execution id="91a90359-d648-4dcc-8097-87a8e007155f" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerAoTests" name="SoftShading_DarkensWhereBlocksMeet_AndNeverLightensAnything" />
+    </UnitTest>
+    <UnitTest name="Ground_AtSpawn(&quot;07-ground-east&quot;,0.0f)" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="eb03e858-0197-0bff-f015-bafb98f47383">
+      <Execution id="76a25928-df45-4efd-a6e0-7378a0cdb019" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerShotTests" name="Ground_AtSpawn(&quot;07-ground-east&quot;,0.0f)" />
+    </UnitTest>
+    <UnitTest name="Chat_OpensWithEnter_ShowsTheHistory_AndEchoesWhatIsTyped" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="b89fd914-9ac6-eb16-644f-d4d19f277442">
+      <Execution id="44c4a7c7-6d0f-4884-baf2-854d5364b03e" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerHudFeedTests" name="Chat_OpensWithEnter_ShowsTheHistory_AndEchoesWhatIsTyped" />
+    </UnitTest>
+    <UnitTest name="AChangedChunk_ChangesWhatTheViewerShows_WithoutAReload" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="bd22ef25-928f-f944-cac3-efc36238a839">
+      <Execution id="9832aed7-46f1-4d97-9649-8218dd8b19f5" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerLiveChunkTests" name="AChangedChunk_ChangesWhatTheViewerShows_WithoutAReload" />
+    </UnitTest>
+    <UnitTest name="Aerial_FromSpawn(&quot;05-aerial-west&quot;,180.0f)" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="895980c4-fd27-46d9-cc36-00a4762e690a">
+      <Execution id="f61075ef-8bef-494d-86b6-a0dde3daeaf3" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerShotTests" name="Aerial_FromSpawn(&quot;05-aerial-west&quot;,180.0f)" />
+    </UnitTest>
+    <UnitTest name="Aerial_FromSpawn(&quot;02-aerial-north&quot;,-90.0f)" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="d74f7e5c-7749-d7e3-ed7b-a4102cb86e17">
+      <Execution id="53f6fd4e-e3f3-4ee9-a72f-4db31a0a8771" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerShotTests" name="Aerial_FromSpawn(&quot;02-aerial-north&quot;,-90.0f)" />
+    </UnitTest>
+    <UnitTest name="SoftShading_IsOnlyNearTheCamera" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="f6ab4526-ed05-2628-1051-66805a0a1215">
+      <Execution id="f36d9a37-5001-4e91-8278-5ce4f7938d25" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerAoTests" name="SoftShading_IsOnlyNearTheCamera" />
+    </UnitTest>
+    <UnitTest name="ThePlayerList_ClickOpensAMenu_NotThePointerLock_AndGoToAndFollowMoveTheCamera" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="98ad4298-9df5-e26a-0f36-77f8282a485e">
+      <Execution id="a24b7ab8-85a8-4666-ac4d-327e13ad3097" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerLiveTests" name="ThePlayerList_ClickOpensAMenu_NotThePointerLock_AndGoToAndFollowMoveTheCamera" />
+    </UnitTest>
+    <UnitTest name="GroundGeneratedWhileTheViewerIsOpen_FillsTheHole_WithNoReload" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="e89431fc-5c13-cfc6-ab52-2c140f0609fa">
+      <Execution id="4f2b0de8-40ad-410d-a8e5-881ad5c1a717" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerColumnGapTests" name="GroundGeneratedWhileTheViewerIsOpen_FillsTheHole_WithNoReload" />
+    </UnitTest>
+    <UnitTest name="Notice_SlidesInUnderTheCompass" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="26430362-1a6e-989c-26df-b1edca5eed26">
+      <Execution id="d0b2000c-fcc2-40a3-a760-f4046f911f72" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerHudFeedTests" name="Notice_SlidesInUnderTheCompass" />
+    </UnitTest>
+    <UnitTest name="TheMenusAndTheWindowCanBeMovedByTheirHandle" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="483d6fa6-6c21-a77e-46c1-d655da01dbe7">
+      <Execution id="49906d91-fab4-47aa-aae3-eefd507ad778" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerXrTests" name="TheMenusAndTheWindowCanBeMovedByTheirHandle" />
+    </UnitTest>
+    <UnitTest name="AnAdminBreaksAndPlacesWithTheMouse_AndUndoesWithCtrlZ" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="3714e72b-a588-f9f0-b28c-53642d099448">
+      <Execution id="a5871b00-a8bd-4708-988e-7cdd42e4685c" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerEditTests" name="AnAdminBreaksAndPlacesWithTheMouse_AndUndoesWithCtrlZ" />
+    </UnitTest>
+    <UnitTest name="AtMidnight_TheSkyIsDark_AndNoDaytimeBlueShowsAnywhereAboveTheTerrain" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="d7599e1a-e941-48ed-4ff2-4e4658b74c50">
+      <Execution id="39cc6e3d-8f90-4e9d-9dfb-6be5d84f2836" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerSkyTests" name="AtMidnight_TheSkyIsDark_AndNoDaytimeBlueShowsAnywhereAboveTheTerrain" />
+    </UnitTest>
+    <UnitTest name="AFlightThenAStop_LeavesNoColumnUndrawn" storage="d:\users\tj\projects\aubscraft\aubscraft.viewer.tests\bin\debug\net10.0\aubscraft.viewer.tests.dll" id="599994ce-465f-1c31-7022-c85548e5368e">
+      <Execution id="f046f00b-4ec7-4f40-b42c-b1b546a17c59" />
+      <TestMethod codeBase="D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll" adapterTypeName="executor://nunit3testexecutor/" className="AubsCraft.Viewer.Tests.ViewerColumnGapTests" name="AFlightThenAStop_LeavesNoColumnUndrawn" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="c07a33a1-0b31-b99e-c0cd-b2f0eb527657" executionId="9bee3365-cc2b-49ac-808b-5b990f043dde" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d52712b8-a06f-5957-7e7b-e176a5b6b4fb" executionId="03202ab2-a1bd-49cc-9d1d-39db9b2f085a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="47b5084d-4b38-1bfd-3de3-b93561fef03e" executionId="3ffbd8f0-f03d-457a-9426-0cdcde4d89f3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3714e72b-a588-f9f0-b28c-53642d099448" executionId="a5871b00-a8bd-4708-988e-7cdd42e4685c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d3260a37-3cfb-7339-4787-a775016c7e0b" executionId="55bf3f76-3b4d-40c4-98d7-11d3609deade" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2b6bd096-fd04-de49-78e4-c915b9725a5b" executionId="e2410f8d-9567-469f-9630-58246acd15f8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f921ec70-fced-26cc-4643-d2beffd4c6d4" executionId="266eea0c-6e07-4772-bac1-9d7bd993f3cf" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2c3af839-ebd3-0b24-d369-ab9867a35e3f" executionId="b3eecd79-0a5a-4c45-a09b-0e7ccdcba1dd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="648eb1aa-1ee3-c50d-638b-55c0a4255445" executionId="ffe3bc97-2a47-4c0b-aa6a-c1cd78ffc105" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e69553a4-6fb0-4f48-33ba-a1d4428112e6" executionId="89402390-4207-4c94-bc0f-99949c1013f6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="18c14e85-ddda-232d-cb68-2fdb32c91ebb" executionId="b74150d0-74d5-466b-83dd-01267abe3c72" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="affe395b-75d5-6d57-68bb-f2e092793c21" executionId="bd0dbb5f-e86d-4920-8266-cf7d969ee59d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8715ffa7-2a29-1a2a-7635-808262cad5f0" executionId="45f3549c-5220-40e6-bb6a-8ece29c84f04" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0d8c142d-02e6-b3be-777e-d90fb0028b4a" executionId="902fa895-d440-4ee8-9c22-36395f93612a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="163323e3-de6f-b2de-a2f4-f5ee3f8221a9" executionId="28d1a85d-ef1c-4ef1-a1ce-90fd35107d42" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8c15f7b0-99ad-7375-3399-0b733849dc90" executionId="4aff7185-4545-42bd-8a04-3ee9f6c886e3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="13554578-e3b3-f262-2569-6ae7ce98bac2" executionId="ab48efe3-ee35-4a29-9633-728039dc9331" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4125870e-2f8b-a28a-aa5a-17a3cb440751" executionId="8d74c86f-9763-4a8d-a677-f9e434ade6b6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="00e9c94c-98bc-29bf-f5b0-74e67602e53a" executionId="d85e01ab-c74f-44bc-8066-dd3f9a1a7207" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="eb03e858-0197-0bff-f015-bafb98f47383" executionId="76a25928-df45-4efd-a6e0-7378a0cdb019" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fea1997a-05ac-ab19-969f-421ae0acff04" executionId="d6b64482-0c81-49e8-8650-a368f02cbab0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="40cc9803-0698-dfba-6f50-3f0090387113" executionId="0269ac6f-d75a-4290-b93d-aa11d4fb2650" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="dd4f3f49-efc2-3bee-e9a9-1b06097ad7fa" executionId="fd26042c-11b9-47ac-9ec0-edf2a08406d6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b5febe60-4680-9ff9-37b2-88ea5cb78dbc" executionId="bfd76fdd-e109-48a6-babb-8e846f5ee2bf" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="895980c4-fd27-46d9-cc36-00a4762e690a" executionId="f61075ef-8bef-494d-86b6-a0dde3daeaf3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="08831633-11cb-af2e-a959-86636ab9ae61" executionId="64b106ac-60f7-431a-9531-34c23c2510d6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e8d87304-ed0d-f009-f2f1-107c36d04a8e" executionId="3dc6aeba-dead-4752-862c-7a143ac53b72" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4e5278db-22c9-77dd-02d6-339369e69037" executionId="0110bced-341b-4fe8-8aea-eb5634fc8a88" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cd613154-65ac-3049-926c-84580eed4334" executionId="2ea41555-c5e2-4f42-83fb-7048694704e2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="62503c91-bfa8-ad3c-7ec2-3cec08ec47df" executionId="8d22be1c-58bd-4570-987f-af7ebbfa41b5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6a34089b-cf29-963d-6ca4-96dfdc8aaf90" executionId="3e346a40-45c7-4480-85c8-dd812e51c4f9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="acd4ae5e-4e42-5f04-eb19-bcb165ddef82" executionId="42a3443f-8220-4fbf-830c-885ec10dd8e4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="26430362-1a6e-989c-26df-b1edca5eed26" executionId="d0b2000c-fcc2-40a3-a760-f4046f911f72" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="14033eba-2007-2fb3-e102-eaa91375a3ac" executionId="88a2dc6f-842c-4bfc-b2e1-cf8b5d631612" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2b6feb9e-3c57-5ab8-5506-72fbe16771be" executionId="677d81a6-d056-47b0-9e22-a4cdc8230624" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ca1fd989-479c-967a-ac9d-d1368e15a0f9" executionId="66f75c9b-ce4c-4b1d-99ef-bde6e29f43d5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bd031a04-3840-6112-4007-dbb3a089ceaf" executionId="02deb0a7-4eb0-4265-a785-8a595fee670b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="59fd02f4-ae5c-0dac-82a2-d5a5329ce0cd" executionId="0cee1432-eed1-4e7f-ba61-62953ed0f903" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2d1e306c-45ed-265f-31a6-5fdff4f89f77" executionId="bb1e665c-3c34-48c1-8041-494f3b7efdde" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="483d6fa6-6c21-a77e-46c1-d655da01dbe7" executionId="49906d91-fab4-47aa-aae3-eefd507ad778" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ffcf4bbe-6879-8648-18e4-9e77207f37b7" executionId="05c5f1fe-dfa1-4d5e-af57-52f6ace0ba91" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4fe7f694-3958-5854-9047-51bff17a3a8f" executionId="40759bae-adfd-4754-84f0-dfa7bcd13d4a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ed8aac34-4736-6e34-eeae-6d7f2db1e4ea" executionId="4bc6471c-d295-4966-a3b8-f513fd578091" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d9c41bb6-5c4a-c926-9ab5-cb00949e17ff" executionId="cfc2ebef-e694-4eb2-8466-47b0316f4b50" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="17cb6184-5cb5-0b8d-c028-ac68922d692c" executionId="e9445844-9c0e-4185-aeff-701ac7d4e05d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f3df9d83-b296-f499-0250-5ba2033adf17" executionId="179eba91-373d-4b28-9cf7-b2f1c03c2b53" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6598efde-bb9d-6b3f-84e5-906baf15f6f1" executionId="0ff377b5-157b-4d37-bbb2-0790921d9dde" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="62f9a58d-d7a7-bb83-b83a-4bc272b5fb5e" executionId="39257548-47f2-465d-9372-61df3bec1871" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1bb55422-eb07-bc74-244c-0d7126b0e230" executionId="8f818467-61ca-44c7-812d-3dd0bea605ab" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bb66e45d-0352-4d24-d3af-8335717d48f8" executionId="05197adf-4f63-43aa-a7a1-19bc768123ce" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7ec9573e-97bc-774c-18dc-48181c2d49ff" executionId="2ca54d95-d3c6-4faa-bb3b-5bd8b26369eb" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e5606721-5b0a-ae95-d711-9f81bcfb391b" executionId="5bafda7e-84ae-4e61-90eb-e5ff3a2f94b5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="68b3039d-c51d-d365-fe62-917e20e0501f" executionId="9154b0c5-6881-4dd5-bdcc-8c864e176bca" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d9936597-94ad-828b-5ba8-de569cb6e7ce" executionId="06074959-b518-49ac-a8a2-5c97507a114d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b89fd914-9ac6-eb16-644f-d4d19f277442" executionId="44c4a7c7-6d0f-4884-baf2-854d5364b03e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="56f3d7c8-cf5b-624b-2c39-8a08b9f27eb4" executionId="fbe70952-dc52-460c-8fd4-4478430fb9db" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2b283b6a-bf3f-0b26-80fd-3f2e49e47fef" executionId="739c9d9b-599a-4c41-a23e-9db78d3e6df4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5b89e723-996c-941b-95ad-8d983051bd45" executionId="0865ecda-5804-4b31-8d05-6de9aff5108b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f16bbe80-0881-a382-07b1-8adb3ad6ff33" executionId="b053f814-fbe4-4e8c-8977-8b9b0d4709dd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="27240e5b-c1bc-adda-7205-0baed10e44a5" executionId="79acd758-3070-47a8-8558-c8072257e31e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d74df9c6-08e8-b0af-cfa7-4d5915b5d0bf" executionId="13a082f1-605e-4685-b776-d12ba43e1bf3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fd810bbb-b2d2-9cd4-31c8-82fb9fe27a7a" executionId="e3997e0d-ba16-434a-898c-1d96dafc6c4a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="095a0139-6b96-9551-4a4b-31128efd6e46" executionId="3a4ebf06-e757-4093-874b-5ffe0b7d8d48" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="224513a2-b7a2-30c7-e6b5-1785a6be79ff" executionId="eca70814-0849-46e1-bbe3-b9408d919daa" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="98ad4298-9df5-e26a-0f36-77f8282a485e" executionId="a24b7ab8-85a8-4666-ac4d-327e13ad3097" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e89431fc-5c13-cfc6-ab52-2c140f0609fa" executionId="4f2b0de8-40ad-410d-a8e5-881ad5c1a717" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="93d39cd1-dc15-335c-42f6-8c8caa447ee4" executionId="98b4f629-3ed0-40c3-8576-1f16b996b059" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d74f7e5c-7749-d7e3-ed7b-a4102cb86e17" executionId="53f6fd4e-e3f3-4ee9-a72f-4db31a0a8771" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1aa2fc02-b376-c4d0-43d5-7e2638c9a1c6" executionId="01a9dc96-649c-4679-871d-6908131577aa" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c2d7635a-ad7e-586d-7f28-17ba9c6c2c9c" executionId="360caf3a-c8d4-49a9-9948-d633d209b59f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="88a768d5-dfa1-c62d-9e77-ab95bf320f51" executionId="9a760e52-561b-469b-82a1-1d2c454b7b69" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="43bc3fda-c9b5-8bb9-4d14-3e513a4fc252" executionId="d55a67a9-30ed-4ae0-9616-cdca41588bf2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fb484087-dbd2-be81-41e6-4d0f3c40ce93" executionId="b47a50ef-d145-41e0-9e0c-661056aead28" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="52a1511c-92d0-8db3-9f65-d48daa531a61" executionId="3e46d423-850c-42b2-9ae5-0a99da2be2f7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7b67027e-07f3-441f-facf-bfd79b21684f" executionId="ac9dac38-e8e6-4e18-8b1b-2e5dd91039e3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e23f2617-db86-d400-1bb2-796908767827" executionId="651640e7-33e6-4155-90ac-7074cb5056f1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2cbce323-d8ff-4a6e-716d-dcd8c3a089fa" executionId="3465651e-7eb4-4898-b20a-2a2e43779dd7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="213b0ed7-662d-c218-2159-673d44b0ac78" executionId="12e7a770-4c59-4a99-b259-94873b074e99" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d199633a-12db-83d2-74ee-308069d4f669" executionId="c4c0abf7-ecee-4f5c-a382-b34dcefdc4a5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d7599e1a-e941-48ed-4ff2-4e4658b74c50" executionId="39cc6e3d-8f90-4e9d-9dfb-6be5d84f2836" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="77c3e033-0f07-65cb-3e9d-31375336b5ad" executionId="091ea5ee-648c-4147-a9bb-21bd5313eb49" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f7c7e578-fa8c-5c41-0597-d8bcfbc05e3d" executionId="ed9dda32-1252-44af-b943-6b6d3b06df69" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f6ab4526-ed05-2628-1051-66805a0a1215" executionId="f36d9a37-5001-4e91-8278-5ce4f7938d25" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="599994ce-465f-1c31-7022-c85548e5368e" executionId="f046f00b-4ec7-4f40-b42c-b1b546a17c59" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e77b9263-1b94-867d-f4b7-19c39fc9b0f3" executionId="3eab5402-b205-41eb-bcc4-db531edcf5d5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="dcee3ac9-311c-34c1-85cc-f13546511635" executionId="d0a840b5-38b6-45c0-a9e0-ddc116e29243" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bd22ef25-928f-f944-cac3-efc36238a839" executionId="9832aed7-46f1-4d97-9649-8218dd8b19f5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bde04332-98be-d9fc-9438-e75a019a1540" executionId="a1dbd5b8-3c2d-41b1-8d3a-6f646e245575" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3bb76a7c-1c08-ebcd-9c96-a066076a3b2a" executionId="91a90359-d648-4dcc-8097-87a8e007155f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5452ca37-f872-6a8f-9381-2f4f6232d37c" executionId="9d83309b-758a-42b7-86dd-2bf791251cee" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c668d368-ba58-fa03-5a88-a23ab1fc09f1" executionId="6796b301-50d3-4de4-88dc-23fcb5ef2310" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="52e016f5-d52a-4e19-1e13-164420a203d6" executionId="859978ee-e92d-4113-9d69-869808a98bf1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f5f3d511-6342-0990-023c-a367e151c060" executionId="6542475e-5d28-404a-9e7c-a77c68f0328a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9e30faaa-f089-b33b-b918-d2cf3b05520e" executionId="ef074043-7623-42c9-b03c-1f56749719a0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="94" executed="90" passed="85" failed="5" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>NUnit Adapter 5.0.0.0: Test execution started&#xD;
+Running all tests in D:\users\tj\Projects\AubsCraft\AubsCraft.Viewer.Tests\bin\Debug\net10.0\AubsCraft.Viewer.Tests.dll&#xD;
+   NUnit3TestExecutor discovered 91 of 94 NUnit test cases using Current Discovery mode, Non-Explicit run&#xD;
+[ao] ground pixels 506880: 5420 darker, 10 lighter; mean luma 99.3 -&gt; 98.9&#xD;
+[ao] far view: 4 of 129280 ground pixels differ&#xD;
+[biomes] red minus green of the grass: plains -21.6, savanna 3.8, forest -8.7&#xD;
+[columns] stopped at -400 140 -300&#xD;
+[columns] gold pixels: before 0, after 4608&#xD;
+TheReportedPlace_FreshPanelAndPage: needs the real world; the shot is for looking at&#xD;
+[edit] placed minecraft:oak_planks at -9,-60,8&#xD;
+[edit] plank-coloured samples: before 42, after 49148&#xD;
+[hudfeed] minimap: 44% of its pixels differ from the control; luma spread 44.4&#xD;
+[hudfeed] players panel: 92% of its pixels differ from the control&#xD;
+[hudfeed] opened chat: 60% of its area differs from the control&#xD;
+[hudfeed] echo line area: 21% changed&#xD;
+[hudfeed] notice area: 53% differs from the control&#xD;
+[hud] control (hud=0): panel corner 0 bright px, compass band luma 79 spread 24.5&#xD;
+[hud] with HUD: panel corner 858 bright px; compass band luma 40 spread 22.2&#xD;
+[hud] world behind the HUD: luma spread 48.3&#xD;
+[hud] under the panel: luma 64 / 34 (F3 on) / 64 (F3 off); bright px 0 / 85 / 0&#xD;
+[hud] crosshair white px 0 -&gt; 23; hint bright px 1059 -&gt; 0&#xD;
+[items] non-sky samples 19764&#xD;
+[light] midnight warm pixels near the torch: lit 60444, plain 6513&#xD;
+[light] noon: dark room lit 13.1, plain 43.9; the torch room 67.7&#xD;
+[livechunk] gold pixels: before 0, with the tower 52118, after it is taken away 0&#xD;
+[live] flat ground at 248,-242 height 64&#xD;
+[live] changed: empty vs empty 2.94%, empty vs creatures 32.65%, creatures vs creatures 0.6 s later 5.18%&#xD;
+[live] the worker reports: [Live] creatures 12 drawn of 12 (101 parts, 1 players, 2 frames, 2 name tags, 1 items)&#xD;
+[live] name tags reported: 2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2&#xD;
+[player-list] camera before 248,-182; after Go to 257,-242; the player is at about 267,-242&#xD;
+[player-list] following: 271 -&gt; 281 while the player is at about 288&#xD;
+[zoo] 1: acacia_boat, acacia_chest_boat, allay, armadillo, armor_stand, arrow&#xD;
+[zoo] 2: axolotl, bamboo_chest_raft, bamboo_raft, bat, bee, birch_boat&#xD;
+[zoo] 3: birch_chest_boat, blaze, bogged, breeze, camel, cat&#xD;
+[zoo] 4: cave_spider, cherry_boat, cherry_chest_boat, chest_minecart, chicken, chicken_cold&#xD;
+[zoo] 5: chicken_warm, cod, command_block_minecart, cow, cow_cold, cow_warm&#xD;
+[zoo] 6: creaking, creeper, dark_oak_boat, dark_oak_chest_boat, dolphin, donkey&#xD;
+[zoo] 7: drowned, elder_guardian, ender_dragon, enderman, endermite, evoker&#xD;
+[zoo] 8: fox, frog, furnace_minecart, ghast, giant, glow_squid&#xD;
+[zoo] 9: goat, guardian, hoglin, hopper_minecart, horse, husk&#xD;
+[zoo] 10: illusioner, iron_golem, jungle_boat, jungle_chest_boat, llama, magma_cube&#xD;
+[zoo] 11: mangrove_boat, mangrove_chest_boat, minecart, mooshroom, mule, oak_boat&#xD;
+[zoo] 12: oak_chest_boat, ocelot, pale_oak_boat, pale_oak_chest_boat, panda, parrot&#xD;
+[zoo] 13: phantom, pig, pig_cold, pig_warm, piglin, piglin_brute&#xD;
+[zoo] 14: pillager, polar_bear, pufferfish, rabbit, ravager, salmon&#xD;
+[zoo] 15: sheep, shulker, silverfish, skeleton, skeleton_horse, slime&#xD;
+[zoo] 16: sniffer, snow_golem, spawner_minecart, spectral_arrow, spider, spruce_boat&#xD;
+[zoo] 17: spruce_chest_boat, squid, stray, strider, tadpole, tnt_minecart&#xD;
+[zoo] 18: trader_llama, tropical_fish_a, tropical_fish_b, turtle, vex, villager&#xD;
+[zoo] 19: vindicator, wandering_trader, warden, witch, wither, wither_skeleton&#xD;
+[zoo] 20: wolf, zoglin, zombie, zombie_horse, zombie_villager, zombified_piglin&#xD;
+[load] sampled 100 s (page open 101 s); 38 samples; final 90 fps, frame CPU 7.4 ms (record 6.7, gather 0.6), 2306 draws, 246 binds, 8695 columns+far, meshes 4486 (re-meshes 973), 3 quad buffers, far 2703/7898 meshed; slowest sample 71 fps / 10.9 ms&#xD;
+[menu] [HudMenu] fullscreen=486,158,122,26 copylink=612,158,122,26 panel=738,158,122,26 stats=486,196,122,26 compass=612,196,122,26 minimap=738,196,122,26 players=486,226,122,26 chat=612,226,122,26 tags=738,226,122,26 bars=486,256,122,26 lighting=486,294,122,26 shading=612,294,122,26 distance=738,294,122,26 voice=486,472,122,26 edit=486,510,122,26 world=612,510,122,26 clearcache=486,548,122,26 distanceSlider=486,324,392,40 fovSlider=486,376,392,40 speedSlider=486,420,392,40&#xD;
+[menu] [HudMenu] fullscreen=486,158,122,26 copylink=612,158,122,26 panel=738,158,122,26 stats=486,196,122,26 compass=612,196,122,26 minimap=738,196,122,26 players=486,226,122,26 chat=612,226,122,26 tags=738,226,122,26 bars=486,256,122,26 lighting=486,294,122,26 shading=612,294,122,26 distance=738,294,122,26 voice=486,472,122,26 edit=486,510,122,26 world=612,510,122,26 clearcache=486,548,122,26 distanceSlider=486,324,392,40 fovSlider=486,376,392,40 speedSlider=486,420,392,40&#xD;
+[menu] worst 0; after the stop: gaps 0 &#xD;
+[menu] [HudMenu] fullscreen=486,177,122,26 copylink=612,177,122,26 panel=738,177,122,26 stats=486,215,122,26 compass=612,215,122,26 minimap=738,215,122,26 players=486,245,122,26 chat=612,245,122,26 tags=738,245,122,26 bars=486,275,122,26 lighting=486,313,122,26 shading=612,313,122,26 distance=738,313,122,26 voice=486,491,122,26 edit=486,529,122,26 world=612,529,122,26 clearcache=486,567,122,26 server0=486,139,122,26 server1=612,139,122,26 distanceSlider=486,343,392,40 fovSlider=486,395,392,40 speedSlider=486,439,392,40&#xD;
+[menu] [HudMenu] fullscreen=486,177,122,26 copylink=612,177,122,26 panel=738,177,122,26 stats=486,215,122,26 compass=612,215,122,26 minimap=738,215,122,26 players=486,245,122,26 chat=612,245,122,26 tags=738,245,122,26 bars=486,275,122,26 lighting=486,313,122,26 shading=612,313,122,26 distance=738,313,122,26 voice=486,491,122,26 edit=486,529,122,26 world=612,529,122,26 clearcache=486,567,122,26 server0=486,139,122,26 server1=612,139,122,26 distanceSlider=486,343,392,40 fovSlider=486,395,392,40 speedSlider=486,439,392,40&#xD;
+[menu] [HudMenu] fullscreen=486,177,122,26 copylink=612,177,122,26 panel=738,177,122,26 stats=486,215,122,26 compass=612,215,122,26 minimap=738,215,122,26 players=486,245,122,26 chat=612,245,122,26 tags=738,245,122,26 bars=486,275,122,26 lighting=486,313,122,26 shading=612,313,122,26 distance=738,313,122,26 voice=486,491,122,26 edit=486,529,122,26 world=612,529,122,26 clearcache=486,567,122,26 server0=486,139,122,26 server1=612,139,122,26 distanceSlider=486,343,392,40 fovSlider=486,395,392,40 speedSlider=486,439,392,40&#xD;
+[menu] [HudMenu] fullscreen=486,177,122,26 copylink=612,177,122,26 panel=738,177,122,26 stats=486,215,122,26 compass=612,215,122,26 minimap=738,215,122,26 players=486,245,122,26 chat=612,245,122,26 tags=738,245,122,26 bars=486,275,122,26 lighting=486,313,122,26 shading=612,313,122,26 distance=738,313,122,26 voice=486,491,122,26 edit=486,529,122,26 world=612,529,122,26 clearcache=486,567,122,26 server0=486,139,122,26 server1=612,139,122,26 distanceSlider=486,343,392,40 fovSlider=486,395,392,40 speedSlider=486,439,392,40&#xD;
+[menu] [HudMenu] fullscreen=486,177,122,26 copylink=612,177,122,26 panel=738,177,122,26 stats=486,215,122,26 compass=612,215,122,26 minimap=738,215,122,26 players=486,245,122,26 chat=612,245,122,26 tags=738,245,122,26 bars=486,275,122,26 lighting=486,313,122,26 shading=612,313,122,26 distance=738,313,122,26 voice=486,491,122,26 edit=486,529,122,26 world=612,529,122,26 clearcache=486,567,122,26 server0=486,139,122,26 server1=612,139,122,26 distanceSlider=486,343,392,40 fovSlider=486,395,392,40 speedSlider=486,439,392,40&#xD;
+[menu] red pixels with the bars 187, without 0&#xD;
+[menu] [HudMenu] fullscreen=486,177,122,26 copylink=612,177,122,26 panel=738,177,122,26 stats=486,215,122,26 compass=612,215,122,26 minimap=738,215,122,26 players=486,245,122,26 chat=612,245,122,26 tags=738,245,122,26 bars=486,275,122,26 lighting=486,313,122,26 shading=612,313,122,26 distance=738,313,122,26 voice=486,491,122,26 edit=486,529,122,26 world=612,529,122,26 clearcache=486,567,122,26 server0=486,139,122,26 server1=612,139,122,26 distanceSlider=486,343,392,40 fovSlider=486,395,392,40 speedSlider=486,439,392,40&#xD;
+[menu] following at 4.7 blocks&#xD;
+[menu] after 8 notches out: 10.8&#xD;
+[menu] after 14 notches in: 2.6&#xD;
+[night] bright 13917, dark 79255&#xD;
+[particles] drawn 10; gray puff pixels in the sky per frame 1329 1296 1507 1316 1460 1295; the sky changed 20.44% in 2 s&#xD;
+ServeToTheQuest: OneTimeSetUp: serves a build to a headset until quest/stop.txt appears&#xD;
+[quest] responses for tango: 200 http://127.0.0.1:58353/_framework/SpawnDev.SpawnJS.TangoADB.t0e12v5tkv.wasm&#xD;
+ABox_IsShot_FromItsCorners: AUBS_BOX not set&#xD;
+Test 'ABox_IsShot_FromItsCorners' was skipped in the test run.&#xD;
+[scene] thin-profile: [Voxel] camera under water (eye cell id 9, above 0, eye y -59.50)&#xD;
+[scene] pool-profile: [Voxel] camera under water (eye cell id 9, above 0, eye y -59.50)&#xD;
+[scene] pool-under-across: [Voxel] camera under water (eye cell id 9, above 9, eye y -58.80)&#xD;
+[scene] pool-under-up: [Voxel] camera under water (eye cell id 9, above 9, eye y -59.30)&#xD;
+[scene] pool-under-down: [Voxel] camera under water (eye cell id 9, above 9, eye y -58.30)&#xD;
+[scene] pool-surface-edge: [Voxel] camera under water (eye cell id 9, above 0, eye y -57.40)&#xD;
+[viewer] server http://127.0.0.1:65448, shots -&gt; D:\users\tj\Projects\AubsCraft\screenshots\viewer&#xD;
+[viewer] 01-spawn-topdown: 106 FPS, 7138/25207 sections, 8405K/28180K verts, draw 30, settled=True after 88s, pixel sd 36.9&#xD;
+[viewer] 02-aerial-north: 123 FPS, 6201/25206 sections, 6540K/28198K verts, draw 30, settled=True after 72s, pixel sd 53.9&#xD;
+[viewer] 03-aerial-east: 107 FPS, 7352/25186 sections, 7729K/28185K verts, draw 30, settled=True after 79s, pixel sd 52.5&#xD;
+[viewer] 04-aerial-south: 50 FPS, 7718/25200 sections, 9364K/28237K verts, draw 30, settled=True after 78s, pixel sd 52.4&#xD;
+[viewer] 05-aerial-west: 116 FPS, 7492/25356 sections, 9259K/28322K verts, draw 30, settled=True after 94s, pixel sd 50.4&#xD;
+[viewer] 06-ground-north: 136 FPS, 5246/25226 sections, 5416K/28176K verts, draw 30, settled=True after 88s, pixel sd 70.9&#xD;
+[viewer] 07-ground-east: 117 FPS, 6413/25304 sections, 6706K/28305K verts, draw 30, settled=True after 78s, pixel sd 66.3&#xD;
+[viewer] shoreline at 228.5 64.6 -238.5 yaw 90&#xD;
+[viewer] 08-shoreline: 61 FPS, 5372/25201 sections, 6731K/28263K verts, draw 27, settled=True after 72s, pixel sd 60.7&#xD;
+[viewer] cave at 242.5 -44.4 -269.5 yaw 0&#xD;
+[viewer] 09-cave: 77 FPS, 6121/25223 sections, 6266K/28360K verts, draw 30, settled=True after 94s, pixel sd 32.8&#xD;
+[skylook] midnight bright 110 dark 224310&#xD;
+[skylook] noon top Color [A=255, R=132, G=176, B=252] bottom Color [A=255, R=166, G=204, B=242]&#xD;
+[skylook] dusk yaw 0: near-white samples 0&#xD;
+[skylook] dusk yaw 90: near-white samples 0&#xD;
+[skylook] dusk yaw 180: near-white samples 382&#xD;
+[skylook] dusk yaw 270: near-white samples 0&#xD;
+[sky] fog-coloured samples below the horizon: dd=30 1378, dd=14 9654&#xD;
+[states] 1369 chunks, 992 registry names, 763 with states: minecraft:deepslate[axis=y], minecraft:tall_seagrass[half=lower], minecraft:tall_seagrass[half=upper], minecraft:waxed_cut_copper_slab[type=bottom], minecraft:waxed_oxidized_cut_copper_stairs[facing=west,half=bottom,shape=straight], minecraft:waxed_weathered_copper_bulb[lit=true,powered=false], minecraft:vault[facing=west,ominous=false,vault_state=inactive], minecraft:waxed_copper_bulb[lit=true,powered=false], minecraft:waxed_oxidized_copper_bulb[lit=true,powered=false], minecraft:waxed_exposed_copper_bulb[lit=true,powered=false], minecraft:waxed_oxidized_cut_copper_stairs[facing=north,half=bottom,shape=straight], minecraft:waxed_oxidized_cut_copper_stairs[facing=east,half=bottom,shape=straight], minecraft:waxed_oxidized_cut_copper_stairs[facing=south,half=bottom,shape=straight], minecraft:grass_block[snowy=false], minecraft:vault[facing=south,ominous=false,vault_state=inactive], minecraft:barrel[facing=up,open=false], minecraft:hopper[facing=down], minecraft:trial_spawner[ominous=false,trial_spawner_state=waiting_for_players], minecraft:vault[facing=north,ominous=false,vault_state=inactive], minecraft:red_candle[candles=4,lit=true], minecraft:vault[facing=west,ominous=true,vault_state=inactive], minecraft:red_candle[candles=3,lit=true], minecraft:polished_tuff_slab[type=top], minecraft:red_glazed_terracotta[facing=south], minecraft:vault[facing=east,ominous=false,vault_state=inactive], minecraft:waxed_cut_copper_stairs[facing=west,half=bottom,shape=straight], minecraft:waxed_copper_bulb[lit=false,powered=false], minecraft:ladder[facing=north], minecraft:candle[candles=1,lit=false], minecraft:candle[candles=3,lit=false], minecraft:candle[candles=2,lit=false], minecraft:waxed_oxidized_copper_door[facing=south,half=lower,hinge=right,open=false], minecraft:waxed_oxidized_copper_door[facing=south,half=upper,hinge=right,open=false], minecraft:candle[candles=4,lit=false], minecraft:ladder[facing=south], minecraft:oak_slab[type=bottom], minecraft:oak_fence[north=false,east=true,south=false,west=false], minecraft:waxed_oxidized_copper_door[facing=north,half=lower,hinge=left,open=false], minecraft:waxed_oxidized_copper_door[facing=north,half=upper,hinge=left,open=false], minecraft:dispenser[facing=west]&#xD;
+[states] rail-curve: minecraft:rail[shape=south_west] at 194,69,-600&#xD;
+[states] rail-slope: minecraft:rail[shape=ascending_west] at 183,68,-600&#xD;
+[states] rail-slope: minecraft:powered_rail[powered=true,shape=ascending_south] at 199,74,-571&#xD;
+[states] rail-straight: minecraft:rail[shape=north_south] at -17,34,-827&#xD;
+[states] rail-straight: minecraft:rail[shape=east_west] at 275,33,-483&#xD;
+[states] log-lying: minecraft:spruce_log[axis=x] at -94,55,-567&#xD;
+[states] log-lying: minecraft:oak_log[axis=x] at 143,72,-503&#xD;
+[states] furnace: minecraft:furnace[facing=south,lit=false] at 243,71,-501&#xD;
+[states] furnace: minecraft:smoker[facing=south,lit=false] at 193,64,-630&#xD;
+[states] dispenser: minecraft:dispenser[facing=up] at 215,-4,-489&#xD;
+[states] dispenser: minecraft:dispenser[facing=up] at 305,-11,-489&#xD;
+[states] glazed: minecraft:red_glazed_terracotta[facing=east] at 214,-1,-502&#xD;
+[states] glazed: minecraft:red_glazed_terracotta[facing=west] at 238,-19,-481&#xD;
+[states] pillar: minecraft:hay_block[axis=z] at 163,71,-502&#xD;
+[states] pillar: minecraft:hay_block[axis=x] at 187,71,-504&#xD;
+[tex] changed between two frames 0.7 s apart: sky (cloud-free pixels) 0.00%, water 23.49%&#xD;
+[voice] the plugin received 27 packets of the microphone&#xD;
+[weather] quick shots that did not change: 0 of 7&#xD;
+[weather] pale samples dry 23727, rain 15821&#xD;
+[weather] frozen server time, shot 1: 29689 pixels changed&#xD;
+[weather] frozen server time, shot 2: 29564 pixels changed&#xD;
+[weather] frozen server time, shot 3: 30957 pixels changed&#xD;
+[weather] frozen server time, shot 4: 31660 pixels changed&#xD;
+[weather] frozen server time, shot 5: 31041 pixels changed&#xD;
+[xr] forest Enter VR: pixels changed between frames: 2 0 57 26 4 6 43 32 83 102 1 27 2 0 2 (worst 102)&#xD;
+[xr] forest Enter VR: far ground changed: 0 0 2 0 3 2 1 1 0 0 0 0 0 0 0 (mean 1)&#xD;
+[xr] forest Enter AR: pixels changed between frames: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 (worst 0)&#xD;
+[xr] forest Enter AR: far ground changed: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 (mean 0)&#xD;
+[xr] Enter VR round 1: left eye spread 52.5, frames 457&#xD;
+[xr] Enter VR round 2: left eye spread 52.4, frames 963&#xD;
+[xr] Enter VR round 3: left eye spread 52.5, frames 1473&#xD;
+[xr] Enter AR round 1: left eye spread 20.1, frames 482&#xD;
+[xr] Enter AR round 2: left eye spread 20.1, frames 989&#xD;
+[xr] Enter AR round 3: left eye spread 20.1, frames 1500&#xD;
+[xr] AR sky pixel Color [A=255, R=255, G=0, B=255], ground pixel Color [A=255, R=187, G=177, B=143]&#xD;
+[xr] eye spread left 51.2, right 51.1&#xD;
+[xr] heads: -10.0, -52.0, 30.0 | -10.0, -52.0, 30.0 | -10.0, -52.0, 30.0 | -10.0, -52.0, 30.0 | -10.0, -52.0, 30.0 | -7.2, -52.0, 30.0 | 9.0, -52.0, 30.0&#xD;
+[xr] after: camera (22, -52, 30), 1164 FPS&#xD;
+[ar] the model: world pixels above the horizon 0, below 0&#xD;
+[ar] life size: world pixels above the horizon 1246, below 18068&#xD;
+[xr-edit] placed minecraft:stone at -8,-60,8&#xD;
+[xr-edit] A picked minecraft:stone_bricks&#xD;
+[xr-edit] held for 1.5 s: 6 more blocks&#xD;
+ProfileTheHeadsetFrame: a profile, not a gate: needs the AOT client&#xD;
+[xr] the menu moved: left behind 97.3%, arrived 85.7%&#xD;
+[xr] the menu {X=191,Y=337,Width=220,Height=404}: changed 95.2% inside, 8.4% where the window would be&#xD;
+[xr] Enter VR: pixels changed between frames: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 (worst 0 at 0)&#xD;
+[xr] Enter AR: pixels changed between frames: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 (worst 0 at 0)&#xD;
+NUnit Adapter 5.0.0.0: Test execution complete&#xD;
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

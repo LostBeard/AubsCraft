@@ -183,6 +183,7 @@ public sealed class EntityLayer : IDisposable
     {
         EntityCount = 0;
         Tags.Clear();
+        Bars.Clear();
         _viewProj = viewProj;
         _width = width;
         _height = height;
@@ -220,6 +221,8 @@ public sealed class EntityLayer : IDisposable
         foreach (var v in _state.Sample(world, now, Wanted))
         {
             if ((v.Flags & LiveFlags.Invisible) != 0) continue;
+            // The player whose eyes the camera is at: their model would be all round the camera, the inside of their own head filling the view
+            if (v.Id == CameraInsideEntity) continue;
             var kind = EntityModels.Normalise(v.Type);
             if (Items != null && kind is "item" or "falling_block" or "tnt")
             {
@@ -329,6 +332,16 @@ public sealed class EntityLayer : IDisposable
 
     /// <summary>Name tags for the HUD this frame: players by name, any creature that has been given a name by its custom name; screen pixels.</summary>
     public List<NameTag> Tags { get; } = new();
+
+    /// <summary>The entity the camera is looking out of (not drawn), or -1.</summary>
+    public int CameraInsideEntity { get; set; } = -1;
+
+    /// <summary>The bars over the players' heads this frame (what each one's own HUD shows), near enough to read; screen pixels.</summary>
+    public List<PlayerBar> Bars { get; } = new();
+    /// <summary>Past this many blocks a player has only their name.</summary>
+    public const float PlayerBarRange = 48f;
+    /// <summary>How wide a bar is in the world (blocks), and the least and most screen pixels it takes for one of the game's HUD pixels (its pixels are snapped to quarters, so they stay even).</summary>
+    public const float BarWorldWidth = 1.6f, BarMinScale = 0.75f, BarMaxScale = 2f;
     private Matrix4x4 _viewProj;
     private int _width, _height;
     private const float PlayerTagRange = 96f, MobTagRange = 32f;
@@ -347,7 +360,25 @@ public sealed class EntityLayer : IDisposable
         if (clip.W <= 0.05f) return;   // behind the camera
         float nx = clip.X / clip.W, ny = clip.Y / clip.W;
         if (nx < -1.2f || nx > 1.2f || ny < -1.2f || ny > 1.2f) return;
-        Tags.Add(new NameTag((nx * 0.5f + 0.5f) * _width, (1f - (ny * 0.5f + 0.5f)) * _height, text, v.IsPlayer));
+        float sx = (nx * 0.5f + 0.5f) * _width, sy = (1f - (ny * 0.5f + 0.5f)) * _height;
+        Tags.Add(new NameTag(sx, sy, text, v.IsPlayer));
+
+        if (!v.IsPlayer || distSq > PlayerBarRange * PlayerBarRange) return;
+        var player = _state.PlayerOf(world, v.Id);
+        if (player == null) return;
+        // A block's height on screen where the head is: the bar is a fixed size in the world, within reason
+        var above = Vector4.Transform(new Vector4(v.X, top + 1f, v.Z, 1f), _viewProj);
+        if (above.W <= 0.05f) return;
+        float pixelsPerBlock = MathF.Abs(above.Y / above.W - ny) * 0.5f * _height;
+        float scale = Math.Clamp(BarWorldWidth * pixelsPerBlock / PlayerBarLayout.Width, BarMinScale, BarMaxScale);
+        Bars.Add(new PlayerBar(sx, sy, MathF.Round(scale * 4f) / 4f, player.Status, player.Health, player.GameMode));
+    }
+
+    /// <summary>What a player's own HUD shows now, by name (for the view through their eyes); null when they are not in the feed.</summary>
+    public (LivePlayerStatus? Status, float Health, int GameMode)? StatusOf(string name)
+    {
+        if (!_state.TryFindPlayer(name, out var world, out var id)) return null;
+        return _state.PlayerOf(world, id) is { } p ? (p.Status, p.Health, p.GameMode) : null;
     }
 
     private static Vector3 HashColour(string type)

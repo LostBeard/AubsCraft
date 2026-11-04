@@ -11,6 +11,13 @@
         <p class="text-muted">Loading...</p>
     </div>
 }
+else if (Auth.IsAuthenticated && IsViewerRoute)
+{
+    @* The viewer is the whole page: everything about it is in its own menu, drawn in the canvas. Keyed as below: a server switch re-creates it. *@
+    <div class="viewer-page" @key="Hub.SelectedServerId">
+        @Body
+    </div>
+}
 else if (Auth.IsAuthenticated)
 {
     <NotificationToast />
@@ -66,6 +73,7 @@ else
     private static readonly string[] PublicRoutes = { "/play", "/pc", "/quest" };
 
     private bool _authChecked;
+    private bool IsViewerRoute => Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0].TrimEnd('/').Equals("map", StringComparison.OrdinalIgnoreCase);
     private bool IsPublicRoute => PublicRoutes.Any(route =>
         Nav.ToBaseRelativePath(Nav.Uri).TrimEnd('/').Equals(route.TrimStart('/'), StringComparison.OrdinalIgnoreCase));
 

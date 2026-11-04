@@ -141,7 +141,10 @@ public class ViewerColumnGapTests
             await page.GotoAsync($"{_rig.BaseUrl}/map?hud=0&dd=30&cam=-400,140,-300,-30,0", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle, Timeout = 180_000 });
             await ViewerShotTests.WaitForSettledAsync(page, minSections: 100, quietSeconds: 10, maxSeconds: 180);
 
-            await page.Locator("#map-canvas").ClickAsync();
+            // The mouse wanders over the page first, as anyone's does: none of that may turn the view when the camera takes the mouse
+            await page.Mouse.MoveAsync(100, 100);
+            await page.Mouse.MoveAsync(1100, 600, new MouseMoveOptions { Steps = 10 });
+            await ViewerRig.TakeTheMouseAsync(page, 640, 500);
             await page.Keyboard.DownAsync("KeyW");
             await page.Keyboard.DownAsync("ShiftRight");   // nothing: only W flies; the right shift is not the descend key
             await Task.Delay(12000);
@@ -150,6 +153,7 @@ public class ViewerColumnGapTests
             var moved = await ViewerStats.ReadAsync(page);
             TestContext.Progress.WriteLine($"[columns] stopped at {moved?.X} {moved?.Y} {moved?.Z}");
             Assert.That(moved!.X, Is.GreaterThan(-400 + 16 * 6), "the camera really flew far enough for columns to leave the range");
+            Assert.That(moved.Z, Is.EqualTo(-300).Within(2), "straight on along the way it looked: the view did not turn when the camera took the mouse");
 
             // Hold still; the [Voxel] line comes every 5 s. Every gap must close while nothing moves
             string last = "";

@@ -10,7 +10,9 @@ namespace AubsCraft.Live.Model;
 /// </summary>
 public static class LiveFrameCodec
 {
-    public const int FormatVersion = 1;
+    /// <summary>What <see cref="Write"/> writes. Format 1, which has no <see cref="LivePlayerStatus"/>, is what a plugin not yet updated sends, and is read as well.</summary>
+    public const int FormatVersion = 2;
+    public const int HotbarSlots = 9;
     private static readonly byte[] Magic = "ACL1"u8.ToArray();
 
     // ---- parse ---------------------------------------------------------------------------------------------------------------
@@ -21,7 +23,7 @@ public static class LiveFrameCodec
         if (data.Length < 4 || !data[..4].SequenceEqual(Magic)) throw new InvalidDataException("Not a live frame (bad magic)");
         r.Skip(4);
         int version = r.U8();
-        if (version != FormatVersion) throw new InvalidDataException($"Live frame format {version}, this reader understands {FormatVersion}");
+        if (version is not (1 or FormatVersion)) throw new InvalidDataException($"Live frame format {version}, this reader understands 1 and {FormatVersion}");
         long fullTime = r.I64();
         long dayTime = r.I64();
         int weather = r.U8();
@@ -61,7 +63,17 @@ public static class LiveFrameCodec
                 int gameMode = r.U8();
                 string held = r.Str8();
                 float health = r.U8() / 255f;
-                players.Add(new LivePlayer(entityId, FormatUuid(most, least), playerName, skin, slim, gameMode, held, health));
+                LivePlayerStatus? status = null;
+                if (version >= 2)
+                {
+                    int healthPoints = r.U8(), maxHealth = r.U8(), absorption = r.U8(), food = r.U8(), armor = r.U8(), air = r.U8(), selected = r.U8(), xpLevel = r.U8();
+                    float xpProgress = r.U8() / 255f;
+                    if (selected >= HotbarSlots) throw new InvalidDataException($"Player {entityId} has slot {selected} in hand, a hotbar has {HotbarSlots}");
+                    var hotbar = new HotbarSlot[HotbarSlots];
+                    for (int s = 0; s < HotbarSlots; s++) { string item = r.Str8(); hotbar[s] = new HotbarSlot(item, r.U8()); }
+                    status = new LivePlayerStatus(healthPoints, maxHealth, absorption, food, armor, air, selected, xpLevel, xpProgress, hotbar);
+                }
+                players.Add(new LivePlayer(entityId, FormatUuid(most, least), playerName, skin, slim, gameMode, held, health, status));
             }
 
             var entities = new List<LiveEntity>(entityCount);
@@ -193,10 +205,21 @@ public static class LiveFrameCodec
                 I64((long)Convert.ToUInt64(hex[16..], 16));
                 Str8(p.Name); Str16(p.SkinUrl); U8(p.Slim ? 1 : 0); U8(p.GameMode); Str8(p.HeldItem);
                 U8((int)Math.Clamp(MathF.Round(p.Health * 255f), 0, 255));
+                // A player with no status written as format 2: a full bar of nothing known, as an empty hotbar
+                var s = p.Status ?? new LivePlayerStatus((int)Math.Ceiling(p.Health * 20f), 20, 0, 20, 0, 20, 0, 0, 0f, EmptyHotbar);
+                U8(s.HealthPoints); U8(s.MaxHealth); U8(s.Absorption); U8(s.Food); U8(s.Armor); U8(s.Air); U8(s.SelectedSlot); U8(s.XpLevel);
+                U8((int)Math.Clamp(MathF.Round(s.XpProgress * 255f), 0, 255));
+                for (int i = 0; i < HotbarSlots; i++)
+                {
+                    var slot = i < s.Hotbar.Count ? s.Hotbar[i] : default;
+                    Str8(slot.Item ?? ""); U8(slot.Count);
+                }
             }
         }
         return ms.ToArray();
     }
+
+    private static readonly HotbarSlot[] EmptyHotbar = new HotbarSlot[HotbarSlots];
 
     private static int ToAngle(float degrees) => (sbyte)(int)MathF.Round(degrees % 360f / 360f * 256f);
 

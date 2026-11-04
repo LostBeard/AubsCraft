@@ -15,83 +15,69 @@
 @using SpawnDev.SpawnJS.JSObjects
 @using SpawnDev.SpawnJS.WebWorkers
 
-<PageTitle>Map - AubsCraft Admin</PageTitle>
+<PageTitle>Map - AubsCraft</PageTitle>
 
-<div class="d-flex justify-content-between align-items-center mb-2">
-    <h1 class="mb-0">World Map</h1>
-    <div class="d-flex gap-2 align-items-center">
-        @if (_viewMode == ViewMode.Viewer3D)
-        {
-            @* The numbers are on the GPU HUD now. This line stays for screen readers and for the viewer gate, which reads it. *@
-            <small class="text-muted font-monospace visually-hidden" style="font-size: 0.7rem;">
-                @if (_lastStats != null)
-                {
-                    @($"{_lastStats.Fps:F0} FPS | {_lastStats.VisibleVerts / 1000}K/{_lastStats.TotalVerts / 1000}K verts | {_lastStats.VisibleChunks}/{_lastStats.TotalChunks} chunks | draw: {_lastStats.DrawDistance} | {_lastStats.ChunksPerSecond:F1} c/s | Worker | XYZ {_lastStats.CamX:F0} {_lastStats.CamY:F0} {_lastStats.CamZ:F0}")
-                }
-                @if (!_isPointerLocked) { <span> | Click to fly</span> }
-            </small>
-            @if (_vrSupported)
-            {
-                <button class="btn btn-sm btn-outline-success" disabled="@_xrBusy" @onclick="@(() => EnterXrAsync("immersive-vr"))">Enter VR</button>
-            }
-            @if (_arSupported)
-            {
-                <button class="btn btn-sm btn-outline-success" disabled="@_xrBusy" @onclick="@(() => EnterXrAsync("immersive-ar"))">Enter AR</button>
-            }
-            <button class="btn btn-sm @(_lighting ? "btn-outline-warning" : "btn-outline-secondary")" title="Light the world by the sky and block light (torches, caves) near you; off is the plainer, faster picture" @onclick="ToggleLightingAsync">Lighting: @(_lighting ? "On" : "Off")</button>
-            <button class="btn btn-sm @(_ambientOcclusion ? "btn-outline-warning" : "btn-outline-secondary")" title="Soft shadows in corners and at the feet of walls, for depth; off is the plainer picture" @onclick="ToggleAmbientOcclusionAsync">Shading: @(_ambientOcclusion ? "Soft" : "Flat")</button>
-            <button class="btn btn-sm @(Voice.IsOn ? "btn-success" : "btn-outline-secondary")" title="Hear the players and the other viewers, each from where they are, and speak to them" @onclick="ToggleVoiceAsync">Voice: @(Voice.IsOn ? "On" : "Off")</button>
-            @if (Voice.IsOn)
-            {
-                <button class="btn btn-sm @(Voice.MicOn ? "btn-danger" : "btn-outline-secondary")" title="Open the microphone: the players near where you are in the world hear you in the game" @onclick="ToggleMicAsync">Mic: @(Voice.MicOn ? "On" : "Off")</button>
-            }
-            @if (_voiceText.Length > 0)
-            {
-                <small class="text-muted">@_voiceText</small>
-            }
-            @if (Auth.Role is "Owner" or "Admin")
-            {
-                <button class="btn btn-sm @(_editing ? "btn-warning" : "btn-outline-warning")" title="Build in the world as an admin: left click breaks, right click places, middle click copies a block, Ctrl+Z undoes, B turns it on and off" @onclick="ToggleEditAsync">Edit: @(_editing ? "On" : "Off")</button>
-            }
-            <button class="btn btn-sm btn-outline-secondary" @onclick="SwitchToBlueMap">BlueMap</button>
-            <button class="btn btn-sm btn-outline-danger" @onclick="ClearCacheAsync">Clear Cache</button>
-        }
-        else if (_viewMode == ViewMode.BlueMap)
-        {
-            <button class="btn btn-sm btn-outline-primary" @onclick="SwitchTo3D">3D Viewer</button>
-            <a href="@_blueMapUrl" target="_blank" class="btn btn-sm btn-outline-secondary">Open in New Tab</a>
-        }
-        else
-        {
-            <span class="text-muted">@_statusMessage</span>
-        }
+@* The whole window is the viewer. The canvas stays in the page whatever is shown (its drawing surface went to the render worker when the page opened and cannot be given again). *@
+<canvas id="map-canvas" @ref="_canvasRef"
+        style="position: fixed; inset: 0; width: 100vw; height: 100vh; display: @(_viewMode == ViewMode.Viewer3D || _viewMode == ViewMode.Initializing ? "block" : "none"); background: #a5cce8; cursor: @(_isPointerLocked ? "none" : "default");"
+        tabindex="0"
+        @onclick="OnCanvasClick"
+        @oncontextmenu:preventDefault>
+</canvas>
+@if (_viewMode == ViewMode.BlueMap && !string.IsNullOrEmpty(_blueMapUrl))
+{
+    <iframe src="@_blueMapUrl" style="position: fixed; inset: 0; width: 100vw; height: 100vh; border: none;" allowfullscreen></iframe>
+    <div style="position: fixed; top: 8px; left: 8px; display: flex; gap: 8px;">
+        <button class="btn btn-sm btn-primary" @onclick="SwitchTo3DAsync">3D Viewer</button>
+        <a href="@_blueMapUrl" target="_blank" class="btn btn-sm btn-secondary">Open in New Tab</a>
     </div>
-</div>
+}
+else if (_viewMode == ViewMode.Error)
+{
+    <div class="alert alert-info m-3">@_statusMessage <a href="">Back to the panel</a></div>
+}
 
-@if (_viewMode == ViewMode.Viewer3D || _viewMode == ViewMode.Initializing)
-{
-    <canvas id="map-canvas" @ref="_canvasRef"
-            style="width: 100%; height: calc(100vh - 8rem); border-radius: 4px; display: block; background: #a5cce8; cursor: @(_isPointerLocked ? "none" : "pointer");"
-            tabindex="0"
-            @onclick="OnCanvasClick"
-            @oncontextmenu:preventDefault>
-    </canvas>
-}
-else if (_viewMode == ViewMode.BlueMap && !string.IsNullOrEmpty(_blueMapUrl))
-{
-    <iframe src="@_blueMapUrl"
-            style="width: 100%; height: calc(100vh - 8rem); border: none; border-radius: 4px;"
-            allowfullscreen>
-    </iframe>
-}
-else
-{
-    <div class="alert alert-info">@_statusMessage</div>
-}
+@* The viewer's own menu is drawn on the GPU, where a screen reader cannot go: everything in it is here too, unseen. The gate reads the numbers and presses these as well. *@
+<div class="visually-hidden">
+    @if (_lastStats != null)
+    {
+        <small class="font-monospace">@($"{_lastStats.Fps:F0} FPS | {_lastStats.VisibleVerts / 1000}K/{_lastStats.TotalVerts / 1000}K verts | {_lastStats.VisibleChunks}/{_lastStats.TotalChunks} chunks | draw: {_lastStats.DrawDistance} | {_lastStats.ChunksPerSecond:F1} c/s | Worker | XYZ {_lastStats.CamX:F0} {_lastStats.CamY:F0} {_lastStats.CamZ:F0}")@(_isPointerLocked ? "" : " | Click to fly")</small>
+    }
+    @if (_viewMode == ViewMode.Viewer3D)
+    {
+        <ServerPicker />
+        <button disabled="@_vrUnavailable" hidden="@(!_vrSupported)" @onclick="@(() => EnterXrAsync("immersive-vr"))">Enter VR</button>
+        <button disabled="@_arUnavailable" hidden="@(!_arSupported)" @onclick="@(() => EnterXrAsync("immersive-ar"))">Enter AR</button>
+        <button @onclick="ToggleFullscreenAsync">Fullscreen: @(_isFullscreen ? "On" : "Off")</button>
+        <button @onclick="ToggleLightingAsync">Lighting: @(_lighting ? "On" : "Off")</button>
+        <button @onclick="ToggleAmbientOcclusionAsync">Shading: @(_ambientOcclusion ? "Soft" : "Flat")</button>
+        <button @onclick="ToggleVoiceAsync">Voice: @(Voice.IsOn ? "On" : "Off")</button>
+        @if (Voice.IsOn)
+        {
+            <button @onclick="ToggleMicAsync">Mic: @(Voice.MicOn ? "On" : "Off")</button>
+        }
+        @if (_voiceText.Length > 0)
+        {
+            <small>@_voiceText</small>
+        }
+        @if (Auth.Role is "Owner" or "Admin")
+        {
+            <button @onclick="ToggleEditAsync">Edit: @(_editing ? "On" : "Off")</button>
+        }
+        <button @onclick="SwitchToBlueMapAsync">BlueMap</button>
+        <button @onclick="ClearCacheAsync">Clear Cache</button>
+        <a class="nav-link" href="">Admin panel</a>
+    }
+</div>
 
 @code {
     private ElementRef<HTMLCanvasElement> _canvasRef;
     private string? _blueMapUrl;
+    private bool _disposed;
+    private bool _isFullscreen;
+    private bool _hudShown = true;
+    private bool _vrUnavailable => _xrBusy || !_vrSupported;
+    private bool _arUnavailable => _xrBusy || !_arSupported;
     private ViewMode _viewMode = ViewMode.Initializing;
     private string _statusMessage = "Initializing...";
     private Document? _document;
@@ -206,6 +192,113 @@ else
         StateHasChanged();
     }
 
+    // ---- what the viewer's own menu asks of the page: only the page has the DOM, the voice's sockets and the headset ----
+
+    private const string SettingsKey = "aubscraft.viewer";
+
+    private ViewerSettings ReadRememberedSettings()
+    {
+        try
+        {
+            using var storage = JS.Get<Storage>("localStorage");
+            var json = storage.GetItem(SettingsKey);
+            return string.IsNullOrEmpty(json) ? new ViewerSettings() : System.Text.Json.JsonSerializer.Deserialize<ViewerSettings>(json) ?? new ViewerSettings();
+        }
+        catch { return new ViewerSettings(); }   // storage blocked, or something older than these settings: the defaults for this visit
+    }
+
+    private async Task RememberSettingsAsync()
+    {
+        if (_renderService == null) return;
+        var settings = await _renderService.GetViewerSettingsAsync();
+        try
+        {
+            using var storage = JS.Get<Storage>("localStorage");
+            storage.SetItem(SettingsKey, System.Text.Json.JsonSerializer.Serialize(settings));
+        }
+        catch { /* they hold for this visit */ }
+    }
+
+    private async Task RunHudCommandAsync(string command)
+    {
+        switch (command)
+        {
+            case "fullscreen": await ToggleFullscreenAsync(); break;
+            case "voice": await ToggleVoiceAsync(); break;
+            case "mic": if (Voice.IsOn) await ToggleMicAsync(); break;
+            case "vr": await EnterXrAsync("immersive-vr"); break;
+            case "ar": await EnterXrAsync("immersive-ar"); break;
+            case "lighting": await ToggleLightingAsync(); break;
+            case "shading": await ToggleAmbientOcclusionAsync(); break;
+            case "edit": await ToggleEditAsync(); break;
+            case "bluemap": await SwitchToBlueMapAsync(); break;
+            case "clearcache": await ClearCacheAsync(); break;
+            case "copylink": await CopyLinkAsync(); break;
+            case "panel": Nav.NavigateTo(""); break;
+            case "settings": await RememberSettingsAsync(); break;
+            default:
+                if (command.StartsWith("server:", StringComparison.Ordinal)) Hub.SelectServer(command[7..]);
+                break;
+        }
+        await PushViewerStateAsync();
+    }
+
+    private async Task ToggleFullscreenAsync()
+    {
+        if (_document == null || _canvas == null) return;
+        try
+        {
+            // The press that asked for it is still recent enough for the browser (it went to the worker and back)
+            if (_isFullscreen) await _document.ExitFullscreen();
+            else await _canvas.RequestFullscreen();
+        }
+        catch (Exception ex)
+        {
+            System.Console.WriteLine($"[Map] Fullscreen: {ex.Message}");
+            _hudFeed.AddActivity(new ActivityEventDto(DateTime.UtcNow, ActivityEventType.Advancement, "", "The browser refused fullscreen: " + ex.Message));
+        }
+    }
+
+    private void OnFullscreenChange()
+    {
+        using var element = _document?.FullscreenElement;
+        _isFullscreen = element != null;
+        _ = PushViewerStateAsync();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task CopyLinkAsync()
+    {
+        if (_renderService == null) return;
+        var s = await _renderService.GetStatsAsync();
+        string F(float v) => v.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+        var link = $"{Nav.BaseUri}map?cam={F(s.CamX)},{F(s.CamY)},{F(s.CamZ)},{F(s.CamPitch)},{F(s.CamYaw)}";
+        System.Console.WriteLine("[Map] Link to this place: " + link);
+        try
+        {
+            using var navigator = JS.Get<Navigator>("navigator");
+            using var clipboard = navigator.Clipboard;
+            await clipboard.WriteText(link);
+        }
+        catch (Exception ex) { System.Console.WriteLine($"[Map] Could not copy the link: {ex.Message}"); }
+    }
+
+    private string _lastStateKey = "";
+
+    // What the menu's buttons say. Sent only when it changed
+    private async Task PushViewerStateAsync()
+    {
+        if (_renderService == null || _disposed) return;
+        var servers = Hub.Servers;
+        var state = new ViewerPageState(_isFullscreen, _lighting, _ambientOcclusion, Voice.IsOn, Voice.MicOn, _voiceText, _vrSupported, _arSupported, !string.IsNullOrEmpty(_blueMapUrl),
+            Auth.Role is "Owner" or "Admin", _editing,
+            servers.Select(x => x.Id).ToArray(), servers.Select(x => x.Connected ? $"{x.Name} ({x.Online}/{x.Max})" : $"{x.Name} (offline)").ToArray(), Hub.SelectedServerId ?? "");
+        var key = string.Join('|', state.Fullscreen, state.Lighting, state.Shading, state.VoiceOn, state.MicOn, state.VoiceText, state.VrSupported, state.ArSupported, state.BlueMap, state.Admin, state.Editing, state.SelectedServer, string.Join(',', state.ServerIds!), string.Join(',', state.ServerLabels!));
+        if (key == _lastStateKey) return;
+        _lastStateKey = key;
+        await _renderService.PushViewerStateAsync(state);
+    }
+
     // Voice: the players and the other viewers heard where they are, the user heard in the game (the microphone is the user's to open)
     private string _voiceText = "";
 
@@ -226,6 +319,7 @@ else
     {
         _voiceText = text;
         InvokeAsync(StateHasChanged);
+        _ = PushViewerStateAsync();
     }
 
     // Where the camera is and who is heard, about ten times a second while the voice is on
@@ -340,7 +434,8 @@ else
     {
         bool wasLocked = _isPointerLocked;
         _isPointerLocked = _document?.PointerLockElement != null;
-        if (wasLocked && !_isPointerLocked)
+        // Either way what the mouse did before this moment is not the camera's: taking the mouse with all of it still counted turned the view by however far the mouse had wandered over the page
+        if (wasLocked != _isPointerLocked)
             Input.ConsumeMouseDelta();
         // The camera has (or gave up) the mouse: the HUD's crosshair/hover follow. Compared with what the HUD was last told,
         // not with wasLocked: the input loop clears _isPointerLocked itself on Escape, before the browser's own event.
@@ -435,14 +530,14 @@ else
 
                 // Deep link /map?hud=0 hides the GPU HUD: a clean frame for streaming and capture (first visit only, like cam=)
                 if (HudHiddenByLink(Nav.Uri))
+                {
+                    _hudShown = false;
                     await _renderService.SetHudVisibleAsync(false);
+                }
 
                 await _renderService.StartAsync(serverId, camX, camY, camZ, pitch, yaw);
                 await _renderService.SetAdminAsync(Auth.Role is "Owner" or "Admin");
-                _lighting = LightingByLink(Nav.Uri) ?? ReadRememberedLighting();
-                await _renderService.SetLightingAsync(_lighting);
-                _ambientOcclusion = AmbientOcclusionByLink(Nav.Uri) ?? ReadRememberedAmbientOcclusion();
-                await _renderService.SetAmbientOcclusionAsync(_ambientOcclusion);
+                await _renderService.SetViewerSettingsAsync(ReadRememberedSettings());
                 if (DrawDistanceByLink(Nav.Uri) is { } linkedDistance)
                     await _renderService.SetDrawDistanceAsync(linkedDistance);
                 if (TimeByLink(Nav.Uri) is { } linkedTicks)
@@ -454,6 +549,12 @@ else
                 WorkerHost.ServerId = serverId;
             }
 
+            // The page is new each visit (and on each server switch) though the worker may not be: these are asked again either way
+            _lighting = LightingByLink(Nav.Uri) ?? ReadRememberedLighting();
+            await _renderService.SetLightingAsync(_lighting);
+            _ambientOcclusion = AmbientOcclusionByLink(Nav.Uri) ?? ReadRememberedAmbientOcclusion();
+            await _renderService.SetAmbientOcclusionAsync(_ambientOcclusion);
+
             // Attach input service on main thread
             Input.Attach();
             // The HUD runs in the worker, which has no DOM: this side listens on the canvas and forwards what it sees
@@ -462,6 +563,7 @@ else
             // Pointer lock via event - zero per-frame JS calls
             _document = JS.Get<Document>("document");
             _document.OnPointerLockChange += OnPointerLockChange;
+            _document.OnFullscreenChange += OnFullscreenChangeEvent;
 
             _viewMode = ViewMode.Viewer3D;
             _statusMessage = "";
@@ -469,7 +571,8 @@ else
 
             // Main thread: input + stats only
             _ = InputAndStatsLoop();
-            _ = CheckXrAsync();
+            await CheckXrAsync();
+            await PushViewerStateAsync();
         }
         catch (Exception ex)
         {
@@ -489,15 +592,29 @@ else
     /// Main thread loop: sends input to the worker, receives stats back.
     /// Zero rendering, zero GPU work, zero data processing.
     /// </summary>
+    private void OnFullscreenChangeEvent(Event e)
+    {
+        OnFullscreenChange();
+        e.Dispose();
+    }
+
     private async Task InputAndStatsLoop()
     {
         int cameraSaveCounter = 0;
         int feedCounter = 0;
         int voiceCounter = 0;
         int chatPollTicks = 0; // ticks left in which to look for a line the player just sent from the HUD chat
-        while (_viewMode == ViewMode.Viewer3D && _renderService != null)
+        int commandPollTicks = 0; // ticks left in which to look for what a press on the viewer's menu asked of the page
+        var inputClock = System.Diagnostics.Stopwatch.StartNew();
+        double lastTick = 0;
+        while (!_disposed && _renderService != null)
         {
             await Task.Delay(16);
+            // The real time since the last step, not the 16 ms asked for: a call to a worker busy with the world's meshes can take many times that, and the camera crawled while the world loaded
+            double tickNow = inputClock.Elapsed.TotalSeconds;
+            float inputDt = (float)Math.Min(tickNow - lastTick, 0.25);   // a stall of the page is not a jump across the world
+            lastTick = tickNow;
+            if (_viewMode != ViewMode.Viewer3D) continue;   // showing BlueMap: the view is resting
 
             // Canvas input for the worker's GPU HUD (mouse position/buttons/wheel, keys, blur)
             if (Input.TakeUiEvents() is { } uiEvents)
@@ -505,8 +622,25 @@ else
                 await _renderService.PushUiInputAsync(uiEvents);
                 // Enter may have submitted a chat line: the worker queues it on its next frame, so look for a short while
                 if (uiEvents.Any(e => e.Kind == UiInputEvent.KeyDown && e.Code is "Enter" or "NumpadEnter")) chatPollTicks = 40;
+                // A press, a key or the wheel may have used the menu
+                if (uiEvents.Any(e => e.Kind is UiInputEvent.MouseUp or UiInputEvent.KeyDown or UiInputEvent.Wheel or UiInputEvent.WorldWheel)) commandPollTicks = 40;
+                // Tab opens the menu: the mouse is needed at once, not at the next look at the worker's state
+                if (_isPointerLocked && uiEvents.Any(e => e.Kind == UiInputEvent.KeyDown && e.Code == "Tab")) _document?.ExitPointerLock();
+                // F1: nothing of the HUD on the view (the page's to do: a hidden HUD takes no keys, so it could never be brought back)
+                if (uiEvents.Any(e => e.Kind == UiInputEvent.KeyDown && e.Code == "F1"))
+                {
+                    _hudShown = !_hudShown;
+                    await _renderService.SetHudVisibleAsync(_hudShown);
+                }
                 if (_hudDemo && uiEvents.Any(e => e.Kind == UiInputEvent.KeyDown && e.Code == "F9"))
                     _hudFeed.AddActivity(new ActivityEventDto(DateTime.UtcNow, ActivityEventType.Advancement, "Aubs", "Aubs has made the advancement [Stone Age]"));
+            }
+
+            if (commandPollTicks > 0)
+            {
+                commandPollTicks--;
+                foreach (var command in await _renderService.TakeHudCommandsAsync())
+                    await RunHudCommandAsync(command);
             }
 
             if (chatPollTicks > 0)
@@ -545,7 +679,7 @@ else
                 var (dx, dy) = Input.ConsumeMouseDelta();
                 var keysDown = Input.KeysDown;
                 if (dx != 0 || dy != 0 || keysDown.Count > 0)
-                    await _renderService.ProcessInputAsync(dx, dy, 0.016f, keysDown.ToArray());
+                    await _renderService.ProcessInputAsync(dx, dy, inputDt, keysDown.ToArray());
             }
 
             cameraSaveCounter++;
@@ -557,6 +691,7 @@ else
                 // The block palette is open: the mouse is the HUD's until it closes
                 if (_lastStats.WantsPointer && _isPointerLocked) _document?.ExitPointerLock();
                 StateHasChanged();
+                await PushViewerStateAsync();
 
                 if (_lastStats != null)
                     _ = WorldCache.SaveCameraPositionAsync(
@@ -587,9 +722,9 @@ else
         {
             // A click on the HUD (the player list, an open menu) is the HUD's: it does not take the mouse for the camera
             if (_renderService != null && OverHud(await _renderService.GetHudClickRectsAsync(), Input.MouseX, Input.MouseY)) return;
-            _canvas?.RequestPointerLock();
+            if (_canvas != null) await _canvas.RequestPointerLock();
         }
-        catch { }
+        catch (Exception ex) { System.Console.WriteLine("[Map] pointer lock refused: " + ex.Message); }
     }
 
     private static bool OverHud(float[] rects, float x, float y)
@@ -599,8 +734,21 @@ else
         return false;
     }
 
-    private void SwitchTo3D() => _viewMode = ViewMode.Viewer3D;
-    private void SwitchToBlueMap() => _viewMode = ViewMode.BlueMap;
+    private async Task SwitchTo3DAsync()
+    {
+        _viewMode = ViewMode.Viewer3D;
+        if (_renderService != null) await _renderService.SetPausedAsync(false);
+    }
+
+    private async Task SwitchToBlueMapAsync()
+    {
+        if (string.IsNullOrEmpty(_blueMapUrl)) return;
+        if (_isPointerLocked) _document?.ExitPointerLock();
+        if (_isFullscreen && _document != null) await _document.ExitFullscreen();
+        _viewMode = ViewMode.BlueMap;
+        StateHasChanged();
+        if (_renderService != null) await _renderService.SetPausedAsync(true);
+    }
 
     private async Task ClearCacheAsync()
     {
@@ -610,6 +758,7 @@ else
 
     public void Dispose()
     {
+        _disposed = true;
         Xr.Ended -= OnXrEnded;
         Xr.ChatSent -= OnXrChat;
         Voice.Notice -= OnVoiceNotice;
@@ -624,6 +773,7 @@ else
         if (_document != null)
         {
             _document.OnPointerLockChange -= OnPointerLockChange;
+            _document.OnFullscreenChange -= OnFullscreenChangeEvent;
             _document.Dispose();
             _document = null;
         }

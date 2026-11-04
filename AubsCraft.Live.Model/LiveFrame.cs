@@ -40,8 +40,22 @@ public readonly record struct LiveEntity(
     public bool Dead => (Flags & LiveFlags.Dead) != 0;
 }
 
-/// <summary>A player: who, what they look like and what they hold. <see cref="Health"/> is 0 to 1.</summary>
-public sealed record LivePlayer(int EntityId, string Uuid, string Name, string SkinUrl, bool Slim, int GameMode, string HeldItem, float Health);
+/// <summary>A player: who, what they look like and what they hold. <see cref="Health"/> is 0 to 1. <see cref="Status"/> is what their own HUD shows (null from an older plugin, which does not send it).</summary>
+public sealed record LivePlayer(int EntityId, string Uuid, string Name, string SkinUrl, bool Slim, int GameMode, string HeldItem, float Health, LivePlayerStatus? Status = null);
+
+/// <summary>One slot of a player's hotbar: the item's name ("diamond_sword"; "" for an empty slot) and how many.</summary>
+public readonly record struct HotbarSlot(string Item, int Count);
+
+/// <summary>
+/// What a player's own HUD shows, as the game counts it: <see cref="HealthPoints"/> of <see cref="MaxHealth"/> (two to a heart), <see cref="Absorption"/> extra points, <see cref="Food"/> of 20,
+/// <see cref="Armor"/> of 20, <see cref="Air"/> of 20 (20 is a full breath), the nine hotbar slots with <see cref="SelectedSlot"/> in hand, the experience level and how far to the next (0 to 1).
+/// </summary>
+public sealed record LivePlayerStatus(int HealthPoints, int MaxHealth, int Absorption, int Food, int Armor, int Air, int SelectedSlot, int XpLevel, float XpProgress, IReadOnlyList<HotbarSlot> Hotbar)
+{
+    // A record compares a list by reference: two statuses are the same when their slots are
+    public bool Equals(LivePlayerStatus? other) => other != null && (HealthPoints, MaxHealth, Absorption, Food, Armor, Air, SelectedSlot, XpLevel, XpProgress) == (other.HealthPoints, other.MaxHealth, other.Absorption, other.Food, other.Armor, other.Air, other.SelectedSlot, other.XpLevel, other.XpProgress) && Hotbar.SequenceEqual(other.Hotbar);
+    public override int GetHashCode() => HashCode.Combine(HealthPoints, Food, SelectedSlot, Hotbar.Count);
+}
 
 public static class LiveFlags
 {

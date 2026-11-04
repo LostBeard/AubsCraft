@@ -1183,9 +1183,20 @@ public sealed class VoxelWorldRenderer : IDisposable
             if (_columns.TryGetValue((chunk.Cx, chunk.Cz), out var over) && over.Mesh != null) continue;
             _candidates.Add(chunk);
         }
+        // Draws of one quad buffer together: a bind is a call into the browser, and columns in the order they arrived alternate between the buffers once the world fills more than one
+        _candidates.Sort(ByQuadBuffer);
         _candCX = camCX; _candCZ = camCZ; _candRadius = radius;
         _candidatesDirty = false;
     }
+
+    private static readonly Comparison<Column> ByQuadBuffer = (a, b) =>
+    {
+        int c = BlockOf(a).CompareTo(BlockOf(b));
+        return c != 0 ? c : a.Slot.CompareTo(b.Slot);
+    };
+
+    // The arena block most of a column's quads are in (a mesh's lists are nearly always in one)
+    private static int BlockOf(Column col) => col.Mesh is { } m ? (m.Opaque.Count > 0 ? m.Opaque.ArenaBlock : m.Plants.Count > 0 ? m.Plants.ArenaBlock : m.Water.ArenaBlock) : -1;
 
     // Running totals over every mesh held, for the stats: kept as meshes come and go instead of added up each frame
     private long _totalQuads;

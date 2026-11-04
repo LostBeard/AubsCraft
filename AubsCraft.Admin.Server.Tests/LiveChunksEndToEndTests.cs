@@ -204,6 +204,30 @@ public class LiveChunksEndToEndTests
     }
 
     [Test]
+    public async Task GroundGeneratedNow_ReachesAViewerAtOnce_AsTerrain()
+    {
+        await using var rcon = await TestServers.RconAsync(_paper);
+        await WaitForPluginAsync();
+        using var ws = new ClientWebSocket();
+        ws.Options.SetRequestHeader("Cookie", _cookie);
+        await ws.ConnectAsync(new UriBuilder(new Uri(_base, "api/live/ws?server=lc")) { Scheme = "ws" }.Uri, CancellationToken.None);
+
+        // Far beyond anything generated yet: forceloading it makes the game generate it, with no player near and no save
+        const int cx = 400, cz = -400;
+        using (var r = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Get, $"/api/world/chunk-ids/{cx}/{cz}?server=lc") { Headers = { { "Cookie", _cookie } } }))
+            Assert.That((int)r.StatusCode, Is.EqualTo(404), "not there yet");
+        await rcon.SendCommandAsync($"forceload add {cx * 16} {cz * 16}");
+        int border = await NextChangeAsync(ws, cx, cz, TimeSpan.FromSeconds(30));
+        Assert.That(border, Is.EqualTo(15), "all sides: the chunks beside it have walls toward it to lose");
+
+        var ids = await ChunkIdsAsync(cx, cz);
+        var names = await BlockNamesAsync();
+        // The flat world: bedrock at the bottom
+        Assert.That(names[ids[0]], Is.EqualTo("minecraft:bedrock"), "the viewer's fetch has the terrain");
+        await rcon.SendCommandAsync($"forceload remove {cx * 16} {cz * 16}");
+    }
+
+    [Test]
     public async Task ARemovedBlockIsGone_ALightIsLit_AndABlockOnTheEdgeSaysSo()
     {
         await using var rcon = await TestServers.RconAsync(_paper);

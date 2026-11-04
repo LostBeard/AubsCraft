@@ -224,8 +224,41 @@ public final class LivePlugin extends JavaPlugin {
         }
         var held = p.getInventory().getItemInMainHand().getType().getKey();
         int health = (int) Math.max(0, Math.min(255, Math.round(p.getHealth() * 255.0 / 20.0)));
-        return new Frames.PlayerSample(p.getEntityId(), p.getUniqueId(), p.getName(), skin, slim, p.getGameMode().ordinal(),
-                typeKey(held.getNamespace(), held.getKey()), health);
+        return new Frames.PlayerSample(p.getEntityId(), p.getUniqueId(), p.getName(), skin, slim, gameModeOf(p),
+                typeKey(held.getNamespace(), held.getKey()), health, statusOf(p));
+    }
+
+    // The game's own number for the mode, as the Fabric mod sends: Bukkit's enum runs creative, survival..., so its ordinal has creative and survival the other way round
+    private static int gameModeOf(Player p) {
+        return switch (p.getGameMode()) { case SURVIVAL -> 0; case CREATIVE -> 1; case ADVENTURE -> 2; case SPECTATOR -> 3; };
+    }
+
+    // What the player's own HUD shows, for the bar a spectator sees over their head
+    private static Frames.PlayerStatus statusOf(Player p) {
+        var inventory = p.getInventory();
+        String[] items = new String[9];
+        int[] counts = new int[9];
+        for (int i = 0; i < 9; i++) {
+            var stack = inventory.getItem(i);
+            if (stack == null || stack.getType().isAir() || stack.getAmount() <= 0) { items[i] = ""; continue; }
+            var key = stack.getType().getKey();
+            items[i] = typeKey(key.getNamespace(), key.getKey());
+            counts[i] = stack.getAmount();
+        }
+        var maxHealth = p.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        var armor = p.getAttribute(org.bukkit.attribute.Attribute.ARMOR);
+        int maxAir = Math.max(1, p.getMaximumAir());
+        return new Frames.PlayerStatus(
+                (int) Math.ceil(p.getHealth()),
+                maxHealth == null ? 20 : (int) Math.ceil(maxHealth.getValue()),
+                (int) Math.ceil(p.getAbsorptionAmount()),
+                p.getFoodLevel(),
+                armor == null ? 0 : (int) Math.round(armor.getValue()),
+                (int) Math.max(0, Math.min(20, Math.ceil(p.getRemainingAir() * 20.0 / maxAir))),
+                inventory.getHeldItemSlot(),
+                p.getLevel(),
+                (int) Math.max(0, Math.min(255, Math.round(p.getExp() * 255f))),
+                items, counts);
     }
 
     // "minecraft:cow" -> "cow"; another namespace keeps it ("mymod:thing")

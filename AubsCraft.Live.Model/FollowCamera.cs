@@ -13,7 +13,7 @@ public enum FollowMode
 public static class FollowCamera
 {
     public const float StandingEyeHeight = 1.62f, SneakingEyeHeight = 1.27f;
-    public const float DefaultDistance = 5f, MinDistance = 1.5f, MaxDistance = 24f;
+    public const float DefaultDistance = 5f, MinDistance = 1.5f, MaxDistance = 64f;
     public const float DefaultPitch = -15f;
 
     /// <summary>The viewer camera's yaw (degrees; 0 = +X, 90 = +Z, -90 = -Z which is north) for a Minecraft yaw (0 = south +Z, 90 = west, 180 = north).</summary>
@@ -41,6 +41,10 @@ public static class FollowCamera
         float fx = MathF.Cos(yawRad) * MathF.Cos(pitchRad), fy = MathF.Sin(pitchRad), fz = MathF.Sin(yawRad) * MathF.Cos(pitchRad);
         return (ex - fx * distance, ey - fy * distance, ez - fz * distance, yaw, pitch);
     }
+
+    /// <summary>The camera's distance after the mouse wheel moved: about a tenth nearer or farther for a notch (a notch is 100 of the browser's wheel units), so it feels the same near and far.</summary>
+    public static float Zoom(float distance, float wheelDeltaY)
+        => Math.Clamp(distance * MathF.Pow(1.1f, wheelDeltaY / 100f), MinDistance, MaxDistance);
 
     /// <summary>A place to stand to look at a player from behind and above (for a teleport): the chase camera at the player's own heading.</summary>
     public static (float X, float Y, float Z, float Yaw, float Pitch) Behind(in LiveEntityView player)

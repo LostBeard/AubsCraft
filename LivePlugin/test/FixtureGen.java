@@ -18,7 +18,10 @@ public final class FixtureGen {
                 Frames.FLAG_PLAYER | Frames.FLAG_SNEAKING | Frames.FLAG_ON_GROUND, 0.0, -0.0784, 0.0, null, null);
         var bat = new Frames.EntitySample(103, "mymod:thing", 0.0, 120.0, 0.0, 0f, 0f, 0f, 0, 0.0, 0.0, 0.0, "Café über", null);
         var player = new Frames.PlayerSample(7, new UUID(0x0123456789ABCDEFL, 0xFEDCBA9876543210L), "Steve",
-                "http://textures.minecraft.net/texture/abc123", true, 1, "diamond_sword", 200);
+                "http://textures.minecraft.net/texture/abc123", true, 1, "diamond_sword", 200,
+                new Frames.PlayerStatus(15, 20, 4, 17, 8, 12, 3, 30, 128,
+                        new String[] { "diamond_sword", "", "oak_planks", "bread", "", "", "mymod:thing", "", "torch" },
+                        new int[] { 1, 0, 64, 12, 0, 0, 2, 0, 33 }));
         var overworld = new Frames.WorldSample("world", List.of(cow, sheep, steve, bat), List.of(player));
         var nether = new Frames.WorldSample("world_nether", List.of(), List.of());
         byte[] frame = Frames.build(123456789L, 6000L, 3, List.of(overworld, nether));

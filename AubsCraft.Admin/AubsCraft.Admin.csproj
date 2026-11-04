@@ -35,7 +35,7 @@
 		<!-- ADB over WebUSB for the /quest installer (the SpawnJS edition of BlazorJS.TangoADB) -->
 		<PackageReference Include="SpawnDev.SpawnJS.TangoADB" Version="1.0.1" />
 		<!-- GameUI without a DOM (Init + PushedInputProvider) for the worker HUD, plus the chat-feed options -->
-		<PackageReference Include="SpawnDev.GameUI" Version="1.1.1-local.5" />
+		<PackageReference Include="SpawnDev.GameUI" Version="1.1.1-local.6" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -61,7 +61,7 @@
 	<ItemGroup>
 		<McAssetInputs Include="$(MSBuildProjectDirectory)\..\AubsCraft.Assets\**\*.cs;$(MSBuildProjectDirectory)\..\AubsCraft.Assets.Model\**\*.cs;$(MSBuildProjectDirectory)\..\AubsCraft.AssetTool\**\*.cs;$(MSBuildProjectDirectory)\..\AubsCraft.Live.Model\Entities\**\*.cs;$(MSBuildProjectDirectory)\..\AubsCraft.Live.Model\BlockEntities\**\*.cs;$(MSBuildProjectFullPath)" Exclude="**\obj\**;**\bin\**" />
 	</ItemGroup>
-	<Target Name="GenerateMinecraftAssets" BeforeTargets="Restore;BeforeBuild;ResolveStaticWebAssetsInputs" Inputs="@(McAssetInputs)" Outputs="$(McAssetsDir)\mc-blocks.json;$(McAssetsDir)\mc-entities.json;$(McAssetsDir)\mc-entity-atlas.rgba;$(McAssetsDir)\mc-state-props.json;$(McAssetsDir)\mc-particles.json;$(McAssetsDir)\mc-particle-atlas.rgba;$(McAssetsDir)\mc-biomes.json;$(McAssetsDir)\mc-sky.json;$(McAssetsDir)\mc-items.json">
+	<Target Name="GenerateMinecraftAssets" BeforeTargets="Restore;BeforeBuild;ResolveStaticWebAssetsInputs" Inputs="@(McAssetInputs)" Outputs="$(McAssetsDir)\mc-blocks.json;$(McAssetsDir)\mc-gui.json;$(McAssetsDir)\mc-gui.rgba;$(McAssetsDir)\mc-entities.json;$(McAssetsDir)\mc-entity-atlas.rgba;$(McAssetsDir)\mc-state-props.json;$(McAssetsDir)\mc-particles.json;$(McAssetsDir)\mc-particle-atlas.rgba;$(McAssetsDir)\mc-biomes.json;$(McAssetsDir)\mc-sky.json;$(McAssetsDir)\mc-items.json">
 		<Message Importance="high" Text="Generating the block assets for Minecraft $(McAssetVersion) into $(McAssetsDir)" />
 		<Exec Command="dotnet run --project &quot;$(MSBuildProjectDirectory)\..\AubsCraft.AssetTool\AubsCraft.AssetTool.csproj&quot; -c Release -- --version $(McAssetVersion) --out &quot;$(McAssetsDir)&quot;" />
 	</Target>

@@ -199,6 +199,30 @@ public sealed class ViewerRig : IAsyncDisposable
         if (!login.Ok) throw new InvalidOperationException($"Login failed: {login.Status} {await login.TextAsync()}");
     }
 
+    /// <summary>
+    /// Click the view until the camera has the mouse. Chrome refuses pointer lock ("The root document of this element is not valid for pointer lock") while its window is not the active one, whatever
+    /// document.hasFocus() says, and a gate's window opens behind whatever TJ is using (2026-11-04: a flight gate failed 1 run in 3 with the camera never moving). A person's click activates the window; the gate's does not.
+    /// </summary>
+    public static async Task TakeTheMouseAsync(IPage page, float x, float y)
+    {
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            await page.BringToFrontAsync();
+            await page.Mouse.MoveAsync(x, y, new MouseMoveOptions { Steps = 3 });
+            await Task.Delay(120);
+            await page.Mouse.DownAsync();
+            await Task.Delay(100);
+            await page.Mouse.UpAsync();
+            for (int i = 0; i < 10; i++)
+            {
+                await Task.Delay(100);
+                if (await page.EvaluateAsync<bool>("document.pointerLockElement !== null")) return;
+            }
+            await Task.Delay(1300);   // Chrome also refuses for a moment after a lock has ended
+        }
+        Assert.Fail("A click on the view never took the mouse");
+    }
+
     /// <summary>Send one live frame to the panel as the Minecraft plugin does (loopback, shared secret). Returns the status code.</summary>
     public async Task<int> PostLiveFrameAsync(byte[] frame, string serverId = "aubscraft")
     {

@@ -122,6 +122,8 @@ public sealed class InputService : IAsyncDisposable
 
     private void OnCanvasWheel(WheelEvent e)
     {
+        // The wheel over the viewer is the viewer's: it never scrolls the page
+        e.PreventDefault();
         if (!PointerLocked) _uiEvents.Add(new UiInputEvent(UiInputEvent.Wheel, 0, (float)e.DeltaY));
         else _uiEvents.Add(new UiInputEvent(UiInputEvent.WorldWheel, 0, (float)e.DeltaY));
     }
@@ -130,7 +132,7 @@ public sealed class InputService : IAsyncDisposable
     {
         // Keys the viewer uses must not ALSO do the browser's job: F3 is "find next" (it opens the find bar and takes focus, so the
         // next key and click never reach the canvas), Space scrolls the page.
-        if (e.Code is "F3" or "Space") e.PreventDefault();
+        if (e.Code is "F1" or "F3" or "Space" or "Tab") e.PreventDefault();
         // Ctrl+Z / Ctrl+Y are the viewer's undo and redo, Ctrl+S saves a blueprint: not the browser's (Delete is the clear key; B, E, K, V and R do nothing in the browser)
         if (e.CtrlKey && e.Code is "KeyZ" or "KeyY" or "KeyS") e.PreventDefault();
 

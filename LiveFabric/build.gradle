@@ -20,7 +20,7 @@ dependencies {
 // The wire format is shared with the Paper plugin: the same Frames.java, so the two cannot drift apart (the Bukkit class is left out)
 sourceSets.main.java {
     srcDir '../LivePlugin/src'
-    exclude '**/LivePlugin.java'
+    include 'com/spawndev/aubscraftlive/Frames.java', 'com/spawndev/aubscraftlive/LiveFabricMod.java'
 }
 
 processResources {
