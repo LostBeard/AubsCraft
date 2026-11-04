@@ -243,12 +243,16 @@ public class RenderWorkerService : IRenderWorkerService
     public Task<string[]> TakeHudCommandsAsync() => Task.FromResult(_hud.TakeCommands());
 
     private float _followDistance = FollowCamera.DefaultDistance;
+    private int _appliedDrawDistance;
 
     private void ApplySettings(ViewerSettings s)
     {
         _renderer.Camera.FovDegrees = Math.Clamp(s.Fov, 40f, 110f);
         _renderer.Camera.MovementSpeed = Math.Clamp(s.FlySpeed, ViewerHud.MinFlySpeed, ViewerHud.MaxFlySpeed);
         _followDistance = Math.Clamp(s.FollowDistance, FollowCamera.MinDistance, FollowCamera.MaxDistance);
+        // Only when this setting changed: a link's fixed distance (?dd=) must survive the other settings being changed
+        if (s.DrawDistance == _appliedDrawDistance) return;
+        _appliedDrawDistance = s.DrawDistance;
         if (s.DrawDistance > 0) _renderer.FixDrawDistance(s.DrawDistance); else _renderer.AdaptDrawDistance();
     }
 

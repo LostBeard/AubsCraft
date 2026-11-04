@@ -211,6 +211,162 @@ public class ViewerMenuTests
         }
     }
 
+    /// <summary>
+    /// Every other button of the menu, pressed with the mouse, each checked for what it does, on the real world, and the menu still answering after each one. TJ found the Shading freeze by pressing a button no
+    /// gate had pressed at real size. Skipped here because they have gates of their own: lighting, shading, fullscreen, the servers, the sliders; bluemap needs a BlueMap the rig does not have; vr and ar need a headset (ViewerXrTests).
+    /// </summary>
+    [Test]
+    public async Task EveryOtherButton_DoesWhatItSays_AndTheMenuGoesOnAnswering()
+    {
+        var publish = Environment.GetEnvironmentVariable("AUBS_VIEWER_PUBLISH")!;
+        await using var rig = await ViewerRig.StartAsync(publish, Environment.GetEnvironmentVariable("AUBS_VIEWER_WORLD") ?? "M:/opt/minecraft/server");
+        // Edit mode asks whether the server has the plugin: a stand-in answers, as it does for the edit gates
+        var plugin = new FakePlugin(rig);
+        plugin.Start();
+        await plugin.PostWorldAsync();
+        var v = await OpenAsync("time=6000&dd=12&cam=-455,137,-421,-38,249&hudfeed=demo", rig);
+        var canvas = v.Page.Locator("#map-canvas");
+        var results = new List<string>();
+        try
+        {
+            await Task.Delay(15000);
+            async Task<string> ShotAsync(string name)
+            {
+                await Task.Delay(700);
+                var path = Path.Combine(_outDir, $"button-{name}.png");
+                await canvas.ScreenshotAsync(new LocatorScreenshotOptions { Path = path });
+                return path;
+            }
+            // How much a corner of the view changed: the HUD's parts sit in the corners, away from the world's movement
+            static double CornerChange(string first, string second, int x, int y, int w, int h)
+            {
+                using var a = new System.Drawing.Bitmap(first);
+                using var b = new System.Drawing.Bitmap(second);
+                int changed = 0, total = 0;
+                for (int py = y; py < y + h; py += 2)
+                    for (int px = x; px < x + w; px += 2)
+                    {
+                        var c = a.GetPixel(px, py);
+                        var d = b.GetPixel(px, py);
+                        total++;
+                        if (Math.Abs(c.R - d.R) + Math.Abs(c.G - d.G) + Math.Abs(c.B - d.B) > 40) changed++;
+                    }
+                return changed / (double)total;
+            }
+            async Task PressThenCloseAsync(string id)
+            {
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                TestContext.Progress.WriteLine($"[menu] pressing {id}");
+                File.WriteAllLines(Path.Combine(_outDir, "console-buttons.log"), v.Log.ToArray());
+                var menu = await OpenMenuAsync(v);
+                await PressMenuAsync(v, menu, id);
+                if (await v.Page.EvaluateAsync<bool>("document.pointerLockElement !== null")) Assert.Fail(id + " took the mouse for the camera");
+                await v.Page.Keyboard.PressAsync("Tab");
+                await Task.Delay(300);
+                results.Add($"{id} {clock.ElapsedMilliseconds} ms");
+                TestContext.Progress.WriteLine($"[menu] pressed {id}: {clock.ElapsedMilliseconds} ms");
+                Assert.That(clock.ElapsedMilliseconds, Is.LessThan(4000), id + ": the menu goes on answering");
+            }
+            // What each HUD toggle takes off the screen: where it sits on a 1280 x 720 window
+            async Task HudToggleAsync(string id, int x, int y, int w, int h)
+            {
+                var on = await ShotAsync(id + "-on");
+                await PressThenCloseAsync(id);
+                var off = await ShotAsync(id + "-off");
+                double gone = CornerChange(on, off, x, y, w, h);
+                await PressThenCloseAsync(id);
+                var back = await ShotAsync(id + "-back");
+                double returned = CornerChange(on, back, x, y, w, h);
+                results.Add($"{id}: {gone:P0} of its place changed, {returned:P0} after turning it back on");
+                Assert.That(gone, Is.GreaterThan(0.2), id + " goes from the screen");
+                Assert.That(returned, Is.LessThan(gone / 2), id + " comes back");
+            }
+
+            await HudToggleAsync("stats", 8, 8, 268, 92);
+            await HudToggleAsync("compass", 430, 8, 420, 28);
+            await HudToggleAsync("minimap", 1096, 8, 176, 210);
+            await HudToggleAsync("players", 1084, 228, 186, 100);
+            // The demo's lines have faded by now (chat is a feed): a fresh one to take off the screen. The demo echoes what is typed.
+            await v.Page.Mouse.MoveAsync(640, 400);
+            await v.Page.Keyboard.PressAsync("Enter");
+            await Task.Delay(300);
+            await v.Page.Keyboard.TypeAsync("a line to see go");
+            await v.Page.Keyboard.PressAsync("Enter");
+            await Task.Delay(500);
+            await v.Page.Keyboard.PressAsync("Escape");   // the input closes: the feed is what is compared
+            await Task.Delay(500);
+            await HudToggleAsync("chat", 8, 636, 380, 50);
+
+            // The link's fixed draw distance (dd=12) has survived all those settings being changed
+            await Task.Delay(1500);
+            Assert.That((await ViewerStats.ReadAsync(v.Page))?.DrawDistance, Is.EqualTo(12), "changing another setting must not undo the link's draw distance");
+
+            // Copy link: says where the camera is
+            int linksBefore = v.Log.Count(l => l.Contains("Link to this place"));
+            await PressThenCloseAsync("copylink");
+            for (int i = 0; i < 30 && v.Log.Count(l => l.Contains("Link to this place")) == linksBefore; i++) await Task.Delay(100);
+            var link = v.Log.LastOrDefault(l => l.Contains("Link to this place")) ?? "";
+            Assert.That(link, Does.Contain("/map?cam=-455.0,137.0,-421.0"), "the link names this place");
+
+            // Clear cache: the page says so, and nothing breaks
+            int cleared = v.Log.Count(l => l.Contains("cache cleared"));
+            await PressThenCloseAsync("clearcache");
+            for (int i = 0; i < 30 && v.Log.Count(l => l.Contains("cache cleared")) == cleared; i++) await Task.Delay(100);
+            Assert.That(v.Log.Count(l => l.Contains("cache cleared")), Is.GreaterThan(cleared), "the cache was cleared");
+
+            // Edit: an admin's mode goes on and off, from the menu
+            await PressThenCloseAsync("edit");
+            await v.Page.GetByRole(AriaRole.Button, new() { Name = "Edit: On" }).WaitForAsync(new() { Timeout = 5000, State = WaitForSelectorState.Attached });
+            await PressThenCloseAsync("edit");
+            await v.Page.GetByRole(AriaRole.Button, new() { Name = "Edit: Off" }).WaitForAsync(new() { Timeout = 5000, State = WaitForSelectorState.Attached });
+
+            // The world...: the menu closes and the world panel opens, which needs the mouse as a menu does (a click stays the HUD's)
+            var worldMenu = await OpenMenuAsync(v);
+            var worldBefore = await ShotAsync("world-before");
+            await PressMenuAsync(v, worldMenu, "world");
+            var worldPanel = await ShotAsync("world-panel");
+            Assert.That(Compare(worldBefore, worldPanel).Difference, Is.GreaterThan(1), "the menu went and the world panel came");
+            await v.Page.Keyboard.PressAsync("KeyO");   // closes the world panel
+            await Task.Delay(300);
+
+            // Voice: the page connects, and the Mic button appears in the menu; the fake microphone of the rig opens and closes
+            await PressThenCloseAsync("voice");
+            await v.Page.GetByRole(AriaRole.Button, new() { Name = "Voice: On" }).WaitForAsync(new() { Timeout = 10000, State = WaitForSelectorState.Attached });
+            await Task.Delay(500);
+            var voiceMenu = await OpenMenuAsync(v);
+            Assert.That(voiceMenu.ContainsKey("mic"), "the Mic button is offered once the voice is on");
+            await PressMenuAsync(v, voiceMenu, "mic");
+            await v.Page.GetByRole(AriaRole.Button, new() { Name = "Mic: On" }).WaitForAsync(new() { Timeout = 10000, State = WaitForSelectorState.Attached });
+            await PressMenuAsync(v, voiceMenu, "mic");
+            await v.Page.GetByRole(AriaRole.Button, new() { Name = "Mic: Off" }).WaitForAsync(new() { Timeout = 10000, State = WaitForSelectorState.Attached });
+            await PressMenuAsync(v, voiceMenu, "voice");
+            await v.Page.GetByRole(AriaRole.Button, new() { Name = "Voice: Off" }).WaitForAsync(new() { Timeout = 10000, State = WaitForSelectorState.Attached });
+            await v.Page.Keyboard.PressAsync("Tab");
+            await Task.Delay(300);
+
+            // Names: no player near in this scene to read a tag from: the setting goes and comes (ThePlayers_ checks what it does)
+            await PressThenCloseAsync("tags");
+            await PressThenCloseAsync("tags");
+
+            // Admin panel: out to the panel, last, as it leaves the page
+            var last = await OpenMenuAsync(v);
+            await PressMenuAsync(v, last, "panel");
+            for (int i = 0; i < 50 && v.Page.Url.Contains("/map"); i++) await Task.Delay(100);
+            Assert.That(v.Page.Url, Does.Not.Contain("/map"), "the Admin panel button leaves the viewer");
+            await v.Page.Locator(".sidebar").WaitForAsync(new() { Timeout = 10000 });
+
+            TestContext.Progress.WriteLine("[menu] buttons: " + string.Join("; ", results));
+            Assert.That(v.Errors, Is.Empty, "The page logged errors:\n" + string.Join("\n", v.Errors));
+        }
+        finally
+        {
+            TestContext.Progress.WriteLine("[menu] so far: " + string.Join("; ", results));
+            await plugin.StopAsync();
+            try { await v.Page.EvaluateAsync("localStorage.removeItem('aubscraft.viewer')"); } catch { }
+            await v.Page.CloseAsync();
+        }
+    }
+
     /// <summary>The Shading button in the running viewer: the shadows come and go near the camera without a reload, the meshes made again in the background.</summary>
     [Test]
     public async Task TheShadingButton_ChangesTheRunningView()
