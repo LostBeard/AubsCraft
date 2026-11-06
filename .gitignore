@@ -39,3 +39,6 @@ _scratch/
 AubsCraft.Viewer.Tests/TestResults/
 
 AubsCraft.Admin.Server.Tests/TestResults/
+
+# Viewer test output
+screenshots/viewer/
